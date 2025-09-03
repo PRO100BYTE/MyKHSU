@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "MyKHSU",
-    "slug": "MyKHSU",
+    "slug": "mykhsu",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -28,6 +28,12 @@
     "plugins": [
       "expo-secure-store",
       "expo-web-browser"
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "e1827dd8-4ea6-4b23-9f6a-5edc68c86d3d"
+      }
+    },
+    "owner": "thedayg0ne"
   }
 }
