@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, Linking, StyleSheet, Alert, Platform, Modal, ActionSheetIOS } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, Linking, StyleSheet, Alert, Platform, Modal, useColorScheme } from 'react-native';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import * as SecureStore from 'expo-secure-store';
 import * as WebBrowser from 'expo-web-browser';
@@ -95,7 +95,7 @@ const SplashScreen = ({ accentColor }) => {
   return (
     <View style={[styles.flexCenter, { backgroundColor: '#f3f4f6' }]}>
       <Icon name="school-outline" size={120} color={colors.primary} />
-      <Text style={[styles.title, { color: colors.primary, marginTop: 20 }]}>Мой ХГУ</Text>
+      <Text style={[styles.title, { color: colors.primary, marginTop: 20, fontFamily: 'Montserrat_700Bold' }]}>Мой ХГУ</Text>
     </View>
   );
 };
@@ -254,7 +254,7 @@ const ScheduleScreen = ({ theme, accentColor }) => {
   const [pairsTime, setPairsTime] = useState([]);
   const [loadingGroups, setLoadingGroups] = useState(false);
   const [loadingSchedule, setLoadingSchedule] = useState(false);
-  const [viewMode, setViewMode] = useState('week'); // 'week' или 'day'
+  const [viewMode, setViewMode] = useState('day'); // 'week' или 'day' - изменено на day по умолчанию
   const [currentDate, setCurrentDate] = useState(new Date());
   const [currentWeek, setCurrentWeek] = useState(getWeekNumber(new Date()));
 
@@ -730,12 +730,18 @@ const AppearanceSettingsSheet = ({ visible, onClose, theme, accentColor, setThem
               <TouchableOpacity
                 style={[
                   styles.sheetOption,
-                  { backgroundColor: effectiveTheme === 'light' ? ACCENT_COLORS[accentColor].light : 'transparent' }
+                  { 
+                    backgroundColor: theme === 'light' ? ACCENT_COLORS[accentColor].light : 'transparent',
+                    borderColor: theme === 'light' ? ACCENT_COLORS[accentColor].primary : 'transparent'
+                  }
                 ]}
                 onPress={() => handleThemeChange('light')}
               >
-                <Icon name="sunny-outline" size={20} color={effectiveTheme === 'light' ? ACCENT_COLORS[accentColor].primary : textColor} />
-                <Text style={[styles.sheetOptionText, { color: textColor, fontFamily: 'Montserrat_400Regular' }]}>
+                <Icon name="sunny-outline" size={20} color={theme === 'light' ? ACCENT_COLORS[accentColor].primary : textColor} />
+                <Text style={[styles.sheetOptionText, { 
+                  color: theme === 'light' ? ACCENT_COLORS[accentColor].primary : textColor,
+                  fontFamily: 'Montserrat_400Regular' 
+                }]}>
                   Светлая
                 </Text>
                 {theme === 'light' && <Icon name="checkmark" size={20} color={ACCENT_COLORS[accentColor].primary} />}
@@ -744,12 +750,18 @@ const AppearanceSettingsSheet = ({ visible, onClose, theme, accentColor, setThem
               <TouchableOpacity
                 style={[
                   styles.sheetOption,
-                  { backgroundColor: effectiveTheme === 'dark' ? ACCENT_COLORS[accentColor].light : 'transparent' }
+                  { 
+                    backgroundColor: theme === 'dark' ? ACCENT_COLORS[accentColor].light : 'transparent',
+                    borderColor: theme === 'dark' ? ACCENT_COLORS[accentColor].primary : 'transparent'
+                  }
                 ]}
                 onPress={() => handleThemeChange('dark')}
               >
-                <Icon name="moon-outline" size={20} color={effectiveTheme === 'dark' ? ACCENT_COLORS[accentColor].primary : textColor} />
-                <Text style={[styles.sheetOptionText, { color: textColor, fontFamily: 'Montserrat_400Regular' }]}>
+                <Icon name="moon-outline" size={20} color={theme === 'dark' ? ACCENT_COLORS[accentColor].primary : textColor} />
+                <Text style={[styles.sheetOptionText, { 
+                  color: theme === 'dark' ? ACCENT_COLORS[accentColor].primary : textColor,
+                  fontFamily: 'Montserrat_400Regular' 
+                }]}>
                   Темная
                 </Text>
                 {theme === 'dark' && <Icon name="checkmark" size={20} color={ACCENT_COLORS[accentColor].primary} />}
@@ -758,12 +770,18 @@ const AppearanceSettingsSheet = ({ visible, onClose, theme, accentColor, setThem
               <TouchableOpacity
                 style={[
                   styles.sheetOption,
-                  { backgroundColor: theme === 'auto' ? ACCENT_COLORS[accentColor].light : 'transparent' }
+                  { 
+                    backgroundColor: theme === 'auto' ? ACCENT_COLORS[accentColor].light : 'transparent',
+                    borderColor: theme === 'auto' ? ACCENT_COLORS[accentColor].primary : 'transparent'
+                  }
                 ]}
                 onPress={() => handleThemeChange('auto')}
               >
                 <Icon name="phone-portrait-outline" size={20} color={theme === 'auto' ? ACCENT_COLORS[accentColor].primary : textColor} />
-                <Text style={[styles.sheetOptionText, { color: textColor, fontFamily: 'Montserrat_400Regular' }]}>
+                <Text style={[styles.sheetOptionText, { 
+                  color: theme === 'auto' ? ACCENT_COLORS[accentColor].primary : textColor,
+                  fontFamily: 'Montserrat_400Regular' 
+                }]}>
                   Системная
                 </Text>
                 {theme === 'auto' && <Icon name="checkmark" size={20} color={ACCENT_COLORS[accentColor].primary} />}
@@ -823,7 +841,7 @@ const SettingsScreen = ({ theme, accentColor, setTheme, setAccentColor }) => {
   const colors = ACCENT_COLORS[accentColor];
   const [appearanceSheetVisible, setAppearanceSheetVisible] = useState(false);
 
-  const clearCache = async () => {
+  const clearCache = () => {
     Alert.alert(
       'Очистка кэша',
       'После очистки кэша вы не сможете просматривать расписание и новости в оффлайн-режиме, пока не загрузите их повторно. Продолжить?',
@@ -1043,6 +1061,8 @@ const styles = StyleSheet.create({
   sheetOptions: {
     borderRadius: 12,
     overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
   },
   sheetOption: {
     flexDirection: 'row',
@@ -1134,7 +1154,7 @@ export default function App() {
   
   return (
     <View style={{ flex: 1, backgroundColor: bgColor }}>
-      {/* Заголовок */}
+      {/* Заголовок - убрана кнопка настроек */}
       <View style={{ 
         padding: 16, 
         paddingTop: Platform.OS === 'ios' ? 50 : 40, 
@@ -1147,23 +1167,12 @@ export default function App() {
         shadowOpacity: 0.1,
         shadowRadius: 3.84,
         elevation: 5,
-        flexDirection: 'row',
-        justifyContent: 'space-between',
+        justifyContent: 'center',
         alignItems: 'center'
       }}>
         <Text style={{ fontSize: 24, fontWeight: 'bold', color: textColor, fontFamily: 'Montserrat_600SemiBold' }}>
           {activeScreen}
         </Text>
-        
-        {activeScreen === 'Настройки' ? (
-          <TouchableOpacity onPress={() => setActiveScreen('Расписание')}>
-            <Icon name="close" size={24} color={textColor} />
-          </TouchableOpacity>
-        ) : (
-          <TouchableOpacity onPress={() => setActiveScreen('Настройки')}>
-            <Icon name="settings-outline" size={24} color={textColor} />
-          </TouchableOpacity>
-        )}
       </View>
       
       {/* Контент */}
