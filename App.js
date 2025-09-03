@@ -3,6 +3,19 @@ import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, Linking, S
 import { Ionicons as Icon } from '@expo/vector-icons';
 import * as SecureStore from 'expo-secure-store';
 import * as WebBrowser from 'expo-web-browser';
+import * as Sentry from '@sentry/react-native';
+
+Sentry.init({
+  dsn: 'https://9954c52fe80999a51a6905e3ee180d11@sentry.sculkmetrics.com/5',
+
+  // Adds more context data to events (IP address, cookies, user, etc.)
+  // For more information, visit: https://docs.sentry.io/platforms/react-native/data-management/data-collected/
+  sendDefaultPii: true,
+  integrations: [Sentry.feedbackIntegration()],
+
+  // uncomment the line below to enable Spotlight (https://spotlightjs.com)
+  // spotlight: __DEV__,
+});
 
 // Константы
 const API_BASE_URL = 'https://t2iti.khsu.ru/api';
@@ -897,7 +910,7 @@ const styles = StyleSheet.create({
 });
 
 // Главный компонент приложения
-export default function App() {
+export default Sentry.wrap(function App() {
   const [isLoading, setIsLoading] = useState(true);
   const [activeScreen, setActiveScreen] = useState('Расписание');
   const [theme, setTheme] = useState('auto');
@@ -1047,4 +1060,4 @@ export default function App() {
       )}
     </View>
   );
-}
+});

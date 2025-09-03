@@ -27,7 +27,15 @@
     },
     "plugins": [
       "expo-secure-store",
-      "expo-web-browser"
+      "expo-web-browser",
+      [
+        "@sentry/react-native/expo",
+        {
+          "url": "https://sentry.sculkmetrics.com/",
+          "project": "mykhsu",
+          "organization": "sculk"
+        }
+      ]
     ],
     "extra": {
       "eas": {
