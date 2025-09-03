@@ -1,21 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, Linking, StyleSheet, Alert, Platform, useColorScheme } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, Linking, StyleSheet, Alert, Platform, Modal, ActionSheetIOS } from 'react-native';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import * as SecureStore from 'expo-secure-store';
 import * as WebBrowser from 'expo-web-browser';
-import * as Sentry from '@sentry/react-native';
-
-Sentry.init({
-  dsn: 'https://9954c52fe80999a51a6905e3ee180d11@sentry.sculkmetrics.com/5',
-
-  // Adds more context data to events (IP address, cookies, user, etc.)
-  // For more information, visit: https://docs.sentry.io/platforms/react-native/data-management/data-collected/
-  sendDefaultPii: true,
-  integrations: [Sentry.feedbackIntegration()],
-
-  // uncomment the line below to enable Spotlight (https://spotlightjs.com)
-  // spotlight: __DEV__,
-});
+import { useFonts, Montserrat_400Regular, Montserrat_500Medium, Montserrat_600SemiBold, Montserrat_700Bold } from '@expo-google-fonts/montserrat';
 
 // Константы
 const API_BASE_URL = 'https://t2iti.khsu.ru/api';
@@ -101,11 +89,13 @@ const getDateByWeekAndDay = (weekNumber, dayOfWeek) => {
 };
 
 // Splash Screen компонент
-const SplashScreen = () => {
+const SplashScreen = ({ accentColor }) => {
+  const colors = ACCENT_COLORS[accentColor];
+  
   return (
     <View style={[styles.flexCenter, { backgroundColor: '#f3f4f6' }]}>
-      <Icon name="school-outline" size={120} color="#10B981" />
-      <Text style={[styles.title, { color: '#10B981', marginTop: 20 }]}>Мой ХГУ</Text>
+      <Icon name="school-outline" size={120} color={colors.primary} />
+      <Text style={[styles.title, { color: colors.primary, marginTop: 20 }]}>Мой ХГУ</Text>
     </View>
   );
 };
@@ -129,7 +119,7 @@ const TabButton = ({ icon, label, isActive, onPress, theme, accentColor }) => {
       }]}
     >
       <Icon name={icon} size={24} color={iconColor} />
-      <Text style={[styles.tabText, { color: textColor }]}>{label}</Text>
+      <Text style={[styles.tabText, { color: textColor, fontFamily: 'Montserrat_500Medium' }]}>{label}</Text>
     </TouchableOpacity>
   );
 };
@@ -147,8 +137,8 @@ const PlaceholderScreen = ({ title, theme }) => {
 
   return (
     <View style={[styles.flexCenter, { backgroundColor: bgColor, padding: 20 }]}>
-      <Text style={[styles.placeholderTitle, { color: textColor }]}>{title}</Text>
-      <Text style={[styles.placeholderText, { color: placeholderColor }]}>{messages[title] || ''}</Text>
+      <Text style={[styles.placeholderTitle, { color: textColor, fontFamily: 'Montserrat_600SemiBold' }]}>{title}</Text>
+      <Text style={[styles.placeholderText, { color: placeholderColor, fontFamily: 'Montserrat_400Regular' }]}>{messages[title] || ''}</Text>
     </View>
   );
 };
@@ -177,18 +167,39 @@ const NewsScreen = ({ theme, accentColor }) => {
       const data = await response.json();
       const filteredData = data.filter(item => item.content && item.content.trim() !== "");
       
+      // Кэшируем новости
+      if (isInitial) {
+        await setWithExpiry('news', filteredData, 30 * 60 * 1000); // 30 минут
+      }
+      
       setNews(isInitial ? filteredData : [...news, ...filteredData]);
       setFrom(targetFrom + 10);
     } catch (error) {
       console.error('Error fetching news:', error);
-      Alert.alert('Ошибка', 'Не удалось загрузить новости.');
+      // Пробуем загрузить из кэша при ошибке
+      const cachedNews = await getWithExpiry('news');
+      if (cachedNews && isInitial) {
+        setNews(cachedNews);
+      } else {
+        Alert.alert('Ошибка', 'Не удалось загрузить новости.');
+      }
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchNews(true);
+    // Сначала пробуем загрузить из кэша
+    const loadCachedNews = async () => {
+      const cachedNews = await getWithExpiry('news');
+      if (cachedNews) {
+        setNews(cachedNews);
+      } else {
+        fetchNews(true);
+      }
+    };
+    
+    loadCachedNews();
   }, []);
 
   return (
@@ -206,8 +217,8 @@ const NewsScreen = ({ theme, accentColor }) => {
               borderColor 
             }}
           >
-            <Text style={{ color: textColor, fontSize: 16 }}>{item.content}</Text>
-            <Text style={{ color: placeholderColor, fontSize: 12, textAlign: 'right', marginTop: 12 }}>
+            <Text style={{ color: textColor, fontSize: 16, fontFamily: 'Montserrat_400Regular' }}>{item.content}</Text>
+            <Text style={{ color: placeholderColor, fontSize: 12, textAlign: 'right', marginTop: 12, fontFamily: 'Montserrat_400Regular' }}>
               {item.hr_date}
             </Text>
           </View>
@@ -226,7 +237,7 @@ const NewsScreen = ({ theme, accentColor }) => {
               marginTop: 16
             }}
           >
-            <Text style={{ color: '#ffffff', fontWeight: 'bold' }}>Загрузить еще</Text>
+            <Text style={{ color: '#ffffff', fontWeight: 'bold', fontFamily: 'Montserrat_600SemiBold' }}>Загрузить еще</Text>
           </TouchableOpacity>
         )}
       </ScrollView>
@@ -378,10 +389,10 @@ const ScheduleScreen = ({ theme, accentColor }) => {
           borderColor
         }}
       >
-        <Text style={{ fontSize: 18, fontWeight: 'bold', color: colors.primary, marginBottom: 4 }}>
+        <Text style={{ fontSize: 18, fontWeight: 'bold', color: colors.primary, marginBottom: 4, fontFamily: 'Montserrat_600SemiBold' }}>
           {weekdays[day.weekday - 1]}
         </Text>
-        <Text style={{ color: placeholderColor, marginBottom: 12 }}>
+        <Text style={{ color: placeholderColor, marginBottom: 12, fontFamily: 'Montserrat_400Regular' }}>
           {formatDate(date)}
         </Text>
 
@@ -398,20 +409,20 @@ const ScheduleScreen = ({ theme, accentColor }) => {
                   marginTop: 12
                 }}
               >
-                <Text style={{ fontWeight: '600', color: textColor, fontSize: 16 }}>
+                <Text style={{ fontWeight: '600', color: textColor, fontSize: 16, fontFamily: 'Montserrat_500Medium' }}>
                   {lesson.subject} ({lesson.type_lesson})
                 </Text>
                 
                 <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 8 }}>
                   <Icon name="person-outline" size={14} color={placeholderColor} />
-                  <Text style={{ color: textColor, marginLeft: 8, fontSize: 14 }}>
+                  <Text style={{ color: textColor, marginLeft: 8, fontSize: 14, fontFamily: 'Montserrat_400Regular' }}>
                     {lesson.teacher}
                   </Text>
                 </View>
                 
                 <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
                   <Icon name="location-outline" size={14} color={placeholderColor} />
-                  <Text style={{ color: textColor, marginLeft: 8, fontSize: 14 }}>
+                  <Text style={{ color: textColor, marginLeft: 8, fontSize: 14, fontFamily: 'Montserrat_400Regular' }}>
                     Аудитория: {lesson.auditory}
                   </Text>
                 </View>
@@ -419,7 +430,7 @@ const ScheduleScreen = ({ theme, accentColor }) => {
                 {pairTime && (
                   <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
                     <Icon name="time-outline" size={14} color={placeholderColor} />
-                    <Text style={{ color: placeholderColor, marginLeft: 8, fontSize: 14 }}>
+                    <Text style={{ color: placeholderColor, marginLeft: 8, fontSize: 14, fontFamily: 'Montserrat_400Regular' }}>
                       {pairTime.time_start} - {pairTime.time_end}
                     </Text>
                   </View>
@@ -428,7 +439,7 @@ const ScheduleScreen = ({ theme, accentColor }) => {
             );
           })
         ) : (
-          <Text style={{ color: placeholderColor, marginTop: 12 }}>Занятий нет</Text>
+          <Text style={{ color: placeholderColor, marginTop: 12, fontFamily: 'Montserrat_400Regular' }}>Занятий нет</Text>
         )}
       </View>
     );
@@ -453,10 +464,10 @@ const ScheduleScreen = ({ theme, accentColor }) => {
           borderColor
         }}
       >
-        <Text style={{ fontSize: 18, fontWeight: 'bold', color: colors.primary, marginBottom: 4 }}>
+        <Text style={{ fontSize: 18, fontWeight: 'bold', color: colors.primary, marginBottom: 4, fontFamily: 'Montserrat_600SemiBold' }}>
           {weekdays[weekday - 1]}
         </Text>
-        <Text style={{ color: placeholderColor, marginBottom: 12 }}>
+        <Text style={{ color: placeholderColor, marginBottom: 12, fontFamily: 'Montserrat_400Regular' }}>
           {formatDate(currentDate)}
         </Text>
 
@@ -473,20 +484,20 @@ const ScheduleScreen = ({ theme, accentColor }) => {
                   marginTop: 12
                 }}
               >
-                <Text style={{ fontWeight: '600', color: textColor, fontSize: 16 }}>
+                <Text style={{ fontWeight: '600', color: textColor, fontSize: 16, fontFamily: 'Montserrat_500Medium' }}>
                   {lesson.subject} ({lesson.type_lesson})
                 </Text>
                 
                 <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 8 }}>
                   <Icon name="person-outline" size={14} color={placeholderColor} />
-                  <Text style={{ color: textColor, marginLeft: 8, fontSize: 14 }}>
+                  <Text style={{ color: textColor, marginLeft: 8, fontSize: 14, fontFamily: 'Montserrat_400Regular' }}>
                     {lesson.teacher}
                   </Text>
                 </View>
                 
                 <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
                   <Icon name="location-outline" size={14} color={placeholderColor} />
-                  <Text style={{ color: textColor, marginLeft: 8, fontSize: 14 }}>
+                  <Text style={{ color: textColor, marginLeft: 8, fontSize: 14, fontFamily: 'Montserrat_400Regular' }}>
                     Аудитория: {lesson.auditory}
                   </Text>
                 </View>
@@ -494,7 +505,7 @@ const ScheduleScreen = ({ theme, accentColor }) => {
                 {pairTime && (
                   <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
                     <Icon name="time-outline" size={14} color={placeholderColor} />
-                    <Text style={{ color: placeholderColor, marginLeft: 8, fontSize: 14 }}>
+                    <Text style={{ color: placeholderColor, marginLeft: 8, fontSize: 14, fontFamily: 'Montserrat_400Regular' }}>
                       {pairTime.time_start} - {pairTime.time_end}
                     </Text>
                   </View>
@@ -503,7 +514,7 @@ const ScheduleScreen = ({ theme, accentColor }) => {
             );
           })
         ) : (
-          <Text style={{ color: placeholderColor, marginTop: 12 }}>Занятий нет</Text>
+          <Text style={{ color: placeholderColor, marginTop: 12, fontFamily: 'Montserrat_400Regular' }}>Занятий нет</Text>
         )}
       </View>
     );
@@ -513,7 +524,7 @@ const ScheduleScreen = ({ theme, accentColor }) => {
     <ScrollView style={{ flex: 1, backgroundColor: bgColor, padding: 16 }}>
       {/* Текущая дата */}
       <View style={{ marginBottom: 16 }}>
-        <Text style={{ color: textColor, fontWeight: '500', textAlign: 'center' }}>
+        <Text style={{ color: textColor, fontWeight: '500', textAlign: 'center', fontFamily: 'Montserrat_500Medium' }}>
           Сегодня: {formatDate(new Date())}
         </Text>
       </View>
@@ -521,6 +532,7 @@ const ScheduleScreen = ({ theme, accentColor }) => {
       {/* Кнопки выбора курса */}
       <View style={{ 
         flexDirection: 'row', 
+        flexWrap: 'wrap',
         backgroundColor: bgColor, 
         borderRadius: 24, 
         padding: 4, 
@@ -528,23 +540,27 @@ const ScheduleScreen = ({ theme, accentColor }) => {
         borderWidth: 1,
         borderColor
       }}>
-        {[1, 2, 3, 4].map(c => (
+        {[-1, 1, 2, 3, 4].map(c => (
           <TouchableOpacity
             key={c}
             onPress={() => setCourse(c)}
             style={{
-              flex: 1,
               paddingVertical: 8,
+              paddingHorizontal: 16,
               borderRadius: 20,
               backgroundColor: course === c ? colors.primary : 'transparent',
-              alignItems: 'center'
+              alignItems: 'center',
+              margin: 2,
+              flexGrow: 1,
+              minWidth: '18%'
             }}
           >
             <Text style={{ 
               color: course === c ? '#ffffff' : textColor,
-              fontWeight: '500'
+              fontWeight: '500',
+              fontFamily: 'Montserrat_500Medium'
             }}>
-              {c} курс
+              {c === -1 ? 'Магистратура' : `${c} курс`}
             </Text>
           </TouchableOpacity>
         ))}
@@ -570,7 +586,8 @@ const ScheduleScreen = ({ theme, accentColor }) => {
               }}
             >
               <Text style={{ 
-                color: selectedGroup === group ? '#ffffff' : textColor 
+                color: selectedGroup === group ? '#ffffff' : textColor,
+                fontFamily: 'Montserrat_500Medium'
               }}>
                 {group}
               </Text>
@@ -594,7 +611,7 @@ const ScheduleScreen = ({ theme, accentColor }) => {
                   backgroundColor: viewMode === 'day' ? colors.primary : 'transparent'
                 }}
               >
-                <Text style={{ color: viewMode === 'day' ? '#ffffff' : textColor }}>День</Text>
+                <Text style={{ color: viewMode === 'day' ? '#ffffff' : textColor, fontFamily: 'Montserrat_500Medium' }}>День</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 onPress={() => setViewMode('week')}
@@ -605,7 +622,7 @@ const ScheduleScreen = ({ theme, accentColor }) => {
                   backgroundColor: viewMode === 'week' ? colors.primary : 'transparent'
                 }}
               >
-                <Text style={{ color: viewMode === 'week' ? '#ffffff' : textColor }}>Неделя</Text>
+                <Text style={{ color: viewMode === 'week' ? '#ffffff' : textColor, fontFamily: 'Montserrat_500Medium' }}>Неделя</Text>
               </TouchableOpacity>
             </View>
 
@@ -617,7 +634,7 @@ const ScheduleScreen = ({ theme, accentColor }) => {
                 <Icon name="chevron-back" size={24} color={colors.primary} />
               </TouchableOpacity>
               
-              <Text style={{ color: textColor, fontWeight: '500', marginHorizontal: 8 }}>
+              <Text style={{ color: textColor, fontWeight: '500', marginHorizontal: 8, fontFamily: 'Montserrat_500Medium' }}>
                 {viewMode === 'day' ? formatDate(currentDate) : `Неделя ${currentWeek}`}
               </Text>
               
@@ -636,10 +653,10 @@ const ScheduleScreen = ({ theme, accentColor }) => {
           ) : scheduleData && scheduleData.days && viewMode === 'week' ? (
             <View>
               <View style={{ alignItems: 'center', marginBottom: 16 }}>
-                <Text style={{ fontSize: 20, fontWeight: 'bold', color: textColor }}>
+                <Text style={{ fontSize: 20, fontWeight: 'bold', color: textColor, fontFamily: 'Montserrat_600SemiBold' }}>
                   Расписание для {selectedGroup}
                 </Text>
-                <Text style={{ color: placeholderColor, marginTop: 4 }}>
+                <Text style={{ color: placeholderColor, marginTop: 4, fontFamily: 'Montserrat_400Regular' }}>
                   Неделя: {scheduleData.week_number} ({scheduleData.dates?.date_start} - {scheduleData.dates?.date_end})
                 </Text>
               </View>
@@ -649,14 +666,14 @@ const ScheduleScreen = ({ theme, accentColor }) => {
           ) : scheduleData && viewMode === 'day' ? (
             <View>
               <View style={{ alignItems: 'center', marginBottom: 16 }}>
-                <Text style={{ fontSize: 20, fontWeight: 'bold', color: textColor }}>
+                <Text style={{ fontSize: 20, fontWeight: 'bold', color: textColor, fontFamily: 'Montserrat_600SemiBold' }}>
                   Расписание для {selectedGroup}
                 </Text>
               </View>
               {renderDailySchedule()}
             </View>
           ) : scheduleData && !loadingSchedule ? (
-            <Text style={{ textAlign: 'center', color: placeholderColor, marginTop: 20 }}>
+            <Text style={{ textAlign: 'center', color: placeholderColor, marginTop: 20, fontFamily: 'Montserrat_400Regular' }}>
               На {viewMode === 'day' ? 'этот день' : 'эту неделю'} занятий нет.
             </Text>
           ) : null}
@@ -666,32 +683,11 @@ const ScheduleScreen = ({ theme, accentColor }) => {
   );
 };
 
-// Экран настроек
-const SettingsScreen = ({ theme, accentColor, setTheme, setAccentColor, navigation }) => {
-  const bgColor = theme === 'light' ? '#f3f4f6' : '#111827';
-  const cardBg = theme === 'light' ? '#ffffff' : '#1f2937';
+// BottomSheet для настроек внешнего вида
+const AppearanceSettingsSheet = ({ visible, onClose, theme, accentColor, setTheme, setAccentColor }) => {
+  const bgColor = theme === 'light' ? '#ffffff' : '#1f2937';
   const textColor = theme === 'light' ? '#111827' : '#ffffff';
-  const colors = ACCENT_COLORS[accentColor];
   const systemColorScheme = useColorScheme();
-
-  const clearCache = async () => {
-    try {
-      const keys = await SecureStore.getAllKeysAsync();
-      for (const key of keys) {
-        if (key !== 'theme' && key !== 'accentColor') {
-          await SecureStore.deleteItemAsync(key);
-        }
-      }
-      Alert.alert('Успех', 'Кэш успешно очищен');
-    } catch (error) {
-      console.error('Error clearing cache:', error);
-      Alert.alert('Ошибка', 'Не удалось очистить кэш');
-    }
-  };
-
-  const openGitHub = () => {
-    Linking.openURL('https://github.com/PRO100BYTE');
-  };
 
   const handleThemeChange = async (newTheme) => {
     setTheme(newTheme);
@@ -711,168 +707,271 @@ const SettingsScreen = ({ theme, accentColor, setTheme, setAccentColor, navigati
   const effectiveTheme = getEffectiveTheme();
 
   return (
-    <ScrollView style={{ flex: 1, backgroundColor: bgColor, padding: 16 }}>
-      {/* Настройка темы */}
-      <View style={{ 
-        backgroundColor: cardBg, 
-        borderRadius: 12, 
-        padding: 16, 
-        marginBottom: 16,
-      }}>
-        <Text style={{ fontSize: 18, fontWeight: 'bold', color: textColor, marginBottom: 16 }}>
-          Внешний вид
-        </Text>
-        
-        <Text style={{ color: textColor, marginBottom: 8, fontWeight: '500' }}>
-          Тема:
-        </Text>
-        
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 16 }}>
-          <TouchableOpacity
-            onPress={() => handleThemeChange('light')}
-            style={{
-              paddingVertical: 8,
-              paddingHorizontal: 16,
-              borderRadius: 8,
-              backgroundColor: theme === 'light' ? colors.primary : cardBg,
-              borderWidth: 1,
-              borderColor: theme === 'light' ? colors.primary : (effectiveTheme === 'light' ? '#e5e7eb' : '#374151')
-            }}
-          >
-            <Text style={{ color: theme === 'light' ? '#ffffff' : textColor }}>Светлая</Text>
-          </TouchableOpacity>
+    <Modal
+      visible={visible}
+      animationType="slide"
+      transparent={true}
+      onRequestClose={onClose}
+    >
+      <View style={[styles.modalContainer, { backgroundColor: 'rgba(0, 0, 0, 0.5)' }]}>
+        <View style={[styles.bottomSheet, { backgroundColor: bgColor }]}>
+          <View style={styles.sheetHandle} />
+          
+          <Text style={[styles.sheetTitle, { color: textColor, fontFamily: 'Montserrat_600SemiBold' }]}>
+            Внешний вид
+          </Text>
+          
+          <View style={styles.sheetSection}>
+            <Text style={[styles.sheetSectionTitle, { color: textColor, fontFamily: 'Montserrat_500Medium' }]}>
+              Тема
+            </Text>
+            
+            <View style={styles.sheetOptions}>
+              <TouchableOpacity
+                style={[
+                  styles.sheetOption,
+                  { backgroundColor: effectiveTheme === 'light' ? ACCENT_COLORS[accentColor].light : 'transparent' }
+                ]}
+                onPress={() => handleThemeChange('light')}
+              >
+                <Icon name="sunny-outline" size={20} color={effectiveTheme === 'light' ? ACCENT_COLORS[accentColor].primary : textColor} />
+                <Text style={[styles.sheetOptionText, { color: textColor, fontFamily: 'Montserrat_400Regular' }]}>
+                  Светлая
+                </Text>
+                {theme === 'light' && <Icon name="checkmark" size={20} color={ACCENT_COLORS[accentColor].primary} />}
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                style={[
+                  styles.sheetOption,
+                  { backgroundColor: effectiveTheme === 'dark' ? ACCENT_COLORS[accentColor].light : 'transparent' }
+                ]}
+                onPress={() => handleThemeChange('dark')}
+              >
+                <Icon name="moon-outline" size={20} color={effectiveTheme === 'dark' ? ACCENT_COLORS[accentColor].primary : textColor} />
+                <Text style={[styles.sheetOptionText, { color: textColor, fontFamily: 'Montserrat_400Regular' }]}>
+                  Темная
+                </Text>
+                {theme === 'dark' && <Icon name="checkmark" size={20} color={ACCENT_COLORS[accentColor].primary} />}
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                style={[
+                  styles.sheetOption,
+                  { backgroundColor: theme === 'auto' ? ACCENT_COLORS[accentColor].light : 'transparent' }
+                ]}
+                onPress={() => handleThemeChange('auto')}
+              >
+                <Icon name="phone-portrait-outline" size={20} color={theme === 'auto' ? ACCENT_COLORS[accentColor].primary : textColor} />
+                <Text style={[styles.sheetOptionText, { color: textColor, fontFamily: 'Montserrat_400Regular' }]}>
+                  Системная
+                </Text>
+                {theme === 'auto' && <Icon name="checkmark" size={20} color={ACCENT_COLORS[accentColor].primary} />}
+              </TouchableOpacity>
+            </View>
+          </View>
+          
+          <View style={styles.sheetSection}>
+            <Text style={[styles.sheetSectionTitle, { color: textColor, fontFamily: 'Montserrat_500Medium' }]}>
+              Акцентный цвет
+            </Text>
+            
+            <View style={styles.colorOptions}>
+              <TouchableOpacity
+                style={[styles.colorOption, { backgroundColor: ACCENT_COLORS.green.primary }]}
+                onPress={() => handleAccentColorChange('green')}
+              >
+                {accentColor === 'green' && <Icon name="checkmark" size={20} color="#ffffff" />}
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                style={[styles.colorOption, { backgroundColor: ACCENT_COLORS.blue.primary }]}
+                onPress={() => handleAccentColorChange('blue')}
+              >
+                {accentColor === 'blue' && <Icon name="checkmark" size={20} color="#ffffff" />}
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                style={[styles.colorOption, { backgroundColor: ACCENT_COLORS.purple.primary }]}
+                onPress={() => handleAccentColorChange('purple')}
+              >
+                {accentColor === 'purple' && <Icon name="checkmark" size={20} color="#ffffff" />}
+              </TouchableOpacity>
+            </View>
+          </View>
           
           <TouchableOpacity
-            onPress={() => handleThemeChange('dark')}
-            style={{
-              paddingVertical: 8,
-              paddingHorizontal: 16,
-              borderRadius: 8,
-              backgroundColor: theme === 'dark' ? colors.primary : cardBg,
-              borderWidth: 1,
-              borderColor: theme === 'dark' ? colors.primary : (effectiveTheme === 'light' ? '#e5e7eb' : '#374151')
-            }}
+            style={[styles.sheetButton, { backgroundColor: ACCENT_COLORS[accentColor].primary }]}
+            onPress={onClose}
           >
-            <Text style={{ color: theme === 'dark' ? '#ffffff' : textColor }}>Темная</Text>
-          </TouchableOpacity>
-          
-          <TouchableOpacity
-            onPress={() => handleThemeChange('auto')}
-            style={{
-              paddingVertical: 8,
-              paddingHorizontal: 16,
-              borderRadius: 8,
-              backgroundColor: theme === 'auto' ? colors.primary : cardBg,
-              borderWidth: 1,
-              borderColor: theme === 'auto' ? colors.primary : (effectiveTheme === 'light' ? '#e5e7eb' : '#374151')
-            }}
-          >
-            <Text style={{ color: theme === 'auto' ? '#ffffff' : textColor }}>Авто</Text>
-          </TouchableOpacity>
-        </View>
-        
-        <Text style={{ color: textColor, marginBottom: 8, fontWeight: '500' }}>
-          Акцентный цвет:
-        </Text>
-        
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-          <TouchableOpacity
-            onPress={() => handleAccentColorChange('green')}
-            style={{
-              paddingVertical: 8,
-              paddingHorizontal: 16,
-              borderRadius: 8,
-              backgroundColor: accentColor === 'green' ? ACCENT_COLORS.green.primary : cardBg,
-              borderWidth: 1,
-              borderColor: accentColor === 'green' ? ACCENT_COLORS.green.primary : (effectiveTheme === 'light' ? '#e5e7eb' : '#374151')
-            }}
-          >
-            <Text style={{ color: accentColor === 'green' ? '#ffffff' : textColor }}>Зеленый</Text>
-          </TouchableOpacity>
-          
-          <TouchableOpacity
-            onPress={() => handleAccentColorChange('blue')}
-            style={{
-              paddingVertical: 8,
-              paddingHorizontal: 16,
-              borderRadius: 8,
-              backgroundColor: accentColor === 'blue' ? ACCENT_COLORS.blue.primary : cardBg,
-              borderWidth: 1,
-              borderColor: accentColor === 'blue' ? ACCENT_COLORS.blue.primary : (effectiveTheme === 'light' ? '#e5e7eb' : '#374151')
-            }}
-          >
-            <Text style={{ color: accentColor === 'blue' ? '#ffffff' : textColor }}>Голубой</Text>
-          </TouchableOpacity>
-          
-          <TouchableOpacity
-            onPress={() => handleAccentColorChange('purple')}
-            style={{
-              paddingVertical: 8,
-              paddingHorizontal: 16,
-              borderRadius: 8,
-              backgroundColor: accentColor === 'purple' ? ACCENT_COLORS.purple.primary : cardBg,
-              borderWidth: 1,
-              borderColor: accentColor === 'purple' ? ACCENT_COLORS.purple.primary : (effectiveTheme === 'light' ? '#e5e7eb' : '#374151')
-            }}
-          >
-            <Text style={{ color: accentColor === 'purple' ? '#ffffff' : textColor }}>Фиолетовый</Text>
+            <Text style={[styles.sheetButtonText, { color: '#ffffff', fontFamily: 'Montserrat_600SemiBold' }]}>
+              Готово
+            </Text>
           </TouchableOpacity>
         </View>
       </View>
+    </Modal>
+  );
+};
+
+// Экран настроек
+const SettingsScreen = ({ theme, accentColor, setTheme, setAccentColor }) => {
+  const bgColor = theme === 'light' ? '#f3f4f6' : '#111827';
+  const cardBg = theme === 'light' ? '#ffffff' : '#1f2937';
+  const textColor = theme === 'light' ? '#111827' : '#ffffff';
+  const placeholderColor = theme === 'light' ? '#6b7280' : '#9ca3af';
+  const colors = ACCENT_COLORS[accentColor];
+  const [appearanceSheetVisible, setAppearanceSheetVisible] = useState(false);
+
+  const clearCache = async () => {
+    Alert.alert(
+      'Очистка кэша',
+      'После очистки кэша вы не сможете просматривать расписание и новости в оффлайн-режиме, пока не загрузите их повторно. Продолжить?',
+      [
+        {
+          text: 'Отмена',
+          style: 'cancel'
+        },
+        {
+          text: 'Очистить',
+          onPress: async () => {
+            try {
+              const keys = await SecureStore.getAllKeysAsync();
+              for (const key of keys) {
+                if (key !== 'theme' && key !== 'accentColor') {
+                  await SecureStore.deleteItemAsync(key);
+                }
+              }
+              Alert.alert('Успех', 'Кэш успешно очищен');
+            } catch (error) {
+              console.error('Error clearing cache:', error);
+              Alert.alert('Ошибка', 'Не удалось очистить кэш');
+            }
+          },
+          style: 'destructive'
+        }
+      ]
+    );
+  };
+
+  const openGitHub = () => {
+    Linking.openURL('https://github.com/PRO100BYTE');
+  };
+
+  const showAboutInfo = () => {
+    Alert.alert(
+      'О приложении',
+      'Мой ХГУ - мобильное приложение для студентов Хакасского государственного университета.\n\nПриложение разработано для удобного доступа к расписанию занятий, новостям университета и другой полезной информации для студентов.\n\nВерсия: 1.0.0\n\nРазработано с любовью студентами группы 125-1 в составе команды PRO100BYTE Team',
+      [{ text: 'OK' }]
+    );
+  };
+
+  return (
+    <ScrollView style={{ flex: 1, backgroundColor: bgColor, padding: 16 }}>
+      {/* Настройки внешнего вида */}
+      <TouchableOpacity 
+        style={{ 
+          backgroundColor: cardBg, 
+          borderRadius: 12, 
+          padding: 16, 
+          marginBottom: 16,
+          flexDirection: 'row',
+          alignItems: 'center'
+        }}
+        onPress={() => setAppearanceSheetVisible(true)}
+      >
+        <View style={{ backgroundColor: colors.light, borderRadius: 8, padding: 8, marginRight: 12 }}>
+          <Icon name="color-palette-outline" size={24} color={colors.primary} />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={{ color: textColor, fontSize: 16, fontFamily: 'Montserrat_500Medium' }}>Внешний вид</Text>
+          <Text style={{ color: placeholderColor, fontSize: 14, marginTop: 4, fontFamily: 'Montserrat_400Regular' }}>
+            Настройте тему и цветовую схему приложения
+          </Text>
+        </View>
+        <Icon name="chevron-forward" size={20} color={placeholderColor} />
+      </TouchableOpacity>
 
       {/* О приложении */}
-      <View style={{ 
-        backgroundColor: cardBg, 
-        borderRadius: 12, 
-        padding: 16, 
-        marginBottom: 16,
-      }}>
-        <Text style={{ fontSize: 18, fontWeight: 'bold', color: textColor, marginBottom: 16 }}>
-          О приложении
-        </Text>
-        
-        <Text style={{ color: textColor, marginBottom: 12, lineHeight: 20 }}>
-          Мой ХГУ - мобильное приложение для студентов Хакасского государственного университета.
-        </Text>
-        
-        <Text style={{ color: textColor, marginBottom: 12, lineHeight: 20 }}>
-          Приложение разработано для удобного доступа к расписанию занятий, новостям университета 
-          и другой полезной информации для студентов.
-        </Text>
-        
-        <Text style={{ color: textColor, marginBottom: 8, fontStyle: 'italic' }}>
-          Версия: 1.0.0
-        </Text>
-        
-        <Text style={{ color: textColor, marginBottom: 16, textAlign: 'center', fontStyle: 'italic' }}>
-          Разработано с любовью студентами группы 125-1 в составе команды PRO100BYTE Team
-        </Text>
-        
-        <TouchableOpacity 
-          style={{ 
-            backgroundColor: colors.primary, 
-            padding: 12, 
-            borderRadius: 8, 
-            alignItems: 'center',
-            marginBottom: 12
-          }}
-          onPress={openGitHub}
-        >
-          <Text style={{ color: '#ffffff', fontWeight: 'bold' }}>GitHub проекта</Text>
-        </TouchableOpacity>
-        
-        <TouchableOpacity 
-          style={{ 
-            backgroundColor: '#ef4444', 
-            padding: 12, 
-            borderRadius: 8, 
-            alignItems: 'center' 
-          }}
-          onPress={clearCache}
-        >
-          <Text style={{ color: '#ffffff', fontWeight: 'bold' }}>Очистить кэш</Text>
-        </TouchableOpacity>
-      </View>
+      <TouchableOpacity 
+        style={{ 
+          backgroundColor: cardBg, 
+          borderRadius: 12, 
+          padding: 16, 
+          marginBottom: 16,
+          flexDirection: 'row',
+          alignItems: 'center'
+        }}
+        onPress={showAboutInfo}
+      >
+        <View style={{ backgroundColor: colors.light, borderRadius: 8, padding: 8, marginRight: 12 }}>
+          <Icon name="information-circle-outline" size={24} color={colors.primary} />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={{ color: textColor, fontSize: 16, fontFamily: 'Montserrat_500Medium' }}>О приложении</Text>
+          <Text style={{ color: placeholderColor, fontSize: 14, marginTop: 4, fontFamily: 'Montserrat_400Regular' }}>
+            Информация о приложении и его возможностях
+          </Text>
+        </View>
+        <Icon name="chevron-forward" size={20} color={placeholderColor} />
+      </TouchableOpacity>
+
+      {/* GitHub репозиторий */}
+      <TouchableOpacity 
+        style={{ 
+          backgroundColor: cardBg, 
+          borderRadius: 12, 
+          padding: 16, 
+          marginBottom: 16,
+          flexDirection: 'row',
+          alignItems: 'center'
+        }}
+        onPress={openGitHub}
+      >
+        <View style={{ backgroundColor: colors.light, borderRadius: 8, padding: 8, marginRight: 12 }}>
+          <Icon name="logo-github" size={24} color={colors.primary} />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={{ color: textColor, fontSize: 16, fontFamily: 'Montserrat_500Medium' }}>GitHub репозиторий</Text>
+          <Text style={{ color: placeholderColor, fontSize: 14, marginTop: 4, fontFamily: 'Montserrat_400Regular' }}>
+            Исходный код проекта на GitHub
+          </Text>
+        </View>
+        <Icon name="chevron-forward" size={20} color={placeholderColor} />
+      </TouchableOpacity>
+
+      {/* Очистка кэша */}
+      <TouchableOpacity 
+        style={{ 
+          backgroundColor: cardBg, 
+          borderRadius: 12, 
+          padding: 16, 
+          marginBottom: 16,
+          flexDirection: 'row',
+          alignItems: 'center'
+        }}
+        onPress={clearCache}
+      >
+        <View style={{ backgroundColor: colors.light, borderRadius: 8, padding: 8, marginRight: 12 }}>
+          <Icon name="trash-outline" size={24} color={colors.primary} />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={{ color: textColor, fontSize: 16, fontFamily: 'Montserrat_500Medium' }}>Очистка кэша</Text>
+          <Text style={{ color: placeholderColor, fontSize: 14, marginTop: 4, fontFamily: 'Montserrat_400Regular' }}>
+            Удалить все сохраненные данные приложения
+          </Text>
+        </View>
+        <Icon name="chevron-forward" size={20} color={placeholderColor} />
+      </TouchableOpacity>
+
+      <AppearanceSettingsSheet
+        visible={appearanceSheetVisible}
+        onClose={() => setAppearanceSheetVisible(false)}
+        theme={theme}
+        accentColor={accentColor}
+        setTheme={setTheme}
+        setAccentColor={setAccentColor}
+      />
     </ScrollView>
   );
 };
@@ -906,16 +1005,94 @@ const styles = StyleSheet.create({
   },
   placeholderText: {
     textAlign: 'center'
-  }
+  },
+  modalContainer: {
+    flex: 1,
+    justifyContent: 'flex-end',
+  },
+  bottomSheet: {
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+    paddingHorizontal: 16,
+    paddingBottom: 32,
+    paddingTop: 16,
+    maxHeight: '80%',
+  },
+  sheetHandle: {
+    width: 40,
+    height: 4,
+    backgroundColor: '#9ca3af',
+    borderRadius: 2,
+    alignSelf: 'center',
+    marginBottom: 16,
+  },
+  sheetTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    marginBottom: 24,
+    textAlign: 'center',
+  },
+  sheetSection: {
+    marginBottom: 24,
+  },
+  sheetSectionTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 12,
+  },
+  sheetOptions: {
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  sheetOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f3f4f6',
+  },
+  sheetOptionText: {
+    flex: 1,
+    marginLeft: 12,
+    fontSize: 16,
+  },
+  colorOptions: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+  },
+  colorOption: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  sheetButton: {
+    borderRadius: 12,
+    padding: 16,
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  sheetButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
 });
 
 // Главный компонент приложения
-export default Sentry.wrap(function App() {
+export default function App() {
   const [isLoading, setIsLoading] = useState(true);
   const [activeScreen, setActiveScreen] = useState('Расписание');
   const [theme, setTheme] = useState('auto');
   const [accentColor, setAccentColor] = useState('green');
   const systemColorScheme = useColorScheme();
+
+  let [fontsLoaded] = useFonts({
+    Montserrat_400Regular,
+    Montserrat_500Medium,
+    Montserrat_600SemiBold,
+    Montserrat_700Bold,
+  });
 
   useEffect(() => {
     // Загружаем сохраненные настройки
@@ -946,8 +1123,8 @@ export default Sentry.wrap(function App() {
 
   const effectiveTheme = getEffectiveTheme();
   
-  if (isLoading) {
-    return <SplashScreen />;
+  if (!fontsLoaded || isLoading) {
+    return <SplashScreen accentColor={accentColor} />;
   }
   
   const bgColor = effectiveTheme === 'light' ? '#f3f4f6' : '#111827';
@@ -974,8 +1151,8 @@ export default Sentry.wrap(function App() {
         justifyContent: 'space-between',
         alignItems: 'center'
       }}>
-        <Text style={{ fontSize: 24, fontWeight: 'bold', color: textColor }}>
-          {activeScreen === 'Настройки' ? 'Настройки' : activeScreen}
+        <Text style={{ fontSize: 24, fontWeight: 'bold', color: textColor, fontFamily: 'Montserrat_600SemiBold' }}>
+          {activeScreen}
         </Text>
         
         {activeScreen === 'Настройки' ? (
@@ -1006,58 +1183,65 @@ export default Sentry.wrap(function App() {
       </View>
       
       {/* Навигация */}
-      {activeScreen !== 'Настройки' && (
-        <View style={{ 
-          flexDirection: 'row', 
-          backgroundColor: headerBg,
-          shadowColor: "#000",
-          shadowOffset: {
-            width: 0,
-            height: -2,
-          },
-          shadowOpacity: 0.1,
-          shadowRadius: 3.84,
-          elevation: 5,
-          paddingHorizontal: 4,
-          paddingVertical: 8
-        }}>
-          <TabButton 
-            icon="calendar-outline" 
-            label="Расписание" 
-            isActive={activeScreen === 'Расписание'} 
-            onPress={() => setActiveScreen('Расписание')}
-            theme={effectiveTheme}
-            accentColor={accentColor}
-          />
-          
-          <TabButton 
-            icon="map-outline" 
-            label="Карта" 
-            isActive={activeScreen === 'Карта'} 
-            onPress={() => setActiveScreen('Карта')}
-            theme={effectiveTheme}
-            accentColor={accentColor}
-          />
-          
-          <TabButton 
-            icon="book-outline" 
-            label="Первокурснику" 
-            isActive={activeScreen === 'Первокурснику'} 
-            onPress={() => setActiveScreen('Первокурснику')}
-            theme={effectiveTheme}
-            accentColor={accentColor}
-          />
-          
-          <TabButton 
-            icon="newspaper-outline" 
-            label="Новости" 
-            isActive={activeScreen === 'Новости'} 
-            onPress={() => setActiveScreen('Новости')}
-            theme={effectiveTheme}
-            accentColor={accentColor}
-          />
-        </View>
-      )}
+      <View style={{ 
+        flexDirection: 'row', 
+        backgroundColor: headerBg,
+        shadowColor: "#000",
+        shadowOffset: {
+          width: 0,
+          height: -2,
+        },
+        shadowOpacity: 0.1,
+        shadowRadius: 3.84,
+        elevation: 5,
+        paddingHorizontal: 4,
+        paddingVertical: 8
+      }}>
+        <TabButton 
+          icon="calendar-outline" 
+          label="Расписание" 
+          isActive={activeScreen === 'Расписание'} 
+          onPress={() => setActiveScreen('Расписание')}
+          theme={effectiveTheme}
+          accentColor={accentColor}
+        />
+        
+        <TabButton 
+          icon="map-outline" 
+          label="Карта" 
+          isActive={activeScreen === 'Карта'} 
+          onPress={() => setActiveScreen('Карта')}
+          theme={effectiveTheme}
+          accentColor={accentColor}
+        />
+        
+        <TabButton 
+          icon="book-outline" 
+          label="Первокурснику" 
+          isActive={activeScreen === 'Первокурснику'} 
+          onPress={() => setActiveScreen('Первокурснику')}
+          theme={effectiveTheme}
+          accentColor={accentColor}
+        />
+        
+        <TabButton 
+          icon="newspaper-outline" 
+          label="Новости" 
+          isActive={activeScreen === 'Новости'} 
+          onPress={() => setActiveScreen('Новости')}
+          theme={effectiveTheme}
+          accentColor={accentColor}
+        />
+        
+        <TabButton 
+          icon="settings-outline" 
+          label="Настройки" 
+          isActive={activeScreen === 'Настройки'} 
+          onPress={() => setActiveScreen('Настройки')}
+          theme={effectiveTheme}
+          accentColor={accentColor}
+        />
+      </View>
     </View>
   );
-});
+}

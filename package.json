@@ -9,10 +9,12 @@
     "web": "expo start --web"
   },
   "dependencies": {
+    "@expo-google-fonts/montserrat": "^0.4.1",
     "@expo/metro-runtime": "~5.0.4",
     "@expo/vector-icons": "^14.1.0",
     "@sentry/react-native": "^7.0.1",
     "expo": "~53.0.22",
+    "expo-font": "~13.3.2",
     "expo-secure-store": "~14.2.4",
     "expo-status-bar": "~2.2.3",
     "expo-web-browser": "~14.2.0",
