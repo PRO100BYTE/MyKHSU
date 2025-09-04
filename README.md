@@ -26,16 +26,6 @@
 - [iOS симуляторе](https://docs.expo.dev/workflow/ios-simulator/)
 - [Expo Go](https://expo.dev/go), ограниченной среде для тестирования разработанного приложения на Expo
 
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
-
-```bash
-npm run reset-project
-```
-
 Вы можете начать разработку, отредактировав файлы в каталоге **app**. В этом проекте используется [маршрутизация на основе файлов](https://docs.expo.dev/router/introduction).
 
 ## Узнать больше
