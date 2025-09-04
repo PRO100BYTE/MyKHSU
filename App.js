@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, Linking, StyleSheet, Alert, Platform, Modal, useColorScheme } from 'react-native';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import * as SecureStore from 'expo-secure-store';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as WebBrowser from 'expo-web-browser';
 import { useFonts, Montserrat_400Regular, Montserrat_500Medium, Montserrat_600SemiBold, Montserrat_700Bold } from '@expo-google-fonts/montserrat';
 
@@ -32,12 +33,12 @@ const ACCENT_COLORS = {
 // Утилиты для работы с кэшем
 const getWithExpiry = async (key) => {
   try {
-    const itemStr = await SecureStore.getItemAsync(key);
+    const itemStr = await AsyncStorage.getItem(key);
     if (!itemStr) return null;
     
     const item = JSON.parse(itemStr);
     if (Date.now() > item.expiry) {
-      await SecureStore.deleteItemAsync(key);
+      await AsyncStorage.removeItem(key);
       return null;
     }
     return item.value;
@@ -53,7 +54,7 @@ const setWithExpiry = async (key, value, ttl = CACHE_TTL) => {
       value,
       expiry: Date.now() + ttl
     };
-    await SecureStore.setItemAsync(key, JSON.stringify(item));
+    await AsyncStorage.setItem(key, JSON.stringify(item));
   } catch (error) {
     console.error('Error setting cache:', error);
   }
@@ -254,7 +255,7 @@ const ScheduleScreen = ({ theme, accentColor }) => {
   const [pairsTime, setPairsTime] = useState([]);
   const [loadingGroups, setLoadingGroups] = useState(false);
   const [loadingSchedule, setLoadingSchedule] = useState(false);
-  const [viewMode, setViewMode] = useState('day'); // 'week' или 'day' - изменено на day по умолчанию
+  const [viewMode, setViewMode] = useState('day');
   const [currentDate, setCurrentDate] = useState(new Date());
   const [currentWeek, setCurrentWeek] = useState(getWeekNumber(new Date()));
 
@@ -832,6 +833,63 @@ const AppearanceSettingsSheet = ({ visible, onClose, theme, accentColor, setThem
   );
 };
 
+// Модальное окно "О приложении"
+const AboutModal = ({ visible, onClose, theme, accentColor }) => {
+  const bgColor = theme === 'light' ? '#ffffff' : '#1f2937';
+  const textColor = theme === 'light' ? '#111827' : '#ffffff';
+  const colors = ACCENT_COLORS[accentColor];
+
+  return (
+    <Modal
+      visible={visible}
+      animationType="slide"
+      transparent={true}
+      onRequestClose={onClose}
+    >
+      <View style={[styles.modalContainer, { backgroundColor: 'rgba(0, 0, 0, 0.5)' }]}>
+        <View style={[styles.bottomSheet, { backgroundColor: bgColor }]}>
+          <View style={styles.sheetHandle} />
+          
+          <Text style={[styles.sheetTitle, { color: textColor, fontFamily: 'Montserrat_600SemiBold' }]}>
+            О приложении
+          </Text>
+          
+          <ScrollView style={styles.aboutContent}>
+            <Text style={[styles.aboutText, { color: textColor }]}>
+              Мой ХГУ - мобильное приложение для студентов Хакасского государственного университета.
+              {"\n\n"}
+              Основные возможности:
+              {"\n"}
+              • Просмотр расписания занятий по группам
+              {"\n"}
+              • Чтение новостей университета
+              {"\n"}
+              • Настройка внешнего вида приложения
+              {"\n"}
+              • Офлайн-доступ к расписанию и новостям
+              {"\n\n"}
+              Приложение разработано для удобного доступа к актуальной информации об учебном процессе.
+              {"\n\n"}
+              Версия: 1.0.0
+              {"\n\n"}
+              Разработано с ❤️ студентами группы 125-1 в составе команды PRO100BYTE Team
+            </Text>
+          </ScrollView>
+          
+          <TouchableOpacity
+            style={[styles.sheetButton, { backgroundColor: colors.primary }]}
+            onPress={onClose}
+          >
+            <Text style={[styles.sheetButtonText, { color: '#ffffff', fontFamily: 'Montserrat_600SemiBold' }]}>
+              Закрыть
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </Modal>
+  );
+};
+
 // Экран настроек
 const SettingsScreen = ({ theme, accentColor, setTheme, setAccentColor }) => {
   const bgColor = theme === 'light' ? '#f3f4f6' : '#111827';
@@ -840,6 +898,7 @@ const SettingsScreen = ({ theme, accentColor, setTheme, setAccentColor }) => {
   const placeholderColor = theme === 'light' ? '#6b7280' : '#9ca3af';
   const colors = ACCENT_COLORS[accentColor];
   const [appearanceSheetVisible, setAppearanceSheetVisible] = useState(false);
+  const [aboutModalVisible, setAboutModalVisible] = useState(false);
 
   const clearCache = () => {
     Alert.alert(
@@ -854,11 +913,9 @@ const SettingsScreen = ({ theme, accentColor, setTheme, setAccentColor }) => {
           text: 'Очистить',
           onPress: async () => {
             try {
-              const keys = await SecureStore.getAllKeysAsync();
+              const keys = await AsyncStorage.getAllKeys();
               for (const key of keys) {
-                if (key !== 'theme' && key !== 'accentColor') {
-                  await SecureStore.deleteItemAsync(key);
-                }
+                await AsyncStorage.removeItem(key);
               }
               Alert.alert('Успех', 'Кэш успешно очищен');
             } catch (error) {
@@ -873,15 +930,7 @@ const SettingsScreen = ({ theme, accentColor, setTheme, setAccentColor }) => {
   };
 
   const openGitHub = () => {
-    Linking.openURL('https://github.com/PRO100BYTE');
-  };
-
-  const showAboutInfo = () => {
-    Alert.alert(
-      'О приложении',
-      'Мой ХГУ - мобильное приложение для студентов Хакасского государственного университета.\n\nПриложение разработано для удобного доступа к расписанию занятий, новостям университета и другой полезной информации для студентов.\n\nВерсия: 1.0.0\n\nРазработано с любовью студентами группы 125-1 в составе команды PRO100BYTE Team',
-      [{ text: 'OK' }]
-    );
+    Linking.openURL('https://github.com/PRO100BYTE/MyKHSU');
   };
 
   return (
@@ -920,7 +969,7 @@ const SettingsScreen = ({ theme, accentColor, setTheme, setAccentColor }) => {
           flexDirection: 'row',
           alignItems: 'center'
         }}
-        onPress={showAboutInfo}
+        onPress={() => setAboutModalVisible(true)}
       >
         <View style={{ backgroundColor: colors.light, borderRadius: 8, padding: 8, marginRight: 12 }}>
           <Icon name="information-circle-outline" size={24} color={colors.primary} />
@@ -945,7 +994,7 @@ const SettingsScreen = ({ theme, accentColor, setTheme, setAccentColor }) => {
           alignItems: 'center'
         }}
         onPress={openGitHub}
-      >
+  >
         <View style={{ backgroundColor: colors.light, borderRadius: 8, padding: 8, marginRight: 12 }}>
           <Icon name="logo-github" size={24} color={colors.primary} />
         </View>
@@ -989,6 +1038,13 @@ const SettingsScreen = ({ theme, accentColor, setTheme, setAccentColor }) => {
         accentColor={accentColor}
         setTheme={setTheme}
         setAccentColor={setAccentColor}
+      />
+
+      <AboutModal
+        visible={aboutModalVisible}
+        onClose={() => setAboutModalVisible(false)}
+        theme={theme}
+        accentColor={accentColor}
       />
     </ScrollView>
   );
@@ -1096,6 +1152,15 @@ const styles = StyleSheet.create({
   sheetButtonText: {
     fontSize: 16,
     fontWeight: '600',
+  },
+  aboutContent: {
+    maxHeight: 300,
+    marginBottom: 20,
+  },
+  aboutText: {
+    fontSize: 16,
+    lineHeight: 24,
+    fontFamily: 'Montserrat_400Regular',
   },
 });
 
