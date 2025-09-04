@@ -1,0 +1,46 @@
+# Мой ХГУ ИТИ
+
+## Привет! :)
+Мой ИТИ ХГУ - мобильное приложение-справочник для студентов Инженерно-технологического института Хакасского государственного университета. Поможет студенту-первокурснику влиться в учебный процесс быстро и удобно. Также совместим со старшекурсниками :)
+
+## Как запустить приложение в тестовой среде?
+
+1. Склонируйте репозиторий
+
+2. Установите зависимости
+
+   ```bash
+   npm install
+   ```
+
+3. Запустите сервер разработки
+
+   ```bash
+   npx expo start
+   ```
+
+В результате, вы получите варианты запуска приложения в:
+
+- [тестовой сборке](https://docs.expo.dev/develop/development-builds/introduction/)
+- [Android эмуляторе](https://docs.expo.dev/workflow/android-studio-emulator/)
+- [iOS симуляторе](https://docs.expo.dev/workflow/ios-simulator/)
+- [Expo Go](https://expo.dev/go), ограниченной среде для тестирования разработанного приложения на Expo
+
+You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
+
+## Get a fresh project
+
+When you're ready, run:
+
+```bash
+npm run reset-project
+```
+
+Вы можете начать разработку, отредактировав файлы в каталоге **app**. В этом проекте используется [маршрутизация на основе файлов](https://docs.expo.dev/router/introduction).
+
+## Узнать больше
+ 
+Чтобы узнать больше о разработке вашего проекта с помощью Expo, ознакомьтесь со следующими ресурсами:
+
+- [Документация Expo](https://docs.expo.dev/): Изучайте основы или углубляйтесь в более сложные темы с помощью [руководств](https://docs.expo.dev/guides).
+- [Учебное пособие Expo](https://docs.expo.dev/tutorial/introduction/): Следуйте пошаговому руководству, в котором вы создадите проект, работающий на Android, iOS и в Интернете.
