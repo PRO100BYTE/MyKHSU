@@ -35,7 +35,7 @@ const styles = StyleSheet.create({
     borderRadius: 8
   },
   tabText: {
-    fontSize: 11,
+    fontSize: 10,
     marginTop: 4
   }
 });

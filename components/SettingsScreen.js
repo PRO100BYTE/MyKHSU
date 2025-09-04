@@ -161,7 +161,7 @@ const SettingsScreen = ({ theme, accentColor, setTheme, setAccentColor }) => {
           Версия: {APP_VERSION}
         </Text>
         <Text style={{ color: '#9ca3af', fontSize: 12, marginTop: 4, fontFamily: 'Montserrat_400Regular', textAlign: 'center' }}>
-          Разработано с ❤️ {APP_DEVELOPERS}
+          Разработано с  ❤️  {APP_DEVELOPERS}
         </Text>
       </View>
 
