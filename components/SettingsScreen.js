@@ -6,7 +6,7 @@ import * as WebBrowser from 'expo-web-browser';
 import * as Linking from 'expo-linking';
 import AppearanceSettingsSheet from './AppearanceSettingsSheet';
 import AboutModal from './AboutModal';
-import { ACCENT_COLORS } from '../utils/constants';
+import { ACCENT_COLORS, APP_VERSION, APP_DEVELOPERS, GITHUB_REPO_URL } from '../utils/constants';
 
 const SettingsScreen = ({ theme, accentColor, setTheme, setAccentColor }) => {
   const [appearanceSheetVisible, setAppearanceSheetVisible] = useState(false);
@@ -48,7 +48,7 @@ const SettingsScreen = ({ theme, accentColor, setTheme, setAccentColor }) => {
   };
 
   const openGitHub = () => {
-    Linking.openURL('https://github.com/PRO100BYTE/MyKHSU');
+    Linking.openURL(GITHUB_REPO_URL);
   };
 
   return (
@@ -155,13 +155,13 @@ const SettingsScreen = ({ theme, accentColor, setTheme, setAccentColor }) => {
         borderRadius: 12, 
         padding: 16, 
         marginBottom: 16,
-        alignItems: 'center'
+        alignItems: 'center' // Добавлено выравнивание по центру
       }}>
-        <Text style={{ color: '#9ca3af', fontSize: 12, fontFamily: 'Montserrat_400Regular' }}>
-          Версия: 1.0.1-refactored
+        <Text style={{ color: '#9ca3af', fontSize: 12, fontFamily: 'Montserrat_400Regular', textAlign: 'center' }}>
+          Версия: {APP_VERSION}
         </Text>
-        <Text style={{ color: '#9ca3af', fontSize: 12, marginTop: 4, fontFamily: 'Montserrat_400Regular' }}>
-          Разработано с ❤️ студентами группы 125-1 в составе команды PRO100BYTE Team
+        <Text style={{ color: '#9ca3af', fontSize: 12, marginTop: 4, fontFamily: 'Montserrat_400Regular', textAlign: 'center' }}>
+          Разработано с ❤️ {APP_DEVELOPERS}
         </Text>
       </View>
 
