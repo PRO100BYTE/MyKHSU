@@ -6,9 +6,9 @@ import * as SecureStore from 'expo-secure-store';
 import { ACCENT_COLORS } from '../utils/constants';
 
 const AppearanceSettingsSheet = ({ visible, onClose, theme, accentColor, setTheme, setAccentColor }) => {
+  const systemColorScheme = useColorScheme();
   const bgColor = theme === 'light' ? '#ffffff' : '#1f2937';
   const textColor = theme === 'light' ? '#111827' : '#ffffff';
-  const systemColorScheme = useColorScheme();
 
   const handleThemeChange = async (newTheme) => {
     setTheme(newTheme);
@@ -20,8 +20,9 @@ const AppearanceSettingsSheet = ({ visible, onClose, theme, accentColor, setThem
     await SecureStore.setItemAsync('accentColor', newColor);
   };
 
+  // Правильное определение эффективной темы
   const getEffectiveTheme = () => {
-    if (theme === 'auto') return systemColorScheme;
+    if (theme === 'auto') return systemColorScheme || 'light';
     return theme;
   };
 
@@ -103,7 +104,7 @@ const AppearanceSettingsSheet = ({ visible, onClose, theme, accentColor, setThem
                   color: theme === 'auto' ? ACCENT_COLORS[accentColor].primary : textColor,
                   fontFamily: 'Montserrat_400Regular' 
                 }]}>
-                  Системная
+                  Системная ({systemColorScheme === 'dark' ? 'Тёмная' : 'Светлая'})
                 </Text>
                 {theme === 'auto' && <Icon name="checkmark" size={20} color={ACCENT_COLORS[accentColor].primary} />}
               </TouchableOpacity>

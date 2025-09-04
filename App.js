@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, Platform, useColorScheme, StyleSheet } from 'react-native';
+import { View, Text, Platform, Appearance, StyleSheet } from 'react-native';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import * as SecureStore from 'expo-secure-store';
 import { useFonts, Montserrat_400Regular, Montserrat_500Medium, Montserrat_600SemiBold, Montserrat_700Bold } from '@expo-google-fonts/montserrat';
@@ -46,18 +46,20 @@ const styles = StyleSheet.create({
 });
 
 export default function App() {
-  const [isLoading, setIsLoading] = useState(true);
-  const [activeScreen, setActiveScreen] = useState(SCREENS.SCHEDULE);
-  const [theme, setTheme] = useState('auto');
-  const [accentColor, setAccentColor] = useState('green');
-  const systemColorScheme = useColorScheme();
-
+  // Загрузка шрифтов должна быть первым хуком
   let [fontsLoaded] = useFonts({
     Montserrat_400Regular,
     Montserrat_500Medium,
     Montserrat_600SemiBold,
     Montserrat_700Bold,
   });
+
+  const [isLoading, setIsLoading] = useState(true);
+  const [activeScreen, setActiveScreen] = useState(SCREENS.SCHEDULE);
+  const [theme, setTheme] = useState('auto');
+  const [accentColor, setAccentColor] = useState('green');
+  const [systemTheme, setSystemTheme] = useState(Appearance.getColorScheme() || 'light');
+  const [refresh, setRefresh] = useState(0);
 
   useEffect(() => {
     // Загружаем сохраненные настройки
@@ -80,14 +82,30 @@ export default function App() {
     
     loadSettings();
   }, []);
-  
+
+  // Слушатель изменений системной темы
+  useEffect(() => {
+    const subscription = Appearance.addChangeListener(({ colorScheme }) => {
+      setSystemTheme(colorScheme || 'light');
+      
+      // Принудительно обновляем компонент при изменении системной темы
+      // если выбрана автоматическая тема
+      if (theme === 'auto') {
+        setRefresh(prev => prev + 1);
+      }
+    });
+
+    return () => subscription.remove();
+  }, [theme]);
+
   const getEffectiveTheme = () => {
-    if (theme === 'auto') return systemColorScheme;
+    if (theme === 'auto') return systemTheme;
     return theme;
   };
 
   const effectiveTheme = getEffectiveTheme();
   
+  // Рендерим SplashScreen пока шрифты не загружены или приложение загружается
   if (!fontsLoaded || isLoading) {
     return <SplashScreen accentColor={accentColor} theme={getEffectiveTheme()} />;
   }
@@ -109,16 +127,16 @@ export default function App() {
       {/* Контент */}
       <View style={{ flex: 1 }}>
         {activeScreen === SCREENS.SCHEDULE && (
-          <ScheduleScreen theme={effectiveTheme} accentColor={accentColor} />
+          <ScheduleScreen theme={effectiveTheme} accentColor={accentColor} key={`schedule-${refresh}`} />
         )}
         {activeScreen === SCREENS.MAP && (
-          <PlaceholderScreen title={SCREENS.MAP} theme={effectiveTheme} />
+          <PlaceholderScreen title={SCREENS.MAP} theme={effectiveTheme} key={`map-${refresh}`} />
         )}
         {activeScreen === SCREENS.FRESHMAN && (
-          <PlaceholderScreen title={SCREENS.FRESHMAN} theme={effectiveTheme} />
+          <PlaceholderScreen title={SCREENS.FRESHMAN} theme={effectiveTheme} key={`freshman-${refresh}`} />
         )}
         {activeScreen === SCREENS.NEWS && (
-          <NewsScreen theme={effectiveTheme} accentColor={accentColor} />
+          <NewsScreen theme={effectiveTheme} accentColor={accentColor} key={`news-${refresh}`} />
         )}
         {activeScreen === SCREENS.SETTINGS && (
           <SettingsScreen 
@@ -126,6 +144,7 @@ export default function App() {
             accentColor={accentColor} 
             setTheme={setTheme} 
             setAccentColor={setAccentColor} 
+            key={`settings-${refresh}`}
           />
         )}
       </View>
