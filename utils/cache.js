@@ -31,6 +31,13 @@ export const setWithExpiry = async (key, value, ttl = CACHE_TTL) => {
 };
 
 // Новая функция для безопасного парсинга JSON
+/**
+ * Safely parses a JSON response, checking for HTML error pages and empty responses.
+ * 
+ * @param {Response} response - The fetch Response object to parse.
+ * @returns {Promise<any>} The parsed JSON object.
+ * @throws {Error} If the response is HTML, empty, or contains invalid JSON.
+ */
 export const safeJsonParse = async (response) => {
   try {
     const text = await response.text();
