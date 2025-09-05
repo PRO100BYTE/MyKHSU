@@ -91,7 +91,7 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   aboutText: {
-    fontSize: 16,
+    fontSize: 15,
     lineHeight: 24,
     fontFamily: 'Montserrat_400Regular',
   },

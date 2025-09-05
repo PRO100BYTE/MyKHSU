@@ -40,7 +40,7 @@ const AppearanceSettingsSheet = ({ visible, onClose, theme, accentColor, setThem
           <View style={styles.sheetHandle} />
           
           <Text style={[styles.sheetTitle, { color: textColor, fontFamily: 'Montserrat_600SemiBold' }]}>
-            Внешний вид
+            Внешний вид приложения
           </Text>
           
           <View style={styles.sheetSection}>
@@ -145,7 +145,7 @@ const AppearanceSettingsSheet = ({ visible, onClose, theme, accentColor, setThem
             onPress={onClose}
           >
             <Text style={[styles.sheetButtonText, { color: '#ffffff', fontFamily: 'Montserrat_600SemiBold' }]}>
-              Готово
+              Сохранить
             </Text>
           </TouchableOpacity>
         </View>

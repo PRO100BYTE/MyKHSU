@@ -38,6 +38,7 @@ export const setWithExpiry = async (key, value, ttl = CACHE_TTL) => {
  * @returns {Promise<any>} The parsed JSON object.
  * @throws {Error} If the response is HTML, empty, or contains invalid JSON.
  */
+
 export const safeJsonParse = async (response) => {
   try {
     const text = await response.text();

@@ -22,7 +22,7 @@ const NewsScreen = ({ theme, accentColor }) => {
     setLoading(true);
     try {
       const targetFrom = isInitial ? 0 : from;
-      const targetUrl = `${API_BASE_URL}/news?amount=10&from=${targetFrom}`;
+      const targetUrl = `${API_BASE_URL}/news?amount=20&from=${targetFrom}`;
       const response = await fetch(`${CORS_PROXY}${encodeURIComponent(targetUrl)}`);
       
       // Исправление ошибки парсинга JSON
