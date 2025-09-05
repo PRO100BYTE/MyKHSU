@@ -2,10 +2,10 @@
   "expo": {
     "name": "MyKHSU",
     "slug": "mykhsu",
-    "version": "1.0.1-refactoring",
+    "version": "1.0.2",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-    "userInterfaceStyle": "light",
+    "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "splash": {
       "image": "./assets/splash-icon.png",
@@ -16,7 +16,10 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.pro100byte.mykhsu",
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSLocationWhenInUseUsageDescription": "Приложению требуется доступ к вашему местоположению для показа ближайших корпусов ХГУ на карте.",
+        "NSLocationAlwaysUsageDescription": "Приложению требуется доступ к вашему местоположению для показа ближайших корпусов ХГУ на карте.",
+        "YandexMapKitApiKey": "5bd63ae8-cdcf-47f4-a384-ca4b9c0b982f"
       }
     },
     "android": {
@@ -26,7 +29,11 @@
       },
       "edgeToEdgeEnabled": true,
       "package": "com.pro100byte.mykhsu",
-      "versionCode": 1
+      "versionCode": 1,
+      "permissions": [
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -42,7 +49,13 @@
           "organization": "sculk"
         }
       ],
-      "expo-font"
+      "expo-font",
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Разрешить $(PRODUCT_NAME) использовать ваше местоположение для показа ближайших корпусов ХГУ на карте."
+        }
+      ]
     ],
     "extra": {
       "eas": {
