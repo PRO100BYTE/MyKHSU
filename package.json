@@ -23,15 +23,14 @@
     "expo-location": "~18.1.6",
     "expo-secure-store": "~14.2.4",
     "expo-status-bar": "~2.2.3",
+    "expo-system-ui": "~5.0.11",
     "expo-web-browser": "~14.2.0",
     "react": "19.0.0",
     "react-dom": "19.0.0",
     "react-native": "0.79.6",
     "react-native-config": "^1.5.9",
     "react-native-maps": "1.20.1",
-    "react-native-web": "^0.20.0",
-    "react-native-yamaps": "^1.1.1",
-    "expo-system-ui": "~5.0.11"
+    "react-native-web": "^0.20.0"
   },
   "devDependencies": {
     "@babel/core": "^7.20.0"

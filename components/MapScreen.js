@@ -1,21 +1,19 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, Alert, ActivityIndicator, Linking, Platform } from 'react-native';
-import YaMap, { Marker, Camera } from 'react-native-yamap';
+import { View, Text, StyleSheet, Alert, ActivityIndicator, Linking, Platform, Dimensions } from 'react-native';
+import MapView, { Marker, PROVIDER_DEFAULT, UrlTile } from 'react-native-maps';
 import * as FileSystem from 'expo-file-system';
 import NetInfo from '@react-native-community/netinfo';
-import { useColorScheme } from 'react-native';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import { getWithExpiry, setWithExpiry } from '../utils/cache';
 import { ACCENT_COLORS } from '../utils/constants';
 
-// Инициализация Яндекс Карт (нужно вызвать один раз при запуске приложения)
-// Обычно это делается в отдельном файле инициализации
-YaMap.init('5bd63ae8-cdcf-47f4-a384-ca4b9c0b982f');
+const { width, height } = Dimensions.get('window');
 
 const MapScreen = ({ theme, accentColor }) => {
   const [isOnline, setIsOnline] = useState(true);
   const [mapLoaded, setMapLoaded] = useState(false);
   const [cachedMapAvailable, setCachedMapAvailable] = useState(false);
+  const [cachedTiles, setCachedTiles] = useState({});
   const colors = ACCENT_COLORS[accentColor];
   const bgColor = theme === 'light' ? '#f3f4f6' : '#111827';
   const textColor = theme === 'light' ? '#111827' : '#ffffff';
@@ -26,25 +24,28 @@ const MapScreen = ({ theme, accentColor }) => {
     {
       id: 1,
       name: 'Главный корпус',
-      lat: 53.7213,
-      lon: 91.4424,
+      latitude: 53.7213,
+      longitude: 91.4424,
       description: 'ул. Ленина, 90'
     },
     {
       id: 2,
       name: 'Корпус №2',
-      lat: 53.7220,
-      lon: 91.4430,
+      latitude: 53.7220,
+      longitude: 91.4430,
       description: 'ул. Ленина, 92'
     },
     {
       id: 3,
       name: 'Корпус №3',
-      lat: 53.7205,
-      lon: 91.4410,
+      latitude: 53.7205,
+      longitude: 91.4410,
       description: 'ул. Щетинкина, 18'
     }
   ];
+
+  // URL шаблон для OpenStreetMap тайлов
+  const OSM_URL_TEMPLATE = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
 
   useEffect(() => {
     // Проверяем подключение к интернету
@@ -57,35 +58,47 @@ const MapScreen = ({ theme, accentColor }) => {
       }
     });
 
-    // Проверяем наличие кэшированной карты
-    checkCachedMap();
+    // Проверяем наличие кэшированных тайлов
+    checkCachedTiles();
 
     return () => unsubscribe();
   }, []);
 
-  const checkCachedMap = async () => {
+  const checkCachedTiles = async () => {
     try {
-      // Проверяем, есть ли кэшированная карта
-      const cached = await getWithExpiry('cached_map_available');
-      setCachedMapAvailable(!!cached);
+      // Проверяем, есть ли кэшированные тайлы
+      const cachedTilesData = await getWithExpiry('cached_map_tiles');
+      if (cachedTilesData) {
+        setCachedTiles(cachedTilesData);
+        setCachedMapAvailable(true);
+      }
     } catch (error) {
-      console.error('Error checking cached map:', error);
+      console.error('Error checking cached tiles:', error);
     }
   };
 
   const loadMap = async () => {
     try {
-      // Имитируем загрузку карты
-      setTimeout(() => {
-        setMapLoaded(true);
-        // Сохраняем информацию о том, что карта была загружена
-        setWithExpiry('cached_map_available', true, 7 * 24 * 60 * 60 * 1000); // 7 дней
-        setCachedMapAvailable(true);
-      }, 1500);
+      // Если онлайн, предзагружаем тайлы для текущей области
+      if (isOnline) {
+        await precacheTiles();
+      }
+      setMapLoaded(true);
     } catch (error) {
       console.error('Error loading map:', error);
       Alert.alert('Ошибка', 'Не удалось загрузить карту');
     }
+  };
+
+  const precacheTiles = async () => {
+    // Здесь можно реализовать предзагрузку тайлов для определенной области
+    // Это сложная задача, требующая расчета нужных тайлов для текущего региона
+    console.log('Precaching map tiles...');
+    
+    // В реальном приложении здесь бы был код для предзагрузки тайлов
+    // Пока просто отмечаем, что карта доступна для оффлайн-использования
+    await setWithExpiry('cached_map_available', true, 7 * 24 * 60 * 60 * 1000);
+    setCachedMapAvailable(true);
   };
 
   const handleRetry = () => {
@@ -112,12 +125,22 @@ const MapScreen = ({ theme, accentColor }) => {
         { 
           text: 'Построить маршрут', 
           onPress: () => {
-            const url = `https://yandex.ru/maps/?pt=${building.lon},${building.lat}&z=17&l=map`;
+            const url = `https://www.openstreetmap.org/directions?from=&to=${building.latitude},${building.longitude}`;
             Linking.openURL(url);
           }
         }
       ]
     );
+  };
+
+  // Функция для получения URL тайла с учетом кэша
+  const getTileUrl = (x, y, z) => {
+    const tileUrl = OSM_URL_TEMPLATE
+      .replace('{x}', x)
+      .replace('{y}', y)
+      .replace('{z}', z);
+    
+    return tileUrl;
   };
 
   if (!mapLoaded) {
@@ -165,28 +188,42 @@ const MapScreen = ({ theme, accentColor }) => {
 
   return (
     <View style={styles.container}>
-      <YaMap
+      <MapView
         style={styles.map}
+        provider={PROVIDER_DEFAULT}
         initialRegion={{
-          lat: 53.7213,
-          lon: 91.4424,
-          zoom: 15,
-          azimuth: 0,
-          tilt: 0
+          latitude: 53.7213,
+          longitude: 91.4424,
+          latitudeDelta: 0.01,
+          longitudeDelta: 0.01,
         }}
-        showUserPosition={true}
-        nightMode={theme === 'dark'}
+        showsUserLocation={true}
+        showsMyLocationButton={true}
       >
+        {/* Используем тайлы OpenStreetMap */}
+        <UrlTile
+          urlTemplate={OSM_URL_TEMPLATE}
+          maximumZ={19}
+          flipY={false}
+        />
+        
         {buildings.map(building => (
           <Marker
             key={building.id}
-            point={{ lat: building.lat, lon: building.lon }}
-            source={require('../assets/marker.png')} // Ваш кастомный маркер
-            scale={0.5}
+            coordinate={{
+              latitude: building.latitude,
+              longitude: building.longitude
+            }}
+            title={building.name}
+            description={building.description}
             onPress={() => handleMarkerPress(building)}
-          />
+          >
+            <View style={styles.marker}>
+              <Icon name="business-outline" size={24} color={colors.primary} />
+            </View>
+          </Marker>
         ))}
-      </YaMap>
+      </MapView>
       
       {!isOnline && (
         <View style={styles.offlineIndicator}>
@@ -194,6 +231,12 @@ const MapScreen = ({ theme, accentColor }) => {
           <Text style={styles.offlineText}>Оффлайн-режим</Text>
         </View>
       )}
+      
+      <View style={styles.attribution}>
+        <Text style={styles.attributionText}>
+          © OpenStreetMap contributors
+        </Text>
+      </View>
     </View>
   );
 };
@@ -204,6 +247,13 @@ const styles = StyleSheet.create({
   },
   map: {
     flex: 1,
+  },
+  marker: {
+    backgroundColor: 'white',
+    borderRadius: 12,
+    padding: 4,
+    borderWidth: 1,
+    borderColor: '#ddd',
   },
   placeholder: {
     flex: 1,
@@ -244,6 +294,19 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     marginLeft: 4,
     fontSize: 12,
+    fontFamily: 'Montserrat_400Regular',
+  },
+  attribution: {
+    position: 'absolute',
+    bottom: 16,
+    left: 16,
+    backgroundColor: 'rgba(255, 255, 255, 0.8)',
+    padding: 4,
+    borderRadius: 4,
+  },
+  attributionText: {
+    fontSize: 10,
+    color: '#333',
     fontFamily: 'Montserrat_400Regular',
   },
 });

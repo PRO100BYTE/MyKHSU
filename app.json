@@ -18,8 +18,7 @@
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
         "NSLocationWhenInUseUsageDescription": "Приложению требуется доступ к вашему местоположению для показа ближайших корпусов ХГУ на карте.",
-        "NSLocationAlwaysUsageDescription": "Приложению требуется доступ к вашему местоположению для показа ближайших корпусов ХГУ на карте.",
-        "YandexMapKitApiKey": "5bd63ae8-cdcf-47f4-a384-ca4b9c0b982f"
+        "NSLocationAlwaysUsageDescription": "Приложению требуется доступ к вашему местоположению для показа ближайших корпусов ХГУ на карте."
       }
     },
     "android": {
@@ -33,7 +32,12 @@
       "permissions": [
         "ACCESS_COARSE_LOCATION",
         "ACCESS_FINE_LOCATION"
-      ]
+      ],
+      "config": {
+        "googleMaps": {
+          "apiKey": "YOUR_GOOGLE_MAPS_API_KEY_OPTIONAL"
+        }
+      }
     },
     "web": {
       "favicon": "./assets/favicon.png"
