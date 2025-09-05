@@ -1,0 +1,110 @@
+import React from 'react';
+import { View, Text, Modal, TouchableOpacity, ScrollView, StyleSheet } from 'react-native';
+import { Ionicons as Icon } from '@expo/vector-icons';
+import { ACCENT_COLORS } from '../utils/constants';
+
+const AboutModal = ({ visible, onClose, theme, accentColor }) => {
+  const bgColor = theme === 'light' ? '#ffffff' : '#1f2937';
+  const textColor = theme === 'light' ? '#111827' : '#ffffff';
+  const colors = ACCENT_COLORS[accentColor];
+
+  return (
+    <Modal
+      visible={visible}
+      animationType="slide"
+      transparent={true}
+      onRequestClose={onClose}
+    >
+      <View style={[styles.modalContainer, { backgroundColor: 'rgba(0, 0, 0, 0.5)' }]}>
+        <View style={[styles.bottomSheet, { backgroundColor: bgColor }]}>
+          <View style={styles.sheetHandle} />
+          
+          <Text style={[styles.sheetTitle, { color: textColor, fontFamily: 'Montserrat_600SemiBold' }]}>
+            О приложении
+          </Text>
+          
+          <ScrollView style={styles.aboutContent}>
+            <Text style={[styles.aboutText, { color: textColor }]}>
+              Мой ИТИ ХГУ - мобильное приложение для студентов Инженерно-технологического института Хакасского государственного университета.
+              {"\n\n"}
+              Основные возможности:
+              {"\n"}
+              • Просмотр расписания занятий по группам
+              {"\n"}
+              • Чтение новостей университета
+              {"\n"}
+              • Офлайн-доступ к расписанию и новостям
+              {"\n"}
+              • Просмотр карты расположения учебных корпусов (в разработке)
+              {"\n"}
+              • Раздел Первокурснику для тех, кто только поступил в ИТИ :) (в разработке)
+              {"\n"}
+              • Настройка внешнего вида приложения
+              {"\n\n"}
+              Приложение разработано для удобного доступа к актуальной информации об учебном процессе.
+            </Text>
+          </ScrollView>
+          
+          <TouchableOpacity
+            style={[styles.sheetButton, { backgroundColor: colors.primary }]}
+            onPress={onClose}
+          >
+            <Text style={[styles.sheetButtonText, { color: '#ffffff', fontFamily: 'Montserrat_600SemiBold' }]}>
+              Закрыть
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </Modal>
+  );
+};
+
+const styles = StyleSheet.create({
+  modalContainer: {
+    flex: 1,
+    justifyContent: 'flex-end',
+  },
+  bottomSheet: {
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+    paddingHorizontal: 16,
+    paddingBottom: 32,
+    paddingTop: 16,
+    maxHeight: '80%',
+  },
+  sheetHandle: {
+    width: 40,
+    height: 4,
+    backgroundColor: '#9ca3af',
+    borderRadius: 2,
+    alignSelf: 'center',
+    marginBottom: 16,
+  },
+  sheetTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    marginBottom: 24,
+    textAlign: 'center',
+  },
+  aboutContent: {
+    maxHeight: 300,
+    marginBottom: 20,
+  },
+  aboutText: {
+    fontSize: 15,
+    lineHeight: 24,
+    fontFamily: 'Montserrat_400Regular',
+  },
+  sheetButton: {
+    borderRadius: 12,
+    padding: 16,
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  sheetButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
+});
+
+export default AboutModal;
