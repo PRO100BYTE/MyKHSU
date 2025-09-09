@@ -169,6 +169,169 @@ const ScheduleScreen = ({ theme, accentColor }) => {
 
   const weekdays = ["Понедельник", "Вторник", "Среда", "Четверг", "Пятница", "Суббота", "Воскресенье"];
 
+  const renderDaySchedule = (day) => {
+    if (!day || !day.lessons) return null;
+    
+    const date = getDateByWeekAndDay(currentWeek, day.weekday);
+    return (
+      <View 
+        key={day.weekday} 
+        style={{ 
+          backgroundColor: cardBg, 
+          borderRadius: 12, 
+          padding: 16, 
+          marginBottom: 16,
+          borderWidth: 1,
+          borderColor
+        }}
+      >
+        <Text style={{ fontSize: 18, fontWeight: 'bold', color: colors.primary, marginBottom: 4, fontFamily: 'Montserrat_600SemiBold' }}>
+          {weekdays[day.weekday - 1]}
+        </Text>
+        <Text style={{ color: placeholderColor, marginBottom: 12, fontFamily: 'Montserrat_400Regular' }}>
+          {formatDate(date)}
+        </Text>
+
+        {day.lessons.length > 0 ? (
+          day.lessons.map(lesson => {
+            const pairTime = getTimeForLesson(lesson.time);
+            return (
+              <View 
+                key={lesson.id} 
+                style={{ 
+                  paddingVertical: 12, 
+                  borderTopWidth: 1, 
+                  borderTopColor: borderColor,
+                  marginTop: 12
+                }}
+              >
+                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+                  <Icon name="number-outline" size={14} color={placeholderColor} />
+                  <Text style={{ color: placeholderColor, marginLeft: 8, fontSize: 14, fontFamily: 'Montserrat_400Regular' }}>
+                    Пара №{lesson.time}
+                  </Text>
+                </View>
+                
+                <Text style={{ fontWeight: '600', color: textColor, fontSize: 16, fontFamily: 'Montserrat_500Medium' }}>
+                  {lesson.subject} ({lesson.type_lesson})
+                </Text>
+                
+                <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 8 }}>
+                  <Icon name="person-outline" size={14} color={placeholderColor} />
+                  <Text style={{ color: textColor, marginLeft: 8, fontSize: 14, fontFamily: 'Montserrat_400Regular' }}>
+                    {lesson.teacher}
+                  </Text>
+                </View>
+                
+                <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
+                  <Icon name="location-outline" size={14} color={placeholderColor} />
+                  <Text style={{ color: textColor, marginLeft: 8, fontSize: 14, fontFamily: 'Montserrat_400Regular' }}>
+                    Аудитория: {lesson.auditory}
+                  </Text>
+                </View>
+                
+                {pairTime && (
+                  <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
+                    <Icon name="time-outline" size={14} color={placeholderColor} />
+                    <Text style={{ color: placeholderColor, marginLeft: 8, fontSize: 14, fontFamily: 'Montserrat_400Regular' }}>
+                      {pairTime.time_start} - {pairTime.time_end}
+                    </Text>
+                  </View>
+                )}
+              </View>
+            );
+          })
+        ) : (
+          <Text style={{ color: placeholderColor, marginTop: 12, fontFamily: 'Montserrat_400Regular' }}>Занятий нет</Text>
+        )}
+      </View>
+    );
+  };
+
+  const renderDailySchedule = () => {
+    if (!scheduleData) return null;
+    
+    const weekday = currentDate.getDay() === 0 ? 7 : currentDate.getDay();
+    const daySchedule = scheduleData.days ? 
+      scheduleData.days.find(d => d.weekday === weekday) : 
+      { lessons: scheduleData.lessons || [] };
+    
+    if (!daySchedule) return null;
+    
+    return (
+      <View 
+        style={{ 
+          backgroundColor: cardBg, 
+          borderRadius: 12, 
+          padding: 16, 
+          marginBottom: 16,
+          borderWidth: 1,
+          borderColor
+        }}
+      >
+        <Text style={{ fontSize: 18, fontWeight: 'bold', color: colors.primary, marginBottom: 4, fontFamily: 'Montserrat_600SemiBold' }}>
+          {weekdays[weekday - 1]}
+        </Text>
+        <Text style={{ color: placeholderColor, marginBottom: 12, fontFamily: 'Montserrat_400Regular' }}>
+          {formatDate(currentDate)}
+        </Text>
+
+        {daySchedule.lessons && daySchedule.lessons.length > 0 ? (
+          daySchedule.lessons.map(lesson => {
+            const pairTime = getTimeForLesson(lesson.time);
+            return (
+              <View 
+                key={lesson.id} 
+                style={{ 
+                  paddingVertical: 12, 
+                  borderTopWidth: 1, 
+                  borderTopColor: borderColor,
+                  marginTop: 12
+                }}
+              >
+                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+                  <Icon name="number-outline" size={14} color={placeholderColor} />
+                  <Text style={{ color: placeholderColor, marginLeft: 8, fontSize: 14, fontFamily: 'Montserrat_400Regular' }}>
+                    Пара №{lesson.time}
+                  </Text>
+                </View>
+                
+                <Text style={{ fontWeight: '600', color: textColor, fontSize: 16, fontFamily: 'Montserrat_500Medium' }}>
+                  {lesson.subject} ({lesson.type_lesson})
+                </Text>
+                
+                <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 8 }}>
+                  <Icon name="person-outline" size={14} color={placeholderColor} />
+                  <Text style={{ color: textColor, marginLeft: 8, fontSize: 14, fontFamily: 'Montserrat_400Regular' }}>
+                    {lesson.teacher}
+                  </Text>
+                </View>
+                
+                <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
+                  <Icon name="location-outline" size={14} color={placeholderColor} />
+                  <Text style={{ color: textColor, marginLeft: 8, fontSize: 14, fontFamily: 'Montserrat_400Regular' }}>
+                    Аудитория: {lesson.auditory}
+                  </Text>
+                </View>
+                
+                {pairTime && (
+                  <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
+                    <Icon name="time-outline" size={14} color={placeholderColor} />
+                    <Text style={{ color: placeholderColor, marginLeft: 8, fontSize: 14, fontFamily: 'Montserrat_400Regular' }}>
+                      {pairTime.time_start} - {pairTime.time_end}
+                    </Text>
+                  </View>
+                )}
+              </View>
+            );
+          })
+        ) : (
+          <Text style={{ color: placeholderColor, marginTop: 12, fontFamily: 'Montserrat_400Regular' }}>Занятий нет</Text>
+        )}
+      </View>
+    );
+  };
+
   // Если есть ошибка, показываем соответствующий экран
   if (error && !loadingGroups && !loadingSchedule) {
     return (
