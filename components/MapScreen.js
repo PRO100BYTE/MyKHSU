@@ -1,119 +1,127 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, Alert, ActivityIndicator, Linking, Platform, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, Alert, ActivityIndicator, Linking, Platform, Dimensions, TouchableOpacity } from 'react-native';
 import MapView, { Marker, PROVIDER_DEFAULT, UrlTile } from 'react-native-maps';
 import * as FileSystem from 'expo-file-system';
 import NetInfo from '@react-native-community/netinfo';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import { getWithExpiry, setWithExpiry } from '../utils/cache';
 import { ACCENT_COLORS } from '../utils/constants';
+import ConnectionError from '../components/ConnectionError';
 
 const { width, height } = Dimensions.get('window');
 
 const MapScreen = ({ theme, accentColor }) => {
   const [isOnline, setIsOnline] = useState(true);
   const [mapLoaded, setMapLoaded] = useState(false);
-  const [cachedMapAvailable, setCachedMapAvailable] = useState(false);
-  const [cachedTiles, setCachedTiles] = useState({});
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const colors = ACCENT_COLORS[accentColor];
   const bgColor = theme === 'light' ? '#f3f4f6' : '#111827';
   const textColor = theme === 'light' ? '#111827' : '#ffffff';
+  const placeholderColor = theme === 'light' ? '#6b7280' : '#9ca3af';
   const cardBg = theme === 'light' ? '#ffffff' : '#1f2937';
 
-  // Координаты корпусов ХГУ (примерные, замените на реальные)
+  // Координаты корпусов ХГУ
   const buildings = [
     {
       id: 1,
-      name: 'Главный корпус',
-      latitude: 53.7213,
-      longitude: 91.4424,
-      description: 'ул. Ленина, 90'
+      name: 'Корпус №2 (ИТИ)',
+      latitude: 53.722143,
+      longitude: 91.439183,
+      description: 'ул. Ленина, 92/1',
+      type: 'academic'
     },
     {
       id: 2,
-      name: 'Корпус №2',
-      latitude: 53.7220,
-      longitude: 91.4430,
-      description: 'ул. Ленина, 92'
+      name: 'Административный корпус',
+      latitude: 53.722127,
+      longitude: 91.438486,
+      description: 'ул. Ленина, 92',
+      type: 'main'
     },
     {
       id: 3,
-      name: 'Корпус №3',
-      latitude: 53.7205,
-      longitude: 91.4410,
-      description: 'ул. Щетинкина, 18'
+      name: 'Корпус №1 (ИЕНиМ)',
+      latitude: 53.722481,
+      longitude: 91.441737,
+      description: 'ул. Ленина, 90',
+      type: 'academic'
     }
   ];
 
-  // URL шаблон для OpenStreetMap тайлов
-  const OSM_URL_TEMPLATE = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
+
+  // URL шаблоны для разных тем карты
+  const MAP_THEMES = {
+    light: {
+      urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+      attribution: '© OpenStreetMap contributors',
+      markerColor: colors.primary
+    },
+    dark: {
+      urlTemplate: 'https://tiles.wmflabs.org/dark-matter/{z}/{x}/{y}.png',
+      attribution: '© OpenStreetMap contributors, Dark Matter style',
+      markerColor: colors.dark
+    }
+  };
+
+  // Иконки для разных типов зданий
+  const BUILDING_ICONS = {
+    main: 'school-outline',
+    academic: 'business-outline',
+    library: 'library-outline',
+    dormitory: 'home-outline',
+    sports: 'barbell-outline',
+    cafeteria: 'restaurant-outline'
+  };
+
+  // Получаем настройки текущей темы карты
+  const mapTheme = MAP_THEMES[theme] || MAP_THEMES.light;
 
   useEffect(() => {
     // Проверяем подключение к интернету
     const unsubscribe = NetInfo.addEventListener(state => {
+      const wasOnline = isOnline;
       setIsOnline(state.isConnected);
       
-      // Если онлайн, пытаемся загрузить карту
-      if (state.isConnected && !mapLoaded) {
+      // Если статус изменился с offline на online, перезагружаем карту
+      if (!wasOnline && state.isConnected && !mapLoaded) {
         loadMap();
       }
     });
 
-    // Проверяем наличие кэшированных тайлов
-    checkCachedTiles();
+    loadMap();
 
     return () => unsubscribe();
-  }, []);
-
-  const checkCachedTiles = async () => {
-    try {
-      // Проверяем, есть ли кэшированные тайлы
-      const cachedTilesData = await getWithExpiry('cached_map_tiles');
-      if (cachedTilesData) {
-        setCachedTiles(cachedTilesData);
-        setCachedMapAvailable(true);
-      }
-    } catch (error) {
-      console.error('Error checking cached tiles:', error);
-    }
-  };
+  }, [theme]);
 
   const loadMap = async () => {
+    setLoading(true);
+    setError(null);
+    
     try {
-      // Если онлайн, предзагружаем тайлы для текущей области
-      if (isOnline) {
-        await precacheTiles();
+      // Проверяем подключение к интернету
+      const netState = await NetInfo.fetch();
+      setIsOnline(netState.isConnected);
+      
+      if (!netState.isConnected) {
+        setError('no-internet');
+        return;
       }
-      setMapLoaded(true);
+
+      // Имитируем загрузку карты
+      setTimeout(() => {
+        setMapLoaded(true);
+        setLoading(false);
+      }, 1500);
     } catch (error) {
       console.error('Error loading map:', error);
-      Alert.alert('Ошибка', 'Не удалось загрузить карту');
+      setError('load-error');
+      setLoading(false);
     }
-  };
-
-  const precacheTiles = async () => {
-    // Здесь можно реализовать предзагрузку тайлов для определенной области
-    // Это сложная задача, требующая расчета нужных тайлов для текущего региона
-    console.log('Precaching map tiles...');
-    
-    // В реальном приложении здесь бы был код для предзагрузки тайлов
-    // Пока просто отмечаем, что карта доступна для оффлайн-использования
-    await setWithExpiry('cached_map_available', true, 7 * 24 * 60 * 60 * 1000);
-    setCachedMapAvailable(true);
   };
 
   const handleRetry = () => {
-    if (isOnline) {
-      loadMap();
-    } else {
-      Alert.alert(
-        'Нет подключения',
-        'Для загрузки карты необходимо подключение к интернету',
-        [
-          { text: 'Отмена', style: 'cancel' },
-          { text: 'Настройки', onPress: () => Linking.openSettings() }
-        ]
-      );
-    }
+    loadMap();
   };
 
   const handleMarkerPress = (building) => {
@@ -133,55 +141,22 @@ const MapScreen = ({ theme, accentColor }) => {
     );
   };
 
-  // Функция для получения URL тайла с учетом кэша
-  const getTileUrl = (x, y, z) => {
-    const tileUrl = OSM_URL_TEMPLATE
-      .replace('{x}', x)
-      .replace('{y}', y)
-      .replace('{z}', z);
-    
-    return tileUrl;
+  const getMarkerIcon = (buildingType) => {
+    return BUILDING_ICONS[buildingType] || 'business-outline';
   };
 
-  if (!mapLoaded) {
+  // Если есть ошибка или загрузка, показываем соответствующий экран
+  if (loading || error) {
     return (
-      <View style={[styles.container, { backgroundColor: bgColor }]}>
-        <View style={[styles.placeholder, { backgroundColor: cardBg }]}>
-          {isOnline ? (
-            <>
-              <ActivityIndicator size="large" color={colors.primary} />
-              <Text style={[styles.placeholderText, { color: textColor, marginTop: 16 }]}>
-                Загрузка карты...
-              </Text>
-            </>
-          ) : cachedMapAvailable ? (
-            <>
-              <Icon name="warning-outline" size={48} color={colors.primary} />
-              <Text style={[styles.placeholderText, { color: textColor, marginTop: 16 }]}>
-                Нет подключения к интернету
-              </Text>
-              <Text style={[styles.placeholderSubtext, { color: textColor }]}>
-                Используется кэшированная версия карты
-              </Text>
-              <Text style={[styles.retryText, { color: colors.primary }]} onPress={handleRetry}>
-                Попробовать обновить
-              </Text>
-            </>
-          ) : (
-            <>
-              <Icon name="cloud-offline-outline" size={48} color={colors.primary} />
-              <Text style={[styles.placeholderText, { color: textColor, marginTop: 16 }]}>
-                Нет подключения к интернету
-              </Text>
-              <Text style={[styles.placeholderSubtext, { color: textColor }]}>
-                Карта не загружена и недоступна в оффлайн-режиме
-              </Text>
-              <Text style={[styles.retryText, { color: colors.primary }]} onPress={handleRetry}>
-                Попробовать снова
-              </Text>
-            </>
-          )}
-        </View>
+      <View style={{ flex: 1, backgroundColor: bgColor }}>
+        <ConnectionError 
+          type={error}
+          loading={loading}
+          onRetry={handleRetry}
+          theme={theme}
+          accentColor={accentColor}
+          message={error === 'no-internet' ? 'Карта недоступна без подключения к интернету' : 'Не удалось загрузить карту'}
+        />
       </View>
     );
   }
@@ -199,10 +174,11 @@ const MapScreen = ({ theme, accentColor }) => {
         }}
         showsUserLocation={true}
         showsMyLocationButton={true}
+        userInterfaceStyle={theme}
       >
-        {/* Используем тайлы OpenStreetMap */}
+        {/* Используем тайлы в зависимости от темы */}
         <UrlTile
-          urlTemplate={OSM_URL_TEMPLATE}
+          urlTemplate={mapTheme.urlTemplate}
           maximumZ={19}
           flipY={false}
         />
@@ -218,23 +194,32 @@ const MapScreen = ({ theme, accentColor }) => {
             description={building.description}
             onPress={() => handleMarkerPress(building)}
           >
-            <View style={styles.marker}>
-              <Icon name="business-outline" size={24} color={colors.primary} />
+            <View style={[styles.marker, { backgroundColor: colors.light }]}>
+              <Icon 
+                name={getMarkerIcon(building.type)} 
+                size={24} 
+                color={mapTheme.markerColor} 
+              />
             </View>
           </Marker>
         ))}
       </MapView>
       
-      {!isOnline && (
-        <View style={styles.offlineIndicator}>
-          <Icon name="cloud-offline-outline" size={16} color="#ffffff" />
-          <Text style={styles.offlineText}>Оффлайн-режим</Text>
-        </View>
-      )}
-      
-      <View style={styles.attribution}>
-        <Text style={styles.attributionText}>
-          © OpenStreetMap contributors
+      <View style={[styles.attribution, { backgroundColor: theme === 'dark' ? '#000000' : '#ffffff' }]}>
+        <Text style={[styles.attributionText, { color: theme === 'dark' ? '#ffffff' : '#333333' }]}>
+          {mapTheme.attribution}
+        </Text>
+      </View>
+
+      {/* Индикатор темы карты */}
+      <View style={[styles.themeIndicatorBadge, { backgroundColor: theme === 'dark' ? '#000000' : '#ffffff' }]}>
+        <Icon 
+          name={theme === 'dark' ? 'moon' : 'sunny'} 
+          size={14} 
+          color={theme === 'dark' ? '#ffffff' : '#333333'} 
+        />
+        <Text style={[styles.themeIndicatorText, { color: theme === 'dark' ? '#ffffff' : '#333333' }]}>
+          {theme === 'dark' ? 'Тёмная карта' : 'Светлая карта'}
         </Text>
       </View>
     </View>
@@ -255,58 +240,29 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#ddd',
   },
-  placeholder: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    margin: 20,
-    borderRadius: 12,
-    padding: 20,
-  },
-  placeholderText: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    textAlign: 'center',
-    fontFamily: 'Montserrat_600SemiBold',
-  },
-  placeholderSubtext: {
-    fontSize: 14,
-    textAlign: 'center',
-    marginTop: 8,
-    fontFamily: 'Montserrat_400Regular',
-  },
-  retryText: {
-    fontSize: 16,
-    marginTop: 16,
-    fontFamily: 'Montserrat_500Medium',
-  },
-  offlineIndicator: {
-    position: 'absolute',
-    top: Platform.OS === 'ios' ? 50 : 20,
-    right: 16,
-    backgroundColor: 'rgba(0, 0, 0, 0.7)',
-    padding: 8,
-    borderRadius: 8,
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  offlineText: {
-    color: '#ffffff',
-    marginLeft: 4,
-    fontSize: 12,
-    fontFamily: 'Montserrat_400Regular',
-  },
   attribution: {
     position: 'absolute',
     bottom: 16,
     left: 16,
-    backgroundColor: 'rgba(255, 255, 255, 0.8)',
-    padding: 4,
+    padding: 6,
     borderRadius: 4,
   },
   attributionText: {
     fontSize: 10,
-    color: '#333',
+    fontFamily: 'Montserrat_400Regular',
+  },
+  themeIndicatorBadge: {
+    position: 'absolute',
+    top: Platform.OS === 'ios' ? 50 : 20,
+    left: 16,
+    padding: 6,
+    borderRadius: 4,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  themeIndicatorText: {
+    fontSize: 10,
+    marginLeft: 4,
     fontFamily: 'Montserrat_400Regular',
   },
 });
