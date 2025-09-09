@@ -206,7 +206,7 @@ const ScheduleScreen = ({ theme, accentColor }) => {
                 }}
               >
                 <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
-                  <Icon name="number-outline" size={14} color={placeholderColor} />
+                  <Icon name="book-outline" size={14} color={placeholderColor} />
                   <Text style={{ color: placeholderColor, marginLeft: 8, fontSize: 14, fontFamily: 'Montserrat_400Regular' }}>
                     Пара №{lesson.time}
                   </Text>
@@ -290,7 +290,7 @@ const ScheduleScreen = ({ theme, accentColor }) => {
                 }}
               >
                 <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
-                  <Icon name="number-outline" size={14} color={placeholderColor} />
+                  <Icon name="book-outline" size={14} color={placeholderColor} />
                   <Text style={{ color: placeholderColor, marginLeft: 8, fontSize: 14, fontFamily: 'Montserrat_400Regular' }}>
                     Пара №{lesson.time}
                   </Text>
