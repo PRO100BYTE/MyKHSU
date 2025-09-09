@@ -23,7 +23,7 @@ export const ACCENT_COLORS = {
 };
 
 // Версия приложения
-export const APP_VERSION = '1.0.1-refactored';
+export const APP_VERSION = '1.0.2';
 export const APP_DEVELOPERS = 'студентами группы 125-1 в составе команды PRO100BYTE Team';
 
 // Дни недели
