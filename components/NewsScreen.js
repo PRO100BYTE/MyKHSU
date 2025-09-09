@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, Alert, StyleSheet } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, StyleSheet } from 'react-native';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import { getWithExpiry, setWithExpiry, safeJsonParse } from '../utils/cache';
 import { API_BASE_URL, CORS_PROXY, ACCENT_COLORS } from '../utils/constants';
