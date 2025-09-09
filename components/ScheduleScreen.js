@@ -1,9 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, Alert, StyleSheet } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, Alert, StyleSheet, Dimensions } from 'react-native';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import { getWithExpiry, setWithExpiry, safeJsonParse } from '../utils/cache';
 import { getWeekNumber, formatDate, getDateByWeekAndDay } from '../utils/dateUtils';
 import { API_BASE_URL, CORS_PROXY, ACCENT_COLORS } from '../utils/constants';
+import ConnectionError from './ConnectionError';
+import NetInfo from '@react-native-community/netinfo';
+
+const { width } = Dimensions.get('window');
 
 const ScheduleScreen = ({ theme, accentColor }) => {
   const [course, setCourse] = useState(1);
@@ -16,6 +20,8 @@ const ScheduleScreen = ({ theme, accentColor }) => {
   const [viewMode, setViewMode] = useState('day');
   const [currentDate, setCurrentDate] = useState(new Date());
   const [currentWeek, setCurrentWeek] = useState(getWeekNumber(new Date()));
+  const [error, setError] = useState(null);
+  const [isOnline, setIsOnline] = useState(true);
 
   const bgColor = theme === 'light' ? '#f3f4f6' : '#111827';
   const cardBg = theme === 'light' ? '#ffffff' : '#1f2937';
@@ -24,24 +30,46 @@ const ScheduleScreen = ({ theme, accentColor }) => {
   const borderColor = theme === 'light' ? '#e5e7eb' : '#374151';
   const placeholderColor = theme === 'light' ? '#6b7280' : '#9ca3af';
 
+  useEffect(() => {
+    // Проверяем подключение к интернету
+    const unsubscribe = NetInfo.addEventListener(state => {
+      setIsOnline(state.isConnected);
+    });
+
+    fetchGroupsForCourse(course);
+    fetchPairsTime();
+
+    return () => unsubscribe();
+  }, [course]);
+
+  useEffect(() => {
+    if (selectedGroup) {
+      fetchScheduleData(selectedGroup);
+    }
+  }, [viewMode, currentDate, currentWeek, selectedGroup]);
+
   const fetchGroupsForCourse = async (course) => {
     setLoadingGroups(true);
+    setError(null);
+    
     try {
       const cacheKey = `groups_${course}`;
       const cached = await getWithExpiry(cacheKey);
       
       if (cached) {
         setGroups(cached.groups || []);
-      } else {
+      } else if (isOnline) {
         const targetUrl = `${API_BASE_URL}/getgroups/${course}`;
         const response = await fetch(`${CORS_PROXY}${encodeURIComponent(targetUrl)}`);
         const data = await safeJsonParse(response);
         setGroups(data.groups || []);
         await setWithExpiry(cacheKey, data);
+      } else {
+        setError('no-internet');
       }
     } catch (error) {
       console.error('Error fetching groups:', error);
-      Alert.alert('Ошибка', 'Не удалось загрузить список групп.');
+      setError('load-error');
     } finally {
       setLoadingGroups(false);
     }
@@ -50,6 +78,7 @@ const ScheduleScreen = ({ theme, accentColor }) => {
   const fetchScheduleData = async (group) => {
     setSelectedGroup(group);
     setLoadingSchedule(true);
+    setError(null);
     
     try {
       if (viewMode === 'week') {
@@ -58,12 +87,14 @@ const ScheduleScreen = ({ theme, accentColor }) => {
         
         if (cached) {
           setScheduleData(cached);
-        } else {
+        } else if (isOnline) {
           const targetUrl = `${API_BASE_URL}/getpairsweek?type=group&data=${group}&week=${currentWeek}`;
           const response = await fetch(`${CORS_PROXY}${encodeURIComponent(targetUrl)}`);
           const data = await safeJsonParse(response);
           setScheduleData(data);
           await setWithExpiry(cacheKey, data, 60 * 60 * 1000);
+        } else {
+          setError('no-internet');
         }
       } else {
         const formattedDate = formatDate(currentDate);
@@ -72,17 +103,19 @@ const ScheduleScreen = ({ theme, accentColor }) => {
         
         if (cached) {
           setScheduleData(cached);
-        } else {
+        } else if (isOnline) {
           const targetUrl = `${API_BASE_URL}/getpairs/date:${group}:${formattedDate}`;
           const response = await fetch(`${CORS_PROXY}${encodeURIComponent(targetUrl)}`);
           const data = await safeJsonParse(response);
           setScheduleData(data);
           await setWithExpiry(cacheKey, data, 60 * 60 * 1000);
+        } else {
+          setError('no-internet');
         }
       }
     } catch (error) {
       console.error('Error fetching schedule:', error);
-      Alert.alert('Ошибка', 'Не удалось загрузить расписание.');
+      setError('load-error');
     } finally {
       setLoadingSchedule(false);
     }
@@ -95,7 +128,7 @@ const ScheduleScreen = ({ theme, accentColor }) => {
       
       if (cached) {
         setPairsTime(cached.pairs_time || []);
-      } else {
+      } else if (isOnline) {
         const targetUrl = `${API_BASE_URL}/getpairstime`;
         const response = await fetch(`${CORS_PROXY}${encodeURIComponent(targetUrl)}`);
         const data = await safeJsonParse(response);
@@ -106,17 +139,6 @@ const ScheduleScreen = ({ theme, accentColor }) => {
       console.error('Error fetching pairs time:', error);
     }
   };
-
-  useEffect(() => {
-    fetchGroupsForCourse(course);
-    fetchPairsTime();
-  }, [course]);
-
-  useEffect(() => {
-    if (selectedGroup) {
-      fetchScheduleData(selectedGroup);
-    }
-  }, [viewMode, currentDate, currentWeek, selectedGroup]);
 
   const getTimeForLesson = (timeNumber) => {
     return pairsTime.find(pair => pair.time === timeNumber);
@@ -132,174 +154,36 @@ const ScheduleScreen = ({ theme, accentColor }) => {
     setCurrentWeek(currentWeek + weeks);
   };
 
+  const handleRetry = () => {
+    setError(null);
+    if (isOnline) {
+      if (selectedGroup) {
+        fetchScheduleData(selectedGroup);
+      } else {
+        fetchGroupsForCourse(course);
+      }
+    } else {
+      setError('no-internet');
+    }
+  };
+
   const weekdays = ["Понедельник", "Вторник", "Среда", "Четверг", "Пятница", "Суббота", "Воскресенье"];
 
-  const renderDaySchedule = (day) => {
-    // Исправление ошибки: проверяем, что day существует
-    if (!day || !day.lessons) return null;
-    
-    const date = getDateByWeekAndDay(currentWeek, day.weekday);
+  // Если есть ошибка, показываем соответствующий экран
+  if (error && !loadingGroups && !loadingSchedule) {
     return (
-      <View 
-        key={day.weekday} 
-        style={{ 
-          backgroundColor: cardBg, 
-          borderRadius: 12, 
-          padding: 16, 
-          marginBottom: 16,
-          borderWidth: 1,
-          borderColor
-        }}
-      >
-        <Text style={{ fontSize: 18, fontWeight: 'bold', color: colors.primary, marginBottom: 4, fontFamily: 'Montserrat_600SemiBold' }}>
-          {weekdays[day.weekday - 1]}
-        </Text>
-        <Text style={{ color: placeholderColor, marginBottom: 12, fontFamily: 'Montserrat_400Regular' }}>
-          {formatDate(date)}
-        </Text>
-
-        {day.lessons.length > 0 ? (
-          day.lessons.map(lesson => {
-            const pairTime = getTimeForLesson(lesson.time);
-            return (
-              <View 
-                key={lesson.id} 
-                style={{ 
-                  paddingVertical: 12, 
-                  borderTopWidth: 1, 
-                  borderTopColor: borderColor,
-                  marginTop: 12
-                }}
-              >
-                {/* Добавлено отображение номера пары */}
-                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
-                  <Icon name="book-outline" size={14} color={placeholderColor} />
-                  <Text style={{ color: placeholderColor, marginLeft: 8, fontSize: 14, fontFamily: 'Montserrat_400Regular' }}>
-                    Пара №{lesson.time}
-                  </Text>
-                </View>
-                
-                <Text style={{ fontWeight: '600', color: textColor, fontSize: 16, fontFamily: 'Montserrat_500Medium' }}>
-                  {lesson.subject} ({lesson.type_lesson})
-                </Text>
-                
-                <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 8 }}>
-                  <Icon name="person-outline" size={14} color={placeholderColor} />
-                  <Text style={{ color: textColor, marginLeft: 8, fontSize: 14, fontFamily: 'Montserrat_400Regular' }}>
-                    {lesson.teacher}
-                  </Text>
-                </View>
-                
-                <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
-                  <Icon name="location-outline" size={14} color={placeholderColor} />
-                  <Text style={{ color: textColor, marginLeft: 8, fontSize: 14, fontFamily: 'Montserrat_400Regular' }}>
-                    Аудитория: {lesson.auditory}
-                  </Text>
-                </View>
-                
-                {pairTime && (
-                  <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
-                    <Icon name="time-outline" size={14} color={placeholderColor} />
-                    <Text style={{ color: placeholderColor, marginLeft: 8, fontSize: 14, fontFamily: 'Montserrat_400Regular' }}>
-                      {pairTime.time_start} - {pairTime.time_end}
-                    </Text>
-                  </View>
-                )}
-              </View>
-            );
-          })
-        ) : (
-          <Text style={{ color: placeholderColor, marginTop: 12, fontFamily: 'Montserrat_400Regular' }}>Занятий нет</Text>
-        )}
+      <View style={{ flex: 1, backgroundColor: bgColor }}>
+        <ConnectionError 
+          type={error}
+          loading={false}
+          onRetry={handleRetry}
+          theme={theme}
+          accentColor={accentColor}
+          message={error === 'no-internet' ? 'Расписание недоступно без подключения к интернету' : 'Не удалось загрузить расписание'}
+        />
       </View>
     );
-  };
-
-  const renderDailySchedule = () => {
-    if (!scheduleData) return null;
-    
-    const weekday = currentDate.getDay() === 0 ? 7 : currentDate.getDay();
-    const daySchedule = scheduleData.days ? 
-      scheduleData.days.find(d => d.weekday === weekday) : 
-      { lessons: scheduleData.lessons || [] };
-    
-    // Исправление ошибки: проверяем, что daySchedule существует
-    if (!daySchedule) return null;
-    
-    return (
-      <View 
-        style={{ 
-          backgroundColor: cardBg, 
-          borderRadius: 12, 
-          padding: 16, 
-          marginBottom: 16,
-          borderWidth: 1,
-          borderColor
-        }}
-      >
-        <Text style={{ fontSize: 18, fontWeight: 'bold', color: colors.primary, marginBottom: 4, fontFamily: 'Montserrat_600SemiBold' }}>
-          {weekdays[weekday - 1]}
-        </Text>
-        <Text style={{ color: placeholderColor, marginBottom: 12, fontFamily: 'Montserrat_400Regular' }}>
-          {formatDate(currentDate)}
-        </Text>
-
-        {daySchedule.lessons && daySchedule.lessons.length > 0 ? (
-          daySchedule.lessons.map(lesson => {
-            const pairTime = getTimeForLesson(lesson.time);
-            return (
-              <View 
-                key={lesson.id} 
-                style={{ 
-                  paddingVertical: 12, 
-                  borderTopWidth: 1, 
-                  borderTopColor: borderColor,
-                  marginTop: 12
-                }}
-              >
-                {/* Добавлено отображение номера пары */}
-                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
-                  <Icon name="book-outline" size={14} color={placeholderColor} />
-                  <Text style={{ color: placeholderColor, marginLeft: 8, fontSize: 14, fontFamily: 'Montserrat_400Regular' }}>
-                    Пара №{lesson.time}
-                  </Text>
-                </View>
-                
-                <Text style={{ fontWeight: '600', color: textColor, fontSize: 16, fontFamily: 'Montserrat_500Medium' }}>
-                  {lesson.subject} ({lesson.type_lesson})
-                </Text>
-                
-                <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 8 }}>
-                  <Icon name="person-outline" size={14} color={placeholderColor} />
-                  <Text style={{ color: textColor, marginLeft: 8, fontSize: 14, fontFamily: 'Montserrat_400Regular' }}>
-                    {lesson.teacher}
-                  </Text>
-                </View>
-                
-                <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
-                  <Icon name="location-outline" size={14} color={placeholderColor} />
-                  <Text style={{ color: textColor, marginLeft: 8, fontSize: 14, fontFamily: 'Montserrat_400Regular' }}>
-                    Аудитория: {lesson.auditory}
-                  </Text>
-                </View>
-                
-                {pairTime && (
-                  <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
-                    <Icon name="time-outline" size={14} color={placeholderColor} />
-                    <Text style={{ color: placeholderColor, marginLeft: 8, fontSize: 14, fontFamily: 'Montserrat_400Regular' }}>
-                      {pairTime.time_start} - {pairTime.time_end}
-                    </Text>
-                  </View>
-                )}
-              </View>
-            );
-          })
-        ) : (
-          <Text style={{ color: placeholderColor, marginTop: 12, fontFamily: 'Montserrat_400Regular' }}>Занятий нет</Text>
-        )}
-      </View>
-    );
-  };
+  }
 
   return (
     <ScrollView style={{ flex: 1, backgroundColor: bgColor, padding: 16 }}>
@@ -442,8 +326,9 @@ const ScheduleScreen = ({ theme, accentColor }) => {
                 </Text>
               </View>
 
-              {/* Исправление ошибки: проверяем, что scheduleData.days существует */}
-              {scheduleData.days && scheduleData.days.map(day => renderDaySchedule(day))}
+              {scheduleData.days.map(day => 
+                day && day.lessons ? renderDaySchedule(day) : null
+              )}
             </View>
           ) : scheduleData && viewMode === 'day' ? (
             <View>
@@ -460,6 +345,21 @@ const ScheduleScreen = ({ theme, accentColor }) => {
             </Text>
           ) : null}
         </>
+      )}
+      
+      {!isOnline && !error && (
+        <View style={{ 
+          backgroundColor: colors.light, 
+          padding: 16, 
+          borderRadius: 8, 
+          alignItems: 'center',
+          marginTop: 16
+        }}>
+          <Icon name="cloud-offline-outline" size={20} color={colors.primary} />
+          <Text style={{ color: colors.primary, marginTop: 8, textAlign: 'center', fontFamily: 'Montserrat_400Regular' }}>
+            Нет подключения к интернету. Показаны ранее загруженные данные.
+          </Text>
+        </View>
       )}
     </ScrollView>
   );
