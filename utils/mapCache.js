@@ -88,12 +88,16 @@ export const checkCacheSize = async () => {
       
       // Удаляем самые старые файлы, пока размер кэша не станет допустимым
       for (const [fileName] of sortedFiles) {
-        await FileSystem.deleteAsync(`${CACHE_DIR}${fileName}`);
-        delete cacheIndex[fileName];
-        
-        const newDirInfo = await FileSystem.getInfoAsync(CACHE_DIR);
-        if (newDirInfo.size <= MAX_CACHE_SIZE * 0.8) {
-          break;
+        try {
+          await FileSystem.deleteAsync(`${CACHE_DIR}${fileName}`);
+          delete cacheIndex[fileName];
+          
+          const newDirInfo = await FileSystem.getInfoAsync(CACHE_DIR);
+          if (newDirInfo.size <= MAX_CACHE_SIZE * 0.8) {
+            break;
+          }
+        } catch (error) {
+          console.error('Error deleting cached tile:', error);
         }
       }
       
@@ -107,11 +111,59 @@ export const checkCacheSize = async () => {
 // Очистка всего кэша карты
 export const clearMapCache = async () => {
   try {
-    await FileSystem.deleteAsync(CACHE_DIR);
+    const dirInfo = await FileSystem.getInfoAsync(CACHE_DIR);
+    
+    if (dirInfo.exists) {
+      await FileSystem.deleteAsync(CACHE_DIR, { idempotent: true });
+    }
+    
     await initCache();
     await setWithExpiry('map_tiles_index', {});
     await setWithExpiry('cached_map_available', false);
+    
+    return true;
   } catch (error) {
     console.error('Error clearing map cache:', error);
+    // Если директории не существует, все равно считаем операцию успешной
+    if (error.message.includes('does not exist')) {
+      return true;
+    }
+    throw error;
   }
+};
+
+// Получение информации о кэше карты
+export const getMapCacheInfo = async () => {
+  try {
+    const dirInfo = await FileSystem.getInfoAsync(CACHE_DIR);
+    const cacheIndex = await getCacheIndex();
+    
+    return {
+      exists: dirInfo.exists,
+      size: dirInfo.exists ? dirInfo.size : 0,
+      fileCount: Object.keys(cacheIndex).length,
+      sizeReadable: dirInfo.exists ? formatBytes(dirInfo.size) : '0 Bytes'
+    };
+  } catch (error) {
+    console.error('Error getting map cache info:', error);
+    return {
+      exists: false,
+      size: 0,
+      fileCount: 0,
+      sizeReadable: '0 Bytes'
+    };
+  }
+};
+
+// Вспомогательная функция для форматирования размера в байтах
+const formatBytes = (bytes, decimals = 2) => {
+  if (bytes === 0) return '0 Bytes';
+  
+  const k = 1024;
+  const dm = decimals < 0 ? 0 : decimals;
+  const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+  
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
 };
