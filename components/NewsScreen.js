@@ -8,10 +8,12 @@ import NetInfo from '@react-native-community/netinfo';
 
 const NewsScreen = ({ theme, accentColor }) => {
   const [news, setNews] = useState([]);
+  const [cachedNews, setCachedNews] = useState([]);
   const [from, setFrom] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [isOnline, setIsOnline] = useState(true);
+  const [showCachedData, setShowCachedData] = useState(false);
 
   const bgColor = theme === 'light' ? '#f3f4f6' : '#111827';
   const cardBg = theme === 'light' ? '#ffffff' : '#1f2937';
@@ -24,6 +26,11 @@ const NewsScreen = ({ theme, accentColor }) => {
     // Проверяем подключение к интернету
     const unsubscribe = NetInfo.addEventListener(state => {
       setIsOnline(state.isConnected);
+      
+      // Если появилось соединение, сбрасываем флаг показа кэша
+      if (state.isConnected) {
+        setShowCachedData(false);
+      }
     });
 
     // Сначала пробуем загрузить из кэша
@@ -34,19 +41,29 @@ const NewsScreen = ({ theme, accentColor }) => {
 
   const loadCachedNews = async () => {
     try {
-      const cachedNews = await getWithExpiry('news');
-      if (cachedNews) {
-        setNews(cachedNews);
-      } else if (isOnline) {
+      const cachedData = await getWithExpiry('news');
+      if (cachedData) {
+        setCachedNews(cachedData);
+        
+        // Если есть кэш и нет интернета, автоматически показываем кэшированные данные
+        if (!isOnline) {
+          setNews(cachedData);
+          setShowCachedData(true);
+          return;
+        }
+      }
+      
+      // Если есть интернет, загружаем свежие данные
+      if (isOnline) {
         fetchNews(true);
-      } else {
+      } else if (!cachedData) {
         setError('no-internet');
       }
     } catch (error) {
       console.error('Error loading cached news:', error);
       if (isOnline) {
         fetchNews(true);
-      } else {
+      } else if (!cachedNews.length) {
         setError('no-internet');
       }
     }
@@ -72,16 +89,19 @@ const NewsScreen = ({ theme, accentColor }) => {
       // Кэшируем новости
       if (isInitial) {
         await setWithExpiry('news', filteredData, 30 * 60 * 1000); // 30 минут
+        setCachedNews(filteredData);
       }
       
       setNews(isInitial ? filteredData : [...news, ...filteredData]);
       setFrom(targetFrom + 10);
+      setShowCachedData(false);
     } catch (error) {
       console.error('Error fetching news:', error);
-      // Пробуем загрузить из кэша при ошибке
-      const cachedNews = await getWithExpiry('news');
-      if (cachedNews && isInitial) {
+      
+      // При ошибке пытаемся показать кэшированные данные
+      if (cachedNews.length > 0) {
         setNews(cachedNews);
+        setShowCachedData(true);
       } else {
         setError('load-error');
       }
@@ -99,14 +119,24 @@ const NewsScreen = ({ theme, accentColor }) => {
     }
   };
 
+  const handleViewCache = () => {
+    if (cachedNews.length > 0) {
+      setNews(cachedNews);
+      setShowCachedData(true);
+      setError(null);
+    }
+  };
+
   // Если есть ошибка или загрузка, показываем соответствующий экран
-  if (error || (loading && news.length === 0)) {
+  if ((error && !showCachedData) || (loading && news.length === 0)) {
     return (
       <View style={{ flex: 1, backgroundColor: bgColor }}>
         <ConnectionError 
           type={error}
           loading={loading && news.length === 0}
           onRetry={handleRetry}
+          onViewCache={handleViewCache}
+          showCacheButton={cachedNews.length > 0}
           theme={theme}
           accentColor={accentColor}
           message={error === 'no-internet' ? 'Новости недоступны без подключения к интернету' : 'Не удалось загрузить новости'}
@@ -117,6 +147,21 @@ const NewsScreen = ({ theme, accentColor }) => {
 
   return (
     <View style={{ flex: 1, backgroundColor: bgColor }}>
+      {showCachedData && (
+        <View style={{ 
+          backgroundColor: colors.light, 
+          padding: 12, 
+          alignItems: 'center',
+          flexDirection: 'row',
+          justifyContent: 'center'
+        }}>
+          <Icon name="time-outline" size={16} color={colors.primary} />
+          <Text style={{ color: colors.primary, marginLeft: 8, fontFamily: 'Montserrat_400Regular' }}>
+            Показаны кэшированные данные {new Date(cachedNews[0]?.cacheDate).toLocaleDateString('ru-RU')}
+          </Text>
+        </View>
+      )}
+      
       <ScrollView contentContainerStyle={{ padding: 16 }}>
         {news.map((item, index) => (
           <View 
@@ -139,9 +184,13 @@ const NewsScreen = ({ theme, accentColor }) => {
           </View>
         ))}
         
-        {loading && <ActivityIndicator size="large" color={colors.primary} />}
+        {loading && news.length > 0 && (
+          <View style={{ padding: 16 }}>
+            <ActivityIndicator size="large" color={colors.primary} />
+          </View>
+        )}
         
-        {!loading && isOnline && (
+        {!loading && isOnline && !showCachedData && (
           <TouchableOpacity 
             onPress={() => fetchNews(false)}
             style={{ 
@@ -168,7 +217,7 @@ const NewsScreen = ({ theme, accentColor }) => {
           }}>
             <Icon name="cloud-offline-outline" size={20} color={colors.primary} />
             <Text style={{ color: colors.primary, marginTop: 8, textAlign: 'center', fontFamily: 'Montserrat_400Regular' }}>
-              Нет подключения к интернету. Показаны ранее загруженные новости.
+              Нет подключения к интернету. {showCachedData ? 'Показаны ранее загруженные новости.' : 'Невозможно загрузить новые данные.'}
             </Text>
           </View>
         )}
