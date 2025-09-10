@@ -22,11 +22,30 @@ export const setWithExpiry = async (key, value, ttl = CACHE_TTL) => {
   try {
     const item = {
       value,
-      expiry: Date.now() + ttl
+      expiry: Date.now() + ttl,
+      cacheDate: new Date().toISOString() // Добавляем дату кэширования
     };
     await AsyncStorage.setItem(key, JSON.stringify(item));
   } catch (error) {
     console.error('Error setting cache:', error);
+  }
+};
+
+// Функция для получения данных кэша вместе с метаинформацией
+export const getWithExpiryAndInfo = async (key) => {
+  try {
+    const itemStr = await AsyncStorage.getItem(key);
+    if (!itemStr) return null;
+    
+    const item = JSON.parse(itemStr);
+    if (Date.now() > item.expiry) {
+      await AsyncStorage.removeItem(key);
+      return null;
+    }
+    return item; // Возвращаем весь объект с метаинформацией
+  } catch (error) {
+    console.error('Error getting cache:', error);
+    return null;
   }
 };
 
