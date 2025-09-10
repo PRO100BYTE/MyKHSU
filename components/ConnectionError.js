@@ -3,11 +3,89 @@ import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'rea
 import { Ionicons as Icon } from '@expo/vector-icons';
 import { ACCENT_COLORS } from '../utils/constants';
 
-const ConnectionError = ({ type, loading, onRetry, theme, accentColor, message, onViewCache, showCacheButton }) => {
+const ConnectionError = ({ 
+  type, 
+  loading, 
+  onRetry, 
+  onViewCache, 
+  theme, 
+  accentColor, 
+  message,
+  contentType = 'general' // 'map', 'schedule', 'news', 'general'
+}) => {
   const colors = ACCENT_COLORS[accentColor];
   const bgColor = theme === 'light' ? '#f3f4f6' : '#111827';
   const textColor = theme === 'light' ? '#111827' : '#ffffff';
   const cardBg = theme === 'light' ? '#ffffff' : '#1f2937';
+
+  // Конфигурация для разных типов контента
+  const contentConfigs = {
+    map: {
+      'no-internet': {
+        icon: 'map-outline',
+        title: 'Карта недоступна',
+        description: 'Для загрузки карты необходимо подключение к интернету',
+        cacheButton: 'Использовать оффлайн-карту'
+      },
+      'load-error': {
+        icon: 'warning-outline',
+        title: 'Ошибка загрузки карты',
+        description: 'Не удалось загрузить карту. Проверьте подключение и попробуйте снова',
+        cacheButton: 'Использовать оффлайн-карту'
+      }
+    },
+    schedule: {
+      'no-internet': {
+        icon: 'calendar-outline',
+        title: 'Расписание недоступно',
+        description: 'Для загрузки расписания необходимо подключение к интернету',
+        cacheButton: 'Показать кэшированное расписание'
+      },
+      'load-error': {
+        icon: 'warning-outline',
+        title: 'Ошибка загрузки расписания',
+        description: 'Не удалось загрузить расписание. Проверьте подключение и попробуйте снова',
+        cacheButton: 'Показать кэшированное расписание'
+      }
+    },
+    news: {
+      'no-internet': {
+        icon: 'newspaper-outline',
+        title: 'Новости недоступны',
+        description: 'Для загрузки новостей необходимо подключение к интернету',
+        cacheButton: 'Показать кэшированные новости'
+      },
+      'load-error': {
+        icon: 'warning-outline',
+        title: 'Ошибка загрузки новостей',
+        description: 'Не удалось загрузить новости. Проверьте подключение и попробуйте снова',
+        cacheButton: 'Показать кэшированные новости'
+      }
+    },
+    general: {
+      'no-internet': {
+        icon: 'cloud-offline-outline',
+        title: 'Нет подключения к интернету',
+        description: 'Для загрузки данных необходимо подключение к интернету',
+        cacheButton: 'Показать кэшированные данные'
+      },
+      'load-error': {
+        icon: 'warning-outline',
+        title: 'Ошибка загрузки',
+        description: 'Не удалось загрузить данные. Проверьте подключение и попробуйте снова',
+        cacheButton: 'Показать кэшированные данные'
+      },
+      'default': {
+        icon: 'refresh-outline',
+        title: 'Ошибка',
+        description: 'Произошла непредвиденная ошибка',
+        cacheButton: 'Показать кэшированные данные'
+      }
+    }
+  };
+
+  // Получаем конфигурацию для текущего типа контента и ошибки
+  const config = contentConfigs[contentType][type] || contentConfigs[contentType]['default'] || contentConfigs.general.default;
 
   if (loading) {
     return (
@@ -15,32 +93,14 @@ const ConnectionError = ({ type, loading, onRetry, theme, accentColor, message, 
         <View style={[styles.content, { backgroundColor: cardBg }]}>
           <ActivityIndicator size="large" color={colors.primary} />
           <Text style={[styles.title, { color: textColor, marginTop: 16 }]}>
-            Загрузка...
+            {contentType === 'map' ? 'Загрузка карты...' : 
+             contentType === 'schedule' ? 'Загрузка расписания...' : 
+             contentType === 'news' ? 'Загрузка новостей...' : 'Загрузка...'}
           </Text>
         </View>
       </View>
     );
   }
-
-  const errorConfigs = {
-    'no-internet': {
-      icon: 'cloud-offline-outline',
-      title: 'Нет подключения к интернету',
-      description: message || 'Для загрузки данных необходимо подключение к интернету'
-    },
-    'load-error': {
-      icon: 'warning-outline',
-      title: 'Ошибка загрузки',
-      description: message || 'Не удалось загрузить данные. Проверьте подключение и попробуйте снова'
-    },
-    'default': {
-      icon: 'refresh-outline',
-      title: 'Ошибка',
-      description: message || 'Произошла непредвиденная ошибка'
-    }
-  };
-
-  const config = errorConfigs[type] || errorConfigs.default;
 
   return (
     <View style={[styles.container, { backgroundColor: bgColor }]}>
@@ -50,7 +110,7 @@ const ConnectionError = ({ type, loading, onRetry, theme, accentColor, message, 
           {config.title}
         </Text>
         <Text style={[styles.description, { color: textColor }]}>
-          {config.description}
+          {message || config.description}
         </Text>
         
         <View style={styles.buttonsContainer}>
@@ -61,13 +121,13 @@ const ConnectionError = ({ type, loading, onRetry, theme, accentColor, message, 
             <Text style={styles.retryButtonText}>Попробовать снова</Text>
           </TouchableOpacity>
           
-          {showCacheButton && (
+          {onViewCache && (
             <TouchableOpacity
               style={[styles.cacheButton, { backgroundColor: colors.light, borderColor: colors.primary }]}
               onPress={onViewCache}
             >
               <Text style={[styles.cacheButtonText, { color: colors.primary }]}>
-                Показать кэшированные данные
+                {config.cacheButton}
               </Text>
             </TouchableOpacity>
           )}
