@@ -1,9 +1,9 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import { ACCENT_COLORS } from '../utils/constants';
 
-const ConnectionError = ({ type, loading, onRetry, theme, accentColor, message }) => {
+const ConnectionError = ({ type, loading, onRetry, theme, accentColor, message, onViewCache, showCacheButton }) => {
   const colors = ACCENT_COLORS[accentColor];
   const bgColor = theme === 'light' ? '#f3f4f6' : '#111827';
   const textColor = theme === 'light' ? '#111827' : '#ffffff';
@@ -52,12 +52,26 @@ const ConnectionError = ({ type, loading, onRetry, theme, accentColor, message }
         <Text style={[styles.description, { color: textColor }]}>
           {config.description}
         </Text>
-        <TouchableOpacity
-          style={[styles.retryButton, { backgroundColor: colors.primary }]}
-          onPress={onRetry}
-        >
-          <Text style={styles.retryButtonText}>Попробовать снова</Text>
-        </TouchableOpacity>
+        
+        <View style={styles.buttonsContainer}>
+          <TouchableOpacity
+            style={[styles.retryButton, { backgroundColor: colors.primary }]}
+            onPress={onRetry}
+          >
+            <Text style={styles.retryButtonText}>Попробовать снова</Text>
+          </TouchableOpacity>
+          
+          {showCacheButton && (
+            <TouchableOpacity
+              style={[styles.cacheButton, { backgroundColor: colors.light, borderColor: colors.primary }]}
+              onPress={onViewCache}
+            >
+              <Text style={[styles.cacheButtonText, { color: colors.primary }]}>
+                Показать кэшированные данные
+              </Text>
+            </TouchableOpacity>
+          )}
+        </View>
       </View>
     </View>
   );
@@ -90,13 +104,29 @@ const styles = StyleSheet.create({
     fontFamily: 'Montserrat_400Regular',
     marginBottom: 24,
   },
+  buttonsContainer: {
+    width: '100%',
+    gap: 12,
+  },
   retryButton: {
     paddingVertical: 12,
     paddingHorizontal: 24,
     borderRadius: 8,
+    alignItems: 'center',
   },
   retryButtonText: {
     color: '#ffffff',
+    fontSize: 16,
+    fontFamily: 'Montserrat_500Medium',
+  },
+  cacheButton: {
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 8,
+    alignItems: 'center',
+    borderWidth: 1,
+  },
+  cacheButtonText: {
     fontSize: 16,
     fontFamily: 'Montserrat_500Medium',
   },
