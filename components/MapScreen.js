@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, Alert, Linking, Platform, Dimensions, TouchableOpacity } from 'react-native';
 import MapView, { Marker, PROVIDER_DEFAULT, UrlTile } from 'react-native-maps';
-import * as FileSystem from 'expo-file-system';
 import NetInfo from '@react-native-community/netinfo';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import { getWithExpiry, setWithExpiry } from '../utils/cache';
@@ -29,7 +28,7 @@ const MapScreen = ({ theme, accentColor }) => {
       latitude: 53.722143,
       longitude: 91.439183,
       description: 'ул. Ленина, 92/1',
-      type: 'main'
+      type: 'academic'
     },
     {
       id: 2,
@@ -37,7 +36,7 @@ const MapScreen = ({ theme, accentColor }) => {
       latitude: 53.722127,
       longitude: 91.438486,
       description: 'ул. Ленина, 92',
-      type: 'academic'
+      type: 'main'
     },
     {
       id: 3,
@@ -45,7 +44,7 @@ const MapScreen = ({ theme, accentColor }) => {
       latitude: 53.722481,
       longitude: 91.441737,
       description: 'ул. Ленина, 90',
-      type: 'main'
+      type: 'academic'
     }
   ];
 
@@ -65,8 +64,8 @@ const MapScreen = ({ theme, accentColor }) => {
 
   // Иконки для разных типов зданий
   const BUILDING_ICONS = {
-    main: 'school-outline',
-    academic: 'business-outline',
+    main: 'business-outline',
+    academic: 'school-outline',
     library: 'library-outline',
     dormitory: 'home-outline',
     sports: 'barbell-outline',
@@ -166,6 +165,7 @@ const MapScreen = ({ theme, accentColor }) => {
           onRetry={handleRetry}
           theme={theme}
           accentColor={accentColor}
+          contentType="map"
           message={error === 'no-internet' ? 'Карта недоступна без подключения к интернету' : 'Не удалось загрузить карту'}
         />
       </View>
