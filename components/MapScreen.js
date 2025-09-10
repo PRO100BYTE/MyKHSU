@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, Alert, ActivityIndicator, Linking, Platform, Dimensions, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, Alert, Linking, Platform, Dimensions, TouchableOpacity } from 'react-native';
 import MapView, { Marker, PROVIDER_DEFAULT, UrlTile } from 'react-native-maps';
 import * as FileSystem from 'expo-file-system';
 import NetInfo from '@react-native-community/netinfo';
@@ -29,7 +29,7 @@ const MapScreen = ({ theme, accentColor }) => {
       latitude: 53.722143,
       longitude: 91.439183,
       description: 'ул. Ленина, 92/1',
-      type: 'academic'
+      type: 'main'
     },
     {
       id: 2,
@@ -37,7 +37,7 @@ const MapScreen = ({ theme, accentColor }) => {
       latitude: 53.722127,
       longitude: 91.438486,
       description: 'ул. Ленина, 92',
-      type: 'main'
+      type: 'academic'
     },
     {
       id: 3,
@@ -45,10 +45,9 @@ const MapScreen = ({ theme, accentColor }) => {
       latitude: 53.722481,
       longitude: 91.441737,
       description: 'ул. Ленина, 90',
-      type: 'academic'
+      type: 'main'
     }
   ];
-
 
   // URL шаблоны для разных тем карты
   const MAP_THEMES = {
@@ -124,6 +123,21 @@ const MapScreen = ({ theme, accentColor }) => {
     loadMap();
   };
 
+  const handleOpenDirections = async (building) => {
+    const url = `https://www.openstreetmap.org/directions?from=&to=${building.latitude},${building.longitude}`;
+    try {
+      const supported = await Linking.canOpenURL(url);
+      if (supported) {
+        await Linking.openURL(url);
+      } else {
+        Alert.alert('Ошибка', 'Не удалось открыть приложение для построения маршрута');
+      }
+    } catch (error) {
+      console.error('Error opening URL:', error);
+      Alert.alert('Ошибка', 'Не удалось открыть приложение для построения маршрута');
+    }
+  };
+
   const handleMarkerPress = (building) => {
     Alert.alert(
       building.name,
@@ -132,10 +146,7 @@ const MapScreen = ({ theme, accentColor }) => {
         { text: 'Закрыть', style: 'cancel' },
         { 
           text: 'Построить маршрут', 
-          onPress: () => {
-            const url = `https://www.openstreetmap.org/directions?from=&to=${building.latitude},${building.longitude}`;
-            Linking.openURL(url);
-          }
+          onPress: () => handleOpenDirections(building)
         }
       ]
     );
