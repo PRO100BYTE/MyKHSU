@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, StyleSheet, Dimensions } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, StyleSheet, Dimensions, RefreshControl } from 'react-native';
 import { Ionicons as Icon } from '@expo/vector-icons';
-import { getWithExpiry, setWithExpiry, getWithExpiryAndInfo, safeJsonParse } from '../utils/cache';
+import { getWithExpiry, setWithExpiry, safeJsonParse } from '../utils/cache';
 import { getWeekNumber, formatDate, getDateByWeekAndDay } from '../utils/dateUtils';
 import { API_BASE_URL, CORS_PROXY, ACCENT_COLORS } from '../utils/constants';
 import ConnectionError from './ConnectionError';
@@ -20,6 +20,7 @@ const ScheduleScreen = ({ theme, accentColor }) => {
   const [cachedPairsTime, setCachedPairsTime] = useState([]);
   const [loadingGroups, setLoadingGroups] = useState(false);
   const [loadingSchedule, setLoadingSchedule] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const [viewMode, setViewMode] = useState('day');
   const [currentDate, setCurrentDate] = useState(new Date());
   const [currentWeek, setCurrentWeek] = useState(getWeekNumber(new Date()));
@@ -65,16 +66,15 @@ const ScheduleScreen = ({ theme, accentColor }) => {
     
     try {
       const cacheKey = `groups_${course}`;
-      const cached = await getWithExpiryAndInfo(cacheKey);
+      const cached = await getWithExpiry(cacheKey);
       
       if (cached) {
-        setGroups(cached.value.groups || []);
-        setCachedGroups(cached.value.groups || []);
+        setGroups(cached.groups || []);
+        setCachedGroups(cached.groups || []);
         
         // Если нет интернета, используем кэшированные данные
         if (!isOnline) {
           setShowCachedData(true);
-          setCacheDate(cached.cacheDate);
           return;
         }
       }
@@ -115,16 +115,15 @@ const ScheduleScreen = ({ theme, accentColor }) => {
       
       if (viewMode === 'week') {
         cacheKey = `schedule_${group}_${currentWeek}`;
-        const cached = await getWithExpiryAndInfo(cacheKey);
+        const cached = await getWithExpiry(cacheKey);
         
         if (cached) {
-          setScheduleData(cached.value);
-          setCachedScheduleData(cached.value);
+          setScheduleData(cached);
+          setCachedScheduleData(cached);
           
           // Если нет интернета, используем кэшированные данные
           if (!isOnline) {
             setShowCachedData(true);
-            setCacheDate(cached.cacheDate);
             return;
           }
         }
@@ -142,16 +141,15 @@ const ScheduleScreen = ({ theme, accentColor }) => {
       } else {
         const formattedDate = formatDate(currentDate);
         cacheKey = `schedule_${group}_${formattedDate}`;
-        const cached = await getWithExpiryAndInfo(cacheKey);
+        const cached = await getWithExpiry(cacheKey);
         
         if (cached) {
-          setScheduleData(cached.value);
-          setCachedScheduleData(cached.value);
+          setScheduleData(cached);
+          setCachedScheduleData(cached);
           
           // Если нет интернета, используем кэшированные данные
           if (!isOnline) {
             setShowCachedData(true);
-            setCacheDate(cached.cacheDate);
             return;
           }
         }
@@ -179,17 +177,18 @@ const ScheduleScreen = ({ theme, accentColor }) => {
       }
     } finally {
       setLoadingSchedule(false);
+      setRefreshing(false);
     }
   };
 
   const fetchPairsTime = async () => {
     try {
       const cacheKey = 'pairsTime';
-      const cached = await getWithExpiryAndInfo(cacheKey);
+      const cached = await getWithExpiry(cacheKey);
       
       if (cached) {
-        setPairsTime(cached.value.pairs_time || []);
-        setCachedPairsTime(cached.value.pairs_time || []);
+        setPairsTime(cached.pairs_time || []);
+        setCachedPairsTime(cached.pairs_time || []);
       }
       
       if (isOnline) {
@@ -243,6 +242,20 @@ const ScheduleScreen = ({ theme, accentColor }) => {
       setScheduleData(cachedScheduleData);
       setShowCachedData(true);
       setError(null);
+    }
+  };
+
+  const onRefresh = () => {
+    setRefreshing(true);
+    if (isOnline) {
+      if (selectedGroup) {
+        fetchScheduleData(selectedGroup);
+      } else {
+        fetchGroupsForCourse(course);
+      }
+    } else {
+      setError('no-internet');
+      setRefreshing(false);
     }
   };
 
@@ -423,6 +436,7 @@ const ScheduleScreen = ({ theme, accentColor }) => {
           showCacheButton={!!cachedScheduleData}
           theme={theme}
           accentColor={accentColor}
+          contentType="schedule"
           message={error === 'no-internet' ? 'Расписание недоступно без подключения к интернету' : 'Не удалось загрузить расписание'}
         />
       </View>
@@ -430,8 +444,18 @@ const ScheduleScreen = ({ theme, accentColor }) => {
   }
 
   return (
-    <ScrollView style={{ flex: 1, backgroundColor: bgColor, padding: 16 }}>
-      {showCachedData && cacheDate && (
+    <ScrollView 
+      style={{ flex: 1, backgroundColor: bgColor, padding: 16 }}
+      refreshControl={
+        <RefreshControl
+          refreshing={refreshing}
+          onRefresh={onRefresh}
+          colors={[colors.primary]}
+          tintColor={colors.primary}
+        />
+      }
+    >
+      {showCachedData && (
         <View style={{ 
           backgroundColor: colors.light, 
           padding: 12, 
@@ -443,7 +467,7 @@ const ScheduleScreen = ({ theme, accentColor }) => {
         }}>
           <Icon name="time-outline" size={16} color={colors.primary} />
           <Text style={{ color: colors.primary, marginLeft: 8, fontFamily: 'Montserrat_400Regular' }}>
-            Показаны кэшированные данные от {new Date(cacheDate).toLocaleDateString('ru-RU')}
+            Показаны кэшированные данные
           </Text>
         </View>
       )}
