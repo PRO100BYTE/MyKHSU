@@ -138,6 +138,15 @@ const AppearanceSettingsSheet = ({ visible, onClose, theme, accentColor, setThem
                 {accentColor === 'purple' && <Icon name="checkmark" size={20} color="#ffffff" />}
               </TouchableOpacity>
             </View>
+
+            <View style={styles.sheetSection}>
+                <Text style={[styles.sheetSectionTitle, { color: textColor, fontFamily: 'Montserrat_500Medium' }]}>
+                 
+                </Text>
+                <Text style={[styles.sheetSectionTitle, { color: textColor, fontFamily: 'Montserrat_500Medium' }]}>
+                Внимание! Настройки оформления применяются автоматически
+                </Text>
+            </View>
           </View>
           
           <TouchableOpacity
@@ -145,7 +154,7 @@ const AppearanceSettingsSheet = ({ visible, onClose, theme, accentColor, setThem
             onPress={onClose}
           >
             <Text style={[styles.sheetButtonText, { color: '#ffffff', fontFamily: 'Montserrat_600SemiBold' }]}>
-              Сохранить
+              Закрыть
             </Text>
           </TouchableOpacity>
         </View>

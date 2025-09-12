@@ -11,6 +11,7 @@ import PlaceholderScreen from './components/PlaceholderScreen';
 import NewsScreen from './components/NewsScreen';
 import ScheduleScreen from './components/ScheduleScreen';
 import SettingsScreen from './components/SettingsScreen';
+import MapScreen from './components/MapScreen';
 
 // Импорт утилит
 import { ACCENT_COLORS, SCREENS } from './utils/constants';
@@ -22,7 +23,11 @@ Sentry.init({
   // Adds more context data to events (IP address, cookies, user, etc.)
   // For more information, visit: https://docs.sentry.io/platforms/react-native/data-management/data-collected/
   sendDefaultPii: true,
-  integrations: [Sentry.feedbackIntegration()],
+
+  // Configure Session Replay
+  replaysSessionSampleRate: 0.1,
+  replaysOnErrorSampleRate: 1,
+  integrations: [Sentry.mobileReplayIntegration(), Sentry.feedbackIntegration()],
 
   // uncomment the line below to enable Spotlight (https://spotlightjs.com)
   // spotlight: __DEV__,
@@ -143,7 +148,7 @@ export default Sentry.wrap(function App() {
           <ScheduleScreen theme={effectiveTheme} accentColor={accentColor} key={`schedule-${refresh}`} />
         )}
         {activeScreen === SCREENS.MAP && (
-          <PlaceholderScreen title={SCREENS.MAP} theme={effectiveTheme} key={`map-${refresh}`} />
+          <MapScreen theme={effectiveTheme} accentColor={accentColor} key={`map-${refresh}`} />
         )}
         {activeScreen === SCREENS.FRESHMAN && (
           <PlaceholderScreen title={SCREENS.FRESHMAN} theme={effectiveTheme} key={`freshman-${refresh}`} />
