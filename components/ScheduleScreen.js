@@ -490,7 +490,7 @@ const ScheduleScreen = ({ theme, accentColor }) => {
         borderWidth: 1,
         borderColor
       }}>
-        {[-1, 1, 2, 3, 4].map(c => (
+        {[-1, 1, 2, 3, 4, 5].map(c => (
           <TouchableOpacity
             key={c}
             onPress={() => setCourse(c)}
