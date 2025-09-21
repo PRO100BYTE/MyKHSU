@@ -6,7 +6,7 @@ import * as WebBrowser from 'expo-web-browser';
 import * as Linking from 'expo-linking';
 import AppearanceSettingsSheet from './AppearanceSettingsSheet';
 import AboutModal from './AboutModal';
-import { ACCENT_COLORS, APP_VERSION, APP_DEVELOPERS, GITHUB_REPO_URL } from '../utils/constants';
+import { ACCENT_COLORS, APP_VERSION, APP_DEVELOPERS, GITHUB_REPO_URL, BUILD_VER, BUILD_DATE } from '../utils/constants';
 import { clearMapCache } from '../utils/mapCache';
 
 const SettingsScreen = ({ theme, accentColor, setTheme, setAccentColor }) => {
@@ -214,6 +214,9 @@ const SettingsScreen = ({ theme, accentColor, setTheme, setAccentColor }) => {
       }}>
         <Text style={{ color: '#9ca3af', fontSize: 12, fontFamily: 'Montserrat_400Regular', textAlign: 'center' }}>
           Версия: {APP_VERSION}
+        </Text>
+        <Text style={{ color: '#9ca3af', fontSize: 12, marginTop: 4, fontFamily: 'Montserrat_400Regular', textAlign: 'center' }}>
+          Сборка {BUILD_VER} от {BUILD_DATE}
         </Text>
         <Text style={{ color: '#9ca3af', fontSize: 12, marginTop: 4, fontFamily: 'Montserrat_400Regular', textAlign: 'center' }}>
           Разработано с  ❤️  {APP_DEVELOPERS}
