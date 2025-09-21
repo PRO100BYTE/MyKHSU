@@ -54,7 +54,8 @@ export const COURSES = [
   { id: 1, label: '1 курс' },
   { id: 2, label: '2 курс' },
   { id: 3, label: '3 курс' },
-  { id: 4, label: '4 курс' }
+  { id: 4, label: '4 курс' },
+  { id: 5, label: '5 курс' }
 ];
 
 // Режимы отображения расписания
