@@ -1,329 +1,250 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, StyleSheet, RefreshControl } from 'react-native';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, StyleSheet, Dimensions, RefreshControl } from 'react-native';
 import { Ionicons as Icon } from '@expo/vector-icons';
-import { getWeekNumber, formatDate } from '../utils/dateUtils';
+import { getWithExpiryAndInfo, setWithExpiry } from '../utils/cache';
+import { getWeekNumber, getWeekDayName, getFirstDayOfWeek, isWeekend } from '../utils/dateUtils';
 import { ACCENT_COLORS, COURSES } from '../utils/constants';
-import ApiService from '../utils/api';
 import ConnectionError from './ConnectionError';
 import NetInfo from '@react-native-community/netinfo';
+import { fetchAPI } from '../utils/api';
+import DailyScheduleList from './Schedule/DailyScheduleList';
 
-// Выносим компоненты для упрощения
-const CourseSelector = ({ course, setCourse, theme, accentColor }) => {
-  const colors = ACCENT_COLORS[accentColor];
-  const textColor = theme === 'light' ? '#111827' : '#ffffff';
-  const borderColor = theme === 'light' ? '#e5e7eb' : '#374151';
-
-  return (
-    <View style={[styles.courseSelector, { borderColor }]}>
-      {COURSES.map(c => (
-        <TouchableOpacity
-          key={c.id}
-          onPress={() => setCourse(c.id)}
-          style={[
-            styles.courseButton,
-            { 
-              backgroundColor: course === c.id ? colors.primary : 'transparent',
-              borderColor: course === c.id ? colors.primary : borderColor
-            }
-          ]}
-        >
-          <Text style={[
-            styles.courseButtonText,
-            { color: course === c.id ? '#ffffff' : textColor }
-          ]}>
-            {c.label}
-          </Text>
-        </TouchableOpacity>
-      ))}
-    </View>
-  );
-};
-
-const GroupSelector = ({ groups, selectedGroup, onSelectGroup, loading, theme, accentColor }) => {
-  const colors = ACCENT_COLORS[accentColor];
-  const textColor = theme === 'light' ? '#111827' : '#ffffff';
-  const borderColor = theme === 'light' ? '#e5e7eb' : '#374151';
-  const cardBg = theme === 'light' ? '#ffffff' : '#1f2937';
-
-  if (loading) {
-    return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="small" color={colors.primary} />
-        <Text style={[styles.loadingText, { color: textColor }]}>Загрузка групп...</Text>
-      </View>
-    );
-  }
-
-  return (
-    <ScrollView 
-      horizontal 
-      showsHorizontalScrollIndicator={false}
-      style={styles.groupSelector}
-    >
-      {groups.map(group => (
-        <TouchableOpacity
-          key={group}
-          onPress={() => onSelectGroup(group)}
-          style={[
-            styles.groupButton,
-            { 
-              backgroundColor: selectedGroup === group ? colors.primary : cardBg,
-              borderColor: selectedGroup === group ? colors.primary : borderColor
-            }
-          ]}
-        >
-          <Text style={[
-            styles.groupButtonText,
-            { color: selectedGroup === group ? '#ffffff' : textColor }
-          ]}>
-            {group}
-          </Text>
-        </TouchableOpacity>
-      ))}
-    </ScrollView>
-  );
-};
-
-const ScheduleView = ({ scheduleData, pairsTime, viewMode, theme, accentColor }) => {
-  const colors = ACCENT_COLORS[accentColor];
-  const textColor = theme === 'light' ? '#111827' : '#ffffff';
-  const cardBg = theme === 'light' ? '#ffffff' : '#1f2937';
-  const borderColor = theme === 'light' ? '#e5e7eb' : '#374151';
-
-  if (!scheduleData) return null;
-
-  const renderLesson = (lesson) => {
-    const pairTime = pairsTime.find(pair => pair.time === lesson.time);
-    
-    return (
-      <View key={lesson.id} style={[styles.lessonCard, { backgroundColor: cardBg, borderColor }]}>
-        <View style={styles.lessonHeader}>
-          <Text style={[styles.lessonTime, { color: colors.primary }]}>
-            Пара {lesson.time}
-          </Text>
-          {pairTime && (
-            <Text style={[styles.lessonTimeRange, { color: textColor }]}>
-              {pairTime.time_start} - {pairTime.time_end}
-            </Text>
-          )}
-        </View>
-        
-        <Text style={[styles.lessonSubject, { color: textColor }]}>
-          {lesson.subject}
-        </Text>
-        
-        <Text style={[styles.lessonType, { color: colors.primary }]}>
-          {lesson.type_lesson}
-        </Text>
-        
-        <View style={styles.lessonDetails}>
-          <View style={styles.detailRow}>
-            <Icon name="person-outline" size={16} color={textColor} />
-            <Text style={[styles.detailText, { color: textColor }]}>
-              {lesson.teacher}
-            </Text>
-          </View>
-          
-          <View style={styles.detailRow}>
-            <Icon name="location-outline" size={16} color={textColor} />
-            <Text style={[styles.detailText, { color: textColor }]}>
-              {lesson.auditory}
-            </Text>
-          </View>
-        </View>
-      </View>
-    );
-  };
-
-  if (viewMode === 'week') {
-    return (
-      <View>
-        {scheduleData.days?.map(day => (
-          <View key={day.weekday} style={[styles.dayCard, { backgroundColor: cardBg, borderColor }]}>
-            <Text style={[styles.dayTitle, { color: colors.primary }]}>
-              {['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'][day.weekday - 1]}
-            </Text>
-            {day.lessons && day.lessons.length > 0 ? (
-              day.lessons.map(renderLesson)
-            ) : (
-              <Text style={[styles.noLessons, { color: textColor }]}>Нет занятий</Text>
-            )}
-          </View>
-        ))}
-      </View>
-    );
-  } else {
-    // Daily view
-    const dayLessons = scheduleData.lessons || [];
-    return (
-      <View style={[styles.dayCard, { backgroundColor: cardBg, borderColor }]}>
-        {dayLessons.length > 0 ? (
-          dayLessons.map(renderLesson)
-        ) : (
-          <Text style={[styles.noLessons, { color: textColor }]}>Нет занятий на этот день</Text>
-        )}
-      </View>
-    );
-  }
-};
+const { width } = Dimensions.get('window');
 
 const ScheduleScreen = ({ theme, accentColor }) => {
   const [course, setCourse] = useState(1);
   const [groups, setGroups] = useState([]);
   const [selectedGroup, setSelectedGroup] = useState(null);
   const [scheduleData, setScheduleData] = useState(null);
-  const [pairsTime, setPairsTime] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const [loadingGroups, setLoadingGroups] = useState(false);
+  const [loadingSchedule, setLoadingSchedule] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
-  const [viewMode, setViewMode] = useState('day');
   const [currentDate, setCurrentDate] = useState(new Date());
-  const [currentWeek, setCurrentWeek] = useState(getWeekNumber(new Date()));
+  const [isOnline, setIsOnline] = useState(true);
   const [error, setError] = useState(null);
-  const [cacheInfo, setCacheInfo] = useState(null);
+  const [showCachedData, setShowCachedData] = useState(false);
+  const [cacheDate, setCacheDate] = useState(null);
 
-  const colors = ACCENT_COLORS[accentColor];
   const bgColor = theme === 'light' ? '#f3f4f6' : '#111827';
+  const cardBg = theme === 'light' ? '#ffffff' : '#1f2937';
+  const textColor = theme === 'light' ? '#111827' : '#ffffff';
+  const placeholderColor = theme === 'light' ? '#6b7280' : '#9ca3af';
+  const colors = ACCENT_COLORS[accentColor];
+
+  const currentWeekNumber = useMemo(() => getWeekNumber(new Date()), []);
+  const weekNumber = useMemo(() => getWeekNumber(currentDate), [currentDate]);
 
   useEffect(() => {
-    loadGroups();
-    loadPairsTime();
-  }, [course]);
+    const unsubscribe = NetInfo.addEventListener(state => {
+      setIsOnline(state.isConnected);
+    });
+    fetchGroupsAndSchedule(true);
+    return () => unsubscribe();
+  }, []);
 
   useEffect(() => {
     if (selectedGroup) {
-      loadSchedule();
+      fetchSchedule();
     }
-  }, [selectedGroup, viewMode, currentDate, currentWeek]);
+  }, [selectedGroup, currentDate]);
 
-  const loadGroups = async () => {
-    setLoading(true);
+  const fetchGroupsAndSchedule = async (isInitialLoad = false) => {
+    setLoadingGroups(true);
     setError(null);
+    setShowCachedData(false);
+    
+    const groupsUrl = '/groups';
     
     try {
-      const result = await ApiService.getGroups(course);
-      setGroups(result.data.groups || []);
-      setCacheInfo(result.cacheInfo);
-    } catch (error) {
-      setError(error.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const loadSchedule = async () => {
-    setLoading(true);
-    setError(null);
-    
-    try {
-      const result = viewMode === 'week' 
-        ? await ApiService.getSchedule(selectedGroup, null, currentWeek)
-        : await ApiService.getSchedule(selectedGroup, currentDate);
+      const { data, source, cacheDate: fetchedCacheDate } = await fetchAPI(groupsUrl, 'schedule_groups');
       
-      setScheduleData(result.data);
-      setCacheInfo(result.cacheInfo);
-    } catch (error) {
-      setError(error.message);
+      if (source === 'cache') {
+        setShowCachedData(true);
+        setCacheDate(fetchedCacheDate);
+        setGroups(data);
+        if (!selectedGroup && data.length > 0) {
+          const storedGroup = await getWithExpiry('selectedGroup');
+          setSelectedGroup(storedGroup || data[0].group_name);
+        }
+      } else {
+        setGroups(data);
+        if (!selectedGroup && data.length > 0) {
+          const storedGroup = await getWithExpiry('selectedGroup');
+          setSelectedGroup(storedGroup || data[0].group_name);
+        }
+        await setWithExpiry('schedule_groups_cache', data);
+      }
+    } catch (err) {
+      setError(err);
+      const cachedData = await getWithExpiryAndInfo('schedule_groups_cache');
+      if (cachedData) {
+        setShowCachedData(true);
+        setCacheDate(cachedData.cacheDate);
+        setGroups(cachedData.value);
+        if (!selectedGroup && cachedData.value.length > 0) {
+          const storedGroup = await getWithExpiry('selectedGroup');
+          setSelectedGroup(storedGroup || cachedData.value[0].group_name);
+        }
+      }
     } finally {
-      setLoading(false);
+      setLoadingGroups(false);
+      setRefreshing(false);
     }
   };
 
-  const loadPairsTime = async () => {
+  const fetchSchedule = async () => {
+    if (!selectedGroup) return;
+
+    setLoadingSchedule(true);
+    setError(null);
+    setShowCachedData(false);
+    
+    const scheduleUrl = `/schedule?group=${selectedGroup}`;
+
     try {
-      const result = await ApiService.getPairsTime();
-      setPairsTime(result.data.pairs_time || []);
-    } catch (error) {
-      console.error('Error loading pairs time:', error);
+      const { data, source, cacheDate: fetchedCacheDate } = await fetchAPI(scheduleUrl, 'schedule');
+      if (source === 'cache') {
+        setShowCachedData(true);
+        setCacheDate(fetchedCacheDate);
+        setScheduleData(data);
+      } else {
+        setScheduleData(data);
+        await setWithExpiry('schedule_cache_' + selectedGroup, data);
+      }
+    } catch (err) {
+      setError(err);
+      const cachedData = await getWithExpiryAndInfo('schedule_cache_' + selectedGroup);
+      if (cachedData) {
+        setShowCachedData(true);
+        setCacheDate(cachedData.cacheDate);
+        setScheduleData(cachedData.value);
+      }
+    } finally {
+      setLoadingSchedule(false);
+      setRefreshing(false);
     }
   };
 
-  const handleRetry = () => {
-    setError(null);
-    if (selectedGroup) {
-      loadSchedule();
-    } else {
-      loadGroups();
-    }
+  const onSelectGroup = async (group) => {
+    setSelectedGroup(group);
+    await setWithExpiry('selectedGroup', group);
   };
 
-  const handleViewCache = () => {
-    // Используем данные из кэша, которые уже загружены
-    setError(null);
-  };
-
-  const onRefresh = () => {
+  const onRefresh = useCallback(() => {
     setRefreshing(true);
-    if (selectedGroup) {
-      loadSchedule().finally(() => setRefreshing(false));
-    } else {
-      loadGroups().finally(() => setRefreshing(false));
-    }
+    fetchGroupsAndSchedule();
+  }, [selectedGroup]);
+
+  const goToToday = () => {
+    setCurrentDate(new Date());
   };
 
-  if (error && !loading) {
-    return (
-      <ConnectionError
-        type={error}
-        loading={false}
-        onRetry={handleRetry}
-        onViewCache={handleViewCache}
-        theme={theme}
-        accentColor={accentColor}
-        cacheAvailable={!!scheduleData || groups.length > 0}
-        cacheDate={cacheInfo?.cacheDate}
-        contentType="schedule"
-      />
-    );
+  const changeDay = (days) => {
+    const newDate = new Date(currentDate);
+    newDate.setDate(currentDate.getDate() + days);
+    setCurrentDate(newDate);
+  };
+
+  const today = new Date();
+  const isToday = currentDate.toDateString() === today.toDateString();
+  
+  const dailySchedule = scheduleData?.find(item => item.date === getWeekDayName(currentDate));
+
+  if (error && !showCachedData) {
+    return <ConnectionError 
+      type="load-error" 
+      onRetry={fetchGroupsAndSchedule} 
+      onViewCache={fetchGroupsAndSchedule} 
+      theme={theme} 
+      accentColor={accentColor}
+      contentType="schedule"
+      message={error.message}
+    />;
   }
 
   return (
     <View style={[styles.container, { backgroundColor: bgColor }]}>
-      {cacheInfo && cacheInfo.source === 'cache' && (
-        <View style={[styles.cacheIndicator, { backgroundColor: colors.light }]}>
-          <Icon name="time-outline" size={16} color={colors.primary} />
-          <Text style={[styles.cacheText, { color: colors.primary }]}>
-            Данные из кэша
-          </Text>
-        </View>
-      )}
-      
       <ScrollView
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            colors={[colors.primary]}
-            tintColor={colors.primary}
-          />
-        }
+        contentContainerStyle={styles.scrollContent}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       >
-        <View style={styles.content}>
-          <CourseSelector
-            course={course}
-            setCourse={setCourse}
-            theme={theme}
-            accentColor={accentColor}
-          />
-          
-          <GroupSelector
-            groups={groups}
-            selectedGroup={selectedGroup}
-            onSelectGroup={setSelectedGroup}
-            loading={loading}
-            theme={theme}
-            accentColor={accentColor}
-          />
-          
-          {selectedGroup && (
-            <ScheduleView
-              scheduleData={scheduleData}
-              pairsTime={pairsTime}
-              viewMode={viewMode}
-              theme={theme}
-              accentColor={accentColor}
-            />
+        <Text style={[styles.title, { color: textColor }]}>Расписание</Text>
+
+        {showCachedData && (
+          <View style={[styles.cacheInfo, { backgroundColor: colors.light }]}>
+            <Icon name="cloud-offline-outline" size={20} color={colors.primary} />
+            <Text style={[styles.cacheText, { color: colors.primary }]}>
+              Показаны кэшированные данные от {new Date(cacheDate).toLocaleDateString()}. Нет подключения к интернету.
+            </Text>
+          </View>
+        )}
+
+        {/* Навигация по курсам и группам */}
+        <View style={styles.groupSelectionContainer}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.courseList}>
+            {COURSES.map(c => (
+              <TouchableOpacity
+                key={c.id}
+                style={[styles.courseButton, { backgroundColor: course === c.id ? colors.primary : cardBg }]}
+                onPress={() => setCourse(c.id)}
+              >
+                <Text style={[styles.courseText, { color: course === c.id ? '#ffffff' : textColor }]}>{c.label}</Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+
+          {loadingGroups ? (
+            <ActivityIndicator size="small" color={colors.primary} style={{ marginTop: 10 }} />
+          ) : (
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.groupList}>
+              {groups.filter(g => g.course_id === course).map(g => (
+                <TouchableOpacity
+                  key={g.group_id}
+                  style={[styles.groupButton, { borderColor: colors.primary, backgroundColor: selectedGroup === g.group_name ? colors.light : 'transparent' }]}
+                  onPress={() => onSelectGroup(g.group_name)}
+                >
+                  <Text style={[styles.groupText, { color: selectedGroup === g.group_name ? colors.primary : textColor }]}>
+                    {g.group_name}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
           )}
         </View>
+
+        {/* Навигация по дням */}
+        <View style={[styles.dayNavigationContainer, { backgroundColor: cardBg }]}>
+          <TouchableOpacity onPress={() => changeDay(-1)}>
+            <Icon name="chevron-back" size={24} color={textColor} />
+          </TouchableOpacity>
+          <View style={styles.dateInfo}>
+            <Text style={[styles.dayText, { color: textColor }]}>{getWeekDayName(currentDate)}</Text>
+            <Text style={[styles.dateText, { color: placeholderColor }]}>{currentDate.toLocaleDateString()}</Text>
+          </View>
+          <TouchableOpacity onPress={() => changeDay(1)}>
+            <Icon name="chevron-forward" size={24} color={textColor} />
+          </TouchableOpacity>
+        </View>
+
+        {!isToday && (
+          <TouchableOpacity onPress={goToToday} style={[styles.todayButton, { backgroundColor: colors.primary }]}>
+            <Text style={[styles.todayButtonText, { color: '#ffffff' }]}>Сегодня</Text>
+          </TouchableOpacity>
+        )}
+        
+        {loadingSchedule ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color={colors.primary} />
+          </View>
+        ) : dailySchedule ? (
+          <DailyScheduleList dailySchedule={dailySchedule} theme={theme} accentColor={accentColor} />
+        ) : (
+          <View style={styles.emptyContainer}>
+            <Text style={[styles.emptyText, { color: placeholderColor }]}>
+              {isWeekend(currentDate) ? 'Выходной день!' : 'На этот день занятий нет.'}
+            </Text>
+          </View>
+        )}
       </ScrollView>
     </View>
   );
@@ -333,120 +254,102 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  content: {
+  scrollContent: {
     padding: 16,
+    paddingTop: 40,
   },
-  cacheIndicator: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 12,
-    gap: 8,
-  },
-  cacheText: {
-    fontSize: 14,
-    fontFamily: 'Montserrat_500Medium',
-  },
-  courseSelector: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'center',
+  title: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    fontFamily: 'Montserrat_700Bold',
+    textAlign: 'center',
     marginBottom: 16,
+  },
+  groupSelectionContainer: {
+    marginBottom: 20,
+  },
+  courseList: {
+    marginBottom: 10,
     gap: 8,
   },
   courseButton: {
     paddingVertical: 8,
     paddingHorizontal: 16,
-    borderRadius: 20,
-    borderWidth: 1,
-    minWidth: 80,
-    alignItems: 'center',
+    borderRadius: 8,
   },
-  courseButtonText: {
-    fontSize: 14,
-    fontFamily: 'Montserrat_500Medium',
+  courseText: {
+    fontWeight: 'bold',
+    fontFamily: 'Montserrat_600SemiBold',
   },
-  groupSelector: {
-    marginBottom: 16,
+  groupList: {
+    gap: 8,
   },
   groupButton: {
     paddingVertical: 8,
     paddingHorizontal: 16,
     borderRadius: 8,
     borderWidth: 1,
-    marginRight: 8,
   },
-  groupButtonText: {
-    fontSize: 14,
-    fontFamily: 'Montserrat_500Medium',
+  groupText: {
+    fontWeight: 'bold',
+    fontFamily: 'Montserrat_600SemiBold',
   },
-  loadingContainer: {
+  dayNavigationContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'space-between',
     padding: 16,
-    gap: 8,
-  },
-  loadingText: {
-    fontSize: 14,
-    fontFamily: 'Montserrat_400Regular',
-  },
-  dayCard: {
     borderRadius: 12,
-    padding: 16,
-    borderWidth: 1,
     marginBottom: 16,
   },
-  dayTitle: {
+  dateInfo: {
+    alignItems: 'center',
+  },
+  dayText: {
     fontSize: 18,
+    fontWeight: 'bold',
     fontFamily: 'Montserrat_600SemiBold',
-    marginBottom: 12,
   },
-  lessonCard: {
-    borderRadius: 8,
+  dateText: {
+    fontSize: 14,
+    fontFamily: 'Montserrat_400Regular',
+  },
+  todayButton: {
     padding: 12,
-    borderWidth: 1,
-    marginBottom: 8,
-  },
-  lessonHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    borderRadius: 8,
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: 16,
   },
-  lessonTime: {
-    fontSize: 14,
+  todayButtonText: {
+    fontSize: 16,
+    fontWeight: 'bold',
     fontFamily: 'Montserrat_600SemiBold',
   },
-  lessonTimeRange: {
-    fontSize: 12,
-    fontFamily: 'Montserrat_400Regular',
+  loadingContainer: {
+    padding: 20,
+    alignItems: 'center',
   },
-  lessonSubject: {
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 50,
+  },
+  emptyText: {
     fontSize: 16,
-    fontFamily: 'Montserrat_500Medium',
-    marginBottom: 4,
-  },
-  lessonType: {
-    fontSize: 14,
     fontFamily: 'Montserrat_400Regular',
-    marginBottom: 8,
+    textAlign: 'center',
   },
-  lessonDetails: {
-    gap: 4,
-  },
-  detailRow: {
+  cacheInfo: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 16,
   },
-  detailText: {
-    fontSize: 14,
-    fontFamily: 'Montserrat_400Regular',
-  },
-  noLessons: {
-    textAlign: 'center',
-    fontStyle: 'italic',
+  cacheText: {
+    marginLeft: 8,
+    fontSize: 12,
     fontFamily: 'Montserrat_400Regular',
   },
 });
