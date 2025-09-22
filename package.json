@@ -17,7 +17,7 @@
     "@react-native/gradle-plugin": "^0.81.4",
     "@sentry/react-native": "~6.20.0",
     "expo": "^54.0.0",
-    "expo-dev-client": "~6.0.11",
+    "expo-dev-client": "~6.0.12",
     "expo-file-system": "~19.0.11",
     "expo-font": "~14.0.7",
     "expo-linking": "~8.0.7",
