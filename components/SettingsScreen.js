@@ -6,11 +6,13 @@ import * as WebBrowser from 'expo-web-browser';
 import * as Linking from 'expo-linking';
 import AppearanceSettingsSheet from './AppearanceSettingsSheet';
 import AboutModal from './AboutModal';
+import NotificationSettingsModal from './NotificationSettingsModal';
 import { ACCENT_COLORS, APP_VERSION, APP_DEVELOPERS, APP_SUPPORTERS, GITHUB_REPO_URL, BUILD_VER, BUILD_DATE } from '../utils/constants';
 
 const SettingsScreen = ({ theme, accentColor, setTheme, setAccentColor }) => {
   const [appearanceSheetVisible, setAppearanceSheetVisible] = useState(false);
   const [aboutModalVisible, setAboutModalVisible] = useState(false);
+  const [notificationModalVisible, setNotificationModalVisible] = useState(false);
 
   const bgColor = theme === 'light' ? '#f3f4f6' : '#111827';
   const cardBg = theme === 'light' ? '#ffffff' : '#1f2937';
@@ -32,9 +34,7 @@ const SettingsScreen = ({ theme, accentColor, setTheme, setAccentColor }) => {
           onPress: async () => {
             try {
               const keys = await AsyncStorage.getAllKeys();
-              for (const key of keys) {
-                await AsyncStorage.removeItem(key);
-              }
+              await AsyncStorage.multiRemove(keys);
               Alert.alert('Успех', 'Кэш успешно очищен');
             } catch (error) {
               console.error('Error clearing cache:', error);
@@ -47,7 +47,6 @@ const SettingsScreen = ({ theme, accentColor, setTheme, setAccentColor }) => {
     );
   };
 
-  // Упрощенная функция очистки кэша карты
   const clearMapCacheHandler = () => {
     Alert.alert(
       'Очистка кэша карты',
@@ -67,6 +66,30 @@ const SettingsScreen = ({ theme, accentColor, setTheme, setAccentColor }) => {
 
   return (
     <ScrollView style={{ flex: 1, backgroundColor: bgColor, padding: 16 }}>
+      {/* Настройки уведомлений */}
+      <TouchableOpacity 
+        style={{ 
+          backgroundColor: cardBg, 
+          borderRadius: 12, 
+          padding: 16, 
+          marginBottom: 16,
+          flexDirection: 'row',
+          alignItems: 'center'
+        }}
+        onPress={() => setNotificationModalVisible(true)}
+      >
+        <View style={{ backgroundColor: colors.light, borderRadius: 8, padding: 8, marginRight: 12 }}>
+          <Icon name="notifications-outline" size={24} color={colors.primary} />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={{ color: textColor, fontSize: 16, fontFamily: 'Montserrat_500Medium' }}>Уведомления</Text>
+          <Text style={{ color: placeholderColor, fontSize: 14, marginTop: 4, fontFamily: 'Montserrat_400Regular' }}>
+            Настройте уведомления о новостях и расписании
+          </Text>
+        </View>
+        <Icon name="chevron-forward" size={20} color={placeholderColor} />
+      </TouchableOpacity>
+
       {/* Настройки внешнего вида */}
       <TouchableOpacity 
         style={{ 
@@ -163,6 +186,30 @@ const SettingsScreen = ({ theme, accentColor, setTheme, setAccentColor }) => {
         <Icon name="chevron-forward" size={20} color={placeholderColor} />
       </TouchableOpacity>
 
+      {/* Очистка кэша карты */}
+      <TouchableOpacity 
+        style={{ 
+          backgroundColor: cardBg, 
+          borderRadius: 12, 
+          padding: 16, 
+          marginBottom: 16,
+          flexDirection: 'row',
+          alignItems: 'center'
+        }}
+        onPress={clearMapCacheHandler}
+      >
+        <View style={{ backgroundColor: colors.light, borderRadius: 8, padding: 8, marginRight: 12 }}>
+          <Icon name="map-outline" size={24} color={colors.primary} />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={{ color: textColor, fontSize: 16, fontFamily: 'Montserrat_500Medium' }}>Очистка кэша карты</Text>
+          <Text style={{ color: placeholderColor, fontSize: 14, marginTop: 4, fontFamily: 'Montserrat_400Regular' }}>
+            Удалить сохраненные картографические данные
+          </Text>
+        </View>
+        <Icon name="chevron-forward" size={20} color={placeholderColor} />
+      </TouchableOpacity>
+
       {/* Информация о версии */}
       <View style={{ 
         backgroundColor: cardBg, 
@@ -197,6 +244,13 @@ const SettingsScreen = ({ theme, accentColor, setTheme, setAccentColor }) => {
       <AboutModal
         visible={aboutModalVisible}
         onClose={() => setAboutModalVisible(false)}
+        theme={theme}
+        accentColor={accentColor}
+      />
+
+      <NotificationSettingsModal
+        visible={notificationModalVisible}
+        onClose={() => setNotificationModalVisible(false)}
         theme={theme}
         accentColor={accentColor}
       />
