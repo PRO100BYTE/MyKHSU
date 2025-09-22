@@ -10,8 +10,10 @@ const ConnectionError = ({
   onViewCache, 
   theme, 
   accentColor, 
+  contentType = 'general',
   message,
-  contentType = 'general' // 'map', 'schedule', 'news', 'general'
+  showCacheButton = false,
+  cacheAvailable = false
 }) => {
   const colors = ACCENT_COLORS[accentColor];
   const bgColor = theme === 'light' ? '#f3f4f6' : '#111827';
@@ -85,7 +87,13 @@ const ConnectionError = ({
   };
 
   // Получаем конфигурацию для текущего типа контента и ошибки
-  const config = contentConfigs[contentType][type] || contentConfigs[contentType]['default'] || contentConfigs.general.default;
+  const config = contentConfigs[contentType][type] || 
+                contentConfigs[contentType]['default'] || 
+                contentConfigs.general[type] || 
+                contentConfigs.general.default;
+
+  // Определяем, показывать ли кнопку кэша
+  const shouldShowCacheButton = (showCacheButton || cacheAvailable) && onViewCache;
 
   if (loading) {
     return (
@@ -118,14 +126,19 @@ const ConnectionError = ({
             style={[styles.retryButton, { backgroundColor: colors.primary }]}
             onPress={onRetry}
           >
+            <Icon name="refresh" size={20} color="#ffffff" />
             <Text style={styles.retryButtonText}>Попробовать снова</Text>
           </TouchableOpacity>
           
-          {onViewCache && (
+          {shouldShowCacheButton && (
             <TouchableOpacity
-              style={[styles.cacheButton, { backgroundColor: colors.light, borderColor: colors.primary }]}
+              style={[styles.cacheButton, { 
+                backgroundColor: theme === 'light' ? colors.light : '#374151',
+                borderColor: colors.primary 
+              }]}
               onPress={onViewCache}
             >
+              <Icon name="time-outline" size={20} color={colors.primary} />
               <Text style={[styles.cacheButtonText, { color: colors.primary }]}>
                 {config.cacheButton}
               </Text>
@@ -146,10 +159,15 @@ const styles = StyleSheet.create({
   },
   content: {
     width: '100%',
-    borderRadius: 12,
+    borderRadius: 16,
     padding: 24,
     alignItems: 'center',
     justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 3,
   },
   title: {
     fontSize: 20,
@@ -163,16 +181,20 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontFamily: 'Montserrat_400Regular',
     marginBottom: 24,
+    lineHeight: 22,
   },
   buttonsContainer: {
     width: '100%',
     gap: 12,
   },
   retryButton: {
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-    borderRadius: 8,
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: 24,
+    borderRadius: 12,
+    gap: 8,
   },
   retryButtonText: {
     color: '#ffffff',
@@ -180,11 +202,14 @@ const styles = StyleSheet.create({
     fontFamily: 'Montserrat_500Medium',
   },
   cacheButton: {
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-    borderRadius: 8,
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: 24,
+    borderRadius: 12,
     borderWidth: 1,
+    gap: 8,
   },
   cacheButtonText: {
     fontSize: 16,

@@ -3,9 +3,8 @@ import { View, Text, StyleSheet, Alert, Linking, Platform, Dimensions, Touchable
 import MapView, { Marker, PROVIDER_DEFAULT, UrlTile } from 'react-native-maps';
 import NetInfo from '@react-native-community/netinfo';
 import { Ionicons as Icon } from '@expo/vector-icons';
-import { getWithExpiry, setWithExpiry } from '../utils/cache';
 import { ACCENT_COLORS } from '../utils/constants';
-import ConnectionError from '../components/ConnectionError';
+import ConnectionError from './ConnectionError';
 
 const { width, height } = Dimensions.get('window');
 
@@ -17,8 +16,6 @@ const MapScreen = ({ theme, accentColor }) => {
   const colors = ACCENT_COLORS[accentColor];
   const bgColor = theme === 'light' ? '#f3f4f6' : '#111827';
   const textColor = theme === 'light' ? '#111827' : '#ffffff';
-  const placeholderColor = theme === 'light' ? '#6b7280' : '#9ca3af';
-  const cardBg = theme === 'light' ? '#ffffff' : '#1f2937';
 
   // Координаты корпусов ХГУ
   const buildings = [
@@ -76,20 +73,7 @@ const MapScreen = ({ theme, accentColor }) => {
   const mapTheme = MAP_THEMES[theme] || MAP_THEMES.light;
 
   useEffect(() => {
-    // Проверяем подключение к интернету
-    const unsubscribe = NetInfo.addEventListener(state => {
-      const wasOnline = isOnline;
-      setIsOnline(state.isConnected);
-      
-      // Если статус изменился с offline на online, перезагружаем карту
-      if (!wasOnline && state.isConnected && !mapLoaded) {
-        loadMap();
-      }
-    });
-
     loadMap();
-
-    return () => unsubscribe();
   }, [theme]);
 
   const loadMap = async () => {
@@ -102,18 +86,19 @@ const MapScreen = ({ theme, accentColor }) => {
       setIsOnline(netState.isConnected);
       
       if (!netState.isConnected) {
-        setError('no-internet');
+        setError('NO_INTERNET');
+        setLoading(false);
         return;
       }
 
-      // Имитируем загрузку карты
+      // Простая загрузка онлайн карты без сложного кэширования
       setTimeout(() => {
         setMapLoaded(true);
         setLoading(false);
-      }, 1500);
+      }, 1000);
     } catch (error) {
       console.error('Error loading map:', error);
-      setError('load-error');
+      setError('LOAD_ERROR');
       setLoading(false);
     }
   };
@@ -157,16 +142,23 @@ const MapScreen = ({ theme, accentColor }) => {
 
   // Если есть ошибка или загрузка, показываем соответствующий экран
   if (loading || error) {
+    let errorType = error;
+    if (error === 'NO_INTERNET') {
+      errorType = 'no-internet';
+    } else if (error === 'LOAD_ERROR') {
+      errorType = 'load-error';
+    }
+
     return (
       <View style={{ flex: 1, backgroundColor: bgColor }}>
         <ConnectionError 
-          type={error}
+          type={errorType}
           loading={loading}
           onRetry={handleRetry}
           theme={theme}
           accentColor={accentColor}
           contentType="map"
-          message={error === 'no-internet' ? 'Карта недоступна без подключения к интернету' : 'Не удалось загрузить карту'}
+          message={error === 'NO_INTERNET' ? 'Карта недоступна без подключения к интернету' : 'Не удалось загрузить карту'}
         />
       </View>
     );

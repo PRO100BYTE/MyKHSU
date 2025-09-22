@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, StyleSheet, Dimensions, RefreshControl } from 'react-native';
 import { Ionicons as Icon } from '@expo/vector-icons';
-import { getWithExpiry, setWithExpiry, safeJsonParse } from '../utils/cache';
 import { getWeekNumber, formatDate, getDateByWeekAndDay } from '../utils/dateUtils';
-import { API_BASE_URL, CORS_PROXY, ACCENT_COLORS } from '../utils/constants';
+import { ACCENT_COLORS } from '../utils/constants';
 import ConnectionError from './ConnectionError';
 import NetInfo from '@react-native-community/netinfo';
+import ApiService from '../utils/api';
 
 const { width } = Dimensions.get('window');
 
@@ -27,7 +27,7 @@ const ScheduleScreen = ({ theme, accentColor }) => {
   const [error, setError] = useState(null);
   const [isOnline, setIsOnline] = useState(true);
   const [showCachedData, setShowCachedData] = useState(false);
-  const [cacheDate, setCacheDate] = useState(null);
+  const [cacheInfo, setCacheInfo] = useState(null);
 
   const bgColor = theme === 'light' ? '#f3f4f6' : '#111827';
   const cardBg = theme === 'light' ? '#ffffff' : '#1f2937';
@@ -65,29 +65,20 @@ const ScheduleScreen = ({ theme, accentColor }) => {
     setShowCachedData(false);
     
     try {
-      const cacheKey = `groups_${course}`;
-      const cached = await getWithExpiry(cacheKey);
+      const result = await ApiService.getGroups(course);
       
-      if (cached) {
-        setGroups(cached.groups || []);
-        setCachedGroups(cached.groups || []);
+      // Проверяем, что данные существуют
+      if (result.data && result.data.groups) {
+        setGroups(result.data.groups);
+        setCachedGroups(result.data.groups);
+        setCacheInfo(result);
         
-        // Если нет интернета, используем кэшированные данные
-        if (!isOnline) {
+        // Если данные из кэша, показываем соответствующий индикатор
+        if (result.source === 'cache' || result.source === 'stale_cache') {
           setShowCachedData(true);
-          return;
         }
-      }
-      
-      if (isOnline) {
-        const targetUrl = `${API_BASE_URL}/getgroups/${course}`;
-        const response = await fetch(`${CORS_PROXY}${encodeURIComponent(targetUrl)}`);
-        const data = await safeJsonParse(response);
-        setGroups(data.groups || []);
-        setCachedGroups(data.groups || []);
-        await setWithExpiry(cacheKey, data);
-      } else if (!cached) {
-        setError('no-internet');
+      } else {
+        throw new Error('INVALID_RESPONSE');
       }
     } catch (error) {
       console.error('Error fetching groups:', error);
@@ -96,8 +87,9 @@ const ScheduleScreen = ({ theme, accentColor }) => {
       if (cachedGroups.length > 0) {
         setGroups(cachedGroups);
         setShowCachedData(true);
+        setCacheInfo({ source: 'stale_cache', cacheInfo: { cacheDate: new Date().toISOString() } });
       } else {
-        setError('load-error');
+        setError(error.message || 'load-error');
       }
     } finally {
       setLoadingGroups(false);
@@ -111,59 +103,26 @@ const ScheduleScreen = ({ theme, accentColor }) => {
     setShowCachedData(false);
     
     try {
-      let cacheKey, targetUrl;
+      let result;
       
       if (viewMode === 'week') {
-        cacheKey = `schedule_${group}_${currentWeek}`;
-        const cached = await getWithExpiry(cacheKey);
+        result = await ApiService.getSchedule(group, null, currentWeek);
+      } else {
+        result = await ApiService.getSchedule(group, currentDate);
+      }
+      
+      // Проверяем, что данные существуют
+      if (result.data) {
+        setScheduleData(result.data);
+        setCachedScheduleData(result.data);
+        setCacheInfo(result);
         
-        if (cached) {
-          setScheduleData(cached);
-          setCachedScheduleData(cached);
-          
-          // Если нет интернета, используем кэшированные данные
-          if (!isOnline) {
-            setShowCachedData(true);
-            return;
-          }
-        }
-        
-        if (isOnline) {
-          targetUrl = `${API_BASE_URL}/getpairsweek?type=group&data=${group}&week=${currentWeek}`;
-          const response = await fetch(`${CORS_PROXY}${encodeURIComponent(targetUrl)}`);
-          const data = await safeJsonParse(response);
-          setScheduleData(data);
-          setCachedScheduleData(data);
-          await setWithExpiry(cacheKey, data, 60 * 60 * 1000);
-        } else if (!cached) {
-          setError('no-internet');
+        // Если данные из кэша, показываем соответствующий индикатор
+        if (result.source === 'cache' || result.source === 'stale_cache') {
+          setShowCachedData(true);
         }
       } else {
-        const formattedDate = formatDate(currentDate);
-        cacheKey = `schedule_${group}_${formattedDate}`;
-        const cached = await getWithExpiry(cacheKey);
-        
-        if (cached) {
-          setScheduleData(cached);
-          setCachedScheduleData(cached);
-          
-          // Если нет интернета, используем кэшированные данные
-          if (!isOnline) {
-            setShowCachedData(true);
-            return;
-          }
-        }
-        
-        if (isOnline) {
-          targetUrl = `${API_BASE_URL}/getpairs/date:${group}:${formattedDate}`;
-          const response = await fetch(`${CORS_PROXY}${encodeURIComponent(targetUrl)}`);
-          const data = await safeJsonParse(response);
-          setScheduleData(data);
-          setCachedScheduleData(data);
-          await setWithExpiry(cacheKey, data, 60 * 60 * 1000);
-        } else if (!cached) {
-          setError('no-internet');
-        }
+        throw new Error('INVALID_RESPONSE');
       }
     } catch (error) {
       console.error('Error fetching schedule:', error);
@@ -172,8 +131,9 @@ const ScheduleScreen = ({ theme, accentColor }) => {
       if (cachedScheduleData) {
         setScheduleData(cachedScheduleData);
         setShowCachedData(true);
+        setCacheInfo({ source: 'stale_cache', cacheInfo: { cacheDate: new Date().toISOString() } });
       } else {
-        setError('load-error');
+        setError(error.message || 'load-error');
       }
     } finally {
       setLoadingSchedule(false);
@@ -183,21 +143,12 @@ const ScheduleScreen = ({ theme, accentColor }) => {
 
   const fetchPairsTime = async () => {
     try {
-      const cacheKey = 'pairsTime';
-      const cached = await getWithExpiry(cacheKey);
+      const result = await ApiService.getPairsTime();
       
-      if (cached) {
-        setPairsTime(cached.pairs_time || []);
-        setCachedPairsTime(cached.pairs_time || []);
-      }
-      
-      if (isOnline) {
-        const targetUrl = `${API_BASE_URL}/getpairstime`;
-        const response = await fetch(`${CORS_PROXY}${encodeURIComponent(targetUrl)}`);
-        const data = await safeJsonParse(response);
-        setPairsTime(data.pairs_time || []);
-        setCachedPairsTime(data.pairs_time || []);
-        await setWithExpiry(cacheKey, data);
+      // Проверяем, что данные существуют
+      if (result.data && result.data.pairs_time) {
+        setPairsTime(result.data.pairs_time);
+        setCachedPairsTime(result.data.pairs_time);
       }
     } catch (error) {
       console.error('Error fetching pairs time:', error);
@@ -226,14 +177,10 @@ const ScheduleScreen = ({ theme, accentColor }) => {
   const handleRetry = () => {
     setError(null);
     setShowCachedData(false);
-    if (isOnline) {
-      if (selectedGroup) {
-        fetchScheduleData(selectedGroup);
-      } else {
-        fetchGroupsForCourse(course);
-      }
+    if (selectedGroup) {
+      fetchScheduleData(selectedGroup);
     } else {
-      setError('no-internet');
+      fetchGroupsForCourse(course);
     }
   };
 
@@ -242,20 +189,16 @@ const ScheduleScreen = ({ theme, accentColor }) => {
       setScheduleData(cachedScheduleData);
       setShowCachedData(true);
       setError(null);
+      setCacheInfo({ source: 'stale_cache', cacheInfo: { cacheDate: new Date().toISOString() } });
     }
   };
 
   const onRefresh = () => {
     setRefreshing(true);
-    if (isOnline) {
-      if (selectedGroup) {
-        fetchScheduleData(selectedGroup);
-      } else {
-        fetchGroupsForCourse(course);
-      }
+    if (selectedGroup) {
+      fetchScheduleData(selectedGroup);
     } else {
-      setError('no-internet');
-      setRefreshing(false);
+      fetchGroupsForCourse(course);
     }
   };
 
@@ -424,7 +367,7 @@ const ScheduleScreen = ({ theme, accentColor }) => {
     );
   };
 
-  // Если есть ошибка, показываем соответствующий экран
+  // Если есть ошибка и нет загрузки, показываем соответствующий экран
   if (error && !loadingGroups && !loadingSchedule) {
     return (
       <View style={{ flex: 1, backgroundColor: bgColor }}>
@@ -434,10 +377,12 @@ const ScheduleScreen = ({ theme, accentColor }) => {
           onRetry={handleRetry}
           onViewCache={handleViewCache}
           showCacheButton={!!cachedScheduleData}
+          cacheAvailable={!!cachedScheduleData}
           theme={theme}
           accentColor={accentColor}
           contentType="schedule"
-          message={error === 'no-internet' ? 'Расписание недоступно без подключения к интернету' : 'Не удалось загрузить расписание'}
+          message={error === 'NO_INTERNET' ? 'Расписание недоступно без подключения к интернету' : 'Не удалось загрузить расписание'}
+          cacheDate={cacheInfo?.cacheInfo?.cacheDate}
         />
       </View>
     );
@@ -467,7 +412,7 @@ const ScheduleScreen = ({ theme, accentColor }) => {
         }}>
           <Icon name="time-outline" size={16} color={colors.primary} />
           <Text style={{ color: colors.primary, marginLeft: 8, fontFamily: 'Montserrat_400Regular' }}>
-            Показаны кэшированные данные
+            {cacheInfo?.source === 'stale_cache' ? 'Показаны ранее загруженные данные' : 'Показаны кэшированные данные'}
           </Text>
         </View>
       )}
@@ -490,7 +435,7 @@ const ScheduleScreen = ({ theme, accentColor }) => {
         borderWidth: 1,
         borderColor
       }}>
-        {[-1, 1, 2, 3, 4].map(c => (
+        {[-1, 1, 2, 3, 4, 5].map(c => (
           <TouchableOpacity
             key={c}
             onPress={() => setCourse(c)}

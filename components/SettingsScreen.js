@@ -6,12 +6,13 @@ import * as WebBrowser from 'expo-web-browser';
 import * as Linking from 'expo-linking';
 import AppearanceSettingsSheet from './AppearanceSettingsSheet';
 import AboutModal from './AboutModal';
-import { ACCENT_COLORS, APP_VERSION, APP_DEVELOPERS, GITHUB_REPO_URL } from '../utils/constants';
-import { clearMapCache } from '../utils/mapCache';
+import NotificationSettingsModal from './NotificationSettingsModal';
+import { ACCENT_COLORS, APP_VERSION, APP_DEVELOPERS, APP_SUPPORTERS, GITHUB_REPO_URL, BUILD_VER, BUILD_DATE } from '../utils/constants';
 
 const SettingsScreen = ({ theme, accentColor, setTheme, setAccentColor }) => {
   const [appearanceSheetVisible, setAppearanceSheetVisible] = useState(false);
   const [aboutModalVisible, setAboutModalVisible] = useState(false);
+  const [notificationModalVisible, setNotificationModalVisible] = useState(false);
 
   const bgColor = theme === 'light' ? '#f3f4f6' : '#111827';
   const cardBg = theme === 'light' ? '#ffffff' : '#1f2937';
@@ -33,9 +34,7 @@ const SettingsScreen = ({ theme, accentColor, setTheme, setAccentColor }) => {
           onPress: async () => {
             try {
               const keys = await AsyncStorage.getAllKeys();
-              for (const key of keys) {
-                await AsyncStorage.removeItem(key);
-              }
+              await AsyncStorage.multiRemove(keys);
               Alert.alert('Успех', 'Кэш успешно очищен');
             } catch (error) {
               console.error('Error clearing cache:', error);
@@ -49,34 +48,17 @@ const SettingsScreen = ({ theme, accentColor, setTheme, setAccentColor }) => {
   };
 
   const clearMapCacheHandler = () => {
-  Alert.alert(
-    'Очистка кэша карты',
-    'Удалить все сохраненные картографические данные? Это освободит место на устройстве, но карты станут недоступны в оффлайн-режиме.',
-    [
-      {
-        text: 'Отмена',
-        style: 'cancel'
-      },
-      {
-        text: 'Очистить',
-        onPress: async () => {
-          try {
-            const success = await clearMapCache();
-            if (success) {
-              Alert.alert('Успех', 'Кэш карты успешно очищен');
-            } else {
-              Alert.alert('Информация', 'Кэш карты уже пуст или отсутствует');
-            }
-          } catch (error) {
-            console.error('Error clearing map cache:', error);
-            Alert.alert('Ошибка', 'Не удалось очистить кэш карты');
-          }
-        },
-        style: 'destructive'
-      }
-    ]
-  );
-};
+    Alert.alert(
+      'Очистка кэша карты',
+      'Функция временно недоступна. В текущей версии приложения используется онлайн-карта.',
+      [
+        {
+          text: 'Понятно',
+          style: 'cancel'
+        }
+      ]
+    );
+  };
 
   const openGitHub = () => {
     Linking.openURL(GITHUB_REPO_URL);
@@ -84,6 +66,30 @@ const SettingsScreen = ({ theme, accentColor, setTheme, setAccentColor }) => {
 
   return (
     <ScrollView style={{ flex: 1, backgroundColor: bgColor, padding: 16 }}>
+      {/* Настройки уведомлений */}
+      <TouchableOpacity 
+        style={{ 
+          backgroundColor: cardBg, 
+          borderRadius: 12, 
+          padding: 16, 
+          marginBottom: 16,
+          flexDirection: 'row',
+          alignItems: 'center'
+        }}
+        onPress={() => setNotificationModalVisible(true)}
+      >
+        <View style={{ backgroundColor: colors.light, borderRadius: 8, padding: 8, marginRight: 12 }}>
+          <Icon name="notifications-outline" size={24} color={colors.primary} />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={{ color: textColor, fontSize: 16, fontFamily: 'Montserrat_500Medium' }}>Уведомления</Text>
+          <Text style={{ color: placeholderColor, fontSize: 14, marginTop: 4, fontFamily: 'Montserrat_400Regular' }}>
+            Настройте уведомления о новостях и расписании
+          </Text>
+        </View>
+        <Icon name="chevron-forward" size={20} color={placeholderColor} />
+      </TouchableOpacity>
+
       {/* Настройки внешнего вида */}
       <TouchableOpacity 
         style={{ 
@@ -216,7 +222,13 @@ const SettingsScreen = ({ theme, accentColor, setTheme, setAccentColor }) => {
           Версия: {APP_VERSION}
         </Text>
         <Text style={{ color: '#9ca3af', fontSize: 12, marginTop: 4, fontFamily: 'Montserrat_400Regular', textAlign: 'center' }}>
+          Сборка {BUILD_VER} от {BUILD_DATE}
+        </Text>
+        <Text style={{ color: '#9ca3af', fontSize: 12, marginTop: 4, fontFamily: 'Montserrat_400Regular', textAlign: 'center' }}>
           Разработано с  ❤️  {APP_DEVELOPERS}
+        </Text>
+        <Text style={{ color: '#9ca3af', fontSize: 12, marginTop: 4, fontFamily: 'Montserrat_400Regular', textAlign: 'center' }}>
+          При поддержке {APP_SUPPORTERS}
         </Text>
       </View>
 
@@ -232,6 +244,13 @@ const SettingsScreen = ({ theme, accentColor, setTheme, setAccentColor }) => {
       <AboutModal
         visible={aboutModalVisible}
         onClose={() => setAboutModalVisible(false)}
+        theme={theme}
+        accentColor={accentColor}
+      />
+
+      <NotificationSettingsModal
+        visible={notificationModalVisible}
+        onClose={() => setNotificationModalVisible(false)}
         theme={theme}
         accentColor={accentColor}
       />
