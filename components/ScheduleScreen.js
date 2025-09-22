@@ -1,657 +1,454 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, StyleSheet, Dimensions, RefreshControl } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, StyleSheet, RefreshControl } from 'react-native';
 import { Ionicons as Icon } from '@expo/vector-icons';
-import { getWithExpiry, setWithExpiry, safeJsonParse } from '../utils/cache';
-import { getWeekNumber, formatDate, getDateByWeekAndDay } from '../utils/dateUtils';
-import { API_BASE_URL, CORS_PROXY, ACCENT_COLORS } from '../utils/constants';
+import { getWeekNumber, formatDate } from '../utils/dateUtils';
+import { ACCENT_COLORS, COURSES } from '../utils/constants';
+import ApiService from '../utils/api';
 import ConnectionError from './ConnectionError';
 import NetInfo from '@react-native-community/netinfo';
 
-const { width } = Dimensions.get('window');
-
-const ScheduleScreen = ({ theme, accentColor }) => {
-  const [course, setCourse] = useState(1);
-  const [groups, setGroups] = useState([]);
-  const [cachedGroups, setCachedGroups] = useState([]);
-  const [selectedGroup, setSelectedGroup] = useState(null);
-  const [scheduleData, setScheduleData] = useState(null);
-  const [cachedScheduleData, setCachedScheduleData] = useState(null);
-  const [pairsTime, setPairsTime] = useState([]);
-  const [cachedPairsTime, setCachedPairsTime] = useState([]);
-  const [loadingGroups, setLoadingGroups] = useState(false);
-  const [loadingSchedule, setLoadingSchedule] = useState(false);
-  const [refreshing, setRefreshing] = useState(false);
-  const [viewMode, setViewMode] = useState('day');
-  const [currentDate, setCurrentDate] = useState(new Date());
-  const [currentWeek, setCurrentWeek] = useState(getWeekNumber(new Date()));
-  const [error, setError] = useState(null);
-  const [isOnline, setIsOnline] = useState(true);
-  const [showCachedData, setShowCachedData] = useState(false);
-  const [cacheDate, setCacheDate] = useState(null);
-
-  const bgColor = theme === 'light' ? '#f3f4f6' : '#111827';
-  const cardBg = theme === 'light' ? '#ffffff' : '#1f2937';
-  const textColor = theme === 'light' ? '#111827' : '#ffffff';
+// Выносим компоненты для упрощения
+const CourseSelector = ({ course, setCourse, theme, accentColor }) => {
   const colors = ACCENT_COLORS[accentColor];
+  const textColor = theme === 'light' ? '#111827' : '#ffffff';
   const borderColor = theme === 'light' ? '#e5e7eb' : '#374151';
-  const placeholderColor = theme === 'light' ? '#6b7280' : '#9ca3af';
 
-  useEffect(() => {
-    // Проверяем подключение к интернету
-    const unsubscribe = NetInfo.addEventListener(state => {
-      setIsOnline(state.isConnected);
-      
-      // Если появилось соединение, сбрасываем флаг показа кэша
-      if (state.isConnected) {
-        setShowCachedData(false);
-      }
-    });
+  return (
+    <View style={[styles.courseSelector, { borderColor }]}>
+      {COURSES.map(c => (
+        <TouchableOpacity
+          key={c.id}
+          onPress={() => setCourse(c.id)}
+          style={[
+            styles.courseButton,
+            { 
+              backgroundColor: course === c.id ? colors.primary : 'transparent',
+              borderColor: course === c.id ? colors.primary : borderColor
+            }
+          ]}
+        >
+          <Text style={[
+            styles.courseButtonText,
+            { color: course === c.id ? '#ffffff' : textColor }
+          ]}>
+            {c.label}
+          </Text>
+        </TouchableOpacity>
+      ))}
+    </View>
+  );
+};
 
-    fetchGroupsForCourse(course);
-    fetchPairsTime();
+const GroupSelector = ({ groups, selectedGroup, onSelectGroup, loading, theme, accentColor }) => {
+  const colors = ACCENT_COLORS[accentColor];
+  const textColor = theme === 'light' ? '#111827' : '#ffffff';
+  const borderColor = theme === 'light' ? '#e5e7eb' : '#374151';
+  const cardBg = theme === 'light' ? '#ffffff' : '#1f2937';
 
-    return () => unsubscribe();
-  }, [course]);
-
-  useEffect(() => {
-    if (selectedGroup) {
-      fetchScheduleData(selectedGroup);
-    }
-  }, [viewMode, currentDate, currentWeek, selectedGroup]);
-
-  const fetchGroupsForCourse = async (course) => {
-    setLoadingGroups(true);
-    setError(null);
-    setShowCachedData(false);
-    
-    try {
-      const cacheKey = `groups_${course}`;
-      const cached = await getWithExpiry(cacheKey);
-      
-      if (cached) {
-        setGroups(cached.groups || []);
-        setCachedGroups(cached.groups || []);
-        
-        // Если нет интернета, используем кэшированные данные
-        if (!isOnline) {
-          setShowCachedData(true);
-          return;
-        }
-      }
-      
-      if (isOnline) {
-        const targetUrl = `${API_BASE_URL}/getgroups/${course}`;
-        const response = await fetch(`${CORS_PROXY}${encodeURIComponent(targetUrl)}`);
-        const data = await safeJsonParse(response);
-        setGroups(data.groups || []);
-        setCachedGroups(data.groups || []);
-        await setWithExpiry(cacheKey, data);
-      } else if (!cached) {
-        setError('no-internet');
-      }
-    } catch (error) {
-      console.error('Error fetching groups:', error);
-      
-      // При ошибке пытаемся показать кэшированные данные
-      if (cachedGroups.length > 0) {
-        setGroups(cachedGroups);
-        setShowCachedData(true);
-      } else {
-        setError('load-error');
-      }
-    } finally {
-      setLoadingGroups(false);
-    }
-  };
-
-  const fetchScheduleData = async (group) => {
-    setSelectedGroup(group);
-    setLoadingSchedule(true);
-    setError(null);
-    setShowCachedData(false);
-    
-    try {
-      let cacheKey, targetUrl;
-      
-      if (viewMode === 'week') {
-        cacheKey = `schedule_${group}_${currentWeek}`;
-        const cached = await getWithExpiry(cacheKey);
-        
-        if (cached) {
-          setScheduleData(cached);
-          setCachedScheduleData(cached);
-          
-          // Если нет интернета, используем кэшированные данные
-          if (!isOnline) {
-            setShowCachedData(true);
-            return;
-          }
-        }
-        
-        if (isOnline) {
-          targetUrl = `${API_BASE_URL}/getpairsweek?type=group&data=${group}&week=${currentWeek}`;
-          const response = await fetch(`${CORS_PROXY}${encodeURIComponent(targetUrl)}`);
-          const data = await safeJsonParse(response);
-          setScheduleData(data);
-          setCachedScheduleData(data);
-          await setWithExpiry(cacheKey, data, 60 * 60 * 1000);
-        } else if (!cached) {
-          setError('no-internet');
-        }
-      } else {
-        const formattedDate = formatDate(currentDate);
-        cacheKey = `schedule_${group}_${formattedDate}`;
-        const cached = await getWithExpiry(cacheKey);
-        
-        if (cached) {
-          setScheduleData(cached);
-          setCachedScheduleData(cached);
-          
-          // Если нет интернета, используем кэшированные данные
-          if (!isOnline) {
-            setShowCachedData(true);
-            return;
-          }
-        }
-        
-        if (isOnline) {
-          targetUrl = `${API_BASE_URL}/getpairs/date:${group}:${formattedDate}`;
-          const response = await fetch(`${CORS_PROXY}${encodeURIComponent(targetUrl)}`);
-          const data = await safeJsonParse(response);
-          setScheduleData(data);
-          setCachedScheduleData(data);
-          await setWithExpiry(cacheKey, data, 60 * 60 * 1000);
-        } else if (!cached) {
-          setError('no-internet');
-        }
-      }
-    } catch (error) {
-      console.error('Error fetching schedule:', error);
-      
-      // При ошибке пытаемся показать кэшированные данные
-      if (cachedScheduleData) {
-        setScheduleData(cachedScheduleData);
-        setShowCachedData(true);
-      } else {
-        setError('load-error');
-      }
-    } finally {
-      setLoadingSchedule(false);
-      setRefreshing(false);
-    }
-  };
-
-  const fetchPairsTime = async () => {
-    try {
-      const cacheKey = 'pairsTime';
-      const cached = await getWithExpiry(cacheKey);
-      
-      if (cached) {
-        setPairsTime(cached.pairs_time || []);
-        setCachedPairsTime(cached.pairs_time || []);
-      }
-      
-      if (isOnline) {
-        const targetUrl = `${API_BASE_URL}/getpairstime`;
-        const response = await fetch(`${CORS_PROXY}${encodeURIComponent(targetUrl)}`);
-        const data = await safeJsonParse(response);
-        setPairsTime(data.pairs_time || []);
-        setCachedPairsTime(data.pairs_time || []);
-        await setWithExpiry(cacheKey, data);
-      }
-    } catch (error) {
-      console.error('Error fetching pairs time:', error);
-      
-      // При ошибке пытаемся показать кэшированные данные
-      if (cachedPairsTime.length > 0) {
-        setPairsTime(cachedPairsTime);
-      }
-    }
-  };
-
-  const getTimeForLesson = (timeNumber) => {
-    return pairsTime.find(pair => pair.time === timeNumber);
-  };
-
-  const changeDate = (days) => {
-    const newDate = new Date(currentDate);
-    newDate.setDate(newDate.getDate() + days);
-    setCurrentDate(newDate);
-  };
-
-  const changeWeek = (weeks) => {
-    setCurrentWeek(currentWeek + weeks);
-  };
-
-  const handleRetry = () => {
-    setError(null);
-    setShowCachedData(false);
-    if (isOnline) {
-      if (selectedGroup) {
-        fetchScheduleData(selectedGroup);
-      } else {
-        fetchGroupsForCourse(course);
-      }
-    } else {
-      setError('no-internet');
-    }
-  };
-
-  const handleViewCache = () => {
-    if (cachedScheduleData) {
-      setScheduleData(cachedScheduleData);
-      setShowCachedData(true);
-      setError(null);
-    }
-  };
-
-  const onRefresh = () => {
-    setRefreshing(true);
-    if (isOnline) {
-      if (selectedGroup) {
-        fetchScheduleData(selectedGroup);
-      } else {
-        fetchGroupsForCourse(course);
-      }
-    } else {
-      setError('no-internet');
-      setRefreshing(false);
-    }
-  };
-
-  const weekdays = ["Понедельник", "Вторник", "Среда", "Четверг", "Пятница", "Суббота", "Воскресенье"];
-
-  const renderDaySchedule = (day) => {
-    if (!day || !day.lessons) return null;
-    
-    const date = getDateByWeekAndDay(currentWeek, day.weekday);
+  if (loading) {
     return (
-      <View 
-        key={day.weekday} 
-        style={{ 
-          backgroundColor: cardBg, 
-          borderRadius: 12, 
-          padding: 16, 
-          marginBottom: 16,
-          borderWidth: 1,
-          borderColor
-        }}
-      >
-        <Text style={{ fontSize: 18, fontWeight: 'bold', color: colors.primary, marginBottom: 4, fontFamily: 'Montserrat_600SemiBold' }}>
-          {weekdays[day.weekday - 1]}
-        </Text>
-        <Text style={{ color: placeholderColor, marginBottom: 12, fontFamily: 'Montserrat_400Regular' }}>
-          {formatDate(date)}
-        </Text>
-
-        {day.lessons.length > 0 ? (
-          day.lessons.map(lesson => {
-            const pairTime = getTimeForLesson(lesson.time);
-            return (
-              <View 
-                key={lesson.id} 
-                style={{ 
-                  paddingVertical: 12, 
-                  borderTopWidth: 1, 
-                  borderTopColor: borderColor,
-                  marginTop: 12
-                }}
-              >
-                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
-                  <Icon name="book-outline" size={14} color={placeholderColor} />
-                  <Text style={{ color: placeholderColor, marginLeft: 8, fontSize: 14, fontFamily: 'Montserrat_400Regular' }}>
-                    Пара №{lesson.time}
-                  </Text>
-                </View>
-                
-                <Text style={{ fontWeight: '600', color: textColor, fontSize: 16, fontFamily: 'Montserrat_500Medium' }}>
-                  {lesson.subject} ({lesson.type_lesson})
-                </Text>
-                
-                <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 8 }}>
-                  <Icon name="person-outline" size={14} color={placeholderColor} />
-                  <Text style={{ color: textColor, marginLeft: 8, fontSize: 14, fontFamily: 'Montserrat_400Regular' }}>
-                    {lesson.teacher}
-                  </Text>
-                </View>
-                
-                <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
-                  <Icon name="location-outline" size={14} color={placeholderColor} />
-                  <Text style={{ color: textColor, marginLeft: 8, fontSize: 14, fontFamily: 'Montserrat_400Regular' }}>
-                    Аудитория: {lesson.auditory}
-                  </Text>
-                </View>
-                
-                {pairTime && (
-                  <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
-                    <Icon name="time-outline" size={14} color={placeholderColor} />
-                    <Text style={{ color: placeholderColor, marginLeft: 8, fontSize: 14, fontFamily: 'Montserrat_400Regular' }}>
-                      {pairTime.time_start} - {pairTime.time_end}
-                    </Text>
-                  </View>
-                )}
-              </View>
-            );
-          })
-        ) : (
-          <Text style={{ color: placeholderColor, marginTop: 12, fontFamily: 'Montserrat_400Regular' }}>Занятий нет</Text>
-        )}
-      </View>
-    );
-  };
-
-  const renderDailySchedule = () => {
-    if (!scheduleData) return null;
-    
-    const weekday = currentDate.getDay() === 0 ? 7 : currentDate.getDay();
-    const daySchedule = scheduleData.days ? 
-      scheduleData.days.find(d => d.weekday === weekday) : 
-      { lessons: scheduleData.lessons || [] };
-    
-    if (!daySchedule) return null;
-    
-    return (
-      <View 
-        style={{ 
-          backgroundColor: cardBg, 
-          borderRadius: 12, 
-          padding: 16, 
-          marginBottom: 16,
-          borderWidth: 1,
-          borderColor
-        }}
-      >
-        <Text style={{ fontSize: 18, fontWeight: 'bold', color: colors.primary, marginBottom: 4, fontFamily: 'Montserrat_600SemiBold' }}>
-          {weekdays[weekday - 1]}
-        </Text>
-        <Text style={{ color: placeholderColor, marginBottom: 12, fontFamily: 'Montserrat_400Regular' }}>
-          {formatDate(currentDate)}
-        </Text>
-
-        {daySchedule.lessons && daySchedule.lessons.length > 0 ? (
-          daySchedule.lessons.map(lesson => {
-            const pairTime = getTimeForLesson(lesson.time);
-            return (
-              <View 
-                key={lesson.id} 
-                style={{ 
-                  paddingVertical: 12, 
-                  borderTopWidth: 1, 
-                  borderTopColor: borderColor,
-                  marginTop: 12
-                }}
-              >
-                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
-                  <Icon name="book-outline" size={14} color={placeholderColor} />
-                  <Text style={{ color: placeholderColor, marginLeft: 8, fontSize: 14, fontFamily: 'Montserrat_400Regular' }}>
-                    Пара №{lesson.time}
-                  </Text>
-                </View>
-                
-                <Text style={{ fontWeight: '600', color: textColor, fontSize: 16, fontFamily: 'Montserrat_500Medium' }}>
-                  {lesson.subject} ({lesson.type_lesson})
-                </Text>
-                
-                <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 8 }}>
-                  <Icon name="person-outline" size={14} color={placeholderColor} />
-                  <Text style={{ color: textColor, marginLeft: 8, fontSize: 14, fontFamily: 'Montserrat_400Regular' }}>
-                    {lesson.teacher}
-                  </Text>
-                </View>
-                
-                <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
-                  <Icon name="location-outline" size={14} color={placeholderColor} />
-                  <Text style={{ color: textColor, marginLeft: 8, fontSize: 14, fontFamily: 'Montserrat_400Regular' }}>
-                    Аудитория: {lesson.auditory}
-                  </Text>
-                </View>
-                
-                {pairTime && (
-                  <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
-                    <Icon name="time-outline" size={14} color={placeholderColor} />
-                    <Text style={{ color: placeholderColor, marginLeft: 8, fontSize: 14, fontFamily: 'Montserrat_400Regular' }}>
-                      {pairTime.time_start} - {pairTime.time_end}
-                    </Text>
-                  </View>
-                )}
-              </View>
-            );
-          })
-        ) : (
-          <Text style={{ color: placeholderColor, marginTop: 12, fontFamily: 'Montserrat_400Regular' }}>Занятий нет</Text>
-        )}
-      </View>
-    );
-  };
-
-  // Если есть ошибка, показываем соответствующий экран
-  if (error && !loadingGroups && !loadingSchedule) {
-    return (
-      <View style={{ flex: 1, backgroundColor: bgColor }}>
-        <ConnectionError 
-          type={error}
-          loading={false}
-          onRetry={handleRetry}
-          onViewCache={handleViewCache}
-          showCacheButton={!!cachedScheduleData}
-          theme={theme}
-          accentColor={accentColor}
-          contentType="schedule"
-          message={error === 'no-internet' ? 'Расписание недоступно без подключения к интернету' : 'Не удалось загрузить расписание'}
-        />
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="small" color={colors.primary} />
+        <Text style={[styles.loadingText, { color: textColor }]}>Загрузка групп...</Text>
       </View>
     );
   }
 
   return (
     <ScrollView 
-      style={{ flex: 1, backgroundColor: bgColor, padding: 16 }}
-      refreshControl={
-        <RefreshControl
-          refreshing={refreshing}
-          onRefresh={onRefresh}
-          colors={[colors.primary]}
-          tintColor={colors.primary}
-        />
-      }
+      horizontal 
+      showsHorizontalScrollIndicator={false}
+      style={styles.groupSelector}
     >
-      {showCachedData && (
-        <View style={{ 
-          backgroundColor: colors.light, 
-          padding: 12, 
-          borderRadius: 8,
-          alignItems: 'center',
-          flexDirection: 'row',
-          justifyContent: 'center',
-          marginBottom: 16
-        }}>
-          <Icon name="time-outline" size={16} color={colors.primary} />
-          <Text style={{ color: colors.primary, marginLeft: 8, fontFamily: 'Montserrat_400Regular' }}>
-            Показаны кэшированные данные
+      {groups.map(group => (
+        <TouchableOpacity
+          key={group}
+          onPress={() => onSelectGroup(group)}
+          style={[
+            styles.groupButton,
+            { 
+              backgroundColor: selectedGroup === group ? colors.primary : cardBg,
+              borderColor: selectedGroup === group ? colors.primary : borderColor
+            }
+          ]}
+        >
+          <Text style={[
+            styles.groupButtonText,
+            { color: selectedGroup === group ? '#ffffff' : textColor }
+          ]}>
+            {group}
           </Text>
-        </View>
-      )}
-      
-      {/* Текущая дата */}
-      <View style={{ marginBottom: 16 }}>
-        <Text style={{ color: textColor, fontWeight: '500', textAlign: 'center', fontFamily: 'Montserrat_500Medium' }}>
-          Сегодня: {formatDate(new Date())}
-        </Text>
-      </View>
-
-      {/* Кнопки выбора курса */}
-      <View style={{ 
-        flexDirection: 'row', 
-        flexWrap: 'wrap',
-        backgroundColor: bgColor, 
-        borderRadius: 24, 
-        padding: 4, 
-        marginBottom: 16,
-        borderWidth: 1,
-        borderColor
-      }}>
-        {[-1, 1, 2, 3, 4, 5].map(c => (
-          <TouchableOpacity
-            key={c}
-            onPress={() => setCourse(c)}
-            style={{
-              paddingVertical: 8,
-              paddingHorizontal: 16,
-              borderRadius: 20,
-              backgroundColor: course === c ? colors.primary : 'transparent',
-              alignItems: 'center',
-              margin: 2,
-              flexGrow: 1,
-              minWidth: '18%'
-            }}
-          >
-            <Text style={{ 
-              color: course === c ? '#ffffff' : textColor,
-              fontWeight: '500',
-              fontFamily: 'Montserrat_500Medium'
-            }}>
-              {c === -1 ? 'Магистратура' : `${c} курс`}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </View>
-
-      {/* Список групп */}
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', marginBottom: 16 }}>
-        {loadingGroups ? (
-          <ActivityIndicator size="large" color={colors.primary} />
-        ) : (
-          groups.map(group => (
-            <TouchableOpacity
-              key={group}
-              onPress={() => fetchScheduleData(group)}
-              style={{
-                paddingVertical: 8,
-                paddingHorizontal: 16,
-                borderRadius: 8,
-                margin: 4,
-                backgroundColor: selectedGroup === group ? colors.primary : cardBg,
-                borderWidth: 1,
-                borderColor: selectedGroup === group ? colors.primary : borderColor
-              }}
-            >
-              <Text style={{ 
-                color: selectedGroup === group ? '#ffffff' : textColor,
-                fontFamily: 'Montserrat_500Medium'
-              }}>
-                {group}
-              </Text>
-            </TouchableOpacity>
-          ))
-        )}
-      </View>
-
-      {/* Управление расписанием (только после выбора группы) */}
-      {selectedGroup && (
-        <>
-          {/* Переключение режимов и навигация */}
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-            <View style={{ flexDirection: 'row', backgroundColor: cardBg, borderRadius: 8, padding: 4 }}>
-              <TouchableOpacity
-                onPress={() => setViewMode('day')}
-                style={{
-                  paddingVertical: 6,
-                  paddingHorizontal: 12,
-                  borderRadius: 6,
-                  backgroundColor: viewMode === 'day' ? colors.primary : 'transparent'
-                }}
-              >
-                <Text style={{ color: viewMode === 'day' ? '#ffffff' : textColor, fontFamily: 'Montserrat_500Medium' }}>День</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                onPress={() => setViewMode('week')}
-                style={{
-                  paddingVertical: 6,
-                  paddingHorizontal: 12,
-                  borderRadius: 6,
-                  backgroundColor: viewMode === 'week' ? colors.primary : 'transparent'
-                }}
-              >
-                <Text style={{ color: viewMode === 'week' ? '#ffffff' : textColor, fontFamily: 'Montserrat_500Medium' }}>Неделя</Text>
-              </TouchableOpacity>
-            </View>
-
-            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-              <TouchableOpacity
-                onPress={() => viewMode === 'day' ? changeDate(-1) : changeWeek(-1)}
-                style={{ padding: 8 }}
-              >
-                <Icon name="chevron-back" size={24} color={colors.primary} />
-              </TouchableOpacity>
-              
-              <Text style={{ color: textColor, fontWeight: '500', marginHorizontal: 8, fontFamily: 'Montserrat_500Medium' }}>
-                {viewMode === 'day' ? formatDate(currentDate) : `Неделя ${currentWeek}`}
-              </Text>
-              
-              <TouchableOpacity
-                onPress={() => viewMode === 'day' ? changeDate(1) : changeWeek(1)}
-                style={{ padding: 8 }}
-              >
-                <Icon name="chevron-forward" size={24} color={colors.primary} />
-              </TouchableOpacity>
-            </View>
-          </View>
-
-          {/* Расписание */}
-          {loadingSchedule ? (
-            <ActivityIndicator size="large" color={colors.primary} />
-          ) : scheduleData && scheduleData.days && viewMode === 'week' ? (
-            <View>
-              <View style={{ alignItems: 'center', marginBottom: 16 }}>
-                <Text style={{ fontSize: 20, fontWeight: 'bold', color: textColor, fontFamily: 'Montserrat_600SemiBold' }}>
-                  Расписание для {selectedGroup}
-                </Text>
-                <Text style={{ color: placeholderColor, marginTop: 4, fontFamily: 'Montserrat_400Regular' }}>
-                  Неделя: {scheduleData.week_number} ({scheduleData.dates?.date_start} - {scheduleData.dates?.date_end})
-                </Text>
-              </View>
-
-              {scheduleData.days.map(day => 
-                day && day.lessons ? renderDaySchedule(day) : null
-              )}
-            </View>
-          ) : scheduleData && viewMode === 'day' ? (
-            <View>
-              <View style={{ alignItems: 'center', marginBottom: 16 }}>
-                <Text style={{ fontSize: 20, fontWeight: 'bold', color: textColor, fontFamily: 'Montserrat_600SemiBold' }}>
-                  Расписание для {selectedGroup}
-                </Text>
-              </View>
-              {renderDailySchedule()}
-            </View>
-          ) : scheduleData && !loadingSchedule ? (
-            <Text style={{ textAlign: 'center', color: placeholderColor, marginTop: 20, fontFamily: 'Montserrat_400Regular' }}>
-              На {viewMode === 'day' ? 'этот день' : 'эту неделю'} занятий нет.
-            </Text>
-          ) : null}
-        </>
-      )}
-      
-      {!isOnline && !error && !showCachedData && (
-        <View style={{ 
-          backgroundColor: colors.light, 
-          padding: 16, 
-          borderRadius: 8, 
-          alignItems: 'center',
-          marginTop: 16
-        }}>
-          <Icon name="cloud-offline-outline" size={20} color={colors.primary} />
-          <Text style={{ color: colors.primary, marginTop: 8, textAlign: 'center', fontFamily: 'Montserrat_400Regular' }}>
-            Нет подключения к интернету. Показаны ранее загруженные данные.
-          </Text>
-        </View>
-      )}
+        </TouchableOpacity>
+      ))}
     </ScrollView>
   );
 };
 
+const ScheduleView = ({ scheduleData, pairsTime, viewMode, theme, accentColor }) => {
+  const colors = ACCENT_COLORS[accentColor];
+  const textColor = theme === 'light' ? '#111827' : '#ffffff';
+  const cardBg = theme === 'light' ? '#ffffff' : '#1f2937';
+  const borderColor = theme === 'light' ? '#e5e7eb' : '#374151';
+
+  if (!scheduleData) return null;
+
+  const renderLesson = (lesson) => {
+    const pairTime = pairsTime.find(pair => pair.time === lesson.time);
+    
+    return (
+      <View key={lesson.id} style={[styles.lessonCard, { backgroundColor: cardBg, borderColor }]}>
+        <View style={styles.lessonHeader}>
+          <Text style={[styles.lessonTime, { color: colors.primary }]}>
+            Пара {lesson.time}
+          </Text>
+          {pairTime && (
+            <Text style={[styles.lessonTimeRange, { color: textColor }]}>
+              {pairTime.time_start} - {pairTime.time_end}
+            </Text>
+          )}
+        </View>
+        
+        <Text style={[styles.lessonSubject, { color: textColor }]}>
+          {lesson.subject}
+        </Text>
+        
+        <Text style={[styles.lessonType, { color: colors.primary }]}>
+          {lesson.type_lesson}
+        </Text>
+        
+        <View style={styles.lessonDetails}>
+          <View style={styles.detailRow}>
+            <Icon name="person-outline" size={16} color={textColor} />
+            <Text style={[styles.detailText, { color: textColor }]}>
+              {lesson.teacher}
+            </Text>
+          </View>
+          
+          <View style={styles.detailRow}>
+            <Icon name="location-outline" size={16} color={textColor} />
+            <Text style={[styles.detailText, { color: textColor }]}>
+              {lesson.auditory}
+            </Text>
+          </View>
+        </View>
+      </View>
+    );
+  };
+
+  if (viewMode === 'week') {
+    return (
+      <View>
+        {scheduleData.days?.map(day => (
+          <View key={day.weekday} style={[styles.dayCard, { backgroundColor: cardBg, borderColor }]}>
+            <Text style={[styles.dayTitle, { color: colors.primary }]}>
+              {['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'][day.weekday - 1]}
+            </Text>
+            {day.lessons && day.lessons.length > 0 ? (
+              day.lessons.map(renderLesson)
+            ) : (
+              <Text style={[styles.noLessons, { color: textColor }]}>Нет занятий</Text>
+            )}
+          </View>
+        ))}
+      </View>
+    );
+  } else {
+    // Daily view
+    const dayLessons = scheduleData.lessons || [];
+    return (
+      <View style={[styles.dayCard, { backgroundColor: cardBg, borderColor }]}>
+        {dayLessons.length > 0 ? (
+          dayLessons.map(renderLesson)
+        ) : (
+          <Text style={[styles.noLessons, { color: textColor }]}>Нет занятий на этот день</Text>
+        )}
+      </View>
+    );
+  }
+};
+
+const ScheduleScreen = ({ theme, accentColor }) => {
+  const [course, setCourse] = useState(1);
+  const [groups, setGroups] = useState([]);
+  const [selectedGroup, setSelectedGroup] = useState(null);
+  const [scheduleData, setScheduleData] = useState(null);
+  const [pairsTime, setPairsTime] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const [viewMode, setViewMode] = useState('day');
+  const [currentDate, setCurrentDate] = useState(new Date());
+  const [currentWeek, setCurrentWeek] = useState(getWeekNumber(new Date()));
+  const [error, setError] = useState(null);
+  const [cacheInfo, setCacheInfo] = useState(null);
+
+  const colors = ACCENT_COLORS[accentColor];
+  const bgColor = theme === 'light' ? '#f3f4f6' : '#111827';
+
+  useEffect(() => {
+    loadGroups();
+    loadPairsTime();
+  }, [course]);
+
+  useEffect(() => {
+    if (selectedGroup) {
+      loadSchedule();
+    }
+  }, [selectedGroup, viewMode, currentDate, currentWeek]);
+
+  const loadGroups = async () => {
+    setLoading(true);
+    setError(null);
+    
+    try {
+      const result = await ApiService.getGroups(course);
+      setGroups(result.data.groups || []);
+      setCacheInfo(result.cacheInfo);
+    } catch (error) {
+      setError(error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadSchedule = async () => {
+    setLoading(true);
+    setError(null);
+    
+    try {
+      const result = viewMode === 'week' 
+        ? await ApiService.getSchedule(selectedGroup, null, currentWeek)
+        : await ApiService.getSchedule(selectedGroup, currentDate);
+      
+      setScheduleData(result.data);
+      setCacheInfo(result.cacheInfo);
+    } catch (error) {
+      setError(error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadPairsTime = async () => {
+    try {
+      const result = await ApiService.getPairsTime();
+      setPairsTime(result.data.pairs_time || []);
+    } catch (error) {
+      console.error('Error loading pairs time:', error);
+    }
+  };
+
+  const handleRetry = () => {
+    setError(null);
+    if (selectedGroup) {
+      loadSchedule();
+    } else {
+      loadGroups();
+    }
+  };
+
+  const handleViewCache = () => {
+    // Используем данные из кэша, которые уже загружены
+    setError(null);
+  };
+
+  const onRefresh = () => {
+    setRefreshing(true);
+    if (selectedGroup) {
+      loadSchedule().finally(() => setRefreshing(false));
+    } else {
+      loadGroups().finally(() => setRefreshing(false));
+    }
+  };
+
+  if (error && !loading) {
+    return (
+      <ConnectionError
+        type={error}
+        loading={false}
+        onRetry={handleRetry}
+        onViewCache={handleViewCache}
+        theme={theme}
+        accentColor={accentColor}
+        cacheAvailable={!!scheduleData || groups.length > 0}
+        cacheDate={cacheInfo?.cacheDate}
+        contentType="schedule"
+      />
+    );
+  }
+
+  return (
+    <View style={[styles.container, { backgroundColor: bgColor }]}>
+      {cacheInfo && cacheInfo.source === 'cache' && (
+        <View style={[styles.cacheIndicator, { backgroundColor: colors.light }]}>
+          <Icon name="time-outline" size={16} color={colors.primary} />
+          <Text style={[styles.cacheText, { color: colors.primary }]}>
+            Данные из кэша
+          </Text>
+        </View>
+      )}
+      
+      <ScrollView
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={[colors.primary]}
+            tintColor={colors.primary}
+          />
+        }
+      >
+        <View style={styles.content}>
+          <CourseSelector
+            course={course}
+            setCourse={setCourse}
+            theme={theme}
+            accentColor={accentColor}
+          />
+          
+          <GroupSelector
+            groups={groups}
+            selectedGroup={selectedGroup}
+            onSelectGroup={setSelectedGroup}
+            loading={loading}
+            theme={theme}
+            accentColor={accentColor}
+          />
+          
+          {selectedGroup && (
+            <ScheduleView
+              scheduleData={scheduleData}
+              pairsTime={pairsTime}
+              viewMode={viewMode}
+              theme={theme}
+              accentColor={accentColor}
+            />
+          )}
+        </View>
+      </ScrollView>
+    </View>
+  );
+};
+
 const styles = StyleSheet.create({
-  // Стили могут быть добавлены при необходимости
+  container: {
+    flex: 1,
+  },
+  content: {
+    padding: 16,
+  },
+  cacheIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 12,
+    gap: 8,
+  },
+  cacheText: {
+    fontSize: 14,
+    fontFamily: 'Montserrat_500Medium',
+  },
+  courseSelector: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    marginBottom: 16,
+    gap: 8,
+  },
+  courseButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 20,
+    borderWidth: 1,
+    minWidth: 80,
+    alignItems: 'center',
+  },
+  courseButtonText: {
+    fontSize: 14,
+    fontFamily: 'Montserrat_500Medium',
+  },
+  groupSelector: {
+    marginBottom: 16,
+  },
+  groupButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    borderWidth: 1,
+    marginRight: 8,
+  },
+  groupButtonText: {
+    fontSize: 14,
+    fontFamily: 'Montserrat_500Medium',
+  },
+  loadingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 16,
+    gap: 8,
+  },
+  loadingText: {
+    fontSize: 14,
+    fontFamily: 'Montserrat_400Regular',
+  },
+  dayCard: {
+    borderRadius: 12,
+    padding: 16,
+    borderWidth: 1,
+    marginBottom: 16,
+  },
+  dayTitle: {
+    fontSize: 18,
+    fontFamily: 'Montserrat_600SemiBold',
+    marginBottom: 12,
+  },
+  lessonCard: {
+    borderRadius: 8,
+    padding: 12,
+    borderWidth: 1,
+    marginBottom: 8,
+  },
+  lessonHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  lessonTime: {
+    fontSize: 14,
+    fontFamily: 'Montserrat_600SemiBold',
+  },
+  lessonTimeRange: {
+    fontSize: 12,
+    fontFamily: 'Montserrat_400Regular',
+  },
+  lessonSubject: {
+    fontSize: 16,
+    fontFamily: 'Montserrat_500Medium',
+    marginBottom: 4,
+  },
+  lessonType: {
+    fontSize: 14,
+    fontFamily: 'Montserrat_400Regular',
+    marginBottom: 8,
+  },
+  lessonDetails: {
+    gap: 4,
+  },
+  detailRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  detailText: {
+    fontSize: 14,
+    fontFamily: 'Montserrat_400Regular',
+  },
+  noLessons: {
+    textAlign: 'center',
+    fontStyle: 'italic',
+    fontFamily: 'Montserrat_400Regular',
+  },
 });
 
 export default ScheduleScreen;

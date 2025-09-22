@@ -12,94 +12,163 @@ import NewsScreen from './components/NewsScreen';
 import ScheduleScreen from './components/ScheduleScreen';
 import SettingsScreen from './components/SettingsScreen';
 import MapScreen from './components/MapScreen';
-import NotificationsSettingsModal from './components/NotificationsSettingsModal';
 
 // Импорт утилит
 import { ACCENT_COLORS, SCREENS } from './utils/constants';
 import * as Sentry from '@sentry/react-native';
-import { registerForPushNotificationsAsync } from './utils/notifications';
 
 Sentry.init({
   dsn: 'https://9954c52fe80999a51a6905e3ee180d11@sentry.sculkmetrics.com/5',
+
+  // Adds more context data to events (IP address, cookies, user, etc.)
+  // For more information, visit: https://docs.sentry.io/platforms/react-native/data-management/data-collected/
   sendDefaultPii: true,
+
+  // Configure Session Replay
+  replaysSessionSampleRate: 0.1,
+  replaysOnErrorSampleRate: 1,
+  integrations: [Sentry.mobileReplayIntegration(), Sentry.feedbackIntegration()],
+
+  // uncomment the line below to enable Spotlight (https://spotlightjs.com)
+  // spotlight: __DEV__,
 });
 
-const App = () => {
-  const [fontsLoaded] = useFonts({
+// Стили
+const styles = StyleSheet.create({
+  header: {
+    padding: 16, 
+    paddingTop: Platform.OS === 'ios' ? 50 : 40, 
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3.84,
+    elevation: 5,
+    justifyContent: 'center',
+    alignItems: 'center'
+  },
+  headerText: {
+    fontSize: 24, 
+    fontWeight: 'bold', 
+    fontFamily: 'Montserrat_600SemiBold'
+  },
+  navigation: {
+    flexDirection: 'row', 
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3.84,
+    elevation: 5,
+    paddingHorizontal: 4,
+    paddingVertical: 8
+  }
+});
+
+export default Sentry.wrap(function App() {
+  // Загрузка шрифтов должна быть первым хуком
+  let [fontsLoaded] = useFonts({
     Montserrat_400Regular,
     Montserrat_500Medium,
     Montserrat_600SemiBold,
-    Montserrat_700Bold
+    Montserrat_700Bold,
   });
-  
-  const systemColorScheme = Appearance.getColorScheme();
-  const [activeScreen, setActiveScreen] = useState(SCREENS.SCHEDULE);
-  const [accentColor, setAccentColor] = useState('blue');
-  const [theme, setTheme] = useState('auto');
+
   const [isLoading, setIsLoading] = useState(true);
-  const [notificationsModalVisible, setNotificationsModalVisible] = useState(false);
+  const [activeScreen, setActiveScreen] = useState(SCREENS.SCHEDULE);
+  const [theme, setTheme] = useState('auto');
+  const [accentColor, setAccentColor] = useState('green');
+  const [systemTheme, setSystemTheme] = useState(Appearance.getColorScheme() || 'light');
+  const [refresh, setRefresh] = useState(0);
 
   useEffect(() => {
-    async function prepare() {
+    // Загружаем сохраненные настройки
+    const loadSettings = async () => {
       try {
-        await new Promise(resolve => setTimeout(resolve, 2000));
-        const storedTheme = await SecureStore.getItemAsync('theme');
-        if (storedTheme) {
-          setTheme(storedTheme);
-        }
-        const storedAccentColor = await SecureStore.getItemAsync('accentColor');
-        if (storedAccentColor) {
-          setAccentColor(storedAccentColor);
-        }
-        await registerForPushNotificationsAsync();
-      } catch (e) {
-        console.warn(e);
+        const savedTheme = await SecureStore.getItemAsync('theme');
+        const savedAccentColor = await SecureStore.getItemAsync('accentColor');
+        
+        if (savedTheme) setTheme(savedTheme);
+        if (savedAccentColor) setAccentColor(savedAccentColor);
+      } catch (error) {
+        console.error('Error loading settings:', error);
       } finally {
-        setIsLoading(false);
+        // Показываем splash screen на 2 секунды
+        setTimeout(() => {
+          setIsLoading(false);
+        }, 2000);
       }
-    }
-    prepare();
+    };
+    
+    loadSettings();
   }, []);
 
-  if (!fontsLoaded || isLoading) {
-    return <SplashScreen accentColor={accentColor} theme={theme} />;
-  }
+  // Слушатель изменений системной темы
+  useEffect(() => {
+    const subscription = Appearance.addChangeListener(({ colorScheme }) => {
+      setSystemTheme(colorScheme || 'light');
+      
+      // Принудительно обновляем компонент при изменении системной темы
+      // если выбрана автоматическая тема
+      if (theme === 'auto') {
+        setRefresh(prev => prev + 1);
+      }
+    });
 
-  const effectiveTheme = theme === 'auto' ? systemColorScheme || 'light' : theme;
-  const colors = ACCENT_COLORS[accentColor];
-  const tabBgColor = effectiveTheme === 'light' ? '#f3f4f6' : '#111827';
-  const containerBgColor = effectiveTheme === 'light' ? '#ffffff' : '#1f2937';
+    return () => subscription.remove();
+  }, [theme]);
 
-  const renderScreen = () => {
-    switch (activeScreen) {
-      case SCREENS.SCHEDULE:
-        return <ScheduleScreen theme={effectiveTheme} accentColor={accentColor} />;
-      case SCREENS.MAP:
-        return <MapScreen theme={effectiveTheme} accentColor={accentColor} />;
-      case SCREENS.FRESHMAN:
-        return <PlaceholderScreen title={SCREENS.FRESHMAN} theme={effectiveTheme} />;
-      case SCREENS.NEWS:
-        return <NewsScreen theme={effectiveTheme} accentColor={accentColor} />;
-      case SCREENS.SETTINGS:
-        return <SettingsScreen
-          theme={effectiveTheme}
-          accentColor={accentColor}
-          setTheme={setTheme}
-          setAccentColor={setAccentColor}
-          openNotificationsModal={() => setNotificationsModalVisible(true)}
-        />;
-      default:
-        return null;
-    }
+  const getEffectiveTheme = () => {
+    if (theme === 'auto') return systemTheme;
+    return theme;
   };
 
+  const effectiveTheme = getEffectiveTheme();
+  
+  // Рендерим SplashScreen пока шрифты не загружены или приложение загружается
+  if (!fontsLoaded || isLoading) {
+    return <SplashScreen accentColor={accentColor} theme={getEffectiveTheme()} />;
+  }
+  
+  const bgColor = effectiveTheme === 'light' ? '#f3f4f6' : '#111827';
+  const headerBg = effectiveTheme === 'light' ? '#ffffff' : '#1f2937';
+  const textColor = effectiveTheme === 'light' ? '#111827' : '#ffffff';
+  const colors = ACCENT_COLORS[accentColor];
+  
   return (
-    <View style={[styles.container, { backgroundColor: containerBgColor }]}>
-      <View style={styles.screenContainer}>
-        {renderScreen()}
+    <View style={{ flex: 1, backgroundColor: bgColor }}>
+      {/* Заголовок */}
+      <View style={[styles.header, { backgroundColor: headerBg }]}>
+        <Text style={[styles.headerText, { color: textColor }]}>
+          {activeScreen}
+        </Text>
       </View>
-
-      <View style={[styles.tabBar, { backgroundColor: tabBgColor, borderColor: effectiveTheme === 'light' ? '#e5e7eb' : '#374151' }]}>
+      
+      {/* Контент */}
+      <View style={{ flex: 1 }}>
+        {activeScreen === SCREENS.SCHEDULE && (
+          <ScheduleScreen theme={effectiveTheme} accentColor={accentColor} key={`schedule-${refresh}`} />
+        )}
+        {activeScreen === SCREENS.MAP && (
+          <MapScreen theme={effectiveTheme} accentColor={accentColor} key={`map-${refresh}`} />
+        )}
+        {activeScreen === SCREENS.FRESHMAN && (
+          <PlaceholderScreen title={SCREENS.FRESHMAN} theme={effectiveTheme} key={`freshman-${refresh}`} />
+        )}
+        {activeScreen === SCREENS.NEWS && (
+          <NewsScreen theme={effectiveTheme} accentColor={accentColor} key={`news-${refresh}`} />
+        )}
+        {activeScreen === SCREENS.SETTINGS && (
+          <SettingsScreen 
+            theme={effectiveTheme} 
+            accentColor={accentColor} 
+            setTheme={setTheme} 
+            setAccentColor={setAccentColor} 
+            key={`settings-${refresh}`}
+          />
+        )}
+      </View>
+      
+      {/* Навигация */}
+      <View style={[styles.navigation, { backgroundColor: headerBg }]}>
         <TabButton 
           icon="calendar-outline" 
           label={SCREENS.SCHEDULE} 
@@ -145,29 +214,6 @@ const App = () => {
           accentColor={accentColor}
         />
       </View>
-
-      <NotificationsSettingsModal
-        visible={notificationsModalVisible}
-        onClose={() => setNotificationsModalVisible(false)}
-        theme={effectiveTheme}
-        accentColor={accentColor}
-      />
     </View>
   );
-};
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  screenContainer: {
-    flex: 1,
-    paddingTop: Platform.OS === 'android' ? 32 : 0, // Добавляем отступ для Android, если необходимо
-  },
-  tabBar: {
-    flexDirection: 'row',
-    borderTopWidth: 1,
-  },
 });
-
-export default App;
