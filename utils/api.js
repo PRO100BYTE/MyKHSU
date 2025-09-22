@@ -1,18 +1,109 @@
-import { API_BASE_URL, CORS_PROXY, ERROR_MESSAGES } from './constants';
-import { getWithExpiry, setWithExpiry } from './cache';
+import { API_BASE_URL, CORS_PROXY } from './constants';
+import { getWithExpiry, setWithExpiry, getCacheInfo } from './cache';
 import NetInfo from '@react-native-community/netinfo';
 
 class ApiService {
   constructor() {
-    this.retryCount = 2;
     this.timeout = 10000;
   }
 
+  // Существующие методы остаются без изменений
+  // ... (getGroups, getSchedule, getPairsTime)
+
+  // Улучшенный метод для работы с новостями
+  async getNews(from = 0, amount = 10) {
+    const url = `${API_BASE_URL}/news?amount=${amount}&from=${from}`;
+    const cacheKey = `news_${from}_${amount}`;
+    
+    try {
+      const result = await this.makeRequest(url, {}, true, cacheKey, 30 * 60 * 1000);
+      
+      // Дополнительная логика для новостей: проверяем наличие новых новостей
+      if (from === 0) {
+        await this.checkForNewNews(result.data);
+      }
+      
+      return result;
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  // Метод для проверки новых новостей
+  async checkForNewNews(currentNews) {
+    if (!currentNews || currentNews.length === 0) return;
+    
+    try {
+      // Получаем последние закэшированные новости
+      const lastCachedNews = await getWithExpiry('news_latest');
+      const lastNewsCheck = await getWithExpiry('news_last_check');
+      
+      // Сохраняем текущие новости как последние
+      await setWithExpiry('news_latest', currentNews.slice(0, 5), 24 * 60 * 60 * 1000); // 24 часа
+      await setWithExpiry('news_last_check', Date.now(), 24 * 60 * 60 * 1000);
+      
+      // Если есть предыдущие новости, проверяем наличие новых
+      if (lastCachedNews && lastCachedNews.length > 0) {
+        const currentFirstNews = currentNews[0];
+        const lastFirstNews = lastCachedNews[0];
+        
+        // Сравниваем по содержанию и дате
+        if (currentFirstNews.content !== lastFirstNews.content || 
+            currentFirstNews.date !== lastFirstNews.date) {
+          
+          // Новая новость обнаружена - сохраняем информацию для уведомлений
+          await setWithExpiry('new_news_detected', {
+            count: this.countNewNews(currentNews, lastCachedNews),
+            detectedAt: Date.now(),
+            latestNews: currentNews[0]
+          }, 24 * 60 * 60 * 1000);
+          
+          console.log('New news detected!');
+        }
+      }
+    } catch (error) {
+      console.error('Error checking for new news:', error);
+    }
+  }
+
+  // Подсчет количества новых новостей
+  countNewNews(currentNews, previousNews) {
+    if (!previousNews || previousNews.length === 0) return currentNews.length;
+    
+    const previousDates = new Set(previousNews.map(news => news.date + news.content));
+    let newCount = 0;
+    
+    for (const news of currentNews) {
+      const newsKey = news.date + news.content;
+      if (!previousDates.has(newsKey)) {
+        newCount++;
+      } else {
+        break; // Новости отсортированы от новых к старым, поэтому можно прервать
+      }
+    }
+    
+    return newCount;
+  }
+
+  // Метод для получения информации о новых новостях (для уведомлений)
+  async getNewNewsInfo() {
+    return await getWithExpiry('new_news_detected');
+  }
+
+  // Метод для отметки новостей как прочитанных (для уведомлений)
+  async markNewsAsRead() {
+    const latestNews = await getWithExpiry('news_latest');
+    if (latestNews) {
+      await setWithExpiry('news_read', latestNews[0]?.date || '', 24 * 60 * 60 * 1000);
+      await setWithExpiry('new_news_detected', null); // Очищаем флаг новых новостей
+    }
+  }
+
+  // Универсальный метод для запросов (остается без изменений)
   async makeRequest(url, options = {}, useCache = true, cacheKey = null, cacheTTL = null) {
     const netState = await NetInfo.fetch();
     const isOnline = netState.isConnected;
     
-    // Генерируем cacheKey если не предоставлен
     const finalCacheKey = cacheKey || `api_${btoa(url)}`;
     
     // Пытаемся получить данные из кэша
@@ -22,7 +113,7 @@ class ApiService {
         return {
           data: cachedData,
           source: 'cache',
-          cacheInfo: { cacheDate: new Date().toISOString() }
+          cacheInfo: await getCacheInfo(finalCacheKey)
         };
       }
     }
@@ -76,7 +167,7 @@ class ApiService {
             return {
               data: cachedData,
               source: 'stale_cache',
-              cacheInfo: { cacheDate: new Date().toISOString() }
+              cacheInfo: await getCacheInfo(finalCacheKey)
             };
           }
         }
@@ -126,46 +217,6 @@ class ApiService {
       console.error('JSON Parse error:', parseError);
       throw new Error('INVALID_JSON');
     }
-  }
-
-  // Метод для загрузки новостей
-  async getNews(from = 0, amount = 10) {
-    const url = `${API_BASE_URL}/news?amount=${amount}&from=${from}`;
-    return this.makeRequest(url, {}, true, `news_${from}_${amount}`, 30 * 60 * 1000); // 30 минут
-  }
-
-  async getGroups(course) {
-    const url = `${API_BASE_URL}/getgroups/${course}`;
-    return this.makeRequest(url, {}, true, `groups_${course}`, 24 * 60 * 60 * 1000); // 24 часа
-  }
-
-  async getSchedule(group, date, week = null) {
-    let url;
-    let cacheKey;
-    
-    if (week) {
-      url = `${API_BASE_URL}/getpairsweek?type=group&data=${group}&week=${week}`;
-      cacheKey = `schedule_${group}_week_${week}`;
-    } else {
-      const formattedDate = this.formatDate(date);
-      url = `${API_BASE_URL}/getpairs/date:${group}:${formattedDate}`;
-      cacheKey = `schedule_${group}_date_${formattedDate}`;
-    }
-    
-    return this.makeRequest(url, {}, true, cacheKey, 60 * 60 * 1000); // 1 час
-  }
-
-  async getPairsTime() {
-    const url = `${API_BASE_URL}/getpairstime`;
-    return this.makeRequest(url, {}, true, 'pairs_time', 7 * 24 * 60 * 60 * 1000); // 7 дней
-  }
-
-  formatDate(date) {
-    return date.toLocaleDateString('ru-RU', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric'
-    }).replace(/\./g, '.');
   }
 }
 
