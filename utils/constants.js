@@ -25,7 +25,8 @@ export const ACCENT_COLORS = {
 // Версия приложения
 export const APP_VERSION = '1.1.2';
 export const APP_DEVELOPERS = 'студентами группы 125-1 в составе команды PRO100BYTE Team';
-export const BUILD_VER = 'git-3170e26';
+export const APP_SUPPORTERS = 'ХГУ им. Н.Ф. Катанова и ООО "Скалк Софт"'
+export const BUILD_VER = 'git-9b937e6';
 export const BUILD_DATE = '22.09.2025';
 
 // Дни недели
