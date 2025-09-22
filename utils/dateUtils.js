@@ -1,12 +1,10 @@
-// utils/dateUtils.js
-
 import { WEEKDAYS } from './constants';
 
-// Определение номера недели
+// Определение номера недели (новая логика)
 export const getWeekNumber = (d) => {
   d = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
   d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7));
-  const yearStart = new Date(Date.UTC(d.getFullYear(), 8, 1)); // 1 сентября текущего года
+  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
   return Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
 };
 
@@ -21,7 +19,8 @@ export const formatDate = (date) => {
 
 // Получение даты по номеру недели и дню недели
 export const getDateByWeekAndDay = (weekNumber, dayOfWeek) => {
-  const yearStart = new Date(new Date().getFullYear(), 8, 1); // 1 сентября текущего года
+  const now = new Date();
+  const yearStart = new Date(now.getFullYear(), 0, 1);
   const firstMonday = new Date(yearStart);
   firstMonday.setDate(firstMonday.getDate() + (1 - firstMonday.getDay() + 7) % 7);
   
@@ -29,19 +28,6 @@ export const getDateByWeekAndDay = (weekNumber, dayOfWeek) => {
   targetDate.setDate(firstMonday.getDate() + (weekNumber - 1) * 7 + (dayOfWeek - 1));
   
   return targetDate;
-};
-
-// Получение названия дня недели по номеру
-export const getWeekdayName = (dayNumber) => {
-  return WEEKDAYS[dayNumber - 1] || 'Неизвестный день';
-};
-
-// Проверка, является ли дата сегодняшним днем
-export const isToday = (date) => {
-  const today = new Date();
-  return date.getDate() === today.getDate() &&
-         date.getMonth() === today.getMonth() &&
-         date.getFullYear() === today.getFullYear();
 };
 
 // Проверка, является ли дата выходным (суббота или воскресенье)
@@ -84,9 +70,6 @@ export const addDays = (date, days) => {
   return result;
 };
 
-// Сравнение дат (без учета времени)
-export const compareDates = (date1, date2) => {
-  const d1 = new Date(date1.getFullYear(), date1.getMonth(), date1.getDate());
-  const d2 = new Date(date2.getFullYear(), date2.getMonth(), date2.getDate());
-  return d1.getTime() - d2.getTime();
+export const getWeekDayName = (date) => {
+  return WEEKDAYS[date.getDay() === 0 ? 6 : date.getDay() - 1];
 };
