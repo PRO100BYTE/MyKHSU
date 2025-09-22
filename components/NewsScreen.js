@@ -1,103 +1,102 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, StyleSheet, RefreshControl } from 'react-native';
+import React, { useState, useEffect, useRef } from 'react';
+import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, StyleSheet, RefreshControl, Platform } from 'react-native';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import { getWithExpiry, setWithExpiry, safeJsonParse } from '../utils/cache';
-import { API_BASE_URL, CORS_PROXY, ACCENT_COLORS } from '../utils/constants';
+import { ACCENT_COLORS } from '../utils/constants';
 import ConnectionError from './ConnectionError';
 import NetInfo from '@react-native-community/netinfo';
+import { fetchAPI } from '../utils/api';
+import { sendNewsNotification } from '../utils/notifications';
 
 const NewsScreen = ({ theme, accentColor }) => {
   const [news, setNews] = useState([]);
-  const [cachedNews, setCachedNews] = useState([]);
-  const [from, setFrom] = useState(0);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
   const [isOnline, setIsOnline] = useState(true);
   const [showCachedData, setShowCachedData] = useState(false);
   const [cacheDate, setCacheDate] = useState(null);
+  const [allNewsLoaded, setAllNewsLoaded] = useState(false);
+
+  const newsLoadedCountRef = useRef(0);
 
   const bgColor = theme === 'light' ? '#f3f4f6' : '#111827';
   const cardBg = theme === 'light' ? '#ffffff' : '#1f2937';
   const textColor = theme === 'light' ? '#111827' : '#ffffff';
   const placeholderColor = theme === 'light' ? '#6b7280' : '#9ca3af';
-  const borderColor = theme === 'light' ? '#e5e7eb' : '#374151';
   const colors = ACCENT_COLORS[accentColor];
 
   useEffect(() => {
-    // Проверяем подключение к интернету
     const unsubscribe = NetInfo.addEventListener(state => {
       setIsOnline(state.isConnected);
     });
 
-    // Сначала пробуем загрузить из кэша
-    loadCachedNews();
+    fetchNews(true);
 
-    return () => unsubscribe();
+    return () => {
+      unsubscribe();
+    };
   }, []);
 
-  const loadCachedNews = async () => {
-    try {
-      const cachedNews = await getWithExpiry('news');
-      if (cachedNews) {
-        setNews(cachedNews);
-        setCachedNews(cachedNews);
-        
-        // Если есть кэш и нет интернета, автоматически показываем кэшированные данные
-        if (!isOnline) {
-          setShowCachedData(true);
-          return;
-        }
-      } else if (isOnline) {
-        fetchNews(true);
-      } else {
-        setError('no-internet');
-      }
-    } catch (error) {
-      console.error('Error loading cached news:', error);
-      if (isOnline) {
-        fetchNews(true);
-      } else {
-        setError('no-internet');
-      }
-    }
-  };
-
-  const fetchNews = async (isInitial = false) => {
-    if (loading) return;
+  const fetchNews = async (isInitialLoad = false) => {
+    if (loading || (allNewsLoaded && !isInitialLoad)) return;
     
     setLoading(true);
     setError(null);
     setShowCachedData(false);
-    
+
+    let start = newsLoadedCountRef.current;
+    if (isInitialLoad) {
+      start = 0;
+    }
+
+    const url = `/news?from=${start}`;
+
     try {
-      const targetFrom = isInitial ? 0 : from;
-      const targetUrl = `${API_BASE_URL}/news?amount=10&from=${targetFrom}`;
-      const response = await fetch(`${CORS_PROXY}${encodeURIComponent(targetUrl)}`);
+      const { data, source, cacheDate: fetchedCacheDate } = await fetchAPI(url, 'news');
       
-      // Исправление ошибки парсинга JSON
-      const data = await safeJsonParse(response);
-      
-      // Фильтрация пустого контента
-      const filteredData = data.filter(item => item.content && item.content.trim() !== "");
-      
-      // Кэшируем новости
-      if (isInitial) {
-        await setWithExpiry('news', filteredData, 30 * 60 * 1000); // 30 минут
-        setCachedNews(filteredData);
-      }
-      
-      setNews(isInitial ? filteredData : [...news, ...filteredData]);
-      setFrom(targetFrom + 10);
-    } catch (error) {
-      console.error('Error fetching news:', error);
-      // Пробуем загрузить из кэша при ошибке
-      const cachedNews = await getWithExpiry('news');
-      if (cachedNews && isInitial) {
-        setNews(cachedNews);
-        setCachedNews(cachedNews);
+      if (source === 'cache') {
+        setShowCachedData(true);
+        setCacheDate(fetchedCacheDate);
+        setNews(data);
+        setAllNewsLoaded(true);
       } else {
-        setError('load-error');
+        const newNews = data;
+        const oldNews = await getWithExpiry('news_cache');
+        const oldNewsData = oldNews?.value || [];
+
+        // Проверка на новые новости для уведомлений
+        if (oldNewsData.length > 0 && newNews.length > 0 && JSON.stringify(oldNewsData[0]) !== JSON.stringify(newNews[0])) {
+          sendNewsNotification(newNews[0].title);
+        }
+
+        if (newNews && newNews.length > 0) {
+          if (isInitialLoad) {
+            setNews(newNews);
+            newsLoadedCountRef.current = newNews.length;
+          } else {
+            setNews(prevNews => [...prevNews, ...newNews]);
+            newsLoadedCountRef.current += newNews.length;
+          }
+          if (newNews.length < 10) { // Предполагаем, что 10 новостей — это максимальная порция
+            setAllNewsLoaded(true);
+          }
+        } else {
+          setAllNewsLoaded(true);
+          if (isInitialLoad) {
+            setNews([]);
+          }
+        }
+        await setWithExpiry('news_cache', newNews);
+      }
+    } catch (err) {
+      setError(err);
+      const cachedData = await getWithExpiryAndInfo('news_cache');
+      if (cachedData) {
+        setShowCachedData(true);
+        setCacheDate(cachedData.cacheDate);
+        setNews(cachedData.value);
+        setAllNewsLoaded(true);
       }
     } finally {
       setLoading(false);
@@ -105,110 +104,67 @@ const NewsScreen = ({ theme, accentColor }) => {
     }
   };
 
-  const handleRetry = () => {
-    setError(null);
-    if (isOnline) {
-      fetchNews(true);
-    } else {
-      setError('no-internet');
-    }
-  };
-
-  const handleViewCache = () => {
-    if (cachedNews.length > 0) {
-      setNews(cachedNews);
-      setShowCachedData(true);
-      setError(null);
-    }
-  };
-
   const onRefresh = () => {
     setRefreshing(true);
-    if (isOnline) {
-      // Сбрасываем from и загружаем заново
-      setFrom(0);
-      fetchNews(true);
-    } else {
-      setError('no-internet');
-      setRefreshing(false);
-    }
+    setNews([]);
+    setAllNewsLoaded(false);
+    newsLoadedCountRef.current = 0;
+    fetchNews(true);
   };
 
-  // Если есть ошибка или загрузка, показываем соответствующий экран
-  if (error || (loading && news.length === 0)) {
-    return (
-      <View style={{ flex: 1, backgroundColor: bgColor }}>
-        <ConnectionError 
-          type={error}
-          loading={loading && news.length === 0}
-          onRetry={handleRetry}
-          onViewCache={handleViewCache}
-          showCacheButton={cachedNews.length > 0}
-          theme={theme}
-          accentColor={accentColor}
-          contentType="news"
-          message={error === 'no-internet' ? 'Новости недоступны без подключения к интернету' : 'Не удалось загрузить новости'}
-        />
-      </View>
-    );
+  const renderNewsItem = (item, index) => (
+    <View key={index} style={[styles.newsCard, { backgroundColor: cardBg }]}>
+      <Text style={[styles.newsTitle, { color: textColor }]}>{item.title}</Text>
+      <Text style={[styles.newsDescription, { color: placeholderColor }]}>{item.description}</Text>
+    </View>
+  );
+
+  if (error && !showCachedData) {
+    return <ConnectionError 
+      type="load-error" 
+      onRetry={fetchNews} 
+      onViewCache={() => setShowCachedData(true)} 
+      theme={theme} 
+      accentColor={accentColor}
+      contentType="news"
+      message={error.message}
+    />;
   }
 
   return (
-    <View style={{ flex: 1, backgroundColor: bgColor }}>
-      {showCachedData && (
-        <View style={{ 
-          backgroundColor: colors.light, 
-          padding: 12, 
-          alignItems: 'center',
-          flexDirection: 'row',
-          justifyContent: 'center'
-        }}>
-          <Icon name="time-outline" size={16} color={colors.primary} />
-          <Text style={{ color: colors.primary, marginLeft: 8, fontFamily: 'Montserrat_400Regular' }}>
-            Показаны кэшированные новости
-          </Text>
-        </View>
-      )}
-      
-      <ScrollView 
-        contentContainerStyle={{ padding: 16 }}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            colors={[colors.primary]}
-            tintColor={colors.primary}
-          />
-        }
+    <View style={[styles.container, { backgroundColor: bgColor }]}>
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       >
-        {news.map((item, index) => (
-          <View 
-            key={index} 
-            style={{ 
-              backgroundColor: cardBg, 
-              borderRadius: 12, 
-              padding: 16, 
-              marginBottom: 12, 
-              borderWidth: 1, 
-              borderColor 
-            }}
-          >
-            <Text style={{ color: textColor, fontSize: 16, fontFamily: 'Montserrat_400Regular' }}>
-              {item.content}
-            </Text>
-            <Text style={{ color: placeholderColor, fontSize: 12, textAlign: 'right', marginTop: 12, fontFamily: 'Montserrat_400Regular' }}>
-              {item.hr_date}
+        <Text style={[styles.title, { color: textColor }]}>Новости</Text>
+        
+        {showCachedData && (
+          <View style={[styles.cacheInfo, { backgroundColor: colors.light }]}>
+            <Icon name="cloud-offline-outline" size={20} color={colors.primary} />
+            <Text style={[styles.cacheText, { color: colors.primary }]}>
+              Показаны кэшированные данные от {new Date(cacheDate).toLocaleDateString()}. Нет подключения к интернету.
             </Text>
           </View>
-        ))}
+        )}
+
+        {news.length === 0 && !loading && !error && (
+          <View style={styles.emptyContainer}>
+            <Text style={[styles.emptyText, { color: placeholderColor }]}>
+              Пока нет новостей.
+            </Text>
+          </View>
+        )}
+
+        {news.map(renderNewsItem)}
         
-        {loading && news.length > 0 && (
-          <View style={{ padding: 16 }}>
+        {loading && (
+          <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color={colors.primary} />
           </View>
         )}
         
-        {!loading && isOnline && !showCachedData && (
+        {!loading && !allNewsLoaded && (
           <TouchableOpacity 
             onPress={() => fetchNews(false)}
             style={{ 
@@ -235,7 +191,7 @@ const NewsScreen = ({ theme, accentColor }) => {
           }}>
             <Icon name="cloud-offline-outline" size={20} color={colors.primary} />
             <Text style={{ color: colors.primary, marginTop: 8, textAlign: 'center', fontFamily: 'Montserrat_400Regular' }}>
-              Нет подключения к интернету. {showCachedData ? 'Показаны ранее загруженные новости.' : 'Невозможно загрузить новые данные.'}
+              Нет подключения к интернету. Показаны ранее загруженные новости.
             </Text>
           </View>
         )}
@@ -245,7 +201,68 @@ const NewsScreen = ({ theme, accentColor }) => {
 };
 
 const styles = StyleSheet.create({
-  // Стили могут быть добавлены при необходимости
+  container: {
+    flex: 1,
+  },
+  scrollContent: {
+    padding: 16,
+    paddingTop: 40,
+  },
+  title: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    fontFamily: 'Montserrat_700Bold',
+    textAlign: 'center',
+    marginBottom: 16,
+  },
+  newsCard: {
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 12,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+  },
+  newsTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    fontFamily: 'Montserrat_600SemiBold',
+    marginBottom: 8,
+  },
+  newsDescription: {
+    fontSize: 14,
+    lineHeight: 20,
+    fontFamily: 'Montserrat_400Regular',
+  },
+  loadingContainer: {
+    padding: 20,
+    alignItems: 'center',
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 50,
+  },
+  emptyText: {
+    fontSize: 16,
+    fontFamily: 'Montserrat_400Regular',
+    textAlign: 'center',
+  },
+  cacheInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 16,
+  },
+  cacheText: {
+    marginLeft: 8,
+    fontSize: 12,
+    fontFamily: 'Montserrat_400Regular',
+  },
 });
 
 export default NewsScreen;
