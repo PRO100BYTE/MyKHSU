@@ -1,9 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, StyleSheet, Dimensions, RefreshControl } from 'react-native';
 import { Ionicons as Icon } from '@expo/vector-icons';
-import { getWithExpiry, setWithExpiry } from '../utils/cache';
 import { getWeekNumber, formatDate, getDateByWeekAndDay } from '../utils/dateUtils';
-import { API_BASE_URL, CORS_PROXY, ACCENT_COLORS } from '../utils/constants';
+import { ACCENT_COLORS } from '../utils/constants';
 import ConnectionError from './ConnectionError';
 import NetInfo from '@react-native-community/netinfo';
 import ApiService from '../utils/api';
@@ -66,15 +65,20 @@ const ScheduleScreen = ({ theme, accentColor }) => {
     setShowCachedData(false);
     
     try {
-      // Используем новый ApiService
       const result = await ApiService.getGroups(course);
-      setGroups(result.data.groups || []);
-      setCachedGroups(result.data.groups || []);
-      setCacheInfo(result);
       
-      // Если данные из кэша, показываем соответствующий индикатор
-      if (result.source === 'cache' || result.source === 'stale_cache') {
-        setShowCachedData(true);
+      // Проверяем, что данные существуют
+      if (result.data && result.data.groups) {
+        setGroups(result.data.groups);
+        setCachedGroups(result.data.groups);
+        setCacheInfo(result);
+        
+        // Если данные из кэша, показываем соответствующий индикатор
+        if (result.source === 'cache' || result.source === 'stale_cache') {
+          setShowCachedData(true);
+        }
+      } else {
+        throw new Error('INVALID_RESPONSE');
       }
     } catch (error) {
       console.error('Error fetching groups:', error);
@@ -107,13 +111,18 @@ const ScheduleScreen = ({ theme, accentColor }) => {
         result = await ApiService.getSchedule(group, currentDate);
       }
       
-      setScheduleData(result.data);
-      setCachedScheduleData(result.data);
-      setCacheInfo(result);
-      
-      // Если данные из кэша, показываем соответствующий индикатор
-      if (result.source === 'cache' || result.source === 'stale_cache') {
-        setShowCachedData(true);
+      // Проверяем, что данные существуют
+      if (result.data) {
+        setScheduleData(result.data);
+        setCachedScheduleData(result.data);
+        setCacheInfo(result);
+        
+        // Если данные из кэша, показываем соответствующий индикатор
+        if (result.source === 'cache' || result.source === 'stale_cache') {
+          setShowCachedData(true);
+        }
+      } else {
+        throw new Error('INVALID_RESPONSE');
       }
     } catch (error) {
       console.error('Error fetching schedule:', error);
@@ -135,8 +144,12 @@ const ScheduleScreen = ({ theme, accentColor }) => {
   const fetchPairsTime = async () => {
     try {
       const result = await ApiService.getPairsTime();
-      setPairsTime(result.data.pairs_time || []);
-      setCachedPairsTime(result.data.pairs_time || []);
+      
+      // Проверяем, что данные существуют
+      if (result.data && result.data.pairs_time) {
+        setPairsTime(result.data.pairs_time);
+        setCachedPairsTime(result.data.pairs_time);
+      }
     } catch (error) {
       console.error('Error fetching pairs time:', error);
       
@@ -354,7 +367,7 @@ const ScheduleScreen = ({ theme, accentColor }) => {
     );
   };
 
-  // Если есть ошибка, показываем соответствующий экран
+  // Если есть ошибка и нет загрузки, показываем соответствующий экран
   if (error && !loadingGroups && !loadingSchedule) {
     return (
       <View style={{ flex: 1, backgroundColor: bgColor }}>
@@ -364,11 +377,11 @@ const ScheduleScreen = ({ theme, accentColor }) => {
           onRetry={handleRetry}
           onViewCache={handleViewCache}
           showCacheButton={!!cachedScheduleData}
+          cacheAvailable={!!cachedScheduleData}
           theme={theme}
           accentColor={accentColor}
           contentType="schedule"
           message={error === 'NO_INTERNET' ? 'Расписание недоступно без подключения к интернету' : 'Не удалось загрузить расписание'}
-          cacheAvailable={!!cachedScheduleData}
           cacheDate={cacheInfo?.cacheInfo?.cacheDate}
         />
       </View>
