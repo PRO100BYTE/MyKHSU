@@ -27,21 +27,35 @@ export const initCache = async () => {
   }
 };
 
-// Загрузка и кэширование тайла
+// Загрузка и кэширование тайла (исправленная версия)
 export const downloadAndCacheTile = async (x, y, z, urlTemplate) => {
   try {
     const url = urlTemplate.replace('{z}', z).replace('{x}', x).replace('{y}', y);
     const fileName = `${z}_${x}_${y}.png`;
     const filePath = `${CACHE_DIR}${fileName}`;
     
-    const { uri } = await FileSystem.downloadAsync(url, filePath);
+    // Используем новую FileSystem API вместо deprecated downloadAsync
+    const downloadResumable = FileSystem.createDownloadResumable(
+      url,
+      filePath,
+      {},
+      (downloadProgress) => {
+        const progress = downloadProgress.totalBytesWritten / downloadProgress.totalBytesExpectedToWrite;
+        console.log(`Downloading ${fileName}: ${(progress * 100).toFixed(1)}%`);
+      }
+    );
+
+    const result = await downloadResumable.downloadAsync();
+    if (!result) {
+      throw new Error('Download failed');
+    }
     
     // Обновляем индекс кэшированных тайлов
     const cacheIndex = await getCacheIndex();
     cacheIndex[fileName] = Date.now();
     await setWithExpiry('map_tiles_index', cacheIndex);
     
-    return uri;
+    return result.uri;
   } catch (error) {
     console.error('Error caching tile:', error);
     return null;
@@ -84,7 +98,7 @@ export const precacheTilesForBuildings = async (buildings, urlTemplate) => {
 export const checkMapCache = async () => {
   try {
     const dirInfo = await FileSystem.getInfoAsync(CACHE_DIR);
-    return dirInfo.exists;
+    return dirInfo.exists && dirInfo.isDirectory;
   } catch (error) {
     console.error('Error checking map cache:', error);
     return false;
@@ -97,7 +111,7 @@ export const clearMapCache = async () => {
     const dirInfo = await FileSystem.getInfoAsync(CACHE_DIR);
     
     if (dirInfo.exists) {
-      await FileSystem.deleteAsync(CACHE_DIR);
+      await FileSystem.deleteAsync(CACHE_DIR, { idempotent: true });
     }
     
     await initCache();
