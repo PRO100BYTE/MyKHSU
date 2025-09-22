@@ -11,11 +11,13 @@ const NewsScreen = ({ theme, accentColor }) => {
   const [cachedNews, setCachedNews] = useState([]);
   const [from, setFrom] = useState(0);
   const [loading, setLoading] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
   const [isOnline, setIsOnline] = useState(true);
   const [showCachedData, setShowCachedData] = useState(false);
   const [cacheInfo, setCacheInfo] = useState(null);
+  const [hasMoreNews, setHasMoreNews] = useState(true);
 
   const bgColor = theme === 'light' ? '#f3f4f6' : '#111827';
   const cardBg = theme === 'light' ? '#ffffff' : '#1f2937';
@@ -30,36 +32,62 @@ const NewsScreen = ({ theme, accentColor }) => {
       setIsOnline(state.isConnected);
     });
 
-    // Сначала пробуем загрузить новости
-    fetchNews(true);
+    // Загружаем первые новости
+    fetchNews(true, 0);
 
     return () => unsubscribe();
   }, []);
 
-  const fetchNews = async (isInitial = false) => {
-    if (loading) return;
+  const fetchNews = async (isInitial = false, targetFrom = null) => {
+    if (loading || loadingMore) return;
     
-    setLoading(true);
+    const currentFrom = targetFrom !== null ? targetFrom : from;
+    
+    if (isInitial) {
+      setLoading(true);
+    } else {
+      setLoadingMore(true);
+    }
+    
     setError(null);
     setShowCachedData(false);
     
     try {
-      const targetFrom = isInitial ? 0 : from;
-      const result = await ApiService.getNews(targetFrom, 10);
+      const result = await ApiService.getNews(currentFrom, 10);
       
       // Фильтрация пустого контента
       const filteredData = result.data.filter(item => item.content && item.content.trim() !== "");
       
-      setNews(isInitial ? filteredData : [...news, ...filteredData]);
+      if (filteredData.length === 0) {
+        setHasMoreNews(false);
+      }
+      
+      if (isInitial) {
+        setNews(filteredData);
+        setFrom(currentFrom + 10);
+      } else {
+        setNews(prevNews => {
+          // Объединяем новости, убирая дубликаты по дате и содержанию
+          const combinedNews = [...prevNews];
+          filteredData.forEach(newItem => {
+            const exists = combinedNews.some(existingItem => 
+              existingItem.date === newItem.date && 
+              existingItem.content === newItem.content
+            );
+            if (!exists) {
+              combinedNews.push(newItem);
+            }
+          });
+          return combinedNews;
+        });
+        setFrom(currentFrom + 10);
+      }
+      
       setCachedNews(filteredData);
       setCacheInfo(result);
       
       if (result.source === 'cache' || result.source === 'stale_cache') {
         setShowCachedData(true);
-      }
-      
-      if (isInitial) {
-        setFrom(targetFrom + 10);
       }
     } catch (error) {
       console.error('Error fetching news:', error);
@@ -74,6 +102,7 @@ const NewsScreen = ({ theme, accentColor }) => {
       }
     } finally {
       setLoading(false);
+      setLoadingMore(false);
       setRefreshing(false);
     }
   };
@@ -81,7 +110,7 @@ const NewsScreen = ({ theme, accentColor }) => {
   const handleRetry = () => {
     setError(null);
     setShowCachedData(false);
-    fetchNews(true);
+    fetchNews(true, 0);
   };
 
   const handleViewCache = () => {
@@ -95,12 +124,14 @@ const NewsScreen = ({ theme, accentColor }) => {
 
   const onRefresh = () => {
     setRefreshing(true);
-    fetchNews(true);
+    setFrom(0);
+    setHasMoreNews(true);
+    fetchNews(true, 0);
   };
 
   const loadMoreNews = () => {
-    if (!loading && isOnline && !showCachedData) {
-      fetchNews(false);
+    if (!loadingMore && hasMoreNews && isOnline && !showCachedData) {
+      fetchNews(false, from);
     }
   };
 
@@ -154,7 +185,7 @@ const NewsScreen = ({ theme, accentColor }) => {
       >
         {news.map((item, index) => (
           <View 
-            key={index} 
+            key={`${item.date}-${index}`} 
             style={{ 
               backgroundColor: cardBg, 
               borderRadius: 12, 
@@ -173,13 +204,16 @@ const NewsScreen = ({ theme, accentColor }) => {
           </View>
         ))}
         
-        {loading && news.length > 0 && (
-          <View style={{ padding: 16 }}>
-            <ActivityIndicator size="large" color={colors.primary} />
+        {loadingMore && (
+          <View style={{ padding: 16, alignItems: 'center' }}>
+            <ActivityIndicator size="small" color={colors.primary} />
+            <Text style={{ color: placeholderColor, marginTop: 8, fontFamily: 'Montserrat_400Regular' }}>
+              Загрузка новостей...
+            </Text>
           </View>
         )}
         
-        {!loading && isOnline && !showCachedData && news.length > 0 && (
+        {!loadingMore && hasMoreNews && isOnline && !showCachedData && news.length > 0 && (
           <TouchableOpacity 
             onPress={loadMoreNews}
             style={{ 
@@ -187,13 +221,29 @@ const NewsScreen = ({ theme, accentColor }) => {
               padding: 16, 
               borderRadius: 8, 
               alignItems: 'center',
-              marginTop: 16
+              marginTop: 16,
+              flexDirection: 'row',
+              justifyContent: 'center',
+              gap: 8
             }}
           >
+            <Icon name="download-outline" size={20} color="#ffffff" />
             <Text style={{ color: '#ffffff', fontWeight: 'bold', fontFamily: 'Montserrat_600SemiBold' }}>
               Загрузить еще
             </Text>
           </TouchableOpacity>
+        )}
+        
+        {!hasMoreNews && news.length > 0 && (
+          <View style={{ 
+            padding: 16, 
+            alignItems: 'center',
+            marginTop: 16
+          }}>
+            <Text style={{ color: placeholderColor, fontFamily: 'Montserrat_400Regular' }}>
+              Все новости загружены
+            </Text>
+          </View>
         )}
         
         {!isOnline && news.length > 0 && (
@@ -213,6 +263,15 @@ const NewsScreen = ({ theme, accentColor }) => {
           </View>
         )}
       </ScrollView>
+      
+      {loading && news.length === 0 && (
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+          <ActivityIndicator size="large" color={colors.primary} />
+          <Text style={{ color: textColor, marginTop: 16, fontFamily: 'Montserrat_400Regular' }}>
+            Загрузка новостей...
+          </Text>
+        </View>
+      )}
     </View>
   );
 };
