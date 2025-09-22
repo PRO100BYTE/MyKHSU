@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { Ionicons as Icon } from '@expo/vector-icons';
-import { ACCENT_COLORS, ERROR_MESSAGES } from '../utils/constants';
+import { ACCENT_COLORS } from '../utils/constants';
 
 const ConnectionError = ({ 
   type, 
@@ -10,54 +10,90 @@ const ConnectionError = ({
   onViewCache, 
   theme, 
   accentColor, 
-  message,
-  cacheAvailable = false,
   contentType = 'general',
-  cacheDate = null
+  message,
+  showCacheButton = false,
+  cacheAvailable = false
 }) => {
   const colors = ACCENT_COLORS[accentColor];
   const bgColor = theme === 'light' ? '#f3f4f6' : '#111827';
   const textColor = theme === 'light' ? '#111827' : '#ffffff';
   const cardBg = theme === 'light' ? '#ffffff' : '#1f2937';
 
-  const getErrorConfig = () => {
-    const configs = {
-      'NO_INTERNET': {
-        icon: 'cloud-offline-outline',
-        title: 'Нет подключения',
-        description: ERROR_MESSAGES.NETWORK_ERROR,
-        showCacheButton: cacheAvailable
+  // Конфигурация для разных типов контента
+  const contentConfigs = {
+    map: {
+      'no-internet': {
+        icon: 'map-outline',
+        title: 'Карта недоступна',
+        description: 'Для загрузки карты необходимо подключение к интернету',
+        cacheButton: 'Использовать оффлайн-карту'
       },
-      'API_UNAVAILABLE': {
-        icon: 'server-outline',
-        title: 'Сервер недоступен',
-        description: ERROR_MESSAGES.SERVER_ERROR,
-        showCacheButton: cacheAvailable
-      },
-      'INVALID_JSON': {
-        icon: 'document-text-outline',
-        title: 'Ошибка данных',
-        description: ERROR_MESSAGES.JSON_PARSE_ERROR,
-        showCacheButton: cacheAvailable
-      },
-      'HTML_RESPONSE': {
+      'load-error': {
         icon: 'warning-outline',
-        title: 'Ошибка сервера',
-        description: 'Сервер вернул HTML вместо данных',
-        showCacheButton: cacheAvailable
+        title: 'Ошибка загрузки карты',
+        description: 'Не удалось загрузить карту. Проверьте подключение и попробуйте снова',
+        cacheButton: 'Использовать оффлайн-карту'
+      }
+    },
+    schedule: {
+      'no-internet': {
+        icon: 'calendar-outline',
+        title: 'Расписание недоступно',
+        description: 'Для загрузки расписания необходимо подключение к интернету',
+        cacheButton: 'Показать кэшированное расписание'
+      },
+      'load-error': {
+        icon: 'warning-outline',
+        title: 'Ошибка загрузки расписания',
+        description: 'Не удалось загрузить расписание. Проверьте подключение и попробуйте снова',
+        cacheButton: 'Показать кэшированное расписание'
+      }
+    },
+    news: {
+      'no-internet': {
+        icon: 'newspaper-outline',
+        title: 'Новости недоступны',
+        description: 'Для загрузки новостей необходимо подключение к интернету',
+        cacheButton: 'Показать кэшированные новости'
+      },
+      'load-error': {
+        icon: 'warning-outline',
+        title: 'Ошибка загрузки новостей',
+        description: 'Не удалось загрузить новости. Проверьте подключение и попробуйте снова',
+        cacheButton: 'Показать кэшированные новости'
+      }
+    },
+    general: {
+      'no-internet': {
+        icon: 'cloud-offline-outline',
+        title: 'Нет подключения к интернету',
+        description: 'Для загрузки данных необходимо подключение к интернету',
+        cacheButton: 'Показать кэшированные данные'
+      },
+      'load-error': {
+        icon: 'warning-outline',
+        title: 'Ошибка загрузки',
+        description: 'Не удалось загрузить данные. Проверьте подключение и попробуйте снова',
+        cacheButton: 'Показать кэшированные данные'
       },
       'default': {
-        icon: 'alert-circle-outline',
+        icon: 'refresh-outline',
         title: 'Ошибка',
         description: 'Произошла непредвиденная ошибка',
-        showCacheButton: cacheAvailable
+        cacheButton: 'Показать кэшированные данные'
       }
-    };
-
-    return configs[type] || configs.default;
+    }
   };
 
-  const config = getErrorConfig();
+  // Получаем конфигурацию для текущего типа контента и ошибки
+  const config = contentConfigs[contentType][type] || 
+                contentConfigs[contentType]['default'] || 
+                contentConfigs.general[type] || 
+                contentConfigs.general.default;
+
+  // Определяем, показывать ли кнопку кэша
+  const shouldShowCacheButton = (showCacheButton || cacheAvailable) && onViewCache;
 
   if (loading) {
     return (
@@ -65,7 +101,9 @@ const ConnectionError = ({
         <View style={[styles.content, { backgroundColor: cardBg }]}>
           <ActivityIndicator size="large" color={colors.primary} />
           <Text style={[styles.title, { color: textColor, marginTop: 16 }]}>
-            Загрузка...
+            {contentType === 'map' ? 'Загрузка карты...' : 
+             contentType === 'schedule' ? 'Загрузка расписания...' : 
+             contentType === 'news' ? 'Загрузка новостей...' : 'Загрузка...'}
           </Text>
         </View>
       </View>
@@ -83,12 +121,6 @@ const ConnectionError = ({
           {message || config.description}
         </Text>
         
-        {cacheDate && (
-          <Text style={[styles.cacheDate, { color: colors.primary }]}>
-            Данные из кэша от {new Date(cacheDate).toLocaleDateString('ru-RU')}
-          </Text>
-        )}
-        
         <View style={styles.buttonsContainer}>
           <TouchableOpacity
             style={[styles.retryButton, { backgroundColor: colors.primary }]}
@@ -98,7 +130,7 @@ const ConnectionError = ({
             <Text style={styles.retryButtonText}>Попробовать снова</Text>
           </TouchableOpacity>
           
-          {config.showCacheButton && onViewCache && (
+          {shouldShowCacheButton && (
             <TouchableOpacity
               style={[styles.cacheButton, { 
                 backgroundColor: theme === 'light' ? colors.light : '#374151',
@@ -108,7 +140,7 @@ const ConnectionError = ({
             >
               <Icon name="time-outline" size={20} color={colors.primary} />
               <Text style={[styles.cacheButtonText, { color: colors.primary }]}>
-                Использовать кэш
+                {config.cacheButton}
               </Text>
             </TouchableOpacity>
           )}
@@ -148,15 +180,8 @@ const styles = StyleSheet.create({
     fontSize: 16,
     textAlign: 'center',
     fontFamily: 'Montserrat_400Regular',
-    marginBottom: 16,
+    marginBottom: 24,
     lineHeight: 22,
-  },
-  cacheDate: {
-    fontSize: 14,
-    textAlign: 'center',
-    fontFamily: 'Montserrat_400Regular',
-    marginBottom: 16,
-    fontStyle: 'italic',
   },
   buttonsContainer: {
     width: '100%',
