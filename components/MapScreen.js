@@ -3,9 +3,9 @@ import { View, Text, StyleSheet, Alert, Linking, Platform, Dimensions, Touchable
 import MapView, { Marker, PROVIDER_DEFAULT, UrlTile } from 'react-native-maps';
 import NetInfo from '@react-native-community/netinfo';
 import { Ionicons as Icon } from '@expo/vector-icons';
-import { getWithExpiry, setWithExpiry } from '../utils/cache';
 import { ACCENT_COLORS } from '../utils/constants';
-import ConnectionError from '../components/ConnectionError';
+import ConnectionError from './ConnectionError';
+import { checkMapCache, precacheTilesForBuildings } from '../utils/mapCache';
 
 const { width, height } = Dimensions.get('window');
 
@@ -14,11 +14,11 @@ const MapScreen = ({ theme, accentColor }) => {
   const [mapLoaded, setMapLoaded] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [hasCachedMap, setHasCachedMap] = useState(false);
+  const [usingCachedMap, setUsingCachedMap] = useState(false);
   const colors = ACCENT_COLORS[accentColor];
   const bgColor = theme === 'light' ? '#f3f4f6' : '#111827';
   const textColor = theme === 'light' ? '#111827' : '#ffffff';
-  const placeholderColor = theme === 'light' ? '#6b7280' : '#9ca3af';
-  const cardBg = theme === 'light' ? '#ffffff' : '#1f2937';
 
   // Координаты корпусов ХГУ
   const buildings = [
@@ -76,34 +76,42 @@ const MapScreen = ({ theme, accentColor }) => {
   const mapTheme = MAP_THEMES[theme] || MAP_THEMES.light;
 
   useEffect(() => {
-    // Проверяем подключение к интернету
-    const unsubscribe = NetInfo.addEventListener(state => {
-      const wasOnline = isOnline;
-      setIsOnline(state.isConnected);
-      
-      // Если статус изменился с offline на online, перезагружаем карту
-      if (!wasOnline && state.isConnected && !mapLoaded) {
-        loadMap();
-      }
-    });
-
     loadMap();
-
-    return () => unsubscribe();
   }, [theme]);
 
   const loadMap = async () => {
     setLoading(true);
     setError(null);
+    setUsingCachedMap(false);
     
     try {
       // Проверяем подключение к интернету
       const netState = await NetInfo.fetch();
       setIsOnline(netState.isConnected);
       
+      // Проверяем наличие кэшированной карты
+      const cacheExists = await checkMapCache();
+      setHasCachedMap(cacheExists);
+      
       if (!netState.isConnected) {
-        setError('no-internet');
-        return;
+        if (cacheExists) {
+          // Используем кэшированную карту
+          setUsingCachedMap(true);
+          setMapLoaded(true);
+          setLoading(false);
+          return;
+        } else {
+          setError('NO_INTERNET');
+          setLoading(false);
+          return;
+        }
+      }
+
+      // Если есть интернет, пытаемся предзагрузить тайлы
+      try {
+        await precacheTilesForBuildings(buildings, mapTheme.urlTemplate);
+      } catch (cacheError) {
+        console.log('Map precaching failed, but continuing...', cacheError);
       }
 
       // Имитируем загрузку карты
@@ -113,13 +121,22 @@ const MapScreen = ({ theme, accentColor }) => {
       }, 1500);
     } catch (error) {
       console.error('Error loading map:', error);
-      setError('load-error');
+      setError('LOAD_ERROR');
       setLoading(false);
     }
   };
 
   const handleRetry = () => {
     loadMap();
+  };
+
+  const handleUseCachedMap = () => {
+    if (hasCachedMap) {
+      setUsingCachedMap(true);
+      setError(null);
+      setMapLoaded(true);
+      setLoading(false);
+    }
   };
 
   const handleOpenDirections = async (building) => {
@@ -157,16 +174,26 @@ const MapScreen = ({ theme, accentColor }) => {
 
   // Если есть ошибка или загрузка, показываем соответствующий экран
   if (loading || error) {
+    let errorType = error;
+    if (error === 'NO_INTERNET') {
+      errorType = 'no-internet';
+    } else if (error === 'LOAD_ERROR') {
+      errorType = 'load-error';
+    }
+
     return (
       <View style={{ flex: 1, backgroundColor: bgColor }}>
         <ConnectionError 
-          type={error}
+          type={errorType}
           loading={loading}
           onRetry={handleRetry}
+          onViewCache={hasCachedMap ? handleUseCachedMap : null}
+          showCacheButton={hasCachedMap}
+          cacheAvailable={hasCachedMap}
           theme={theme}
           accentColor={accentColor}
           contentType="map"
-          message={error === 'no-internet' ? 'Карта недоступна без подключения к интернету' : 'Не удалось загрузить карту'}
+          message={error === 'NO_INTERNET' ? 'Карта недоступна без подключения к интернету' : 'Не удалось загрузить карту'}
         />
       </View>
     );
@@ -174,6 +201,15 @@ const MapScreen = ({ theme, accentColor }) => {
 
   return (
     <View style={styles.container}>
+      {usingCachedMap && (
+        <View style={[styles.cacheIndicator, { backgroundColor: colors.light }]}>
+          <Icon name="time-outline" size={16} color={colors.primary} />
+          <Text style={[styles.cacheText, { color: colors.primary }]}>
+            Используется оффлайн-карта
+          </Text>
+        </View>
+      )}
+      
       <MapView
         style={styles.map}
         provider={PROVIDER_DEFAULT}
@@ -243,6 +279,21 @@ const styles = StyleSheet.create({
   },
   map: {
     flex: 1,
+  },
+  cacheIndicator: {
+    position: 'absolute',
+    top: Platform.OS === 'ios' ? 50 : 20,
+    right: 16,
+    zIndex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 8,
+    borderRadius: 8,
+    gap: 4,
+  },
+  cacheText: {
+    fontSize: 12,
+    fontFamily: 'Montserrat_500Medium',
   },
   marker: {
     backgroundColor: 'white',
