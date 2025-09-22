@@ -7,7 +7,6 @@ import * as Linking from 'expo-linking';
 import AppearanceSettingsSheet from './AppearanceSettingsSheet';
 import AboutModal from './AboutModal';
 import { ACCENT_COLORS, APP_VERSION, APP_DEVELOPERS, APP_SUPPORTERS, GITHUB_REPO_URL, BUILD_VER, BUILD_DATE } from '../utils/constants';
-import { clearMapCache } from '../utils/mapCache';
 
 const SettingsScreen = ({ theme, accentColor, setTheme, setAccentColor }) => {
   const [appearanceSheetVisible, setAppearanceSheetVisible] = useState(false);
@@ -48,35 +47,19 @@ const SettingsScreen = ({ theme, accentColor, setTheme, setAccentColor }) => {
     );
   };
 
+  // Упрощенная функция очистки кэша карты
   const clearMapCacheHandler = () => {
-  Alert.alert(
-    'Очистка кэша карты',
-    'Удалить все сохраненные картографические данные? Это освободит место на устройстве, но карты станут недоступны в оффлайн-режиме.',
-    [
-      {
-        text: 'Отмена',
-        style: 'cancel'
-      },
-      {
-        text: 'Очистить',
-        onPress: async () => {
-          try {
-            const success = await clearMapCache();
-            if (success) {
-              Alert.alert('Успех', 'Кэш карты успешно очищен');
-            } else {
-              Alert.alert('Информация', 'Кэш карты уже пуст или отсутствует');
-            }
-          } catch (error) {
-            console.error('Error clearing map cache:', error);
-            Alert.alert('Ошибка', 'Не удалось очистить кэш карты');
-          }
-        },
-        style: 'destructive'
-      }
-    ]
-  );
-};
+    Alert.alert(
+      'Очистка кэша карты',
+      'Функция временно недоступна. В текущей версии приложения используется онлайн-карта.',
+      [
+        {
+          text: 'Понятно',
+          style: 'cancel'
+        }
+      ]
+    );
+  };
 
   const openGitHub = () => {
     Linking.openURL(GITHUB_REPO_URL);
@@ -175,30 +158,6 @@ const SettingsScreen = ({ theme, accentColor, setTheme, setAccentColor }) => {
           <Text style={{ color: textColor, fontSize: 16, fontFamily: 'Montserrat_500Medium' }}>Очистка кэша приложения</Text>
           <Text style={{ color: placeholderColor, fontSize: 14, marginTop: 4, fontFamily: 'Montserrat_400Regular' }}>
             Удалить все сохраненные данные приложения
-          </Text>
-        </View>
-        <Icon name="chevron-forward" size={20} color={placeholderColor} />
-      </TouchableOpacity>
-
-      {/* Очистка кэша карты */}
-      <TouchableOpacity 
-        style={{ 
-          backgroundColor: cardBg, 
-          borderRadius: 12, 
-          padding: 16, 
-          marginBottom: 16,
-          flexDirection: 'row',
-          alignItems: 'center'
-        }}
-        onPress={clearMapCacheHandler}
-      >
-        <View style={{ backgroundColor: colors.light, borderRadius: 8, padding: 8, marginRight: 12 }}>
-          <Icon name="map-outline" size={24} color={colors.primary} />
-        </View>
-        <View style={{ flex: 1 }}>
-          <Text style={{ color: textColor, fontSize: 16, fontFamily: 'Montserrat_500Medium' }}>Очистка кэша карты</Text>
-          <Text style={{ color: placeholderColor, fontSize: 14, marginTop: 4, fontFamily: 'Montserrat_400Regular' }}>
-            Удалить сохраненные картографические данные
           </Text>
         </View>
         <Icon name="chevron-forward" size={20} color={placeholderColor} />
