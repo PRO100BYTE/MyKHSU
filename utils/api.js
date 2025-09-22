@@ -1,5 +1,5 @@
 import { API_BASE_URL, CORS_PROXY, ERROR_MESSAGES } from './constants';
-import { getWithExpiry, setWithExpiry, getCacheInfo } from './cache';
+import { getWithExpiry, setWithExpiry } from './cache';
 import NetInfo from '@react-native-community/netinfo';
 
 class ApiService {
@@ -22,7 +22,7 @@ class ApiService {
         return {
           data: cachedData,
           source: 'cache',
-          cacheInfo: await getCacheInfo(finalCacheKey)
+          cacheInfo: { cacheDate: new Date().toISOString() }
         };
       }
     }
@@ -76,7 +76,7 @@ class ApiService {
             return {
               data: cachedData,
               source: 'stale_cache',
-              cacheInfo: await getCacheInfo(finalCacheKey)
+              cacheInfo: { cacheDate: new Date().toISOString() }
             };
           }
         }
@@ -128,7 +128,7 @@ class ApiService {
     }
   }
 
-  // Специализированные методы для разных типов данных
+  // Метод для загрузки новостей
   async getNews(from = 0, amount = 10) {
     const url = `${API_BASE_URL}/news?amount=${amount}&from=${from}`;
     return this.makeRequest(url, {}, true, `news_${from}_${amount}`, 30 * 60 * 1000); // 30 минут
