@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, Modal, TouchableOpacity, Switch, ScrollView, StyleSheet } from 'react-native';
+import { View, Text, Modal, TouchableOpacity, Switch, ScrollView, StyleSheet, PanResponder, Animated } from 'react-native';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import * as SecureStore from 'expo-secure-store';
 import { ACCENT_COLORS } from '../utils/constants';
@@ -16,15 +16,13 @@ const NotificationSettingsModal = ({ visible, onClose, theme, accentColor }) => 
   });
 
   const [loading, setLoading] = useState(true);
+  const panY = new Animated.Value(0);
 
   const bgColor = theme === 'light' ? '#ffffff' : '#1f2937';
   const textColor = theme === 'light' ? '#111827' : '#ffffff';
   const secondaryTextColor = theme === 'light' ? '#6b7280' : '#9ca3af';
   const borderColor = theme === 'light' ? '#e5e7eb' : '#374151';
   const colors = ACCENT_COLORS[accentColor];
-
-  // Ключ для хранения настроек в SecureStore
-  const NOTIFICATION_SETTINGS_KEY = 'notification_settings';
 
   // Настройки по умолчанию
   const defaultSettings = {
@@ -37,16 +35,40 @@ const NotificationSettingsModal = ({ visible, onClose, theme, accentColor }) => 
     lessonEnd: false
   };
 
+  // Создаем PanResponder для обработки свайпа
+  const panResponder = PanResponder.create({
+    onStartShouldSetPanResponder: () => true,
+    onMoveShouldSetPanResponder: (_, gestureState) => {
+      return Math.abs(gestureState.dy) > Math.abs(gestureState.dx) && gestureState.dy > 0;
+    },
+    onPanResponderMove: (_, gestureState) => {
+      if (gestureState.dy > 0) {
+        panY.setValue(gestureState.dy);
+      }
+    },
+    onPanResponderRelease: (_, gestureState) => {
+      if (gestureState.dy > 100) {
+        onClose();
+      } else {
+        Animated.spring(panY, {
+          toValue: 0,
+          useNativeDriver: true
+        }).start();
+      }
+    }
+  });
+
   useEffect(() => {
     if (visible) {
       loadNotificationSettings();
+      panY.setValue(0);
     }
   }, [visible]);
 
   const loadNotificationSettings = async () => {
     try {
       setLoading(true);
-      const savedSettings = await SecureStore.getItemAsync(NOTIFICATION_SETTINGS_KEY);
+      const savedSettings = await SecureStore.getItemAsync('notification_settings');
       
       if (savedSettings) {
         const parsedSettings = JSON.parse(savedSettings);
@@ -66,10 +88,11 @@ const NotificationSettingsModal = ({ visible, onClose, theme, accentColor }) => 
 
   const saveNotificationSettings = async (settings) => {
     try {
-      await SecureStore.setItemAsync(NOTIFICATION_SETTINGS_KEY, JSON.stringify(settings));
+      await SecureStore.setItemAsync('notification_settings', JSON.stringify(settings));
+      return true;
     } catch (error) {
       console.error('Error saving notification settings:', error);
-      throw error;
+      return false;
     }
   };
 
@@ -85,11 +108,21 @@ const NotificationSettingsModal = ({ visible, onClose, theme, accentColor }) => 
     if (key === 'enabled' && !value) {
       newSettings.news = false;
       newSettings.schedule = false;
+      newSettings.beforeLesson = false;
+      newSettings.lessonStart = false;
+      newSettings.beforeLessonEnd = false;
+      newSettings.lessonEnd = false;
     }
 
     // Если включаем какой-то из типов уведомлений, включаем главный переключатель
     if ((key === 'news' || key === 'schedule') && value) {
       newSettings.enabled = true;
+    }
+
+    // Если включаем уведомления расписания, включаем базовые настройки
+    if (key === 'schedule' && value) {
+      newSettings.beforeLesson = true;
+      newSettings.lessonStart = true;
     }
 
     setNotificationSettings(newSettings);
@@ -116,6 +149,10 @@ const NotificationSettingsModal = ({ visible, onClose, theme, accentColor }) => 
     onClose();
   };
 
+  const animatedStyle = {
+    transform: [{ translateY: panY }]
+  };
+
   if (loading) {
     return (
       <Modal
@@ -125,13 +162,17 @@ const NotificationSettingsModal = ({ visible, onClose, theme, accentColor }) => 
         onRequestClose={onClose}
       >
         <View style={[styles.modalContainer, { backgroundColor: 'rgba(0, 0, 0, 0.5)' }]}>
-          <View style={[styles.bottomSheet, { backgroundColor: bgColor }]}>
+          <Animated.View 
+            style={[styles.bottomSheet, { backgroundColor: bgColor }, animatedStyle]}
+            {...panResponder.panHandlers}
+          >
+            <View style={styles.sheetHandle} />
             <View style={styles.loadingContainer}>
               <Text style={[styles.loadingText, { color: textColor }]}>
                 Загрузка настроек...
               </Text>
             </View>
-          </View>
+          </Animated.View>
         </View>
       </Modal>
     );
@@ -145,7 +186,10 @@ const NotificationSettingsModal = ({ visible, onClose, theme, accentColor }) => 
       onRequestClose={onClose}
     >
       <View style={[styles.modalContainer, { backgroundColor: 'rgba(0, 0, 0, 0.5)' }]}>
-        <View style={[styles.bottomSheet, { backgroundColor: bgColor }]}>
+        <Animated.View 
+          style={[styles.bottomSheet, { backgroundColor: bgColor }, animatedStyle]}
+          {...panResponder.panHandlers}
+        >
           <View style={styles.sheetHandle} />
           
           <Text style={[styles.sheetTitle, { color: textColor }]}>
@@ -321,7 +365,7 @@ const NotificationSettingsModal = ({ visible, onClose, theme, accentColor }) => 
               Сохранить настройки
             </Text>
           </TouchableOpacity>
-        </View>
+        </Animated.View>
       </View>
     </Modal>
   );
