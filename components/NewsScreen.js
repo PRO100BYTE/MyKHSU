@@ -5,6 +5,7 @@ import { ACCENT_COLORS } from '../utils/constants';
 import ConnectionError from './ConnectionError';
 import NetInfo from '@react-native-community/netinfo';
 import ApiService from '../utils/api';
+import notificationService from '../utils/notificationService';
 
 const NewsScreen = ({ theme, accentColor }) => {
   const [news, setNews] = useState([]);
@@ -18,6 +19,7 @@ const NewsScreen = ({ theme, accentColor }) => {
   const [showCachedData, setShowCachedData] = useState(false);
   const [cacheInfo, setCacheInfo] = useState(null);
   const [hasMoreNews, setHasMoreNews] = useState(true);
+  const [lastNewsCheck, setLastNewsCheck] = useState(null);
 
   const bgColor = theme === 'light' ? '#f3f4f6' : '#111827';
   const cardBg = theme === 'light' ? '#ffffff' : '#1f2937';
@@ -38,6 +40,13 @@ const NewsScreen = ({ theme, accentColor }) => {
     return () => unsubscribe();
   }, []);
 
+  // Проверяем новые новости при загрузке
+  useEffect(() => {
+    if (news.length > 0 && !loading && !loadingMore) {
+      checkForNewNews();
+    }
+  }, [news, loading, loadingMore]);
+
   const fetchNews = async (isInitial = false, targetFrom = null) => {
     if (loading || loadingMore) return;
     
@@ -55,24 +64,25 @@ const NewsScreen = ({ theme, accentColor }) => {
     try {
       const result = await ApiService.getNews(currentFrom, 10);
       
-      // Фильтрация пустого контента
-      const filteredData = result.data.filter(item => item.content && item.content.trim() !== "");
+      // Фильтрация пустого контента и дубликатов
+      const filteredData = this.filterAndProcessNews(result.data);
       
-      if (filteredData.length === 0) {
+      if (filteredData.length === 0 && currentFrom === 0) {
+        setHasMoreNews(false);
+      } else if (filteredData.length < 10) {
         setHasMoreNews(false);
       }
       
       if (isInitial) {
         setNews(filteredData);
-        setFrom(currentFrom + 10);
+        setFrom(currentFrom + filteredData.length);
       } else {
         setNews(prevNews => {
-          // Объединяем новости, убирая дубликаты по дате и содержанию
+          // Объединяем новости, убирая дубликаты
           const combinedNews = [...prevNews];
           filteredData.forEach(newItem => {
             const exists = combinedNews.some(existingItem => 
-              existingItem.date === newItem.date && 
-              existingItem.content === newItem.content
+              this.isSameNews(existingItem, newItem)
             );
             if (!exists) {
               combinedNews.push(newItem);
@@ -80,7 +90,7 @@ const NewsScreen = ({ theme, accentColor }) => {
           });
           return combinedNews;
         });
-        setFrom(currentFrom + 10);
+        setFrom(currentFrom + filteredData.length);
       }
       
       setCachedNews(filteredData);
@@ -89,6 +99,10 @@ const NewsScreen = ({ theme, accentColor }) => {
       if (result.source === 'cache' || result.source === 'stale_cache') {
         setShowCachedData(true);
       }
+
+      // Сохраняем время последней проверки
+      setLastNewsCheck(new Date().toISOString());
+      
     } catch (error) {
       console.error('Error fetching news:', error);
       
@@ -104,6 +118,55 @@ const NewsScreen = ({ theme, accentColor }) => {
       setLoading(false);
       setLoadingMore(false);
       setRefreshing(false);
+    }
+  };
+
+  // Фильтрация и обработка новостей
+  filterAndProcessNews = (newsData) => {
+    if (!newsData || !Array.isArray(newsData)) return [];
+    
+    return newsData
+      .filter(item => item.content && item.content.trim() !== "")
+      .map(item => ({
+        ...item,
+        // Создаем уникальный ID на основе содержания и даты
+        id: this.createNewsId(item),
+        // Нормализуем дату
+        normalizedDate: this.normalizeDate(item.date)
+      }))
+      .filter((item, index, self) => 
+        index === self.findIndex(t => t.id === item.id)
+      )
+      .sort((a, b) => new Date(b.normalizedDate) - new Date(a.normalizedDate));
+  };
+
+  // Создание уникального ID для новости
+  createNewsId = (newsItem) => {
+    return `${newsItem.date}_${newsItem.content.substring(0, 50)}`.replace(/\s+/g, '_');
+  };
+
+  // Проверка, является ли новость той же самой
+  isSameNews = (news1, news2) => {
+    return this.createNewsId(news1) === this.createNewsId(news2);
+  };
+
+  // Нормализация даты
+  normalizeDate = (dateString) => {
+    try {
+      return new Date(dateString).toISOString();
+    } catch {
+      return dateString;
+    }
+  };
+
+  // Проверка новых новостей для уведомлений
+  checkForNewNews = async () => {
+    if (!isOnline || loading || loadingMore) return;
+    
+    try {
+      await notificationService.checkForNewNews(news);
+    } catch (error) {
+      console.error('Error checking for new news:', error);
     }
   };
 
@@ -183,9 +246,9 @@ const NewsScreen = ({ theme, accentColor }) => {
           />
         }
       >
-        {news.map((item, index) => (
+        {news.map((item) => (
           <View 
-            key={`${item.date}-${index}`} 
+            key={item.id} 
             style={{ 
               backgroundColor: cardBg, 
               borderRadius: 12, 
@@ -259,6 +322,17 @@ const NewsScreen = ({ theme, accentColor }) => {
             <Icon name="cloud-offline-outline" size={20} color={colors.primary} />
             <Text style={{ color: colors.primary, marginLeft: 8, textAlign: 'center', fontFamily: 'Montserrat_400Regular' }}>
               Нет подключения к интернету. {showCachedData ? 'Показаны ранее загруженные новости.' : 'Невозможно загрузить новые данные.'}
+            </Text>
+          </View>
+        )}
+
+        {lastNewsCheck && (
+          <View style={{ 
+            padding: 8, 
+            alignItems: 'center'
+          }}>
+            <Text style={{ color: placeholderColor, fontSize: 10, fontFamily: 'Montserrat_400Regular' }}>
+              Последнее обновление: {new Date(lastNewsCheck).toLocaleString('ru-RU')}
             </Text>
           </View>
         )}
