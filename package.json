@@ -34,7 +34,9 @@
     "react-native-maps": "1.20.1",
     "react-native-web": "~0.21.0",
     "expo-notifications": "~0.32.11",
-    "expo-device": "~8.0.6"
+    "expo-device": "~8.0.6",
+    "expo-task-manager": "~14.0.7",
+    "expo-background-fetch": "~14.0.7"
   },
   "devDependencies": {
     "@babel/core": "^7.20.0"
