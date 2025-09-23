@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, Modal, TouchableOpacity, Switch, ScrollView, StyleSheet, PanResponder, Animated } from 'react-native';
+import { View, Text, Modal, TouchableOpacity, Switch, ScrollView, StyleSheet, PanResponder, Animated, ActivityIndicator } from 'react-native';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import * as SecureStore from 'expo-secure-store';
 import { ACCENT_COLORS } from '../utils/constants';
@@ -16,12 +16,12 @@ const NotificationSettingsModal = ({ visible, onClose, theme, accentColor }) => 
   });
 
   const [loading, setLoading] = useState(true);
-  const panY = new Animated.Value(0);
+  const [panY] = useState(new Animated.Value(0));
 
   const bgColor = theme === 'light' ? '#ffffff' : '#1f2937';
   const textColor = theme === 'light' ? '#111827' : '#ffffff';
   const secondaryTextColor = theme === 'light' ? '#6b7280' : '#9ca3af';
-  const borderColor = theme === 'light' ? '#e5e7eb' : '#374151';
+  const cardBg = theme === 'light' ? '#f8f9fa' : '#2d3748';
   const colors = ACCENT_COLORS[accentColor];
 
   // Настройки по умолчанию
@@ -74,9 +74,8 @@ const NotificationSettingsModal = ({ visible, onClose, theme, accentColor }) => 
         const parsedSettings = JSON.parse(savedSettings);
         setNotificationSettings(parsedSettings);
       } else {
-        // Если настроек нет, сохраняем настройки по умолчанию
+        // Если настроек нет, используем настройки по умолчанию
         setNotificationSettings(defaultSettings);
-        await saveNotificationSettings(defaultSettings);
       }
     } catch (error) {
       console.error('Error loading notification settings:', error);
@@ -97,32 +96,26 @@ const NotificationSettingsModal = ({ visible, onClose, theme, accentColor }) => 
   };
 
   const handleToggle = async (key, value) => {
-    if (loading) return;
-
     const newSettings = {
       ...notificationSettings,
       [key]: value
     };
 
-    // Если отключаем главный переключатель, отключаем всё
-    if (key === 'enabled' && !value) {
-      newSettings.news = false;
-      newSettings.schedule = false;
-      newSettings.beforeLesson = false;
-      newSettings.lessonStart = false;
-      newSettings.beforeLessonEnd = false;
-      newSettings.lessonEnd = false;
-    }
-
-    // Если включаем какой-то из типов уведомлений, включаем главный переключатель
-    if ((key === 'news' || key === 'schedule') && value) {
-      newSettings.enabled = true;
-    }
-
-    // Если включаем уведомления расписания, включаем базовые настройки
-    if (key === 'schedule' && value) {
-      newSettings.beforeLesson = true;
-      newSettings.lessonStart = true;
+    // Логика зависимостей между переключателями
+    if (key === 'enabled') {
+      if (!value) {
+        // Если отключаем главный переключатель, отключаем всё
+        newSettings.news = false;
+        newSettings.schedule = false;
+      }
+    } else if (key === 'news' || key === 'schedule') {
+      if (value && !newSettings.enabled) {
+        // Если включаем какой-то из типов уведомлений, включаем главный переключатель
+        newSettings.enabled = true;
+      } else if (!value && !newSettings.news && !newSettings.schedule) {
+        // Если оба типа отключены, отключаем главный переключатель
+        newSettings.enabled = false;
+      }
     }
 
     setNotificationSettings(newSettings);
@@ -131,18 +124,12 @@ const NotificationSettingsModal = ({ visible, onClose, theme, accentColor }) => 
       await saveNotificationSettings(newSettings);
     } catch (error) {
       console.error('Error saving settings:', error);
-      // В случае ошибки возвращаем предыдущие настройки
-      await loadNotificationSettings();
     }
   };
 
   const handleResetToDefaults = async () => {
-    try {
-      setNotificationSettings(defaultSettings);
-      await saveNotificationSettings(defaultSettings);
-    } catch (error) {
-      console.error('Error resetting to defaults:', error);
-    }
+    setNotificationSettings(defaultSettings);
+    await saveNotificationSettings(defaultSettings);
   };
 
   const handleSave = () => {
@@ -168,6 +155,7 @@ const NotificationSettingsModal = ({ visible, onClose, theme, accentColor }) => 
           >
             <View style={styles.sheetHandle} />
             <View style={styles.loadingContainer}>
+              <ActivityIndicator size="large" color={colors.primary} />
               <Text style={[styles.loadingText, { color: textColor }]}>
                 Загрузка настроек...
               </Text>
@@ -192,152 +180,181 @@ const NotificationSettingsModal = ({ visible, onClose, theme, accentColor }) => 
         >
           <View style={styles.sheetHandle} />
           
-          <Text style={[styles.sheetTitle, { color: textColor }]}>
-            Настройки уведомлений
-          </Text>
+          <View style={styles.header}>
+            <Text style={[styles.sheetTitle, { color: textColor }]}>
+              Настройки уведомлений
+            </Text>
+            <TouchableOpacity onPress={onClose} style={styles.closeButton}>
+              <Icon name="close" size={24} color={textColor} />
+            </TouchableOpacity>
+          </View>
           
           <ScrollView style={styles.scrollContent} showsVerticalScrollIndicator={false}>
             {/* Основной переключатель */}
-            <View style={[styles.settingItem, { borderBottomColor: borderColor }]}>
-              <View style={styles.settingInfo}>
-                <Icon name="notifications-outline" size={24} color={textColor} />
-                <View style={styles.settingText}>
-                  <Text style={[styles.settingTitle, { color: textColor }]}>Уведомления</Text>
+            <View style={[styles.section, { backgroundColor: cardBg }]}>
+              <View style={styles.sectionHeader}>
+                <Icon name="notifications" size={20} color={colors.primary} />
+                <Text style={[styles.sectionTitle, { color: textColor }]}>
+                  Общие настройки
+                </Text>
+              </View>
+              
+              <View style={styles.settingItem}>
+                <View style={styles.settingInfo}>
+                  <Text style={[styles.settingLabel, { color: textColor }]}>
+                    Включить уведомления
+                  </Text>
                   <Text style={[styles.settingDescription, { color: secondaryTextColor }]}>
-                    Включить или отключить все уведомления
+                    Разрешить приложению отправлять уведомления
                   </Text>
                 </View>
+                <Switch
+                  value={notificationSettings.enabled}
+                  onValueChange={(value) => handleToggle('enabled', value)}
+                  trackColor={{ false: '#d1d5db', true: colors.light }}
+                  thumbColor={notificationSettings.enabled ? colors.primary : '#9ca3af'}
+                />
               </View>
-              <Switch
-                value={notificationSettings.enabled}
-                onValueChange={(value) => handleToggle('enabled', value)}
-                trackColor={{ false: '#767577', true: colors.light }}
-                thumbColor={notificationSettings.enabled ? colors.primary : '#f4f3f4'}
-              />
             </View>
 
-            {notificationSettings.enabled && (
-              <>
-                {/* Уведомления о новостях */}
-                <View style={[styles.settingItem, { borderBottomColor: borderColor }]}>
-                  <View style={styles.settingInfo}>
-                    <Icon name="newspaper-outline" size={24} color={textColor} />
-                    <View style={styles.settingText}>
-                      <Text style={[styles.settingTitle, { color: textColor }]}>Новости</Text>
-                      <Text style={[styles.settingDescription, { color: secondaryTextColor }]}>
-                        Уведомления о новых новостях университета
-                      </Text>
-                    </View>
-                  </View>
-                  <Switch
-                    value={notificationSettings.news}
-                    onValueChange={(value) => handleToggle('news', value)}
-                    trackColor={{ false: '#767577', true: colors.light }}
-                    thumbColor={notificationSettings.news ? colors.primary : '#f4f3f4'}
-                  />
+            {/* Уведомления о новостях */}
+            <View style={[styles.section, { backgroundColor: cardBg }]}>
+              <View style={styles.sectionHeader}>
+                <Icon name="newspaper" size={20} color={colors.primary} />
+                <Text style={[styles.sectionTitle, { color: textColor }]}>
+                  Новости университета
+                </Text>
+              </View>
+              
+              <View style={styles.settingItem}>
+                <View style={styles.settingInfo}>
+                  <Text style={[styles.settingLabel, { color: textColor }]}>
+                    Уведомления о новостях
+                  </Text>
+                  <Text style={[styles.settingDescription, { color: secondaryTextColor }]}>
+                    Получать уведомления о новых новостях
+                  </Text>
                 </View>
+                <Switch
+                  value={notificationSettings.news && notificationSettings.enabled}
+                  onValueChange={(value) => handleToggle('news', value)}
+                  trackColor={{ false: '#d1d5db', true: colors.light }}
+                  thumbColor={notificationSettings.news && notificationSettings.enabled ? colors.primary : '#9ca3af'}
+                  disabled={!notificationSettings.enabled}
+                />
+              </View>
+            </View>
 
-                {/* Уведомления о расписании */}
-                <View style={[styles.settingItem, { borderBottomColor: borderColor }]}>
+            {/* Уведомления о расписании */}
+            {notificationSettings.enabled && (
+              <View style={[styles.section, { backgroundColor: cardBg }]}>
+                <View style={styles.sectionHeader}>
+                  <Icon name="calendar" size={20} color={colors.primary} />
+                  <Text style={[styles.sectionTitle, { color: textColor }]}>
+                    Расписание занятий
+                  </Text>
+                </View>
+                
+                <View style={styles.settingItem}>
                   <View style={styles.settingInfo}>
-                    <Icon name="calendar-outline" size={24} color={textColor} />
-                    <View style={styles.settingText}>
-                      <Text style={[styles.settingTitle, { color: textColor }]}>Расписание</Text>
-                      <Text style={[styles.settingDescription, { color: secondaryTextColor }]}>
-                        Уведомления о предстоящих парах
-                      </Text>
-                    </View>
+                    <Text style={[styles.settingLabel, { color: textColor }]}>
+                      Уведомления о расписании
+                    </Text>
+                    <Text style={[styles.settingDescription, { color: secondaryTextColor }]}>
+                      Получать уведомления о парах
+                    </Text>
                   </View>
                   <Switch
                     value={notificationSettings.schedule}
                     onValueChange={(value) => handleToggle('schedule', value)}
-                    trackColor={{ false: '#767577', true: colors.light }}
-                    thumbColor={notificationSettings.schedule ? colors.primary : '#f4f3f4'}
+                    trackColor={{ false: '#d1d5db', true: colors.light }}
+                    thumbColor={notificationSettings.schedule ? colors.primary : '#9ca3af'}
                   />
                 </View>
 
                 {notificationSettings.schedule && (
                   <>
-                    <Text style={[styles.sectionTitle, { color: textColor, marginTop: 16 }]}>
-                      Напоминания о парах
-                    </Text>
-                    
-                    <View style={[styles.settingItem, { borderBottomColor: borderColor }]}>
+                    <View style={styles.settingItem}>
                       <View style={styles.settingInfo}>
-                        <Icon name="time-outline" size={20} color={textColor} />
-                        <View style={styles.settingText}>
-                          <Text style={[styles.settingTitle, { color: textColor }]}>За 5 минут до начала</Text>
-                          <Text style={[styles.settingDescription, { color: secondaryTextColor }]}>
-                            Напомнить за 5 минут до начала пары
-                          </Text>
-                        </View>
+                        <Text style={[styles.settingLabel, { color: textColor }]}>
+                          Напоминать за 5 минут
+                        </Text>
+                        <Text style={[styles.settingDescription, { color: secondaryTextColor }]}>
+                          Уведомление за 5 минут до начала пары
+                        </Text>
                       </View>
                       <Switch
                         value={notificationSettings.beforeLesson}
                         onValueChange={(value) => handleToggle('beforeLesson', value)}
-                        trackColor={{ false: '#767577', true: colors.light }}
-                        thumbColor={notificationSettings.beforeLesson ? colors.primary : '#f4f3f4'}
+                        trackColor={{ false: '#d1d5db', true: colors.light }}
+                        thumbColor={notificationSettings.beforeLesson ? colors.primary : '#9ca3af'}
                       />
                     </View>
 
-                    <View style={[styles.settingItem, { borderBottomColor: borderColor }]}>
+                    <View style={styles.settingItem}>
                       <View style={styles.settingInfo}>
-                        <Icon name="play-outline" size={20} color={textColor} />
-                        <View style={styles.settingText}>
-                          <Text style={[styles.settingTitle, { color: textColor }]}>В начале пары</Text>
-                          <Text style={[styles.settingDescription, { color: secondaryTextColor }]}>
-                            Уведомление в момент начала пары
-                          </Text>
-                        </View>
+                        <Text style={[styles.settingLabel, { color: textColor }]}>
+                          Уведомление в начале
+                        </Text>
+                        <Text style={[styles.settingDescription, { color: secondaryTextColor }]}>
+                          В момент начала пары
+                        </Text>
                       </View>
                       <Switch
                         value={notificationSettings.lessonStart}
                         onValueChange={(value) => handleToggle('lessonStart', value)}
-                        trackColor={{ false: '#767577', true: colors.light }}
-                        thumbColor={notificationSettings.lessonStart ? colors.primary : '#f4f3f4'}
+                        trackColor={{ false: '#d1d5db', true: colors.light }}
+                        thumbColor={notificationSettings.lessonStart ? colors.primary : '#9ca3af'}
                       />
                     </View>
 
-                    <View style={[styles.settingItem, { borderBottomColor: borderColor }]}>
+                    <View style={styles.settingItem}>
                       <View style={styles.settingInfo}>
-                        <Icon name="time-outline" size={20} color={textColor} />
-                        <View style={styles.settingText}>
-                          <Text style={[styles.settingTitle, { color: textColor }]}>За 5 минут до конца</Text>
-                          <Text style={[styles.settingDescription, { color: secondaryTextColor }]}>
-                            Напомнить за 5 минут до конца пары
-                          </Text>
-                        </View>
+                        <Text style={[styles.settingLabel, { color: textColor }]}>
+                          Напоминать за 5 минут до конца
+                        </Text>
+                        <Text style={[styles.settingDescription, { color: secondaryTextColor }]}>
+                          Уведомление за 5 минут до окончания пары
+                        </Text>
                       </View>
                       <Switch
                         value={notificationSettings.beforeLessonEnd}
                         onValueChange={(value) => handleToggle('beforeLessonEnd', value)}
-                        trackColor={{ false: '#767577', true: colors.light }}
-                        thumbColor={notificationSettings.beforeLessonEnd ? colors.primary : '#f4f3f4'}
+                        trackColor={{ false: '#d1d5db', true: colors.light }}
+                        thumbColor={notificationSettings.beforeLessonEnd ? colors.primary : '#9ca3af'}
                       />
                     </View>
 
-                    <View style={[styles.settingItem, { borderBottomColor: borderColor }]}>
+                    <View style={styles.settingItem}>
                       <View style={styles.settingInfo}>
-                        <Icon name="stop-outline" size={20} color={textColor} />
-                        <View style={styles.settingText}>
-                          <Text style={[styles.settingTitle, { color: textColor }]}>В конце пары</Text>
-                          <Text style={[styles.settingDescription, { color: secondaryTextColor }]}>
-                            Уведомление в момент окончания пары
-                          </Text>
-                        </View>
+                        <Text style={[styles.settingLabel, { color: textColor }]}>
+                          Уведомление в конце
+                        </Text>
+                        <Text style={[styles.settingDescription, { color: secondaryTextColor }]}>
+                          В момент окончания пары
+                        </Text>
                       </View>
                       <Switch
                         value={notificationSettings.lessonEnd}
                         onValueChange={(value) => handleToggle('lessonEnd', value)}
-                        trackColor={{ false: '#767577', true: colors.light }}
-                        thumbColor={notificationSettings.lessonEnd ? colors.primary : '#f4f3f4'}
+                        trackColor={{ false: '#d1d5db', true: colors.light }}
+                        thumbColor={notificationSettings.lessonEnd ? colors.primary : '#9ca3af'}
                       />
                     </View>
                   </>
                 )}
-              </>
+              </View>
             )}
 
+            {/* Информационный блок */}
+            <View style={[styles.infoSection, { backgroundColor: colors.light }]}>
+              <Icon name="information-circle" size={20} color={colors.primary} />
+              <Text style={[styles.infoText, { color: colors.primary }]}>
+                Уведомления работают когда приложение активно или в фоне. Для работы уведомлений о расписании необходимо выбрать группу в разделе "Расписание".
+              </Text>
+            </View>
+
+            {/* Кнопки действий */}
             <View style={styles.actionsContainer}>
               <TouchableOpacity
                 style={[styles.secondaryButton, { borderColor: colors.primary }]}
@@ -347,24 +364,17 @@ const NotificationSettingsModal = ({ visible, onClose, theme, accentColor }) => 
                   Сбросить настройки
                 </Text>
               </TouchableOpacity>
-            </View>
-
-            <View style={styles.infoBox}>
-              <Icon name="information-circle-outline" size={20} color={secondaryTextColor} />
-              <Text style={[styles.infoText, { color: secondaryTextColor }]}>
-                Уведомления работают только когда приложение активно или в фоне
-              </Text>
+              
+              <TouchableOpacity
+                style={[styles.primaryButton, { backgroundColor: colors.primary }]}
+                onPress={handleSave}
+              >
+                <Text style={styles.primaryButtonText}>
+                  Сохранить настройки
+                </Text>
+              </TouchableOpacity>
             </View>
           </ScrollView>
-          
-          <TouchableOpacity
-            style={[styles.sheetButton, { backgroundColor: colors.primary }]}
-            onPress={handleSave}
-          >
-            <Text style={[styles.sheetButtonText, { color: '#ffffff' }]}>
-              Сохранить настройки
-            </Text>
-          </TouchableOpacity>
         </Animated.View>
       </View>
     </Modal>
@@ -377,12 +387,12 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   bottomSheet: {
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
-    paddingHorizontal: 16,
-    paddingBottom: 32,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingHorizontal: 20,
+    paddingBottom: 30,
     paddingTop: 16,
-    maxHeight: '80%',
+    maxHeight: '90%',
   },
   sheetHandle: {
     width: 40,
@@ -392,85 +402,93 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
     marginBottom: 16,
   },
-  sheetTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     marginBottom: 20,
-    textAlign: 'center',
+  },
+  sheetTitle: {
+    fontSize: 22,
+    fontWeight: 'bold',
     fontFamily: 'Montserrat_600SemiBold',
+  },
+  closeButton: {
+    padding: 4,
   },
   scrollContent: {
     flex: 1,
+  },
+  section: {
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    marginLeft: 12,
+    fontFamily: 'Montserrat_600SemiBold',
   },
   settingItem: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingVertical: 12,
-    borderBottomWidth: 1,
   },
   settingInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
     flex: 1,
+    marginRight: 16,
   },
-  settingText: {
-    marginLeft: 12,
-    flex: 1,
-  },
-  settingTitle: {
+  settingLabel: {
     fontSize: 16,
     fontFamily: 'Montserrat_500Medium',
+    marginBottom: 4,
   },
   settingDescription: {
     fontSize: 14,
-    marginTop: 2,
     fontFamily: 'Montserrat_400Regular',
   },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    marginBottom: 12,
-    fontFamily: 'Montserrat_600SemiBold',
-  },
-  actionsContainer: {
-    marginTop: 20,
-    marginBottom: 10,
-  },
-  secondaryButton: {
-    borderWidth: 1,
-    borderRadius: 8,
-    padding: 12,
-    alignItems: 'center',
-  },
-  secondaryButtonText: {
-    fontSize: 14,
-    fontFamily: 'Montserrat_500Medium',
-  },
-  infoBox: {
+  infoSection: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    backgroundColor: 'rgba(0, 0, 0, 0.05)',
-    padding: 12,
-    borderRadius: 8,
-    marginTop: 10,
-    marginBottom: 10,
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 20,
   },
   infoText: {
     flex: 1,
-    marginLeft: 8,
-    fontSize: 12,
+    marginLeft: 12,
+    fontSize: 14,
     fontFamily: 'Montserrat_400Regular',
+    lineHeight: 20,
   },
-  sheetButton: {
+  actionsContainer: {
+    gap: 12,
+  },
+  secondaryButton: {
+    borderWidth: 2,
     borderRadius: 12,
     padding: 16,
     alignItems: 'center',
-    marginTop: 8,
   },
-  sheetButtonText: {
+  secondaryButtonText: {
     fontSize: 16,
-    fontWeight: '600',
+    fontFamily: 'Montserrat_600SemiBold',
+  },
+  primaryButton: {
+    borderRadius: 12,
+    padding: 16,
+    alignItems: 'center',
+  },
+  primaryButtonText: {
+    color: '#ffffff',
+    fontSize: 16,
     fontFamily: 'Montserrat_600SemiBold',
   },
   loadingContainer: {
@@ -480,6 +498,7 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     fontSize: 16,
+    marginTop: 16,
     fontFamily: 'Montserrat_500Medium',
   },
 });
