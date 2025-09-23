@@ -52,9 +52,9 @@ export const precacheTilesForBuildings = async (buildings, urlTemplate) => {
       const x = long2tile(building.longitude, TILE_ZOOM);
       const y = lat2tile(building.latitude, TILE_ZOOM);
       
-      // Кэшируем тайлы в радиусе 3 тайлов вокруг каждого здания
-      for (let dx = -3; dx <= 3; dx++) {
-        for (let dy = -3; dy <= 3; dy++) {
+      // Кэшируем тайлы в радиусе 2 тайлов вокруг каждого здания
+      for (let dx = -2; dx <= 2; dx++) {
+        for (let dy = -2; dy <= 2; dy++) {
           const tileX = x + dx;
           const tileY = y + dy;
           
@@ -95,7 +95,10 @@ const cacheTileFromUrl = async (x, y, z, urlTemplate) => {
   try {
     const url = urlTemplate.replace('{z}', z).replace('{x}', x).replace('{y}', y);
     
-    const response = await fetch(url);
+    // Используем HTTPS для избежания проблем с CORS
+    const secureUrl = url.replace('http://', 'https://');
+    
+    const response = await fetch(secureUrl);
     if (!response.ok) {
       throw new Error(`HTTP ${response.status}`);
     }
@@ -131,7 +134,7 @@ export const checkMapCache = async () => {
     }
     
     // Проверяем, есть ли хотя бы один не просроченный тайл
-    for (const key of mapTileKeys) {
+    for (const key of mapTileKeys.slice(0, 5)) { // Проверяем только первые 5 для скорости
       const tileData = await getWithExpiry(key);
       if (tileData) {
         return true;
@@ -211,18 +214,4 @@ const formatBytes = (bytes, decimals = 2) => {
   const i = Math.floor(Math.log(bytes) / Math.log(k));
   
   return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
-};
-
-// Получение URI кэшированного тайла для отображения
-export const getCachedTileUri = async (x, y, z) => {
-  try {
-    const tileData = await getCachedTile(x, y, z);
-    if (tileData) {
-      return tileData; // Это base64 data URL
-    }
-    return null;
-  } catch (error) {
-    console.error('Error getting cached tile URI:', error);
-    return null;
-  }
 };
