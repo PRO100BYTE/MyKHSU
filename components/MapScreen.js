@@ -5,6 +5,7 @@ import NetInfo from '@react-native-community/netinfo';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import { ACCENT_COLORS } from '../utils/constants';
 import ConnectionError from './ConnectionError';
+import * as mapCache from '../utils/mapCache';
 
 const { width, height } = Dimensions.get('window');
 
@@ -13,6 +14,8 @@ const MapScreen = ({ theme, accentColor }) => {
   const [mapLoaded, setMapLoaded] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [cachedMapAvailable, setCachedMapAvailable] = useState(false);
+  const [usingCachedMap, setUsingCachedMap] = useState(false);
   const colors = ACCENT_COLORS[accentColor];
   const bgColor = theme === 'light' ? '#f3f4f6' : '#111827';
   const textColor = theme === 'light' ? '#111827' : '#ffffff';
@@ -73,10 +76,10 @@ const MapScreen = ({ theme, accentColor }) => {
   const mapTheme = MAP_THEMES[theme] || MAP_THEMES.light;
 
   useEffect(() => {
-    loadMap();
+    initializeMap();
   }, [theme]);
 
-  const loadMap = async () => {
+  const initializeMap = async () => {
     setLoading(true);
     setError(null);
     
@@ -85,26 +88,57 @@ const MapScreen = ({ theme, accentColor }) => {
       const netState = await NetInfo.fetch();
       setIsOnline(netState.isConnected);
       
+      // Проверяем наличие кэшированной карты
+      const cacheAvailable = await mapCache.checkMapCache();
+      setCachedMapAvailable(cacheAvailable);
+      
       if (!netState.isConnected) {
-        setError('NO_INTERNET');
-        setLoading(false);
-        return;
+        if (cacheAvailable) {
+          // Используем кэшированную карту
+          setUsingCachedMap(true);
+          setMapLoaded(true);
+          setLoading(false);
+          return;
+        } else {
+          setError('NO_INTERNET');
+          setLoading(false);
+          return;
+        }
       }
 
-      // Простая загрузка онлайн карты без сложного кэширования
+      // Предзагружаем тайлы для области вокруг зданий
+      await preloadMapTiles();
+      
+      // Загружаем онлайн карту
       setTimeout(() => {
         setMapLoaded(true);
         setLoading(false);
+        setUsingCachedMap(false);
       }, 1000);
     } catch (error) {
-      console.error('Error loading map:', error);
+      console.error('Error initializing map:', error);
       setError('LOAD_ERROR');
       setLoading(false);
     }
   };
 
+  const preloadMapTiles = async () => {
+    try {
+      await mapCache.precacheTilesForBuildings(buildings, mapTheme.urlTemplate);
+    } catch (error) {
+      console.error('Error preloading map tiles:', error);
+    }
+  };
+
   const handleRetry = () => {
-    loadMap();
+    initializeMap();
+  };
+
+  const handleUseCachedMap = () => {
+    setUsingCachedMap(true);
+    setError(null);
+    setLoading(false);
+    setMapLoaded(true);
   };
 
   const handleOpenDirections = async (building) => {
@@ -155,6 +189,9 @@ const MapScreen = ({ theme, accentColor }) => {
           type={errorType}
           loading={loading}
           onRetry={handleRetry}
+          onViewCache={cachedMapAvailable ? handleUseCachedMap : null}
+          showCacheButton={cachedMapAvailable}
+          cacheAvailable={cachedMapAvailable}
           theme={theme}
           accentColor={accentColor}
           contentType="map"
@@ -179,7 +216,7 @@ const MapScreen = ({ theme, accentColor }) => {
         showsMyLocationButton={true}
         userInterfaceStyle={theme}
       >
-        {/* Используем тайлы в зависимости от темы */}
+        {/* Используем тайлы в зависимости от темы и доступности кэша */}
         <UrlTile
           urlTemplate={mapTheme.urlTemplate}
           maximumZ={19}
@@ -225,6 +262,16 @@ const MapScreen = ({ theme, accentColor }) => {
           {theme === 'dark' ? 'Тёмная карта' : 'Светлая карта'}
         </Text>
       </View>
+
+      {/* Индикатор использования кэша */}
+      {usingCachedMap && (
+        <View style={[styles.cacheIndicatorBadge, { backgroundColor: colors.light }]}>
+          <Icon name="time-outline" size={14} color={colors.primary} />
+          <Text style={[styles.cacheIndicatorText, { color: colors.primary }]}>
+            Оффлайн-карта
+          </Text>
+        </View>
+      )}
     </View>
   );
 };
@@ -264,6 +311,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   themeIndicatorText: {
+    fontSize: 10,
+    marginLeft: 4,
+    fontFamily: 'Montserrat_400Regular',
+  },
+  cacheIndicatorBadge: {
+    position: 'absolute',
+    top: Platform.OS === 'ios' ? 50 : 20,
+    right: 16,
+    padding: 6,
+    borderRadius: 4,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  cacheIndicatorText: {
     fontSize: 10,
     marginLeft: 4,
     fontFamily: 'Montserrat_400Regular',
