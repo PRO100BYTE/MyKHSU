@@ -6,6 +6,7 @@ import { ACCENT_COLORS } from '../utils/constants';
 import ConnectionError from './ConnectionError';
 import NetInfo from '@react-native-community/netinfo';
 import ApiService from '../utils/api';
+import notificationService from '../utils/notificationService';
 
 const { width } = Dimensions.get('window');
 
@@ -58,6 +59,21 @@ const ScheduleScreen = ({ theme, accentColor }) => {
       fetchScheduleData(selectedGroup);
     }
   }, [viewMode, currentDate, currentWeek, selectedGroup]);
+
+  // Планируем уведомления при изменении расписания
+  useEffect(() => {
+    if (scheduleData && pairsTime.length > 0 && viewMode === 'day') {
+      scheduleNotifications();
+    }
+  }, [scheduleData, pairsTime]);
+
+  const scheduleNotifications = async () => {
+    try {
+      await notificationService.scheduleLessonNotifications(scheduleData, pairsTime);
+    } catch (error) {
+      console.error('Error scheduling notifications:', error);
+    }
+  };
 
   const fetchGroupsForCourse = async (course) => {
     setLoadingGroups(true);
