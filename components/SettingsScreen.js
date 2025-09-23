@@ -8,7 +8,6 @@ import AppearanceSettingsSheet from './AppearanceSettingsSheet';
 import AboutModal from './AboutModal';
 import NotificationSettingsModal from './NotificationSettingsModal';
 import { ACCENT_COLORS, APP_VERSION, APP_DEVELOPERS, APP_SUPPORTERS, GITHUB_REPO_URL, BUILD_VER, BUILD_DATE } from '../utils/constants';
-import * as mapCache from '../utils/mapCache';
 
 const SettingsScreen = ({ theme, accentColor, setTheme, setAccentColor }) => {
   const [appearanceSheetVisible, setAppearanceSheetVisible] = useState(false);
@@ -48,31 +47,14 @@ const SettingsScreen = ({ theme, accentColor, setTheme, setAccentColor }) => {
     );
   };
 
-  const clearMapCacheHandler = async () => {
+  const clearMapCacheHandler = () => {
     Alert.alert(
       'Очистка кэша карты',
-      'Вы уверены, что хотите очистить кэш карты? Это удалит все сохраненные картографические данные.',
+      'Функция временно недоступна. В текущей версии приложения используется онлайн-карта без кэширования.',
       [
         {
-          text: 'Отмена',
+          text: 'Понятно',
           style: 'cancel'
-        },
-        {
-          text: 'Очистить',
-          onPress: async () => {
-            try {
-              const success = await mapCache.clearMapCache();
-              if (success) {
-                Alert.alert('Успех', 'Кэш карты успешно очищен');
-              } else {
-                Alert.alert('Ошибка', 'Не удалось очистить кэш карты');
-              }
-            } catch (error) {
-              console.error('Error clearing map cache:', error);
-              Alert.alert('Ошибка', 'Произошла ошибка при очистке кэша карты');
-            }
-          },
-          style: 'destructive'
         }
       ]
     );
