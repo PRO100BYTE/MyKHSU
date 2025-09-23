@@ -49,7 +49,8 @@ const NewsScreen = ({ theme, accentColor }) => {
 
   // Создание уникального ID для новости
   const createNewsId = (newsItem) => {
-    return `${newsItem.date}_${newsItem.content.substring(0, 50)}`.replace(/\s+/g, '_');
+    const contentHash = newsItem.content.substring(0, 100).replace(/\s+/g, '_');
+    return `${newsItem.date}_${contentHash}`;
   };
 
   // Проверка, является ли новость той же самой
@@ -112,6 +113,10 @@ const NewsScreen = ({ theme, accentColor }) => {
     
     try {
       const result = await ApiService.getNews(currentFrom, 10);
+      
+      if (!result.data || !Array.isArray(result.data)) {
+        throw new Error('INVALID_RESPONSE');
+      }
       
       // Фильтрация пустого контента и дубликатов
       const filteredData = filterAndProcessNews(result.data);
