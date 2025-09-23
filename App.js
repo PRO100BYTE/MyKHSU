@@ -3,6 +3,8 @@ import { View, Text, Platform, Appearance, StyleSheet } from 'react-native';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import * as SecureStore from 'expo-secure-store';
 import { useFonts, Montserrat_400Regular, Montserrat_500Medium, Montserrat_600SemiBold, Montserrat_700Bold } from '@expo-google-fonts/montserrat';
+import * as Notifications from 'expo-notifications';
+import * as TaskManager from 'expo-task-manager';
 
 // Импорт компонентов
 import SplashScreen from './components/SplashScreen';
@@ -24,6 +26,28 @@ Sentry.init({
   replaysSessionSampleRate: 0.1,
   replaysOnErrorSampleRate: 1,
   integrations: [Sentry.mobileReplayIntegration(), Sentry.feedbackIntegration()],
+});
+
+// Конфигурация уведомлений
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowAlert: true,
+    shouldPlaySound: true,
+    shouldSetBadge: false,
+  }),
+});
+
+// Фоновая задача для проверки новостей (только для Android)
+const BACKGROUND_NEWS_CHECK = 'BACKGROUND_NEWS_CHECK';
+
+TaskManager.defineTask(BACKGROUND_NEWS_CHECK, async () => {
+  try {
+    console.log('Background news check running...');
+    // Здесь будет логика проверки новостей в фоне
+  } catch (error) {
+    console.error('Background news check error:', error);
+    Sentry.captureException(error);
+  }
 });
 
 const styles = StyleSheet.create({
@@ -72,28 +96,85 @@ export default Sentry.wrap(function App() {
 
   useEffect(() => {
     // Инициализация уведомлений
-    notificationService.initialize();
-
-    // Загружаем сохраненные настройки
-    const loadSettings = async () => {
-      try {
-        const savedTheme = await SecureStore.getItemAsync('theme');
-        const savedAccentColor = await SecureStore.getItemAsync('accentColor');
-        
-        if (savedTheme) setTheme(savedTheme);
-        if (savedAccentColor) setAccentColor(savedAccentColor);
-      } catch (error) {
-        console.error('Error loading settings:', error);
-      } finally {
-        // Показываем splash screen на 2 секунды
-        setTimeout(() => {
-          setIsLoading(false);
-        }, 2000);
-      }
-    };
-    
-    loadSettings();
+    initializeApp();
   }, []);
+
+  const initializeApp = async () => {
+    try {
+      // Запрашиваем разрешения на уведомления
+      await setupNotifications();
+
+      // Инициализируем сервис уведомлений
+      await notificationService.initialize();
+
+      // Загружаем сохраненные настройки
+      await loadSettings();
+
+      // Регистрируем фоновую задачу (только для Android)
+      if (Platform.OS === 'android') {
+        await registerBackgroundTask();
+      }
+
+    } catch (error) {
+      console.error('Error initializing app:', error);
+      Sentry.captureException(error);
+    } finally {
+      // Показываем splash screen на 2 секунды
+      setTimeout(() => {
+        setIsLoading(false);
+      }, 2000);
+    }
+  };
+
+  const setupNotifications = async () => {
+    try {
+      const { status: existingStatus } = await Notifications.getPermissionsAsync();
+      let finalStatus = existingStatus;
+
+      if (existingStatus !== 'granted') {
+        const { status } = await Notifications.requestPermissionsAsync();
+        finalStatus = status;
+      }
+
+      if (finalStatus !== 'granted') {
+        console.log('Notification permissions not granted');
+        return;
+      }
+
+      // Настраиваем канал для Android
+      if (Platform.OS === 'android') {
+        await Notifications.setNotificationChannelAsync('default', {
+          name: 'default',
+          importance: Notifications.AndroidImportance.MAX,
+          vibrationPattern: [0, 250, 250, 250],
+          lightColor: '#FF231F7C',
+        });
+      }
+
+    } catch (error) {
+      console.error('Error setting up notifications:', error);
+    }
+  };
+
+  const registerBackgroundTask = async () => {
+    try {
+      await Notifications.registerTaskAsync(BACKGROUND_NEWS_CHECK);
+    } catch (error) {
+      console.error('Error registering background task:', error);
+    }
+  };
+
+  const loadSettings = async () => {
+    try {
+      const savedTheme = await SecureStore.getItemAsync('theme');
+      const savedAccentColor = await SecureStore.getItemAsync('accentColor');
+      
+      if (savedTheme) setTheme(savedTheme);
+      if (savedAccentColor) setAccentColor(savedAccentColor);
+    } catch (error) {
+      console.error('Error loading settings:', error);
+    }
+  };
 
   // Слушатель изменений системной темы
   useEffect(() => {
