@@ -19,6 +19,7 @@ import MapScreen from './components/MapScreen';
 import { ACCENT_COLORS, SCREENS } from './utils/constants';
 import * as Sentry from '@sentry/react-native';
 import notificationService from './utils/notificationService';
+import backgroundService from './utils/backgroundService';
 
 Sentry.init({
   dsn: 'https://9954c52fe80999a51a6905e3ee180d11@sentry.sculkmetrics.com/5',
@@ -33,7 +34,7 @@ Notifications.setNotificationHandler({
   handleNotification: async () => ({
     shouldShowAlert: true,
     shouldPlaySound: true,
-    shouldSetBadge: false,
+    shouldSetBadge: true,
   }),
 });
 
@@ -43,7 +44,7 @@ const BACKGROUND_NEWS_CHECK = 'BACKGROUND_NEWS_CHECK';
 TaskManager.defineTask(BACKGROUND_NEWS_CHECK, async () => {
   try {
     console.log('Background news check running...');
-    // Здесь будет логика проверки новостей в фоне
+    await backgroundService.checkForNewsNotifications();
   } catch (error) {
     console.error('Background news check error:', error);
     Sentry.captureException(error);
@@ -95,8 +96,22 @@ export default Sentry.wrap(function App() {
   const [refresh, setRefresh] = useState(0);
 
   useEffect(() => {
+    // Настройка обработчиков уведомлений
+    const subscription = Notifications.addNotificationReceivedListener(notification => {
+      console.log('Notification received:', notification);
+    });
+
+    const responseSubscription = Notifications.addNotificationResponseReceivedListener(response => {
+      console.log('Notification response:', response);
+    });
+
     // Инициализация уведомлений
     initializeApp();
+
+    return () => {
+      subscription.remove();
+      responseSubscription.remove();
+    };
   }, []);
 
   const initializeApp = async () => {
