@@ -28,6 +28,55 @@ const NewsScreen = ({ theme, accentColor }) => {
   const borderColor = theme === 'light' ? '#e5e7eb' : '#374151';
   const colors = ACCENT_COLORS[accentColor];
 
+  // Фильтрация и обработка новостей
+  const filterAndProcessNews = (newsData) => {
+    if (!newsData || !Array.isArray(newsData)) return [];
+    
+    return newsData
+      .filter(item => item.content && item.content.trim() !== "")
+      .map(item => ({
+        ...item,
+        // Создаем уникальный ID на основе содержания и даты
+        id: createNewsId(item),
+        // Нормализуем дату
+        normalizedDate: normalizeDate(item.date)
+      }))
+      .filter((item, index, self) => 
+        index === self.findIndex(t => t.id === item.id)
+      )
+      .sort((a, b) => new Date(b.normalizedDate) - new Date(a.normalizedDate));
+  };
+
+  // Создание уникального ID для новости
+  const createNewsId = (newsItem) => {
+    return `${newsItem.date}_${newsItem.content.substring(0, 50)}`.replace(/\s+/g, '_');
+  };
+
+  // Проверка, является ли новость той же самой
+  const isSameNews = (news1, news2) => {
+    return createNewsId(news1) === createNewsId(news2);
+  };
+
+  // Нормализация даты
+  const normalizeDate = (dateString) => {
+    try {
+      return new Date(dateString).toISOString();
+    } catch {
+      return dateString;
+    }
+  };
+
+  // Проверка новых новостей для уведомлений
+  const checkForNewNews = async (currentNews) => {
+    if (!isOnline || loading || loadingMore) return;
+    
+    try {
+      await notificationService.checkForNewNews(currentNews);
+    } catch (error) {
+      console.error('Error checking for new news:', error);
+    }
+  };
+
   useEffect(() => {
     // Проверяем подключение к интернету
     const unsubscribe = NetInfo.addEventListener(state => {
@@ -43,7 +92,7 @@ const NewsScreen = ({ theme, accentColor }) => {
   // Проверяем новые новости при загрузке
   useEffect(() => {
     if (news.length > 0 && !loading && !loadingMore) {
-      checkForNewNews();
+      checkForNewNews(news);
     }
   }, [news, loading, loadingMore]);
 
@@ -65,7 +114,7 @@ const NewsScreen = ({ theme, accentColor }) => {
       const result = await ApiService.getNews(currentFrom, 10);
       
       // Фильтрация пустого контента и дубликатов
-      const filteredData = this.filterAndProcessNews(result.data);
+      const filteredData = filterAndProcessNews(result.data);
       
       if (filteredData.length === 0 && currentFrom === 0) {
         setHasMoreNews(false);
@@ -82,7 +131,7 @@ const NewsScreen = ({ theme, accentColor }) => {
           const combinedNews = [...prevNews];
           filteredData.forEach(newItem => {
             const exists = combinedNews.some(existingItem => 
-              this.isSameNews(existingItem, newItem)
+              isSameNews(existingItem, newItem)
             );
             if (!exists) {
               combinedNews.push(newItem);
@@ -118,55 +167,6 @@ const NewsScreen = ({ theme, accentColor }) => {
       setLoading(false);
       setLoadingMore(false);
       setRefreshing(false);
-    }
-  };
-
-  // Фильтрация и обработка новостей
-  filterAndProcessNews = (newsData) => {
-    if (!newsData || !Array.isArray(newsData)) return [];
-    
-    return newsData
-      .filter(item => item.content && item.content.trim() !== "")
-      .map(item => ({
-        ...item,
-        // Создаем уникальный ID на основе содержания и даты
-        id: this.createNewsId(item),
-        // Нормализуем дату
-        normalizedDate: this.normalizeDate(item.date)
-      }))
-      .filter((item, index, self) => 
-        index === self.findIndex(t => t.id === item.id)
-      )
-      .sort((a, b) => new Date(b.normalizedDate) - new Date(a.normalizedDate));
-  };
-
-  // Создание уникального ID для новости
-  createNewsId = (newsItem) => {
-    return `${newsItem.date}_${newsItem.content.substring(0, 50)}`.replace(/\s+/g, '_');
-  };
-
-  // Проверка, является ли новость той же самой
-  isSameNews = (news1, news2) => {
-    return this.createNewsId(news1) === this.createNewsId(news2);
-  };
-
-  // Нормализация даты
-  normalizeDate = (dateString) => {
-    try {
-      return new Date(dateString).toISOString();
-    } catch {
-      return dateString;
-    }
-  };
-
-  // Проверка новых новостей для уведомлений
-  checkForNewNews = async () => {
-    if (!isOnline || loading || loadingMore) return;
-    
-    try {
-      await notificationService.checkForNewNews(news);
-    } catch (error) {
-      console.error('Error checking for new news:', error);
     }
   };
 
