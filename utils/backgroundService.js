@@ -3,12 +3,12 @@ import * as Notifications from 'expo-notifications';
 import ApiService from './api';
 import notificationService from './notificationService';
 
-const BACKGROUND_NEWS_CHECK_TASK = 'BACKGROUND_NEWS_CHECK';
+const BACKGROUND_NEWS_CHECK = 'BACKGROUND_NEWS_CHECK';
 
 // Регистрация фоновой задачи
-TaskManager.defineTask(BACKGROUND_NEWS_CHECK_TASK, async () => {
+TaskManager.defineTask(BACKGROUND_NEWS_CHECK, async () => {
   try {
-    console.log('Running background news check...');
+    console.log('Background news check running...');
     
     // Проверяем настройки уведомлений
     const settings = await notificationService.getNotificationSettings();
@@ -22,7 +22,7 @@ TaskManager.defineTask(BACKGROUND_NEWS_CHECK_TASK, async () => {
     
     if (result.data && result.data.length > 0) {
       // Проверяем наличие новых новостей
-      await notificationService.checkForNewsNotifications(result.data);
+      await notificationService.checkForNewNews(result.data);
     }
     
     console.log('Background news check completed');
@@ -34,7 +34,7 @@ TaskManager.defineTask(BACKGROUND_NEWS_CHECK_TASK, async () => {
 // Регистрация периодической фоновой задачи
 export const registerBackgroundNewsCheck = async () => {
   try {
-    await Notifications.registerTaskAsync(BACKGROUND_NEWS_CHECK_TASK, {
+    await Notifications.registerTaskAsync(BACKGROUND_NEWS_CHECK, {
       minimumInterval: 15 * 60, // 15 минут
       stopOnTerminate: false,
       startOnBoot: true,
@@ -48,7 +48,7 @@ export const registerBackgroundNewsCheck = async () => {
 // Отмена фоновой задачи
 export const unregisterBackgroundNewsCheck = async () => {
   try {
-    await Notifications.unregisterTaskAsync(BACKGROUND_NEWS_CHECK_TASK);
+    await Notifications.unregisterTaskAsync(BACKGROUND_NEWS_CHECK);
     console.log('Background news check unregistered');
   } catch (error) {
     console.error('Error unregistering background news check:', error);
@@ -58,4 +58,14 @@ export const unregisterBackgroundNewsCheck = async () => {
 export default {
   registerBackgroundNewsCheck,
   unregisterBackgroundNewsCheck,
+  checkForNewsNotifications: async () => {
+    try {
+      const result = await ApiService.getNews(0, 5);
+      if (result.data && result.data.length > 0) {
+        await notificationService.checkForNewNews(result.data);
+      }
+    } catch (error) {
+      console.error('Error checking for news notifications:', error);
+    }
+  }
 };
