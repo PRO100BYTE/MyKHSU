@@ -1,7 +1,8 @@
-import { FileSystem } from 'expo-file-system';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getWithExpiry, setWithExpiry } from './cache';
 
-const CACHE_DIR = `${FileSystem.cacheDirectory}map_tiles/`;
+const MAP_CACHE_PREFIX = 'map_tile_';
+const CACHE_DURATION = 7 * 24 * 60 * 60 * 1000; // 7 дней
 const TILE_ZOOM = 16;
 
 // Формулы для преобразования координат в номера тайлов
@@ -13,54 +14,31 @@ export const lat2tile = (lat, zoom) => {
   return Math.floor((1 - Math.log(Math.tan(lat * Math.PI/180) + 1 / Math.cos(lat * Math.PI/180)) / Math.PI) / 2 * Math.pow(2, zoom));
 };
 
-// Инициализация кэш-директории с использованием новой API
-export const initCache = async () => {
+// Создание ключа для тайла
+const createTileKey = (x, y, z) => {
+  return `${MAP_CACHE_PREFIX}${z}_${x}_${y}`;
+};
+
+// Сохранение тайла в кэш
+export const cacheTile = async (x, y, z, tileData) => {
   try {
-    // Создаем объект Directory для кэш-директории
-    const cacheDir = new FileSystem.Directory(CACHE_DIR);
-    const exists = await cacheDir.exists();
-    
-    if (!exists) {
-      await cacheDir.make();
-    }
+    const key = createTileKey(x, y, z);
+    await setWithExpiry(key, tileData, CACHE_DURATION);
     return true;
   } catch (error) {
-    console.error('Error initializing cache directory:', error);
+    console.error('Error caching tile:', error);
     return false;
   }
 };
 
-// Загрузка и кэширование тайла с использованием новой API
-export const downloadAndCacheTile = async (x, y, z, urlTemplate) => {
+// Получение тайла из кэша
+export const getCachedTile = async (x, y, z) => {
   try {
-    const url = urlTemplate.replace('{z}', z).replace('{x}', x).replace('{y}', y);
-    const fileName = `${z}_${x}_${y}.png`;
-    const filePath = `${CACHE_DIR}${fileName}`;
-    
-    // Создаем объект File для целевого файла
-    const tileFile = new FileSystem.File(filePath);
-    
-    // Загружаем данные с сервера
-    const response = await fetch(url);
-    
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}`);
-    }
-    
-    // Получаем данные как Blob
-    const blob = await response.blob();
-    
-    // Сохраняем файл используя новую API
-    await tileFile.write(blob);
-    
-    // Обновляем индекс кэшированных тайлов
-    const cacheIndex = await getCacheIndex();
-    cacheIndex[fileName] = Date.now();
-    await setWithExpiry('map_tiles_index', cacheIndex);
-    
-    return filePath;
+    const key = createTileKey(x, y, z);
+    const tileData = await getWithExpiry(key);
+    return tileData;
   } catch (error) {
-    console.error('Error caching tile:', error);
+    console.error('Error getting cached tile:', error);
     return null;
   }
 };
@@ -68,82 +46,118 @@ export const downloadAndCacheTile = async (x, y, z, urlTemplate) => {
 // Предзагрузка тайлов для области вокруг зданий
 export const precacheTilesForBuildings = async (buildings, urlTemplate) => {
   try {
-    await initCache();
-    
     const cachePromises = [];
     
     for (const building of buildings) {
       const x = long2tile(building.longitude, TILE_ZOOM);
       const y = lat2tile(building.latitude, TILE_ZOOM);
       
-      // Кэшируем тайлы в радиусе 2 тайлов вокруг каждого здания
-      for (let dx = -2; dx <= 2; dx++) {
-        for (let dy = -2; dy <= 2; dy++) {
+      // Кэшируем тайлы в радиусе 3 тайлов вокруг каждого здания
+      for (let dx = -3; dx <= 3; dx++) {
+        for (let dy = -3; dy <= 3; dy++) {
           const tileX = x + dx;
           const tileY = y + dy;
           
           // Проверяем, что тайл в пределах допустимого диапазона
           if (tileX >= 0 && tileX < Math.pow(2, TILE_ZOOM) && 
               tileY >= 0 && tileY < Math.pow(2, TILE_ZOOM)) {
-            cachePromises.push(downloadAndCacheTile(tileX, tileY, TILE_ZOOM, urlTemplate));
+            
+            // Проверяем, не кэширован ли уже тайл
+            const existingTile = await getCachedTile(tileX, tileY, TILE_ZOOM);
+            if (!existingTile) {
+              cachePromises.push(cacheTileFromUrl(tileX, tileY, TILE_ZOOM, urlTemplate));
+            }
           }
         }
       }
     }
     
-    // Выполняем все загрузки параллельно с ограничением количества одновременных запросов
+    // Выполняем все загрузки параллельно с ограничением
     const results = await Promise.allSettled(cachePromises);
     
-    // Проверяем успешные загрузки
-    const successfulDownloads = results.filter(result => result.status === 'fulfilled' && result.value !== null).length;
+    const successfulDownloads = results.filter(result => result.status === 'fulfilled' && result.value).length;
     
     if (successfulDownloads > 0) {
-      await setWithExpiry('cached_map_available', true, 7 * 24 * 60 * 60 * 1000);
+      await setWithExpiry('cached_map_available', true, CACHE_DURATION);
       console.log(`Successfully cached ${successfulDownloads} map tiles`);
       return true;
-    } else {
-      console.log('No tiles were cached successfully');
-      return false;
     }
+    
+    return false;
   } catch (error) {
     console.error('Error precaching tiles:', error);
     return false;
   }
 };
 
-// Проверка существования кэша с использованием новой API
+// Загрузка и кэширование тайла с URL
+const cacheTileFromUrl = async (x, y, z, urlTemplate) => {
+  try {
+    const url = urlTemplate.replace('{z}', z).replace('{x}', x).replace('{y}', y);
+    
+    const response = await fetch(url);
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+    
+    const blob = await response.blob();
+    const base64 = await blobToBase64(blob);
+    
+    return await cacheTile(x, y, z, base64);
+  } catch (error) {
+    console.error('Error caching tile from URL:', error);
+    return false;
+  }
+};
+
+// Преобразование Blob в base64
+const blobToBase64 = (blob) => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => resolve(reader.result);
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+};
+
+// Проверка существования кэшированных тайлов
 export const checkMapCache = async () => {
   try {
-    const cacheDir = new FileSystem.Directory(CACHE_DIR);
-    const exists = await cacheDir.exists();
+    const keys = await AsyncStorage.getAllKeys();
+    const mapTileKeys = keys.filter(key => key.startsWith(MAP_CACHE_PREFIX));
     
-    if (!exists) {
+    if (mapTileKeys.length === 0) {
       return false;
     }
     
-    // Проверяем, есть ли файлы в директории
-    const files = await cacheDir.list();
-    return files.length > 0;
+    // Проверяем, есть ли хотя бы один не просроченный тайл
+    for (const key of mapTileKeys) {
+      const tileData = await getWithExpiry(key);
+      if (tileData) {
+        return true;
+      }
+    }
+    
+    return false;
   } catch (error) {
     console.error('Error checking map cache:', error);
     return false;
   }
 };
 
-// Очистка кэша карты с использованием новой API
+// Очистка кэша карты
 export const clearMapCache = async () => {
   try {
-    const cacheDir = new FileSystem.Directory(CACHE_DIR);
-    const exists = await cacheDir.exists();
+    const keys = await AsyncStorage.getAllKeys();
+    const mapTileKeys = keys.filter(key => key.startsWith(MAP_CACHE_PREFIX));
     
-    if (exists) {
-      await cacheDir.delete();
+    if (mapTileKeys.length > 0) {
+      await AsyncStorage.multiRemove(mapTileKeys);
     }
     
-    await initCache();
-    await setWithExpiry('map_tiles_index', {});
     await setWithExpiry('cached_map_available', false);
     
+    console.log(`Cleared ${mapTileKeys.length} map tiles from cache`);
     return true;
   } catch (error) {
     console.error('Error clearing map cache:', error);
@@ -151,59 +165,33 @@ export const clearMapCache = async () => {
   }
 };
 
-// Получение индекса кэша
-export const getCacheIndex = async () => {
-  try {
-    const index = await getWithExpiry('map_tiles_index');
-    return index || {};
-  } catch (error) {
-    console.error('Error getting cache index:', error);
-    return {};
-  }
-};
-
-// Получение URI кэшированного тайла с использованием новой API
-export const getCachedTileUri = async (x, y, z) => {
-  try {
-    const fileName = `${z}_${x}_${y}.png`;
-    const filePath = `${CACHE_DIR}${fileName}`;
-    
-    const tileFile = new FileSystem.File(filePath);
-    const exists = await tileFile.exists();
-    
-    if (exists) {
-      return filePath;
-    }
-    return null;
-  } catch (error) {
-    console.error('Error getting cached tile URI:', error);
-    return null;
-  }
-};
-
 // Получение информации о размере кэша
 export const getMapCacheInfo = async () => {
   try {
-    const cacheDir = new FileSystem.Directory(CACHE_DIR);
-    const exists = await cacheDir.exists();
+    const keys = await AsyncStorage.getAllKeys();
+    const mapTileKeys = keys.filter(key => key.startsWith(MAP_CACHE_PREFIX));
     
-    if (!exists) {
-      return { size: 0, fileCount: 0, sizeReadable: '0 Bytes' };
-    }
-    
-    const files = await cacheDir.list();
     let totalSize = 0;
+    let validTileCount = 0;
     
-    for (const fileName of files) {
-      const filePath = `${CACHE_DIR}${fileName}`;
-      const file = new FileSystem.File(filePath);
-      const info = await file.getInfo();
-      totalSize += info.size || 0;
+    for (const key of mapTileKeys) {
+      try {
+        const item = await AsyncStorage.getItem(key);
+        if (item) {
+          const parsed = JSON.parse(item);
+          if (Date.now() < parsed.expiry) {
+            totalSize += item.length;
+            validTileCount++;
+          }
+        }
+      } catch (error) {
+        console.error('Error processing cache item:', error);
+      }
     }
     
     return {
-      size: totalSize,
-      fileCount: files.length,
+      tileCount: validTileCount,
+      totalSize: totalSize,
       sizeReadable: formatBytes(totalSize)
     };
   } catch (error) {
@@ -223,4 +211,18 @@ const formatBytes = (bytes, decimals = 2) => {
   const i = Math.floor(Math.log(bytes) / Math.log(k));
   
   return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
+};
+
+// Получение URI кэшированного тайла для отображения
+export const getCachedTileUri = async (x, y, z) => {
+  try {
+    const tileData = await getCachedTile(x, y, z);
+    if (tileData) {
+      return tileData; // Это base64 data URL
+    }
+    return null;
+  } catch (error) {
+    console.error('Error getting cached tile URI:', error);
+    return null;
+  }
 };
