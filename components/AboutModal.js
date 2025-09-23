@@ -1,12 +1,41 @@
-import React from 'react';
-import { View, Text, Modal, TouchableOpacity, ScrollView, StyleSheet } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, Modal, TouchableOpacity, ScrollView, StyleSheet, PanResponder, Animated } from 'react-native';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import { ACCENT_COLORS } from '../utils/constants';
 
 const AboutModal = ({ visible, onClose, theme, accentColor }) => {
+  const [panY] = useState(new Animated.Value(0));
+
   const bgColor = theme === 'light' ? '#ffffff' : '#1f2937';
   const textColor = theme === 'light' ? '#111827' : '#ffffff';
   const colors = ACCENT_COLORS[accentColor];
+
+  // Создаем PanResponder для обработки свайпа
+  const panResponder = PanResponder.create({
+    onStartShouldSetPanResponder: () => true,
+    onMoveShouldSetPanResponder: (_, gestureState) => {
+      return Math.abs(gestureState.dy) > Math.abs(gestureState.dx) && gestureState.dy > 0;
+    },
+    onPanResponderMove: (_, gestureState) => {
+      if (gestureState.dy > 0) {
+        panY.setValue(gestureState.dy);
+      }
+    },
+    onPanResponderRelease: (_, gestureState) => {
+      if (gestureState.dy > 100) {
+        onClose();
+      } else {
+        Animated.spring(panY, {
+          toValue: 0,
+          useNativeDriver: true
+        }).start();
+      }
+    }
+  });
+
+  const animatedStyle = {
+    transform: [{ translateY: panY }]
+  };
 
   return (
     <Modal
@@ -16,7 +45,10 @@ const AboutModal = ({ visible, onClose, theme, accentColor }) => {
       onRequestClose={onClose}
     >
       <View style={[styles.modalContainer, { backgroundColor: 'rgba(0, 0, 0, 0.5)' }]}>
-        <View style={[styles.bottomSheet, { backgroundColor: bgColor }]}>
+        <Animated.View 
+          style={[styles.bottomSheet, { backgroundColor: bgColor }, animatedStyle]}
+          {...panResponder.panHandlers}
+        >
           <View style={styles.sheetHandle} />
           
           <Text style={[styles.sheetTitle, { color: textColor, fontFamily: 'Montserrat_600SemiBold' }]}>
@@ -55,7 +87,7 @@ const AboutModal = ({ visible, onClose, theme, accentColor }) => {
               Закрыть
             </Text>
           </TouchableOpacity>
-        </View>
+        </Animated.View>
       </View>
     </Modal>
   );

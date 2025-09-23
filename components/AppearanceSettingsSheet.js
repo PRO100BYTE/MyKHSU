@@ -1,5 +1,5 @@
-import React from 'react';
-import { View, Text, Modal, TouchableOpacity, StyleSheet } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, Modal, TouchableOpacity, StyleSheet, PanResponder, Animated } from 'react-native';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import { useColorScheme } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
@@ -7,8 +7,39 @@ import { ACCENT_COLORS } from '../utils/constants';
 
 const AppearanceSettingsSheet = ({ visible, onClose, theme, accentColor, setTheme, setAccentColor }) => {
   const systemColorScheme = useColorScheme();
+  const [panY] = useState(new Animated.Value(0));
+
   const bgColor = theme === 'light' ? '#ffffff' : '#1f2937';
   const textColor = theme === 'light' ? '#111827' : '#ffffff';
+
+  // Создаем PanResponder для обработки свайпа
+  const panResponder = PanResponder.create({
+    onStartShouldSetPanResponder: () => true,
+    onMoveShouldSetPanResponder: (_, gestureState) => {
+      return Math.abs(gestureState.dy) > Math.abs(gestureState.dx) && gestureState.dy > 0;
+    },
+    onPanResponderMove: (_, gestureState) => {
+      if (gestureState.dy > 0) {
+        panY.setValue(gestureState.dy);
+      }
+    },
+    onPanResponderRelease: (_, gestureState) => {
+      if (gestureState.dy > 100) {
+        onClose();
+      } else {
+        Animated.spring(panY, {
+          toValue: 0,
+          useNativeDriver: true
+        }).start();
+      }
+    }
+  });
+
+  useEffect(() => {
+    if (visible) {
+      panY.setValue(0);
+    }
+  }, [visible]);
 
   const handleThemeChange = async (newTheme) => {
     setTheme(newTheme);
@@ -28,6 +59,10 @@ const AppearanceSettingsSheet = ({ visible, onClose, theme, accentColor, setThem
 
   const effectiveTheme = getEffectiveTheme();
 
+  const animatedStyle = {
+    transform: [{ translateY: panY }]
+  };
+
   return (
     <Modal
       visible={visible}
@@ -36,7 +71,10 @@ const AppearanceSettingsSheet = ({ visible, onClose, theme, accentColor, setThem
       onRequestClose={onClose}
     >
       <View style={[styles.modalContainer, { backgroundColor: 'rgba(0, 0, 0, 0.5)' }]}>
-        <View style={[styles.bottomSheet, { backgroundColor: bgColor }]}>
+        <Animated.View 
+          style={[styles.bottomSheet, { backgroundColor: bgColor }, animatedStyle]}
+          {...panResponder.panHandlers}
+        >
           <View style={styles.sheetHandle} />
           
           <Text style={[styles.sheetTitle, { color: textColor, fontFamily: 'Montserrat_600SemiBold' }]}>
@@ -157,7 +195,7 @@ const AppearanceSettingsSheet = ({ visible, onClose, theme, accentColor, setThem
               Закрыть
             </Text>
           </TouchableOpacity>
-        </View>
+        </Animated.View>
       </View>
     </Modal>
   );
