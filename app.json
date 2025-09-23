@@ -2,7 +2,7 @@
   "expo": {
     "name": "MyKHSU",
     "slug": "mykhsu",
-    "version": "1.0.2",
+    "version": "2.0.6",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
@@ -40,7 +40,7 @@
       }
     },
     "web": {
-      "favicon": "./assets/favicon.png"
+      "favicon": "./assets/favicon.ico"
     },
     "plugins": [
       "expo-secure-store",
