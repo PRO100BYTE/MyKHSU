@@ -99,7 +99,7 @@ class NotificationService {
   }
 
   // Проверка новых новостей и отправка уведомлений
-  async checkForNewsNotifications() {
+  async checkForNewNews(currentNews) {
     try {
       // Проверяем настройки уведомлений из SecureStore
       const notificationSettings = await this.getNotificationSettings();
@@ -108,30 +108,55 @@ class NotificationService {
         return false;
       }
 
-      // Получаем информацию о новых новостях
-      const newNewsInfo = await ApiService.getNewNewsInfo();
-      
-      if (newNewsInfo && newNewsInfo.count > 0) {
-        // Проверяем, не показывали ли мы уже уведомление для этой новости
-        const lastNotifiedDate = await getWithExpiry('last_news_notification_date');
-        const latestNewsDate = newNewsInfo.latestNews.date;
+      if (!currentNews || currentNews.length === 0) {
+        return false;
+      }
+
+      // Получаем последние проверенные новости
+      const lastCheckedNews = await SecureStore.getItemAsync('last_checked_news');
+      let lastNews = [];
+      if (lastCheckedNews) {
+        lastNews = JSON.parse(lastCheckedNews);
+      }
+
+      // Находим новые новости
+      const newNews = this.findNewNews(currentNews, lastNews);
+
+      if (newNews.length > 0) {
+        // Отправляем уведомление
+        await this.sendNewsNotification(newNews.length, newNews[0]);
         
-        if (!lastNotifiedDate || lastNotifiedDate !== latestNewsDate) {
-          // Отправляем уведомление
-          await this.sendNewsNotification(newNewsInfo.count, newNewsInfo.latestNews);
-          
-          // Сохраняем дату последнего уведомления
-          await setWithExpiry('last_news_notification_date', latestNewsDate, 24 * 60 * 60 * 1000);
-          
-          return true;
-        }
+        // Сохраняем текущие новости как последние проверенные
+        await SecureStore.setItemAsync('last_checked_news', JSON.stringify(currentNews.slice(0, 3)));
+        
+        return true;
       }
       
       return false;
     } catch (error) {
-      console.error('Error checking for news notifications:', error);
+      console.error('Error checking for new news:', error);
       return false;
     }
+  }
+
+  // Поиск новых новостей
+  findNewNews(currentNews, lastNews) {
+    if (!lastNews || lastNews.length === 0) {
+      return currentNews.slice(0, 1); // Если нет предыдущих новостей, считаем первую новой
+    }
+
+    const newNews = [];
+    const lastNewsDates = new Set(lastNews.map(news => news.date));
+
+    for (const news of currentNews) {
+      if (!lastNewsDates.has(news.date)) {
+        newNews.push(news);
+      } else {
+        break; // Новости отсортированы от новых к старым
+      }
+    }
+
+    return newNews;
   }
 
   // Отправка уведомления о новых новостях
