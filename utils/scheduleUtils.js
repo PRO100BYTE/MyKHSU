@@ -1,113 +1,94 @@
-import { getWeekNumber } from './dateUtils';
+// utils/scheduleUtils.js
 
-export const scheduleUtils = {
-  // Обработка данных групп
-  processGroupsData(result) {
-    if (!result || !result.data) return [];
-    
-    const groupsData = result.data;
-    
-    if (Array.isArray(groupsData)) {
-      return groupsData.filter(group => group && typeof group === 'string');
-    }
-    
-    if (typeof groupsData === 'object') {
-      return Object.values(groupsData).filter(group => group && typeof group === 'string');
-    }
-    
-    return [];
-  },
+import { getDateByWeekAndDay } from './dateUtils';
 
-  // Обработка данных времени пар
-  processPairsTimeData(result) {
-    if (!result || !result.data) return [];
+// Проверка, является ли пара текущей
+export const isCurrentLesson = (lesson, pairTime, currentTime, lessonDate = null) => {
+  if (!pairTime || !lesson || !currentTime) return false;
+  
+  try {
+    // Если передан lessonDate, используем его для проверки дня
+    const checkDate = lessonDate || currentTime;
     
-    const timeData = result.data;
+    // Проверяем, что дата пары совпадает с текущей датой
+    const isSameDay = checkDate.getDate() === currentTime.getDate() &&
+                     checkDate.getMonth() === currentTime.getMonth() &&
+                     checkDate.getFullYear() === currentTime.getFullYear();
     
-    if (Array.isArray(timeData)) {
-      return timeData;
-    }
+    if (!isSameDay) return false;
     
-    if (timeData.pairs && Array.isArray(timeData.pairs)) {
-      return timeData.pairs;
-    }
+    const startTimeStr = pairTime.time_start || pairTime.start;
+    const endTimeStr = pairTime.time_end || pairTime.end;
     
-    return [];
-  },
-
-  // Обработка данных расписания
-  processScheduleData(result, currentDate) {
-    if (!result || !result.data) {
-      return { days: [], lessons: [] };
-    }
+    if (!startTimeStr || !endTimeStr) return false;
     
-    const scheduleData = result.data;
+    const [startHours, startMinutes] = startTimeStr.split(':').map(Number);
+    const [endHours, endMinutes] = endTimeStr.split(':').map(Number);
     
-    if (scheduleData.days && Array.isArray(scheduleData.days)) {
-      return scheduleData;
-    }
+    const startTime = new Date(currentTime);
+    startTime.setHours(startHours, startMinutes, 0, 0);
     
-    if (scheduleData.lessons && Array.isArray(scheduleData.lessons)) {
-      const weekday = currentDate.getDay() === 0 ? 7 : currentDate.getDay();
-      return {
-        days: [{ weekday, lessons: scheduleData.lessons }],
-        lessons: scheduleData.lessons
-      };
-    }
+    const endTime = new Date(currentTime);
+    endTime.setHours(endHours, endMinutes, 0, 0);
     
-    return { days: [], lessons: [] };
-  },
-
-  // Проверка, является ли пара текущей
-  isCurrentLesson(lesson, pairTime, currentTime) {
-    if (!pairTime || !lesson || !currentTime) return false;
-    
-    try {
-      const startTimeStr = pairTime.time_start || pairTime.start;
-      const endTimeStr = pairTime.time_end || pairTime.end;
-      
-      if (!startTimeStr || !endTimeStr) return false;
-      
-      const [startHours, startMinutes] = startTimeStr.split(':').map(Number);
-      const [endHours, endMinutes] = endTimeStr.split(':').map(Number);
-      
-      const startTime = new Date(currentTime);
-      startTime.setHours(startHours, startMinutes, 0, 0);
-      
-      const endTime = new Date(currentTime);
-      endTime.setHours(endHours, endMinutes, 0, 0);
-      
-      return currentTime >= startTime && currentTime <= endTime;
-    } catch (error) {
-      console.error('Error checking current lesson:', error);
-      return false;
-    }
-  },
-
-  // Получение стиля для пары
-  getLessonStyle(lesson, pairTime, currentTime, theme, colors, cardBg, borderColor) {
-    const isCurrent = this.isCurrentLesson(lesson, pairTime, currentTime);
-    
-    if (isCurrent) {
-      return {
-        backgroundColor: colors.primary + '20',
-        borderColor: colors.primary,
-        borderWidth: 2,
-      };
-    }
-    
-    return {
-      backgroundColor: cardBg,
-      borderColor: borderColor,
-      borderWidth: 1,
-    };
-  },
-
-  // Получение цвета текста для пары
-  getLessonTextColor(lesson, pairTime, currentTime, colors, textColor) {
-    const isCurrent = this.isCurrentLesson(lesson, pairTime, currentTime);
-    return isCurrent ? colors.primary : textColor;
+    return currentTime >= startTime && currentTime <= endTime;
+  } catch (error) {
+    console.error('Error checking current lesson:', error);
+    return false;
   }
 };
 
-export default scheduleUtils;
+// Получение даты для дня недели в недельном режиме
+export const getLessonDateForWeek = (weekNumber, weekday, currentTime) => {
+  try {
+    return getDateByWeekAndDay(weekNumber, weekday);
+  } catch (error) {
+    console.error('Error getting lesson date for week:', error);
+    return currentTime;
+  }
+};
+
+// Проверка, является ли день текущим в недельном режиме
+export const isCurrentDay = (weekNumber, weekday, currentTime) => {
+  try {
+    const lessonDate = getDateByWeekAndDay(weekNumber, weekday);
+    return lessonDate.getDate() === currentTime.getDate() &&
+           lessonDate.getMonth() === currentTime.getMonth() &&
+           lessonDate.getFullYear() === currentTime.getFullYear();
+  } catch (error) {
+    console.error('Error checking current day:', error);
+    return false;
+  }
+};
+
+// Обработка данных групп
+export const processGroupsData = (result) => {
+  if (!result || !result.data) return [];
+  
+  const groupsData = result.data;
+  
+  if (Array.isArray(groupsData)) {
+    return groupsData.filter(group => group && typeof group === 'string');
+  }
+  
+  if (typeof groupsData === 'object' && groupsData.groups) {
+    return Array.isArray(groupsData.groups) ? groupsData.groups : [];
+  }
+  
+  return [];
+};
+
+// Получение стиля для текущей пары (исправленная версия)
+export const getCurrentLessonStyle = (isCurrent, colors) => {
+  if (isCurrent) {
+    return {
+      borderWidth: 2,
+      borderColor: colors.primary,
+      backgroundColor: colors.primary + '20', // 20% прозрачности
+      margin: 2,
+      borderRadius: 8,
+      padding: 12
+    };
+  }
+  return {};
+};

@@ -11,8 +11,8 @@ const NotificationSettingsModal = ({ visible, onClose, theme, accentColor }) => 
     schedule: false,
     beforeLesson: true,
     lessonStart: true,
-    beforeLessonEnd: false,
-    lessonEnd: false
+    beforeLessonEnd: true,
+    lessonEnd: true
   });
 
   const colors = ACCENT_COLORS[accentColor];
@@ -135,6 +135,10 @@ const NotificationSettingsModal = ({ visible, onClose, theme, accentColor }) => 
 
             {settings.schedule && settings.enabled && (
               <>
+                <Text style={[styles.sectionTitle, { color: textColor, marginTop: 16, marginBottom: 8 }]}>
+                  Уведомления о начале пары
+                </Text>
+                
                 <View style={styles.settingItem}>
                   <View style={styles.settingInfo}>
                     <Icon name="alarm-outline" size={20} color={placeholderColor} />
@@ -168,6 +172,46 @@ const NotificationSettingsModal = ({ visible, onClose, theme, accentColor }) => 
                     onValueChange={() => toggleSetting('lessonStart')}
                     trackColor={{ false: '#f0f0f0', true: colors.light }}
                     thumbColor={settings.lessonStart ? colors.primary : '#f4f3f4'}
+                  />
+                </View>
+
+                <Text style={[styles.sectionTitle, { color: textColor, marginTop: 16, marginBottom: 8 }]}>
+                  Уведомления о конце пары
+                </Text>
+
+                <View style={styles.settingItem}>
+                  <View style={styles.settingInfo}>
+                    <Icon name="alarm-outline" size={20} color={placeholderColor} />
+                    <View style={styles.textContainer}>
+                      <Text style={[styles.settingLabel, { color: textColor }]}>За 5 минут до конца</Text>
+                      <Text style={[styles.settingDescription, { color: placeholderColor }]}>
+                        Напоминание перед окончанием
+                      </Text>
+                    </View>
+                  </View>
+                  <Switch
+                    value={settings.beforeLessonEnd}
+                    onValueChange={() => toggleSetting('beforeLessonEnd')}
+                    trackColor={{ false: '#f0f0f0', true: colors.light }}
+                    thumbColor={settings.beforeLessonEnd ? colors.primary : '#f4f3f4'}
+                  />
+                </View>
+
+                <View style={styles.settingItem}>
+                  <View style={styles.settingInfo}>
+                    <Icon name="stop-outline" size={20} color={placeholderColor} />
+                    <View style={styles.textContainer}>
+                      <Text style={[styles.settingLabel, { color: textColor }]}>В конце пары</Text>
+                      <Text style={[styles.settingDescription, { color: placeholderColor }]}>
+                        Уведомление об окончании
+                      </Text>
+                    </View>
+                  </View>
+                  <Switch
+                    value={settings.lessonEnd}
+                    onValueChange={() => toggleSetting('lessonEnd')}
+                    trackColor={{ false: '#f0f0f0', true: colors.light }}
+                    thumbColor={settings.lessonEnd ? colors.primary : '#f4f3f4'}
                   />
                 </View>
               </>
@@ -208,6 +252,12 @@ const styles = StyleSheet.create({
   },
   scrollView: {
     maxHeight: 400,
+  },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    fontFamily: 'Montserrat_600SemiBold',
+    marginLeft: 36,
   },
   settingItem: {
     flexDirection: 'row',

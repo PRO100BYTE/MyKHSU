@@ -296,6 +296,25 @@ class ApiService {
       throw error;
     }
   }
+
+    // Метод для загрузки расписания преподавателя
+    async getTeacherSchedule(teacherName, week = null) {
+    const encodedTeacherName = encodeURIComponent(teacherName);
+    let url;
+    let cacheKey;
+    
+    if (week) {
+        url = `${API_BASE_URL}/getpairsweek?type=teacher&data=${encodedTeacherName}&week=${week}`;
+        cacheKey = `teacher_schedule_${encodedTeacherName}_week_${week}`;
+    } else {
+        const currentWeek = getWeekNumber(new Date());
+        url = `${API_BASE_URL}/getpairsweek?type=teacher&data=${encodedTeacherName}&week=${currentWeek}`;
+        cacheKey = `teacher_schedule_${encodedTeacherName}_week_${currentWeek}`;
+    }
+    
+    return this.makeRequest(url, {}, true, cacheKey, 60 * 60 * 1000);
+    }
+
 }
 
 // Создаем и экспортируем экземпляр класса

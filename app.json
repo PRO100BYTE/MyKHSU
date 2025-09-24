@@ -2,7 +2,7 @@
   "expo": {
     "name": "MyKHSU",
     "slug": "mykhsu",
-    "version": "2.0.6",
+    "version": "2.1.1",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
@@ -18,8 +18,10 @@
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
         "NSLocationWhenInUseUsageDescription": "Приложению требуется доступ к вашему местоположению для показа ближайших корпусов ХГУ на карте.",
-        "NSLocationAlwaysUsageDescription": "Приложению требуется доступ к вашему местоположению для показа ближайших корпусов ХГУ на карте."
-      }
+        "NSLocationAlwaysUsageDescription": "Приложению требуется доступ к вашему местоположению для показа ближайших корпусов ХГУ на карте.",
+        "UIBackgroundModes": ["remote-notification", "fetch"]
+      },
+      "backgroundColor": "#ffffff"
     },
     "android": {
       "adaptiveIcon": {
@@ -37,7 +39,9 @@
         "googleMaps": {
           "apiKey": "YOUR_GOOGLE_MAPS_API_KEY_OPTIONAL"
         }
-      }
+      },
+      "allowBackup": true,
+      "usesCleartextTraffic": true
     },
     "web": {
       "favicon": "./assets/favicon.ico"
@@ -58,6 +62,14 @@
         "expo-location",
         {
           "locationAlwaysAndWhenInUsePermission": "Разрешить $(PRODUCT_NAME) использовать ваше местоположение для показа ближайших корпусов ХГУ на карте."
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/notification-icon.png",
+          "color": "#ffffff",
+          "sounds": ["./assets/notification-sound.wav"]
         }
       ]
     ],

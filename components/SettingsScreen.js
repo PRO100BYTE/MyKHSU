@@ -7,12 +7,15 @@ import * as Linking from 'expo-linking';
 import AppearanceSettingsSheet from './AppearanceSettingsSheet';
 import AboutModal from './AboutModal';
 import NotificationSettingsModal from './NotificationSettingsModal';
+import ScheduleFormatModal from './ScheduleFormatModal';
 import { ACCENT_COLORS, APP_VERSION, APP_DEVELOPERS, APP_SUPPORTERS, GITHUB_REPO_URL, BUILD_VER, BUILD_DATE } from '../utils/constants';
 
 const SettingsScreen = ({ theme, accentColor, setTheme, setAccentColor }) => {
   const [appearanceSheetVisible, setAppearanceSheetVisible] = useState(false);
   const [aboutModalVisible, setAboutModalVisible] = useState(false);
   const [notificationModalVisible, setNotificationModalVisible] = useState(false);
+  const [scheduleFormatModalVisible, setScheduleFormatModalVisible] = useState(false);
+  const [currentGroups, setCurrentGroups] = useState([]);
 
   const bgColor = theme === 'light' ? '#f3f4f6' : '#111827';
   const cardBg = theme === 'light' ? '#ffffff' : '#1f2937';
@@ -66,6 +69,32 @@ const SettingsScreen = ({ theme, accentColor, setTheme, setAccentColor }) => {
 
   return (
     <ScrollView style={{ flex: 1, backgroundColor: bgColor, padding: 16 }}>
+      {/* Новый пункт: Формат расписания */}
+      <TouchableOpacity 
+        style={{ 
+          backgroundColor: cardBg, 
+          borderRadius: 12, 
+          padding: 16, 
+          marginBottom: 16,
+          flexDirection: 'row',
+          alignItems: 'center'
+        }}
+        onPress={() => setScheduleFormatModalVisible(true)}
+      >
+        <View style={{ backgroundColor: colors.light, borderRadius: 8, padding: 8, marginRight: 12 }}>
+          <Icon name="calendar-outline" size={24} color={colors.primary} />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={{ color: textColor, fontSize: 16, fontFamily: 'Montserrat_500Medium' }}>
+            Формат расписания
+          </Text>
+          <Text style={{ color: placeholderColor, fontSize: 14, marginTop: 4, fontFamily: 'Montserrat_400Regular' }}>
+            Настройте отображение расписания для студентов или преподавателей
+          </Text>
+        </View>
+        <Icon name="chevron-forward" size={20} color={placeholderColor} />
+      </TouchableOpacity>
+
       {/* Настройки уведомлений */}
       <TouchableOpacity 
         style={{ 
@@ -232,6 +261,7 @@ const SettingsScreen = ({ theme, accentColor, setTheme, setAccentColor }) => {
         </Text>
       </View>
 
+      {/* Модальные окна */}
       <AppearanceSettingsSheet
         visible={appearanceSheetVisible}
         onClose={() => setAppearanceSheetVisible(false)}
@@ -254,12 +284,16 @@ const SettingsScreen = ({ theme, accentColor, setTheme, setAccentColor }) => {
         theme={theme}
         accentColor={accentColor}
       />
+
+      <ScheduleFormatModal
+        visible={scheduleFormatModalVisible}
+        onClose={() => setScheduleFormatModalVisible(false)}
+        theme={theme}
+        accentColor={accentColor}
+        currentGroups={currentGroups}
+      />
     </ScrollView>
   );
 };
-
-const styles = StyleSheet.create({
-  // Стили могут быть добавлены при необходимости
-});
 
 export default SettingsScreen;
