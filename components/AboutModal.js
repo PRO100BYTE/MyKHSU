@@ -1,7 +1,10 @@
+// components/AboutModal.js
 import React, { useState } from 'react';
-import { View, Text, Modal, TouchableOpacity, ScrollView, StyleSheet, PanResponder, Animated } from 'react-native';
+import { View, Text, Modal, TouchableOpacity, ScrollView, StyleSheet, PanResponder, Animated, Dimensions } from 'react-native';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import { ACCENT_COLORS } from '../utils/constants';
+
+const { height } = Dimensions.get('window');
 
 const AboutModal = ({ visible, onClose, theme, accentColor }) => {
   const [panY] = useState(new Animated.Value(0));
@@ -10,7 +13,6 @@ const AboutModal = ({ visible, onClose, theme, accentColor }) => {
   const textColor = theme === 'light' ? '#111827' : '#ffffff';
   const colors = ACCENT_COLORS[accentColor];
 
-  // Создаем PanResponder для обработки свайпа
   const panResponder = PanResponder.create({
     onStartShouldSetPanResponder: () => true,
     onMoveShouldSetPanResponder: (_, gestureState) => {
@@ -55,7 +57,11 @@ const AboutModal = ({ visible, onClose, theme, accentColor }) => {
             О приложении
           </Text>
           
-          <ScrollView style={styles.aboutContent}>
+          <ScrollView 
+            style={styles.aboutContent}
+            contentContainerStyle={styles.aboutContentContainer}
+            showsVerticalScrollIndicator={true}
+          >
             <Text style={[styles.aboutText, { color: textColor }]}>
               Мой ИТИ ХГУ - мобильное приложение для студентов Инженерно-технологического института Хакасского государственного университета.
               {"\n\n"}
@@ -105,6 +111,7 @@ const styles = StyleSheet.create({
     paddingBottom: 32,
     paddingTop: 16,
     maxHeight: '80%',
+    minHeight: '50%',
   },
   sheetHandle: {
     width: 40,
@@ -117,12 +124,15 @@ const styles = StyleSheet.create({
   sheetTitle: {
     fontSize: 20,
     fontWeight: 'bold',
-    marginBottom: 24,
+    marginBottom: 16,
     textAlign: 'center',
   },
   aboutContent: {
-    maxHeight: 300,
+    flex: 1,
     marginBottom: 20,
+  },
+  aboutContentContainer: {
+    paddingBottom: 10,
   },
   aboutText: {
     fontSize: 15,
