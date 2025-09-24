@@ -244,6 +244,7 @@ export const useScheduleLogic = () => {
     setViewMode,
     currentDate,
     currentWeek,
+    setCurrentWeek,
     
     // Functions
     handleRetry,
