@@ -1,9 +1,7 @@
-// hooks/useScheduleLogic.js
 import { useState, useEffect } from 'react';
 import NetInfo from '@react-native-community/netinfo';
 import ApiService from '../utils/api';
 import notificationService from '../utils/notificationService';
-import scheduleUtils from '../utils/scheduleUtils';
 import { getWeekNumber } from '../utils/dateUtils';
 
 export const useScheduleLogic = () => {
@@ -71,7 +69,7 @@ export const useScheduleLogic = () => {
     
     try {
       const result = await ApiService.getGroups(courseId);
-      const processedGroups = scheduleUtils.processGroupsData(result);
+      const processedGroups = processGroupsData(result);
       
       setGroups(processedGroups);
       setCachedGroups(processedGroups);
@@ -103,7 +101,7 @@ export const useScheduleLogic = () => {
   const fetchPairsTime = async () => {
     try {
       const result = await ApiService.getPairsTime();
-      const processedTime = scheduleUtils.processPairsTimeData(result);
+      const processedTime = processPairsTimeData(result);
       
       setPairsTime(processedTime);
       setCachedPairsTime(processedTime);
@@ -128,7 +126,7 @@ export const useScheduleLogic = () => {
         result = await ApiService.getSchedule(group, null, currentWeek);
       }
       
-      const processedSchedule = scheduleUtils.processScheduleData(result, currentDate);
+      const processedSchedule = processScheduleData(result, currentDate);
       setScheduleData(processedSchedule);
       setCachedScheduleData(processedSchedule);
       
@@ -155,6 +153,37 @@ export const useScheduleLogic = () => {
       setLoadingSchedule(false);
       setRefreshing(false);
     }
+  };
+
+  const processGroupsData = (result) => {
+    if (!result || !result.data) return [];
+    
+    const groupsData = result.data;
+    
+    if (Array.isArray(groupsData)) {
+      return groupsData.filter(group => group && typeof group === 'string');
+    }
+    
+    if (typeof groupsData === 'object' && groupsData.groups) {
+      return Array.isArray(groupsData.groups) ? groupsData.groups : [];
+    }
+    
+    return [];
+  };
+
+  const processPairsTimeData = (result) => {
+    if (!result || !result.data) return [];
+    return result.data.pairs_time || [];
+  };
+
+  const processScheduleData = (result, date) => {
+    if (!result || !result.data) return null;
+    
+    // Добавляем информацию о текущей дате для корректной работы
+    return {
+      ...result.data,
+      currentDate: date
+    };
   };
 
   const handleRetry = () => {
