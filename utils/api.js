@@ -313,7 +313,7 @@ class ApiService {
     }
     
     return this.makeRequest(url, {}, true, cacheKey, 60 * 60 * 1000);
-    }
+}
 
 }
 

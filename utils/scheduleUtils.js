@@ -1,5 +1,3 @@
-// utils/scheduleUtils.js
-
 import { getDateByWeekAndDay } from './dateUtils';
 
 // Проверка, является ли пара текущей
