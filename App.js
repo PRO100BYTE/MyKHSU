@@ -14,6 +14,7 @@ import NewsScreen from './components/NewsScreen';
 import ScheduleScreen from './components/ScheduleScreen';
 import SettingsScreen from './components/SettingsScreen';
 import MapScreen from './components/MapScreen';
+import NotificationSettingsModal from './components/NotificationSettingsModal';
 
 // Импорт утилит
 import { ACCENT_COLORS, SCREENS } from './utils/constants';
