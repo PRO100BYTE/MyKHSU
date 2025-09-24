@@ -1,10 +1,13 @@
+// hooks/useScheduleLogic.js
 import { useState, useEffect } from 'react';
 import NetInfo from '@react-native-community/netinfo';
 import ApiService from '../utils/api';
 import notificationService from '../utils/notificationService';
+import scheduleUtils from '../utils/scheduleUtils';
 import { getWeekNumber } from '../utils/dateUtils';
 
-export const useScheduleData = (course, viewMode, currentDate, currentWeek) => {
+export const useScheduleLogic = () => {
+  const [course, setCourse] = useState(1);
   const [groups, setGroups] = useState([]);
   const [cachedGroups, setCachedGroups] = useState([]);
   const [selectedGroup, setSelectedGroup] = useState(null);
@@ -15,13 +18,16 @@ export const useScheduleData = (course, viewMode, currentDate, currentWeek) => {
   const [loadingGroups, setLoadingGroups] = useState(false);
   const [loadingSchedule, setLoadingSchedule] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [viewMode, setViewMode] = useState('day');
+  const [currentDate, setCurrentDate] = useState(new Date());
+  const [currentWeek, setCurrentWeek] = useState(getWeekNumber(new Date()));
   const [error, setError] = useState(null);
   const [isOnline, setIsOnline] = useState(true);
   const [showCachedData, setShowCachedData] = useState(false);
   const [cacheInfo, setCacheInfo] = useState(null);
   const [currentTime, setCurrentTime] = useState(new Date());
 
-  // Обновляем текущее время каждую минуту
+  // Обновление текущего времени
   useEffect(() => {
     const timer = setInterval(() => {
       setCurrentTime(new Date());
@@ -30,7 +36,7 @@ export const useScheduleData = (course, viewMode, currentDate, currentWeek) => {
     return () => clearInterval(timer);
   }, []);
 
-  // Слушатель состояния сети
+  // Слушатель сети
   useEffect(() => {
     const unsubscribe = NetInfo.addEventListener(state => {
       setIsOnline(state.isConnected);
@@ -42,17 +48,17 @@ export const useScheduleData = (course, viewMode, currentDate, currentWeek) => {
     return () => unsubscribe();
   }, []);
 
-  // Загрузка групп при изменении курса
+  // Загрузка групп
   useEffect(() => {
     fetchGroupsForCourse(course);
   }, [course]);
 
-  // Загрузка времени пар при монтировании
+  // Загрузка времени пар
   useEffect(() => {
     fetchPairsTime();
   }, []);
 
-  // Загрузка расписания при изменении параметров
+  // Загрузка расписания
   useEffect(() => {
     if (selectedGroup) {
       fetchScheduleData(selectedGroup);
@@ -65,43 +71,18 @@ export const useScheduleData = (course, viewMode, currentDate, currentWeek) => {
     
     try {
       const result = await ApiService.getGroups(courseId);
+      const processedGroups = scheduleUtils.processGroupsData(result);
       
-      let groupsData = [];
+      setGroups(processedGroups);
+      setCachedGroups(processedGroups);
       
-      if (result.data) {
-        if (Array.isArray(result.data)) {
-          groupsData = result.data;
-        } else if (typeof result.data === 'object') {
-          if (result.data.groups && Array.isArray(result.data.groups)) {
-            groupsData = result.data.groups;
-          } else {
-            groupsData = Object.values(result.data).filter(item => 
-              typeof item === 'string' && item.trim() !== ''
-            );
-          }
-        }
+      if (result.source === 'cache' || result.source === 'stale_cache') {
+        setShowCachedData(true);
+        setCacheInfo(result);
       }
       
-      const filteredGroups = groupsData
-        .filter(group => group && typeof group === 'string' && group.trim() !== '')
-        .filter((group, index, self) => self.indexOf(group) === index)
-        .sort();
-      
-      if (filteredGroups.length > 0) {
-        setGroups(filteredGroups);
-        setCachedGroups(filteredGroups);
-        
-        if (result.source === 'cache' || result.source === 'stale_cache') {
-          setShowCachedData(true);
-          setCacheInfo(result);
-        }
-        
-        if (!selectedGroup) {
-          setSelectedGroup(filteredGroups[0]);
-        }
-      } else {
-        setGroups([]);
-        setCachedGroups([]);
+      if (processedGroups.length > 0 && !selectedGroup) {
+        setSelectedGroup(processedGroups[0]);
       }
       
     } catch (error) {
@@ -122,25 +103,10 @@ export const useScheduleData = (course, viewMode, currentDate, currentWeek) => {
   const fetchPairsTime = async () => {
     try {
       const result = await ApiService.getPairsTime();
+      const processedTime = scheduleUtils.processPairsTimeData(result);
       
-      let timeData = [];
-      
-      if (result.data) {
-        if (Array.isArray(result.data)) {
-          timeData = result.data;
-        } else if (result.data.pairs && Array.isArray(result.data.pairs)) {
-          timeData = result.data.pairs;
-        } else if (typeof result.data === 'object') {
-          timeData = Object.values(result.data).filter(item => 
-            item && typeof item === 'object' && item.time_start && item.time_end
-          );
-        }
-      }
-      
-      if (timeData.length > 0) {
-        setPairsTime(timeData);
-        setCachedPairsTime(timeData);
-      }
+      setPairsTime(processedTime);
+      setCachedPairsTime(processedTime);
     } catch (error) {
       console.error('Error fetching pairs time:', error);
       if (cachedPairsTime.length > 0) {
@@ -162,31 +128,19 @@ export const useScheduleData = (course, viewMode, currentDate, currentWeek) => {
         result = await ApiService.getSchedule(group, null, currentWeek);
       }
       
-      if (result.data) {
-        let scheduleData = result.data;
-        
-        if (!scheduleData.days && scheduleData.lessons) {
-          scheduleData = {
-            days: [{ weekday: currentDate.getDay() || 7, lessons: scheduleData.lessons }],
-            lessons: scheduleData.lessons
-          };
-        }
-        
-        setScheduleData(scheduleData);
-        setCachedScheduleData(scheduleData);
-        
-        if (result.source === 'cache' || result.source === 'stale_cache') {
-          setShowCachedData(true);
-          setCacheInfo(result);
-        }
-        
-        try {
-          await notificationService.scheduleLessonNotifications(scheduleData, pairsTime);
-        } catch (notifyError) {
-          console.error('Error scheduling notifications:', notifyError);
-        }
-      } else {
-        setScheduleData({ days: [], lessons: [] });
+      const processedSchedule = scheduleUtils.processScheduleData(result, currentDate);
+      setScheduleData(processedSchedule);
+      setCachedScheduleData(processedSchedule);
+      
+      if (result.source === 'cache' || result.source === 'stale_cache') {
+        setShowCachedData(true);
+        setCacheInfo(result);
+      }
+      
+      try {
+        await notificationService.scheduleLessonNotifications(processedSchedule, pairsTime);
+      } catch (notifyError) {
+        console.error('Error scheduling notifications:', notifyError);
       }
     } catch (error) {
       console.error('Error fetching schedule:', error);
@@ -196,8 +150,6 @@ export const useScheduleData = (course, viewMode, currentDate, currentWeek) => {
         setScheduleData(cachedScheduleData);
         setShowCachedData(true);
         setCacheInfo({ source: 'stale_cache', cacheInfo: { cacheDate: new Date().toISOString() } });
-      } else {
-        setScheduleData({ days: [], lessons: [] });
       }
     } finally {
       setLoadingSchedule(false);
@@ -232,8 +184,20 @@ export const useScheduleData = (course, viewMode, currentDate, currentWeek) => {
     }
   };
 
+  const navigateDate = (direction) => {
+    const newDate = new Date(currentDate);
+    if (viewMode === 'day') {
+      newDate.setDate(newDate.getDate() + direction);
+      setCurrentDate(newDate);
+    } else {
+      setCurrentWeek(currentWeek + direction);
+    }
+  };
+
   return {
     // States
+    course,
+    setCourse,
     groups,
     selectedGroup,
     setSelectedGroup,
@@ -247,15 +211,16 @@ export const useScheduleData = (course, viewMode, currentDate, currentWeek) => {
     showCachedData,
     cacheInfo,
     currentTime,
+    viewMode,
+    setViewMode,
+    currentDate,
+    currentWeek,
     
     // Functions
     handleRetry,
     handleViewCache,
     onRefresh,
-    setError,
-    setCourse: (newCourse) => {
-      setCourse(newCourse);
-      setSelectedGroup(null);
-    }
+    navigateDate,
+    setError
   };
 };
