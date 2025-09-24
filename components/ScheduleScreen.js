@@ -25,6 +25,7 @@ const ScheduleScreen = ({ theme, accentColor }) => {
   const [loadingTeacher, setLoadingTeacher] = useState(false);
   const [showCourseSelector, setShowCourseSelector] = useState(true);
   const [defaultGroup, setDefaultGroup] = useState('');
+  const [isInitialized, setIsInitialized] = useState(false);
 
   // Используем хук для логики студенческого режима
   const {
@@ -47,6 +48,7 @@ const ScheduleScreen = ({ theme, accentColor }) => {
     setViewMode,
     currentDate,
     currentWeek,
+    setCurrentWeek, // ДОБАВЛЕНО
     handleRetry,
     handleViewCache,
     onRefresh,
@@ -66,12 +68,16 @@ const ScheduleScreen = ({ theme, accentColor }) => {
     loadScheduleSettings();
   }, []);
 
-  // Автоматический выбор группы по умолчанию
+  // Автоматический выбор группы по умолчанию при загрузке групп
   useEffect(() => {
-    if (!isTeacherMode && defaultGroup && !selectedGroup && groups.includes(defaultGroup)) {
-      setSelectedGroup(defaultGroup);
+    if (!isTeacherMode && defaultGroup && groups.length > 0 && !selectedGroup && !isInitialized) {
+      const groupExists = groups.includes(defaultGroup);
+      if (groupExists) {
+        setSelectedGroup(defaultGroup);
+        setIsInitialized(true);
+      }
     }
-  }, [defaultGroup, groups, isTeacherMode, selectedGroup]);
+  }, [defaultGroup, groups, isTeacherMode, selectedGroup, isInitialized]);
 
   const loadScheduleSettings = async () => {
     try {
@@ -89,8 +95,11 @@ const ScheduleScreen = ({ theme, accentColor }) => {
       if (format === 'teacher' && teacher) {
         fetchTeacherSchedule(teacher);
       }
+      
+      setIsInitialized(true);
     } catch (error) {
       console.error('Error loading schedule settings:', error);
+      setIsInitialized(true);
     }
   };
 
@@ -116,11 +125,10 @@ const ScheduleScreen = ({ theme, accentColor }) => {
 
   const changeWeek = (weeks) => {
     const newWeek = currentWeek + weeks;
+    setCurrentWeek(newWeek); // ИСПРАВЛЕНО: используем setCurrentWeek из хука
     
     if (isTeacherMode && teacherName) {
       fetchTeacherSchedule(teacherName, newWeek);
-    } else {
-      navigateDate(weeks * 7); // Для студенческого режима используем навигацию из хука
     }
   };
 
@@ -129,7 +137,8 @@ const ScheduleScreen = ({ theme, accentColor }) => {
   };
 
   const getTimeForLesson = (timeNumber) => {
-    return pairsTime.find(pair => pair.time === timeNumber);
+    if (!pairsTime || !Array.isArray(pairsTime)) return null;
+    return pairsTime.find(pair => pair && pair.time === timeNumber);
   };
 
   const weekdays = ["Понедельник", "Вторник", "Среда", "Четверг", "Пятница", "Суббота", "Воскресенье"];
@@ -165,7 +174,9 @@ const ScheduleScreen = ({ theme, accentColor }) => {
         </Text>
 
         {day.lessons && day.lessons.length > 0 ? (
-          day.lessons.map(lesson => {
+          day.lessons.map((lesson, index) => {
+            if (!lesson) return null;
+            
             const pairTime = getTimeForLesson(lesson.time);
             const lessonDate = getLessonDateForWeek(weekNumber, day.weekday, currentTime);
             const isCurrentLessonFlag = isCurrentLesson(lesson, pairTime, currentTime, lessonDate);
@@ -173,7 +184,7 @@ const ScheduleScreen = ({ theme, accentColor }) => {
             
             return (
               <View 
-                key={lesson.id} 
+                key={lesson.id || index} 
                 style={[{ 
                   paddingVertical: 12, 
                   borderTopWidth: 1, 
@@ -230,7 +241,7 @@ const ScheduleScreen = ({ theme, accentColor }) => {
     
     const weekday = currentDate.getDay() === 0 ? 7 : currentDate.getDay();
     const daySchedule = scheduleData.days ? 
-      scheduleData.days.find(d => d.weekday === weekday) : 
+      scheduleData.days.find(d => d && d.weekday === weekday) : 
       { lessons: scheduleData.lessons || [] };
     
     if (!daySchedule) return null;
@@ -254,14 +265,16 @@ const ScheduleScreen = ({ theme, accentColor }) => {
         </Text>
 
         {daySchedule.lessons && daySchedule.lessons.length > 0 ? (
-          daySchedule.lessons.map(lesson => {
+          daySchedule.lessons.map((lesson, index) => {
+            if (!lesson) return null;
+            
             const pairTime = getTimeForLesson(lesson.time);
             const isCurrentLessonFlag = isCurrentLesson(lesson, pairTime, currentTime, currentDate);
             const lessonStyle = getCurrentLessonStyle(isCurrentLessonFlag, colors);
             
             return (
               <View 
-                key={lesson.id} 
+                key={lesson.id || index} 
                 style={[{ 
                   paddingVertical: 12, 
                   borderTopWidth: 1, 
@@ -362,7 +375,7 @@ const ScheduleScreen = ({ theme, accentColor }) => {
       );
     }
     
-    // Студенческий режим - идентичный ScheduleScreen_old
+    // Студенческий режим
     if (selectedGroup || showCourseSelector) {
       return (
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
@@ -419,7 +432,6 @@ const ScheduleScreen = ({ theme, accentColor }) => {
   // Рендер содержимого
   const renderContent = () => {
     if (isTeacherMode) {
-      // Режим преподавателя
       if (loadingTeacher) {
         return <ActivityIndicator size="large" color={colors.primary} />;
       }
@@ -438,7 +450,6 @@ const ScheduleScreen = ({ theme, accentColor }) => {
         </View>
       );
     } else {
-      // Режим студента
       if (loadingSchedule) {
         return <ActivityIndicator size="large" color={colors.primary} />;
       }
@@ -451,9 +462,11 @@ const ScheduleScreen = ({ theme, accentColor }) => {
                 <Text style={{ fontSize: 20, fontWeight: 'bold', color: textColor, fontFamily: 'Montserrat_600SemiBold' }}>
                   Расписание для {selectedGroup}
                 </Text>
-                <Text style={{ color: placeholderColor, marginTop: 4, fontFamily: 'Montserrat_400Regular' }}>
-                  Неделя: {scheduleData.week_number} ({scheduleData.dates?.date_start} - {scheduleData.dates?.date_end})
-                </Text>
+                {scheduleData.dates && (
+                  <Text style={{ color: placeholderColor, marginTop: 4, fontFamily: 'Montserrat_400Regular' }}>
+                    Неделя: {scheduleData.week_number} ({scheduleData.dates.date_start} - {scheduleData.dates.date_end})
+                  </Text>
+                )}
               </View>
 
               {scheduleData.days.map(day => 
@@ -483,10 +496,10 @@ const ScheduleScreen = ({ theme, accentColor }) => {
         );
       }
 
-      if (!showCourseSelector && !selectedGroup) {
+      if (!showCourseSelector && !selectedGroup && defaultGroup) {
         return (
           <Text style={{ textAlign: 'center', color: placeholderColor, marginTop: 20, fontFamily: 'Montserrat_400Regular' }}>
-            Выберите группу по умолчанию в настройках формата расписания
+            Загрузка расписания для группы {defaultGroup}...
           </Text>
         );
       }
@@ -502,7 +515,7 @@ const ScheduleScreen = ({ theme, accentColor }) => {
         <ConnectionError 
           type={error}
           loading={false}
-          onRetry={handleRetry}
+          onRetry={isTeacherMode ? () => teacherName && fetchTeacherSchedule(teacherName) : handleRetry}
           onViewCache={handleViewCache}
           showCacheButton={!!scheduleData}
           cacheAvailable={!!scheduleData}
@@ -514,13 +527,6 @@ const ScheduleScreen = ({ theme, accentColor }) => {
       </View>
     );
   }
-
-  const handleTeacherRetry = () => {
-    setError(null);
-    if (teacherName) {
-      fetchTeacherSchedule(teacherName);
-    }
-  };
 
   return (
     <ScrollView 
@@ -645,7 +651,11 @@ const ScheduleScreen = ({ theme, accentColor }) => {
             Показано расписание для группы {selectedGroup}
           </Text>
           <TouchableOpacity 
-            onPress={() => setShowCourseSelector(true)}
+            onPress={() => {
+              setShowCourseSelector(true);
+              // Сохраняем настройку
+              SecureStore.setItemAsync('show_course_selector', 'true');
+            }}
             style={{ marginLeft: 12 }}
           >
             <Text style={{ color: colors.primary, textDecorationLine: 'underline', fontFamily: 'Montserrat_500Medium' }}>
