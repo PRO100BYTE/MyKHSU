@@ -23,9 +23,6 @@ const ScheduleScreen = ({ theme, accentColor }) => {
   const [isTeacherMode, setIsTeacherMode] = useState(false);
   const [teacherSchedule, setTeacherSchedule] = useState(null);
   const [loadingTeacher, setLoadingTeacher] = useState(false);
-  const [showCourseSelector, setShowCourseSelector] = useState(true);
-  const [defaultGroup, setDefaultGroup] = useState('');
-  const [isInitialized, setIsInitialized] = useState(false);
 
   // Используем хук для логики студенческого режима
   const {
@@ -48,12 +45,13 @@ const ScheduleScreen = ({ theme, accentColor }) => {
     setViewMode,
     currentDate,
     currentWeek,
-    setCurrentWeek, // ДОБАВЛЕНО
     handleRetry,
     handleViewCache,
     onRefresh,
     navigateDate,
-    setError
+    defaultGroup,
+    showCourseSelector,
+    loadSettings
   } = useScheduleLogic();
 
   const bgColor = theme === 'light' ? '#f3f4f6' : '#111827';
@@ -68,38 +66,23 @@ const ScheduleScreen = ({ theme, accentColor }) => {
     loadScheduleSettings();
   }, []);
 
-  // Автоматический выбор группы по умолчанию при загрузке групп
-  useEffect(() => {
-    if (!isTeacherMode && defaultGroup && groups.length > 0 && !selectedGroup && !isInitialized) {
-      const groupExists = groups.includes(defaultGroup);
-      if (groupExists) {
-        setSelectedGroup(defaultGroup);
-        setIsInitialized(true);
-      }
-    }
-  }, [defaultGroup, groups, isTeacherMode, selectedGroup, isInitialized]);
-
   const loadScheduleSettings = async () => {
     try {
       const format = await SecureStore.getItemAsync('schedule_format') || 'student';
       const teacher = await SecureStore.getItemAsync('teacher_name') || '';
-      const showSelector = await SecureStore.getItemAsync('show_course_selector');
-      const group = await SecureStore.getItemAsync('default_group') || '';
       
       setScheduleFormat(format);
       setTeacherName(teacher);
       setIsTeacherMode(format === 'teacher');
-      setShowCourseSelector(showSelector !== 'false');
-      setDefaultGroup(group);
+
+      // Перезагружаем настройки в хуке
+      loadSettings();
 
       if (format === 'teacher' && teacher) {
         fetchTeacherSchedule(teacher);
       }
-      
-      setIsInitialized(true);
     } catch (error) {
       console.error('Error loading schedule settings:', error);
-      setIsInitialized(true);
     }
   };
 
@@ -125,10 +108,14 @@ const ScheduleScreen = ({ theme, accentColor }) => {
 
   const changeWeek = (weeks) => {
     const newWeek = currentWeek + weeks;
-    setCurrentWeek(newWeek); // ИСПРАВЛЕНО: используем setCurrentWeek из хука
     
     if (isTeacherMode && teacherName) {
       fetchTeacherSchedule(teacherName, newWeek);
+    } else {
+      // Для студенческого режима обновляем состояние недели
+      const newDate = new Date(currentDate);
+      newDate.setDate(newDate.getDate() + (weeks * 7));
+      navigateDate(weeks * 7);
     }
   };
 
@@ -138,7 +125,7 @@ const ScheduleScreen = ({ theme, accentColor }) => {
 
   const getTimeForLesson = (timeNumber) => {
     if (!pairsTime || !Array.isArray(pairsTime)) return null;
-    return pairsTime.find(pair => pair && pair.time === timeNumber);
+    return pairsTime.find(pair => pair && pair.time && pair.time.toString() === timeNumber.toString());
   };
 
   const weekdays = ["Понедельник", "Вторник", "Среда", "Четверг", "Пятница", "Суббота", "Воскресенье"];
@@ -175,8 +162,6 @@ const ScheduleScreen = ({ theme, accentColor }) => {
 
         {day.lessons && day.lessons.length > 0 ? (
           day.lessons.map((lesson, index) => {
-            if (!lesson) return null;
-            
             const pairTime = getTimeForLesson(lesson.time);
             const lessonDate = getLessonDateForWeek(weekNumber, day.weekday, currentTime);
             const isCurrentLessonFlag = isCurrentLesson(lesson, pairTime, currentTime, lessonDate);
@@ -184,7 +169,7 @@ const ScheduleScreen = ({ theme, accentColor }) => {
             
             return (
               <View 
-                key={lesson.id || index} 
+                key={lesson.id || `lesson-${index}`} 
                 style={[{ 
                   paddingVertical: 12, 
                   borderTopWidth: 1, 
@@ -240,9 +225,13 @@ const ScheduleScreen = ({ theme, accentColor }) => {
     if (!scheduleData) return null;
     
     const weekday = currentDate.getDay() === 0 ? 7 : currentDate.getDay();
-    const daySchedule = scheduleData.days ? 
-      scheduleData.days.find(d => d && d.weekday === weekday) : 
-      { lessons: scheduleData.lessons || [] };
+    let daySchedule = null;
+    
+    if (scheduleData.days) {
+      daySchedule = scheduleData.days.find(d => d.weekday === weekday);
+    } else if (scheduleData.lessons) {
+      daySchedule = { lessons: scheduleData.lessons };
+    }
     
     if (!daySchedule) return null;
     
@@ -266,15 +255,13 @@ const ScheduleScreen = ({ theme, accentColor }) => {
 
         {daySchedule.lessons && daySchedule.lessons.length > 0 ? (
           daySchedule.lessons.map((lesson, index) => {
-            if (!lesson) return null;
-            
             const pairTime = getTimeForLesson(lesson.time);
             const isCurrentLessonFlag = isCurrentLesson(lesson, pairTime, currentTime, currentDate);
             const lessonStyle = getCurrentLessonStyle(isCurrentLessonFlag, colors);
             
             return (
               <View 
-                key={lesson.id || index} 
+                key={lesson.id || `lesson-${index}`} 
                 style={[{ 
                   paddingVertical: 12, 
                   borderTopWidth: 1, 
@@ -432,6 +419,7 @@ const ScheduleScreen = ({ theme, accentColor }) => {
   // Рендер содержимого
   const renderContent = () => {
     if (isTeacherMode) {
+      // Режим преподавателя
       if (loadingTeacher) {
         return <ActivityIndicator size="large" color={colors.primary} />;
       }
@@ -450,11 +438,12 @@ const ScheduleScreen = ({ theme, accentColor }) => {
         </View>
       );
     } else {
+      // Режим студента
       if (loadingSchedule) {
         return <ActivityIndicator size="large" color={colors.primary} />;
       }
       
-      if (scheduleData && (selectedGroup || !showCourseSelector)) {
+      if (scheduleData && selectedGroup) {
         if (viewMode === 'week' && scheduleData.days) {
           return (
             <View>
@@ -496,10 +485,10 @@ const ScheduleScreen = ({ theme, accentColor }) => {
         );
       }
 
-      if (!showCourseSelector && !selectedGroup && defaultGroup) {
+      if (!showCourseSelector && !selectedGroup) {
         return (
           <Text style={{ textAlign: 'center', color: placeholderColor, marginTop: 20, fontFamily: 'Montserrat_400Regular' }}>
-            Загрузка расписания для группы {defaultGroup}...
+            Выберите группу по умолчанию в настройках формата расписания
           </Text>
         );
       }
@@ -651,10 +640,9 @@ const ScheduleScreen = ({ theme, accentColor }) => {
             Показано расписание для группы {selectedGroup}
           </Text>
           <TouchableOpacity 
-            onPress={() => {
-              setShowCourseSelector(true);
-              // Сохраняем настройку
-              SecureStore.setItemAsync('show_course_selector', 'true');
+            onPress={async () => {
+              await SecureStore.setItemAsync('show_course_selector', 'true');
+              loadSettings();
             }}
             style={{ marginLeft: 12 }}
           >
