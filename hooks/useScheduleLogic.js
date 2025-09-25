@@ -1,8 +1,10 @@
+// hooks/useScheduleLogic.js
 import { useState, useEffect } from 'react';
 import NetInfo from '@react-native-community/netinfo';
 import ApiService from '../utils/api';
 import notificationService from '../utils/notificationService';
 import { getWeekNumber } from '../utils/dateUtils';
+import * as SecureStore from 'expo-secure-store';
 
 export const useScheduleLogic = () => {
   const [course, setCourse] = useState(1);
@@ -24,6 +26,13 @@ export const useScheduleLogic = () => {
   const [showCachedData, setShowCachedData] = useState(false);
   const [cacheInfo, setCacheInfo] = useState(null);
   const [currentTime, setCurrentTime] = useState(new Date());
+  const [defaultGroup, setDefaultGroup] = useState('');
+  const [showCourseSelector, setShowCourseSelector] = useState(true);
+
+  // Загрузка настроек при монтировании
+  useEffect(() => {
+    loadSettings();
+  }, []);
 
   // Обновление текущего времени
   useEffect(() => {
@@ -46,17 +55,52 @@ export const useScheduleLogic = () => {
     return () => unsubscribe();
   }, []);
 
-  // Загрузка групп
+  // Загрузка настроек
+  const loadSettings = async () => {
+    try {
+      const group = await SecureStore.getItemAsync('default_group') || '';
+      const showSelector = await SecureStore.getItemAsync('show_course_selector');
+      
+      setDefaultGroup(group);
+      setShowCourseSelector(showSelector !== 'false');
+      
+      // Загружаем группы после загрузки настроек
+      fetchGroupsForCourse(course);
+    } catch (error) {
+      console.error('Error loading settings:', error);
+      fetchGroupsForCourse(course);
+    }
+  };
+
+  // Загрузка групп с учетом группы по умолчанию
   useEffect(() => {
-    fetchGroupsForCourse(course);
+    if (course && !loadingGroups) {
+      fetchGroupsForCourse(course);
+    }
   }, [course]);
+
+  // Автоматический выбор группы по умолчанию
+  useEffect(() => {
+    if (defaultGroup && groups.length > 0 && !selectedGroup) {
+      // Проверяем, существует ли группа по умолчанию в текущем списке
+      if (groups.includes(defaultGroup)) {
+        setSelectedGroup(defaultGroup);
+      } else if (groups.length > 0) {
+        // Если группы по умолчанию нет, выбираем первую доступную
+        setSelectedGroup(groups[0]);
+      }
+    } else if (groups.length > 0 && !selectedGroup && !defaultGroup) {
+      // Если нет группы по умолчанию, выбираем первую
+      setSelectedGroup(groups[0]);
+    }
+  }, [groups, defaultGroup, selectedGroup]);
 
   // Загрузка времени пар
   useEffect(() => {
     fetchPairsTime();
   }, []);
 
-  // Загрузка расписания
+  // Загрузка расписания при изменении параметров
   useEffect(() => {
     if (selectedGroup) {
       fetchScheduleData(selectedGroup);
@@ -66,6 +110,7 @@ export const useScheduleLogic = () => {
   const fetchGroupsForCourse = async (courseId) => {
     setLoadingGroups(true);
     setError(null);
+    setShowCachedData(false);
     
     try {
       const result = await ApiService.getGroups(courseId);
@@ -77,10 +122,6 @@ export const useScheduleLogic = () => {
       if (result.source === 'cache' || result.source === 'stale_cache') {
         setShowCachedData(true);
         setCacheInfo(result);
-      }
-      
-      if (processedGroups.length > 0 && !selectedGroup) {
-        setSelectedGroup(processedGroups[0]);
       }
       
     } catch (error) {
@@ -179,7 +220,6 @@ export const useScheduleLogic = () => {
   const processScheduleData = (result, date) => {
     if (!result || !result.data) return null;
     
-    // Добавляем информацию о текущей дате для корректной работы
     return {
       ...result.data,
       currentDate: date
@@ -244,13 +284,15 @@ export const useScheduleLogic = () => {
     setViewMode,
     currentDate,
     currentWeek,
-    setCurrentWeek,
+    defaultGroup,
+    showCourseSelector,
     
     // Functions
     handleRetry,
     handleViewCache,
     onRefresh,
     navigateDate,
-    setError
+    setError,
+    loadSettings
   };
 };
