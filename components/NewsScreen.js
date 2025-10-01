@@ -1,3 +1,4 @@
+// components/NewsScreen.js
 import React, { useState, useEffect } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, StyleSheet, RefreshControl } from 'react-native';
 import { Ionicons as Icon } from '@expo/vector-icons';
@@ -6,6 +7,7 @@ import ConnectionError from './ConnectionError';
 import NetInfo from '@react-native-community/netinfo';
 import ApiService from '../utils/api';
 import notificationService from '../utils/notificationService';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const NewsScreen = ({ theme, accentColor }) => {
   const [news, setNews] = useState([]);
@@ -28,6 +30,20 @@ const NewsScreen = ({ theme, accentColor }) => {
   const borderColor = theme === 'light' ? '#e5e7eb' : '#374151';
   const colors = ACCENT_COLORS[accentColor];
 
+  // Функция для очистки кэша новостей
+  const clearNewsCache = async () => {
+    try {
+      const keys = await AsyncStorage.getAllKeys();
+      const newsKeys = keys.filter(key => key.startsWith('news_'));
+      await AsyncStorage.multiRemove(newsKeys);
+      console.log('Кэш новостей очищен:', newsKeys.length, 'ключей');
+      return true;
+    } catch (error) {
+      console.error('Error clearing news cache:', error);
+      return false;
+    }
+  };
+
   // Фильтрация и обработка новостей
   const filterAndProcessNews = (newsData) => {
     if (!newsData || !Array.isArray(newsData)) return [];
@@ -36,9 +52,7 @@ const NewsScreen = ({ theme, accentColor }) => {
       .filter(item => item.content && item.content.trim() !== "")
       .map(item => ({
         ...item,
-        // Создаем уникальный ID на основе содержания и даты
         id: createNewsId(item),
-        // Нормализуем дату
         normalizedDate: normalizeDate(item.date)
       }))
       .filter((item, index, self) => 
@@ -159,14 +173,13 @@ const NewsScreen = ({ theme, accentColor }) => {
       
     } catch (error) {
       console.error('Error fetching news:', error);
+      setError('load-error');
       
       // При ошибке пытаемся показать кэшированные данные
       if (cachedNews.length > 0) {
         setNews(cachedNews);
         setShowCachedData(true);
         setCacheInfo({ source: 'stale_cache', cacheInfo: { cacheDate: new Date().toISOString() } });
-      } else {
-        setError(error.message || 'load-error');
       }
     } finally {
       setLoading(false);
@@ -190,10 +203,17 @@ const NewsScreen = ({ theme, accentColor }) => {
     }
   };
 
-  const onRefresh = () => {
+  // Улучшенная функция обновления с очисткой кэша
+  const handleRefresh = async () => {
     setRefreshing(true);
     setFrom(0);
     setHasMoreNews(true);
+    
+    // Очищаем кэш при наличии интернета
+    if (isOnline) {
+      await clearNewsCache();
+    }
+    
     fetchNews(true, 0);
   };
 
@@ -245,7 +265,7 @@ const NewsScreen = ({ theme, accentColor }) => {
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
-            onRefresh={onRefresh}
+            onRefresh={handleRefresh}
             colors={[colors.primary]}
             tintColor={colors.primary}
           />
