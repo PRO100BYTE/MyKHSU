@@ -1,4 +1,3 @@
-// components/ScheduleFormatModal.js
 import React, { useState, useEffect } from 'react';
 import { View, Text, Modal, TouchableOpacity, TextInput, ScrollView, StyleSheet, Alert, ActivityIndicator, Switch } from 'react-native';
 import { Ionicons as Icon } from '@expo/vector-icons';
@@ -9,6 +8,7 @@ import ApiService from '../utils/api';
 const ScheduleFormatModal = ({ visible, onClose, theme, accentColor }) => {
   const [scheduleFormat, setScheduleFormat] = useState('student');
   const [defaultGroup, setDefaultGroup] = useState('');
+  const [defaultCourse, setDefaultCourse] = useState(1); // Добавлено состояние для курса
   const [teacherName, setTeacherName] = useState('');
   const [availableGroups, setAvailableGroups] = useState([]);
   const [selectedCourse, setSelectedCourse] = useState(1);
@@ -25,6 +25,11 @@ const ScheduleFormatModal = ({ visible, onClose, theme, accentColor }) => {
   useEffect(() => {
     if (visible) {
       loadSettings();
+    }
+  }, [visible]);
+
+  useEffect(() => {
+    if (visible) {
       loadGroupsForCourse(selectedCourse);
     }
   }, [visible, selectedCourse]);
@@ -33,13 +38,27 @@ const ScheduleFormatModal = ({ visible, onClose, theme, accentColor }) => {
     try {
       const savedFormat = await SecureStore.getItemAsync('schedule_format');
       const savedGroup = await SecureStore.getItemAsync('default_group');
+      const savedCourse = await SecureStore.getItemAsync('default_course'); // Загружаем курс
       const savedTeacher = await SecureStore.getItemAsync('teacher_name');
       const savedShowSelector = await SecureStore.getItemAsync('show_course_selector');
       
       if (savedFormat) setScheduleFormat(savedFormat);
       if (savedGroup) setDefaultGroup(savedGroup);
+      if (savedCourse) setDefaultCourse(parseInt(savedCourse)); // Устанавливаем сохраненный курс
       if (savedTeacher) setTeacherName(savedTeacher);
       if (savedShowSelector !== null) setShowCourseSelector(savedShowSelector === 'true');
+      
+      // Устанавливаем выбранный курс из сохраненных настроек
+      if (savedCourse) {
+        setSelectedCourse(parseInt(savedCourse));
+      }
+      
+      console.log('Загружены настройки:', { 
+        format: savedFormat, 
+        group: savedGroup, 
+        course: savedCourse,
+        teacher: savedTeacher 
+      });
     } catch (error) {
       console.error('Error loading schedule format settings:', error);
     }
@@ -51,12 +70,22 @@ const ScheduleFormatModal = ({ visible, onClose, theme, accentColor }) => {
       const result = await ApiService.getGroups(course);
       if (result.data && result.data.groups) {
         setAvailableGroups(result.data.groups);
+        
+        // Если есть сохраненная группа и она есть в новом списке, выбираем ее
+        if (defaultGroup && result.data.groups.includes(defaultGroup)) {
+          setDefaultGroup(defaultGroup);
+        } else if (result.data.groups.length > 0) {
+          // Иначе выбираем первую группу из списка
+          setDefaultGroup(result.data.groups[0]);
+        }
       } else {
         setAvailableGroups([]);
+        setDefaultGroup('');
       }
     } catch (error) {
       console.error('Error loading groups:', error);
       setAvailableGroups([]);
+      setDefaultGroup('');
     } finally {
       setLoadingGroups(false);
     }
@@ -76,8 +105,16 @@ const ScheduleFormatModal = ({ visible, onClose, theme, accentColor }) => {
 
       await SecureStore.setItemAsync('schedule_format', scheduleFormat);
       await SecureStore.setItemAsync('default_group', defaultGroup);
+      await SecureStore.setItemAsync('default_course', selectedCourse.toString()); // Сохраняем курс
       await SecureStore.setItemAsync('teacher_name', teacherName.trim());
       await SecureStore.setItemAsync('show_course_selector', showCourseSelector.toString());
+      
+      console.log('Настройки сохранены:', { 
+        format: scheduleFormat, 
+        group: defaultGroup, 
+        course: selectedCourse,
+        teacher: teacherName.trim() 
+      });
       
       Alert.alert('Успех', 'Настройки расписания сохранены');
       onClose();
@@ -89,6 +126,11 @@ const ScheduleFormatModal = ({ visible, onClose, theme, accentColor }) => {
 
   const handleFormatChange = (format) => {
     setScheduleFormat(format);
+  };
+
+  const handleCourseChange = (courseId) => {
+    setSelectedCourse(courseId);
+    setDefaultGroup(''); // Сбрасываем группу при смене курса
   };
 
   const isValidTeacherName = (name) => {
@@ -183,7 +225,7 @@ const ScheduleFormatModal = ({ visible, onClose, theme, accentColor }) => {
                 <View style={styles.section}>
                   <Text style={[styles.sectionTitle, { color: textColor }]}>Группа по умолчанию</Text>
                   <Text style={[styles.sectionDescription, { color: placeholderColor }]}>
-                    Выберите группу, которая будет автоматически загружаться при открытии расписания
+                    Выберите курс и группу, которые будут автоматически загружаться при открытии расписания
                   </Text>
                   
                   {/* Выбор курса */}
@@ -199,7 +241,7 @@ const ScheduleFormatModal = ({ visible, onClose, theme, accentColor }) => {
                             borderColor: selectedCourse === courseItem.id ? colors.primary : borderColor
                           }
                         ]}
-                        onPress={() => setSelectedCourse(courseItem.id)}
+                        onPress={() => handleCourseChange(courseItem.id)}
                       >
                         <Text style={[
                           styles.courseOptionText,
@@ -214,9 +256,19 @@ const ScheduleFormatModal = ({ visible, onClose, theme, accentColor }) => {
                   {/* Список групп */}
                   <Text style={[styles.subSectionTitle, { color: textColor }]}>Выберите группу:</Text>
                   {loadingGroups ? (
-                    <ActivityIndicator size="small" color={colors.primary} />
+                    <View style={{ alignItems: 'center', padding: 20 }}>
+                      <ActivityIndicator size="small" color={colors.primary} />
+                      <Text style={{ color: placeholderColor, marginTop: 8, fontFamily: 'Montserrat_400Regular' }}>
+                        Загрузка групп...
+                      </Text>
+                    </View>
                   ) : (
-                    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.groupsScroll}>
+                    <ScrollView 
+                      horizontal 
+                      showsHorizontalScrollIndicator={false} 
+                      style={styles.groupsScroll}
+                      contentContainerStyle={{ paddingHorizontal: 4 }}
+                    >
                       {availableGroups.map((group) => (
                         <TouchableOpacity
                           key={group}
@@ -244,6 +296,15 @@ const ScheduleFormatModal = ({ visible, onClose, theme, accentColor }) => {
                     <Text style={[styles.noGroupsText, { color: placeholderColor }]}>
                       Группы не найдены для выбранного курса
                     </Text>
+                  )}
+                  
+                  {defaultGroup && (
+                    <View style={[styles.selectedInfo, { backgroundColor: colors.light }]}>
+                      <Icon name="checkmark-circle" size={16} color={colors.primary} />
+                      <Text style={[styles.selectedInfoText, { color: colors.primary }]}>
+                        Выбрана группа: {defaultGroup} ({COURSES.find(c => c.id === selectedCourse)?.label})
+                      </Text>
+                    </View>
                   )}
                 </View>
 
@@ -283,6 +344,18 @@ const ScheduleFormatModal = ({ visible, onClose, theme, accentColor }) => {
                   {!showCourseSelector && !defaultGroup && (
                     <Text style={[styles.warningText, { color: '#ef4444' }]}>
                       Для скрытия селектора необходимо выбрать группу по умолчанию
+                    </Text>
+                  )}
+
+                  {!showCourseSelector && defaultGroup && (
+                    <Text style={[styles.infoText, { color: colors.primary }]}>
+                       
+                    </Text>
+                  )}
+                  
+                  {!showCourseSelector && defaultGroup && (
+                    <Text style={[styles.infoText, { color: colors.primary }]}>
+                      При скрытом селекторе будет показано расписание для группы {defaultGroup} ({COURSES.find(c => c.id === selectedCourse)?.label})
                     </Text>
                   )}
                 </View>
@@ -456,6 +529,7 @@ const styles = StyleSheet.create({
   },
   groupsScroll: {
     marginVertical: 8,
+    minHeight: 50,
   },
   groupOption: {
     paddingHorizontal: 16,
@@ -463,6 +537,7 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     marginRight: 8,
     borderWidth: 1,
+    marginBottom: 8,
   },
   groupOptionText: {
     fontSize: 14,
@@ -474,6 +549,18 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 8,
     fontFamily: 'Montserrat_400Regular',
+  },
+  selectedInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    borderRadius: 8,
+    marginTop: 12,
+  },
+  selectedInfoText: {
+    fontSize: 14,
+    marginLeft: 8,
+    fontFamily: 'Montserrat_500Medium',
   },
   textInput: {
     borderWidth: 1,
@@ -517,6 +604,12 @@ const styles = StyleSheet.create({
     fontFamily: 'Montserrat_400Regular',
   },
   warningText: {
+    fontSize: 12,
+    marginTop: 8,
+    fontFamily: 'Montserrat_400Regular',
+    fontStyle: 'italic',
+  },
+  infoText: {
     fontSize: 12,
     marginTop: 8,
     fontFamily: 'Montserrat_400Regular',
