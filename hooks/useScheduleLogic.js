@@ -46,7 +46,7 @@ export const useScheduleLogic = () => {
     return () => unsubscribe();
   }, []);
 
-  // Загрузка групп
+  // Загрузка групп при изменении курса
   useEffect(() => {
     fetchGroupsForCourse(course);
   }, [course]);
@@ -56,7 +56,7 @@ export const useScheduleLogic = () => {
     fetchPairsTime();
   }, []);
 
-  // Загрузка расписания
+  // Загрузка расписания при изменении выбранной группы или других параметров
   useEffect(() => {
     if (selectedGroup) {
       fetchScheduleData(selectedGroup);
@@ -79,9 +79,7 @@ export const useScheduleLogic = () => {
         setCacheInfo(result);
       }
       
-      if (processedGroups.length > 0 && !selectedGroup) {
-        setSelectedGroup(processedGroups[0]);
-      }
+      console.log('Загружены группы для курса', courseId, ':', processedGroups);
       
     } catch (error) {
       console.error('Error fetching groups:', error);
@@ -114,6 +112,8 @@ export const useScheduleLogic = () => {
   };
 
   const fetchScheduleData = async (group) => {
+    if (!group) return;
+    
     setLoadingSchedule(true);
     setError(null);
     setShowCachedData(false);
@@ -140,6 +140,8 @@ export const useScheduleLogic = () => {
       } catch (notifyError) {
         console.error('Error scheduling notifications:', notifyError);
       }
+      
+      console.log('Загружено расписание для группы', group);
     } catch (error) {
       console.error('Error fetching schedule:', error);
       setError('load-error');
@@ -179,7 +181,6 @@ export const useScheduleLogic = () => {
   const processScheduleData = (result, date) => {
     if (!result || !result.data) return null;
     
-    // Добавляем информацию о текущей дате для корректной работы
     return {
       ...result.data,
       currentDate: date
