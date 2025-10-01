@@ -14,6 +14,7 @@ import {
   getCurrentLessonStyle 
 } from '../utils/scheduleUtils';
 import * as SecureStore from 'expo-secure-store';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const { width } = Dimensions.get('window');
 
@@ -25,6 +26,7 @@ const ScheduleScreen = ({ theme, accentColor }) => {
   const [loadingTeacher, setLoadingTeacher] = useState(false);
   const [showCourseSelector, setShowCourseSelector] = useState(true);
   const [defaultGroup, setDefaultGroup] = useState('');
+  const [defaultCourse, setDefaultCourse] = useState(1);
   const [isInitialized, setIsInitialized] = useState(false);
 
   // Используем хук для логики студенческого режима
@@ -48,7 +50,7 @@ const ScheduleScreen = ({ theme, accentColor }) => {
     setViewMode,
     currentDate,
     currentWeek,
-    setCurrentWeek, // ДОБАВЛЕНО
+    setCurrentWeek,
     handleRetry,
     handleViewCache,
     onRefresh,
@@ -68,16 +70,20 @@ const ScheduleScreen = ({ theme, accentColor }) => {
     loadScheduleSettings();
   }, []);
 
-  // Автоматический выбор группы по умолчанию при загрузке групп
+  // Инициализация при первом запуске - устанавливаем настройки по умолчанию только один раз
   useEffect(() => {
-    if (!isTeacherMode && defaultGroup && groups.length > 0 && !selectedGroup && !isInitialized) {
+    if (!isTeacherMode && defaultGroup && defaultCourse && groups.length > 0 && !selectedGroup && isInitialized) {
       const groupExists = groups.includes(defaultGroup);
       if (groupExists) {
         setSelectedGroup(defaultGroup);
-        setIsInitialized(true);
+        setCourse(defaultCourse);
+        console.log('Инициализация: установлена группа по умолчанию:', defaultGroup, 'курс:', defaultCourse);
+      } else if (groups.length > 0) {
+        setSelectedGroup(groups[0]);
+        console.log('Инициализация: группа по умолчанию не найдена, установлена первая группа:', groups[0]);
       }
     }
-  }, [defaultGroup, groups, isTeacherMode, selectedGroup, isInitialized]);
+  }, [defaultGroup, defaultCourse, groups, isTeacherMode, selectedGroup, isInitialized]);
 
   const loadScheduleSettings = async () => {
     try {
@@ -85,18 +91,21 @@ const ScheduleScreen = ({ theme, accentColor }) => {
       const teacher = await SecureStore.getItemAsync('teacher_name') || '';
       const showSelector = await SecureStore.getItemAsync('show_course_selector');
       const group = await SecureStore.getItemAsync('default_group') || '';
+      const savedCourse = await SecureStore.getItemAsync('default_course') || '1';
       
       setScheduleFormat(format);
       setTeacherName(teacher);
       setIsTeacherMode(format === 'teacher');
       setShowCourseSelector(showSelector !== 'false');
       setDefaultGroup(group);
+      setDefaultCourse(parseInt(savedCourse));
 
       if (format === 'teacher' && teacher) {
         fetchTeacherSchedule(teacher);
       }
       
       setIsInitialized(true);
+      console.log('Настройки расписания загружены. Группа:', group, 'Курс:', savedCourse);
     } catch (error) {
       console.error('Error loading schedule settings:', error);
       setIsInitialized(true);
@@ -125,7 +134,7 @@ const ScheduleScreen = ({ theme, accentColor }) => {
 
   const changeWeek = (weeks) => {
     const newWeek = currentWeek + weeks;
-    setCurrentWeek(newWeek); // ИСПРАВЛЕНО: используем setCurrentWeek из хука
+    setCurrentWeek(newWeek);
     
     if (isTeacherMode && teacherName) {
       fetchTeacherSchedule(teacherName, newWeek);
@@ -134,6 +143,54 @@ const ScheduleScreen = ({ theme, accentColor }) => {
 
   const changeDate = (days) => {
     navigateDate(days);
+  };
+
+  // Очистка кэша расписания при принудительном обновлении
+  const clearScheduleCache = async () => {
+    try {
+      const keys = await AsyncStorage.getAllKeys();
+      const scheduleKeys = keys.filter(key => 
+        key.startsWith('schedule_') || 
+        key.startsWith('groups_') ||
+        key.startsWith('pairs_time')
+      );
+      
+      if (scheduleKeys.length > 0) {
+        await AsyncStorage.multiRemove(scheduleKeys);
+        console.log('Кэш расписания очищен:', scheduleKeys.length, 'ключей');
+      }
+      
+      return true;
+    } catch (error) {
+      console.error('Error clearing schedule cache:', error);
+      return false;
+    }
+  };
+
+  // Улучшенная функция обновления с очисткой кэша
+  const handleRefresh = async () => {
+    if (isOnline) {
+      await clearScheduleCache();
+    }
+    
+    if (isTeacherMode && teacherName) {
+      fetchTeacherSchedule(teacherName);
+    } else {
+      onRefresh();
+    }
+  };
+
+  // Обработчик выбора группы - только меняем состояние, не сохраняем в настройки
+  const handleGroupSelect = (group) => {
+    setSelectedGroup(group);
+    console.log('Выбрана группа:', group, 'курс:', course);
+  };
+
+  // Обработчик выбора курса - только меняем состояние, не сохраняем в настройки
+  const handleCourseSelect = (courseId) => {
+    setCourse(courseId);
+    setSelectedGroup(null); // Сбрасываем выбор группы при смене курса
+    console.log('Выбран курс:', courseId);
   };
 
   const getTimeForLesson = (timeNumber) => {
@@ -454,13 +511,16 @@ const ScheduleScreen = ({ theme, accentColor }) => {
         return <ActivityIndicator size="large" color={colors.primary} />;
       }
       
-      if (scheduleData && (selectedGroup || !showCourseSelector)) {
+      if (scheduleData && selectedGroup) {
         if (viewMode === 'week' && scheduleData.days) {
           return (
             <View>
               <View style={{ alignItems: 'center', marginBottom: 16 }}>
                 <Text style={{ fontSize: 20, fontWeight: 'bold', color: textColor, fontFamily: 'Montserrat_600SemiBold' }}>
                   Расписание для {selectedGroup}
+                </Text>
+                <Text style={{ color: placeholderColor, marginTop: 4, fontFamily: 'Montserrat_400Regular' }}>
+                  {COURSES.find(c => c.id === course)?.label}
                 </Text>
                 {scheduleData.dates && (
                   <Text style={{ color: placeholderColor, marginTop: 4, fontFamily: 'Montserrat_400Regular' }}>
@@ -481,6 +541,9 @@ const ScheduleScreen = ({ theme, accentColor }) => {
                 <Text style={{ fontSize: 20, fontWeight: 'bold', color: textColor, fontFamily: 'Montserrat_600SemiBold' }}>
                   Расписание для {selectedGroup}
                 </Text>
+                <Text style={{ color: placeholderColor, marginTop: 4, fontFamily: 'Montserrat_400Regular' }}>
+                  {COURSES.find(c => c.id === course)?.label}
+                </Text>
               </View>
               {renderDailySchedule()}
             </View>
@@ -488,6 +551,14 @@ const ScheduleScreen = ({ theme, accentColor }) => {
         }
       }
       
+      if (!selectedGroup && groups.length > 0) {
+        return (
+          <Text style={{ textAlign: 'center', color: placeholderColor, marginTop: 20, fontFamily: 'Montserrat_400Regular' }}>
+            Выберите группу для отображения расписания
+          </Text>
+        );
+      }
+
       if (scheduleData && !loadingSchedule) {
         return (
           <Text style={{ textAlign: 'center', color: placeholderColor, marginTop: 20, fontFamily: 'Montserrat_400Regular' }}>
@@ -534,7 +605,7 @@ const ScheduleScreen = ({ theme, accentColor }) => {
       refreshControl={
         <RefreshControl
           refreshing={refreshing}
-          onRefresh={isTeacherMode ? () => teacherName && fetchTeacherSchedule(teacherName) : onRefresh}
+          onRefresh={handleRefresh}
           colors={[colors.primary]}
           tintColor={colors.primary}
         />
@@ -580,7 +651,7 @@ const ScheduleScreen = ({ theme, accentColor }) => {
             {COURSES.map(courseItem => (
               <TouchableOpacity
                 key={courseItem.id}
-                onPress={() => setCourse(courseItem.id)}
+                onPress={() => handleCourseSelect(courseItem.id)}
                 style={{
                   paddingVertical: 8,
                   paddingHorizontal: 16,
@@ -611,7 +682,7 @@ const ScheduleScreen = ({ theme, accentColor }) => {
               groups.map(group => (
                 <TouchableOpacity
                   key={group}
-                  onPress={() => setSelectedGroup(group)}
+                  onPress={() => handleGroupSelect(group)}
                   style={{
                     paddingVertical: 8,
                     paddingHorizontal: 16,
@@ -648,12 +719,11 @@ const ScheduleScreen = ({ theme, accentColor }) => {
         }}>
           <Icon name="information-circle-outline" size={16} color={colors.primary} />
           <Text style={{ color: colors.primary, marginLeft: 8, fontFamily: 'Montserrat_400Regular' }}>
-            Показано расписание для группы {selectedGroup}
+            Показано расписание для группы {selectedGroup} ({COURSES.find(c => c.id === course)?.label})
           </Text>
           <TouchableOpacity 
             onPress={() => {
               setShowCourseSelector(true);
-              // Сохраняем настройку
               SecureStore.setItemAsync('show_course_selector', 'true');
             }}
             style={{ marginLeft: 12 }}
