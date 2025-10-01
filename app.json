@@ -2,7 +2,7 @@
   "expo": {
     "name": "MyKHSU",
     "slug": "mykhsu",
-    "version": "2.1.3",
+    "version": "2.1.4",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
@@ -67,9 +67,9 @@
       [
         "expo-notifications",
         {
-          "icon": "./assets/notification-icon.png",
+          "icon": "./assets/notification.png",
           "color": "#ffffff",
-          "sounds": ["./assets/notification-sound.wav"]
+          "sounds": ["./assets/notification.wav"]
         }
       ]
     ],
