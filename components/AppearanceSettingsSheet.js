@@ -1,5 +1,6 @@
+// components/AppearanceSettingsSheet.js
 import React, { useState, useEffect } from 'react';
-import { View, Text, Modal, TouchableOpacity, StyleSheet, PanResponder, Animated } from 'react-native';
+import { View, Text, Modal, TouchableOpacity, ScrollView, StyleSheet } from 'react-native';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import { useColorScheme } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
@@ -7,41 +8,22 @@ import { ACCENT_COLORS } from '../utils/constants';
 
 const AppearanceSettingsSheet = ({ visible, onClose, theme, accentColor, setTheme, setAccentColor }) => {
   const systemColorScheme = useColorScheme();
-  const [panY] = useState(new Animated.Value(0));
-
+  
   const bgColor = theme === 'light' ? '#ffffff' : '#1f2937';
   const textColor = theme === 'light' ? '#111827' : '#ffffff';
+  const placeholderColor = theme === 'light' ? '#6b7280' : '#9ca3af';
+  const colors = ACCENT_COLORS[accentColor];
 
-  // Создаем PanResponder для обработки свайпа
-  const panResponder = PanResponder.create({
-    onStartShouldSetPanResponder: () => true,
-    onMoveShouldSetPanResponder: (_, gestureState) => {
-      return Math.abs(gestureState.dy) > Math.abs(gestureState.dx) && gestureState.dy > 0;
-    },
-    onPanResponderMove: (_, gestureState) => {
-      if (gestureState.dy > 0) {
-        panY.setValue(gestureState.dy);
-      }
-    },
-    onPanResponderRelease: (_, gestureState) => {
-      if (gestureState.dy > 100) {
-        onClose();
-      } else {
-        Animated.spring(panY, {
-          toValue: 0,
-          useNativeDriver: true
-        }).start();
-      }
-    }
-  });
+  const [selectedTheme, setSelectedTheme] = useState(theme);
 
   useEffect(() => {
     if (visible) {
-      panY.setValue(0);
+      setSelectedTheme(theme);
     }
-  }, [visible]);
+  }, [visible, theme]);
 
   const handleThemeChange = async (newTheme) => {
+    setSelectedTheme(newTheme);
     setTheme(newTheme);
     await SecureStore.setItemAsync('theme', newTheme);
   };
@@ -51,17 +33,7 @@ const AppearanceSettingsSheet = ({ visible, onClose, theme, accentColor, setThem
     await SecureStore.setItemAsync('accentColor', newColor);
   };
 
-  // Правильное определение эффективной темы
-  const getEffectiveTheme = () => {
-    if (theme === 'auto') return systemColorScheme || 'light';
-    return theme;
-  };
-
-  const effectiveTheme = getEffectiveTheme();
-
-  const animatedStyle = {
-    transform: [{ translateY: panY }]
-  };
+  if (!visible) return null;
 
   return (
     <Modal
@@ -71,131 +43,146 @@ const AppearanceSettingsSheet = ({ visible, onClose, theme, accentColor, setThem
       onRequestClose={onClose}
     >
       <View style={[styles.modalContainer, { backgroundColor: 'rgba(0, 0, 0, 0.5)' }]}>
-        <Animated.View 
-          style={[styles.bottomSheet, { backgroundColor: bgColor }, animatedStyle]}
-          {...panResponder.panHandlers}
-        >
-          <View style={styles.sheetHandle} />
+        <View style={[styles.modalContent, { backgroundColor: bgColor }]}>
+          <Text style={[styles.title, { color: textColor }]}>Внешний вид приложения</Text>
           
-          <Text style={[styles.sheetTitle, { color: textColor, fontFamily: 'Montserrat_600SemiBold' }]}>
-            Внешний вид приложения
-          </Text>
-          
-          <View style={styles.sheetSection}>
-            <Text style={[styles.sheetSectionTitle, { color: textColor, fontFamily: 'Montserrat_500Medium' }]}>
-              Тема
-            </Text>
-            
-            <View style={styles.sheetOptions}>
-              <TouchableOpacity
-                style={[
-                  styles.sheetOption,
-                  { 
-                    backgroundColor: theme === 'light' ? ACCENT_COLORS[accentColor].light : 'transparent',
-                    borderColor: theme === 'light' ? ACCENT_COLORS[accentColor].primary : 'transparent'
-                  }
-                ]}
-                onPress={() => handleThemeChange('light')}
-              >
-                <Icon name="sunny-outline" size={20} color={theme === 'light' ? ACCENT_COLORS[accentColor].primary : textColor} />
-                <Text style={[styles.sheetOptionText, { 
-                  color: theme === 'light' ? ACCENT_COLORS[accentColor].primary : textColor,
-                  fontFamily: 'Montserrat_400Regular' 
-                }]}>
-                  Светлая
-                </Text>
-                {theme === 'light' && <Icon name="checkmark" size={20} color={ACCENT_COLORS[accentColor].primary} />}
-              </TouchableOpacity>
+          <ScrollView style={styles.scrollView}>
+            <View style={styles.section}>
+              <Text style={[styles.sectionTitle, { color: textColor }]}>Тема</Text>
               
-              <TouchableOpacity
-                style={[
-                  styles.sheetOption,
-                  { 
-                    backgroundColor: theme === 'dark' ? ACCENT_COLORS[accentColor].light : 'transparent',
-                    borderColor: theme === 'dark' ? ACCENT_COLORS[accentColor].primary : 'transparent'
-                  }
-                ]}
-                onPress={() => handleThemeChange('dark')}
-              >
-                <Icon name="moon-outline" size={20} color={theme === 'dark' ? ACCENT_COLORS[accentColor].primary : textColor} />
-                <Text style={[styles.sheetOptionText, { 
-                  color: theme === 'dark' ? ACCENT_COLORS[accentColor].primary : textColor,
-                  fontFamily: 'Montserrat_400Regular' 
-                }]}>
-                  Темная
-                </Text>
-                {theme === 'dark' && <Icon name="checkmark" size={20} color={ACCENT_COLORS[accentColor].primary} />}
-              </TouchableOpacity>
-              
-              <TouchableOpacity
-                style={[
-                  styles.sheetOption,
-                  { 
-                    backgroundColor: theme === 'auto' ? ACCENT_COLORS[accentColor].light : 'transparent',
-                    borderColor: theme === 'auto' ? ACCENT_COLORS[accentColor].primary : 'transparent'
-                  }
-                ]}
-                onPress={() => handleThemeChange('auto')}
-              >
-                <Icon name="phone-portrait-outline" size={20} color={theme === 'auto' ? ACCENT_COLORS[accentColor].primary : textColor} />
-                <Text style={[styles.sheetOptionText, { 
-                  color: theme === 'auto' ? ACCENT_COLORS[accentColor].primary : textColor,
-                  fontFamily: 'Montserrat_400Regular' 
-                }]}>
-                  Системная ({systemColorScheme === 'dark' ? 'Тёмная' : 'Светлая'})
-                </Text>
-                {theme === 'auto' && <Icon name="checkmark" size={20} color={ACCENT_COLORS[accentColor].primary} />}
-              </TouchableOpacity>
+              <View style={styles.optionsContainer}>
+                <TouchableOpacity
+                  style={[
+                    styles.option,
+                    { 
+                      backgroundColor: selectedTheme === 'light' ? colors.light : 'transparent',
+                      borderColor: selectedTheme === 'light' ? colors.primary : '#e5e7eb'
+                    }
+                  ]}
+                  onPress={() => handleThemeChange('light')}
+                >
+                  <View style={styles.optionHeader}>
+                    <Icon 
+                      name="sunny-outline" 
+                      size={24} 
+                      color={selectedTheme === 'light' ? colors.primary : placeholderColor} 
+                    />
+                    <Text style={[
+                      styles.optionText, 
+                      { color: selectedTheme === 'light' ? colors.primary : textColor }
+                    ]}>
+                      Светлая
+                    </Text>
+                  </View>
+                  {selectedTheme === 'light' && (
+                    <Icon name="checkmark-circle" size={20} color={colors.primary} />
+                  )}
+                </TouchableOpacity>
+                
+                <TouchableOpacity
+                  style={[
+                    styles.option,
+                    { 
+                      backgroundColor: selectedTheme === 'dark' ? colors.light : 'transparent',
+                      borderColor: selectedTheme === 'dark' ? colors.primary : '#e5e7eb'
+                    }
+                  ]}
+                  onPress={() => handleThemeChange('dark')}
+                >
+                  <View style={styles.optionHeader}>
+                    <Icon 
+                      name="moon-outline" 
+                      size={24} 
+                      color={selectedTheme === 'dark' ? colors.primary : placeholderColor} 
+                    />
+                    <Text style={[
+                      styles.optionText, 
+                      { color: selectedTheme === 'dark' ? colors.primary : textColor }
+                    ]}>
+                      Темная
+                    </Text>
+                  </View>
+                  {selectedTheme === 'dark' && (
+                    <Icon name="checkmark-circle" size={20} color={colors.primary} />
+                  )}
+                </TouchableOpacity>
+                
+                <TouchableOpacity
+                  style={[
+                    styles.option,
+                    { 
+                      backgroundColor: selectedTheme === 'auto' ? colors.light : 'transparent',
+                      borderColor: selectedTheme === 'auto' ? colors.primary : '#e5e7eb'
+                    }
+                  ]}
+                  onPress={() => handleThemeChange('auto')}
+                >
+                  <View style={styles.optionHeader}>
+                    <Icon 
+                      name="phone-portrait-outline" 
+                      size={24} 
+                      color={selectedTheme === 'auto' ? colors.primary : placeholderColor} 
+                    />
+                    <View style={styles.optionTextContainer}>
+                      <Text style={[
+                        styles.optionText, 
+                        { color: selectedTheme === 'auto' ? colors.primary : textColor }
+                      ]}>
+                        Системная
+                      </Text>
+                      <Text style={[styles.optionDescription, { color: placeholderColor }]}>
+                        {systemColorScheme === 'dark' ? 'Тёмная' : 'Светлая'}
+                      </Text>
+                    </View>
+                  </View>
+                  {selectedTheme === 'auto' && (
+                    <Icon name="checkmark-circle" size={20} color={colors.primary} />
+                  )}
+                </TouchableOpacity>
+              </View>
             </View>
-          </View>
-          
-          <View style={styles.sheetSection}>
-            <Text style={[styles.sheetSectionTitle, { color: textColor, fontFamily: 'Montserrat_500Medium' }]}>
-              Акцентный цвет
-            </Text>
             
-            <View style={styles.colorOptions}>
-              <TouchableOpacity
-                style={[styles.colorOption, { backgroundColor: ACCENT_COLORS.green.primary }]}
-                onPress={() => handleAccentColorChange('green')}
-              >
-                {accentColor === 'green' && <Icon name="checkmark" size={20} color="#ffffff" />}
-              </TouchableOpacity>
+            <View style={styles.section}>
+              <Text style={[styles.sectionTitle, { color: textColor }]}>Акцентный цвет</Text>
               
-              <TouchableOpacity
-                style={[styles.colorOption, { backgroundColor: ACCENT_COLORS.blue.primary }]}
-                onPress={() => handleAccentColorChange('blue')}
-              >
-                {accentColor === 'blue' && <Icon name="checkmark" size={20} color="#ffffff" />}
-              </TouchableOpacity>
-              
-              <TouchableOpacity
-                style={[styles.colorOption, { backgroundColor: ACCENT_COLORS.purple.primary }]}
-                onPress={() => handleAccentColorChange('purple')}
-              >
-                {accentColor === 'purple' && <Icon name="checkmark" size={20} color="#ffffff" />}
-              </TouchableOpacity>
+              <View style={styles.colorOptions}>
+                <TouchableOpacity
+                  style={[styles.colorOption, { backgroundColor: ACCENT_COLORS.green.primary }]}
+                  onPress={() => handleAccentColorChange('green')}
+                >
+                  {accentColor === 'green' && <Icon name="checkmark" size={20} color="#ffffff" />}
+                </TouchableOpacity>
+                
+                <TouchableOpacity
+                  style={[styles.colorOption, { backgroundColor: ACCENT_COLORS.blue.primary }]}
+                  onPress={() => handleAccentColorChange('blue')}
+                >
+                  {accentColor === 'blue' && <Icon name="checkmark" size={20} color="#ffffff" />}
+                </TouchableOpacity>
+                
+                <TouchableOpacity
+                  style={[styles.colorOption, { backgroundColor: ACCENT_COLORS.purple.primary }]}
+                  onPress={() => handleAccentColorChange('purple')}
+                >
+                  {accentColor === 'purple' && <Icon name="checkmark" size={20} color="#ffffff" />}
+                </TouchableOpacity>
+              </View>
             </View>
 
-            <View style={styles.sheetSection}>
-                <Text style={[styles.sheetSectionTitle, { color: textColor, fontFamily: 'Montserrat_500Medium' }]}>
-                 
-                </Text>
-                <Text style={[styles.sheetSectionTitle, { color: textColor, fontFamily: 'Montserrat_500Medium' }]}>
+            <View style={styles.infoSection}>
+              <Text style={[styles.infoText, { color: placeholderColor }]}>
                 Внимание! Настройки оформления применяются автоматически
-                </Text>
+              </Text>
             </View>
-          </View>
-          
+          </ScrollView>
+
           <TouchableOpacity
-            style={[styles.sheetButton, { backgroundColor: ACCENT_COLORS[accentColor].primary }]}
+            style={[styles.closeButton, { backgroundColor: colors.primary }]}
             onPress={onClose}
           >
-            <Text style={[styles.sheetButtonText, { color: '#ffffff', fontFamily: 'Montserrat_600SemiBold' }]}>
-              Закрыть
-            </Text>
+            <Text style={styles.closeButtonText}>Закрыть</Text>
           </TouchableOpacity>
-        </Animated.View>
+        </View>
       </View>
     </Modal>
   );
@@ -204,59 +191,66 @@ const AppearanceSettingsSheet = ({ visible, onClose, theme, accentColor, setThem
 const styles = StyleSheet.create({
   modalContainer: {
     flex: 1,
-    justifyContent: 'flex-end',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
   },
-  bottomSheet: {
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
-    paddingHorizontal: 16,
-    paddingBottom: 32,
-    paddingTop: 16,
+  modalContent: {
+    width: '100%',
+    borderRadius: 16,
+    padding: 20,
     maxHeight: '80%',
   },
-  sheetHandle: {
-    width: 40,
-    height: 4,
-    backgroundColor: '#9ca3af',
-    borderRadius: 2,
-    alignSelf: 'center',
-    marginBottom: 16,
-  },
-  sheetTitle: {
+  title: {
     fontSize: 20,
     fontWeight: 'bold',
-    marginBottom: 24,
+    marginBottom: 20,
     textAlign: 'center',
+    fontFamily: 'Montserrat_600SemiBold',
   },
-  sheetSection: {
+  scrollView: {
+    maxHeight: 400,
+  },
+  section: {
     marginBottom: 24,
   },
-  sheetSectionTitle: {
+  sectionTitle: {
     fontSize: 16,
     fontWeight: '600',
     marginBottom: 12,
+    fontFamily: 'Montserrat_600SemiBold',
   },
-  sheetOptions: {
-    borderRadius: 12,
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: '#e5e7eb',
+  optionsContainer: {
+    gap: 8,
   },
-  sheetOption: {
+  option: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
     padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f3f4f6',
+    borderRadius: 12,
+    borderWidth: 1,
   },
-  sheetOptionText: {
-    flex: 1,
+  optionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  optionTextContainer: {
     marginLeft: 12,
+  },
+  optionText: {
     fontSize: 16,
+    fontFamily: 'Montserrat_500Medium',
+  },
+  optionDescription: {
+    fontSize: 12,
+    fontFamily: 'Montserrat_400Regular',
+    marginTop: 2,
   },
   colorOptions: {
     flexDirection: 'row',
     justifyContent: 'space-around',
+    paddingHorizontal: 20,
   },
   colorOption: {
     width: 44,
@@ -265,15 +259,29 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  sheetButton: {
+  infoSection: {
+    marginTop: 16,
+    padding: 12,
+    borderRadius: 8,
+    backgroundColor: 'rgba(0, 0, 0, 0.05)',
+    alignItems: 'center',
+  },
+  infoText: {
+    fontSize: 12,
+    fontFamily: 'Montserrat_400Regular',
+    textAlign: 'center',
+  },
+  closeButton: {
     borderRadius: 12,
     padding: 16,
     alignItems: 'center',
-    marginTop: 8,
+    marginTop: 20,
   },
-  sheetButtonText: {
+  closeButtonText: {
+    color: '#ffffff',
     fontSize: 16,
     fontWeight: '600',
+    fontFamily: 'Montserrat_600SemiBold',
   },
 });
 
