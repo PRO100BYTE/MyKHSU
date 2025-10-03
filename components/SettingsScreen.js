@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, Alert, StyleSheet } from 'react-native';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as SecureStore from 'expo-secure-store';
 import * as WebBrowser from 'expo-web-browser';
 import * as Linking from 'expo-linking';
 import AppearanceSettingsSheet from './AppearanceSettingsSheet';
@@ -10,18 +11,54 @@ import NotificationSettingsModal from './NotificationSettingsModal';
 import ScheduleFormatModal from './ScheduleFormatModal';
 import { ACCENT_COLORS, APP_VERSION, APP_DEVELOPERS, APP_SUPPORTERS, GITHUB_REPO_URL, BUILD_VER, BUILD_DATE } from '../utils/constants';
 
-const SettingsScreen = ({ theme, accentColor, setTheme, setAccentColor }) => {
+const SettingsScreen = ({ theme, accentColor, setTheme, setAccentColor, onScheduleSettingsChange }) => {
   const [appearanceSheetVisible, setAppearanceSheetVisible] = useState(false);
   const [aboutModalVisible, setAboutModalVisible] = useState(false);
   const [notificationModalVisible, setNotificationModalVisible] = useState(false);
   const [scheduleFormatModalVisible, setScheduleFormatModalVisible] = useState(false);
   const [currentGroups, setCurrentGroups] = useState([]);
+  const [scheduleSettings, setScheduleSettings] = useState(null);
 
   const bgColor = theme === 'light' ? '#f3f4f6' : '#111827';
   const cardBg = theme === 'light' ? '#ffffff' : '#1f2937';
   const textColor = theme === 'light' ? '#111827' : '#ffffff';
   const placeholderColor = theme === 'light' ? '#6b7280' : '#9ca3af';
   const colors = ACCENT_COLORS[accentColor];
+
+  // Загружаем настройки при монтировании
+  useEffect(() => {
+    loadScheduleSettings();
+  }, []);
+
+  const loadScheduleSettings = async () => {
+    try {
+      const format = await SecureStore.getItemAsync('schedule_format') || 'student';
+      const group = await SecureStore.getItemAsync('default_group') || '';
+      const course = await SecureStore.getItemAsync('default_course') || '1';
+      const teacher = await SecureStore.getItemAsync('teacher_name') || '';
+      const showSelector = await SecureStore.getItemAsync('show_course_selector') !== 'false';
+      
+      setScheduleSettings({
+        format,
+        group,
+        course: parseInt(course),
+        teacher,
+        showSelector
+      });
+    } catch (error) {
+      console.error('Error loading schedule settings:', error);
+    }
+  };
+
+  const handleScheduleSettingsChange = (newSettings) => {
+    setScheduleSettings(newSettings);
+    console.log('Schedule settings updated in SettingsScreen:', newSettings);
+    
+    // Передаем изменения в родительский компонент для немедленного применения
+    if (onScheduleSettingsChange) {
+      onScheduleSettingsChange(newSettings);
+    }
+  };
 
   const clearAppCache = () => {
     Alert.alert(
@@ -291,6 +328,7 @@ const SettingsScreen = ({ theme, accentColor, setTheme, setAccentColor }) => {
         theme={theme}
         accentColor={accentColor}
         currentGroups={currentGroups}
+        onSettingsChange={handleScheduleSettingsChange}
       />
     </ScrollView>
   );
