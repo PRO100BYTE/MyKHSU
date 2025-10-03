@@ -40,8 +40,7 @@
           "apiKey": "YOUR_GOOGLE_MAPS_API_KEY_OPTIONAL"
         }
       },
-      "allowBackup": true,
-      "usesCleartextTraffic": true
+      "allowBackup": true
     },
     "web": {
       "favicon": "./assets/favicon.png"
