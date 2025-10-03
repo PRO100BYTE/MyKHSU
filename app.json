@@ -2,7 +2,7 @@
   "expo": {
     "name": "MyKHSU",
     "slug": "mykhsu",
-    "version": "2.1.5",
+    "version": "2.1.6",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
