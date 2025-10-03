@@ -6,7 +6,9 @@
   "build": {
     "development": {
       "developmentClient": true,
-      "distribution": "internal"
+      "distribution": "internal",
+      "gradleCommand": ":app:assembleDebug",
+      "buildType": "debug"
     },
     "preview": {
       "distribution": "internal"
