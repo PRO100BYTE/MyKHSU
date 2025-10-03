@@ -1,4 +1,3 @@
-// components/ScheduleScreen.js
 import React, { useState, useEffect } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, StyleSheet, Dimensions, RefreshControl } from 'react-native';
 import { Ionicons as Icon } from '@expo/vector-icons';
@@ -18,16 +17,23 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const { width } = Dimensions.get('window');
 
-const ScheduleScreen = ({ theme, accentColor }) => {
-  const [scheduleFormat, setScheduleFormat] = useState('student');
-  const [teacherName, setTeacherName] = useState('');
+const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings, onSettingsUpdate }) => {
+  // Локальное состояние настроек, которое может обновляться извне
+  const [scheduleSettings, setScheduleSettings] = useState(
+    externalSettings || {
+      format: 'student',
+      group: '',
+      course: 1,
+      teacher: '',
+      showSelector: true
+    }
+  );
+  
   const [isTeacherMode, setIsTeacherMode] = useState(false);
   const [teacherSchedule, setTeacherSchedule] = useState(null);
   const [loadingTeacher, setLoadingTeacher] = useState(false);
-  const [showCourseSelector, setShowCourseSelector] = useState(true);
-  const [defaultGroup, setDefaultGroup] = useState('');
-  const [defaultCourse, setDefaultCourse] = useState(1);
   const [isInitialized, setIsInitialized] = useState(false);
+  const [forceUpdate, setForceUpdate] = useState(0);
 
   // Используем хук для логики студенческого режима
   const {
@@ -65,25 +71,112 @@ const ScheduleScreen = ({ theme, accentColor }) => {
   const borderColor = theme === 'light' ? '#e5e7eb' : '#374151';
   const placeholderColor = theme === 'light' ? '#6b7280' : '#9ca3af';
 
+  // Обновляем состояние при получении новых настроек извне
+  useEffect(() => {
+    if (externalSettings) {
+      console.log('Получены новые настройки извне:', externalSettings);
+      setScheduleSettings(externalSettings);
+      applySettingsImmediately(externalSettings);
+    }
+  }, [externalSettings]);
+
   // Загрузка настроек при монтировании
   useEffect(() => {
-    loadScheduleSettings();
+    if (!externalSettings) {
+      loadScheduleSettings();
+    }
   }, []);
 
-  // Инициализация при первом запуске - устанавливаем настройки по умолчанию только один раз
-  useEffect(() => {
-    if (!isTeacherMode && defaultGroup && defaultCourse && groups.length > 0 && !selectedGroup && isInitialized) {
-      const groupExists = groups.includes(defaultGroup);
-      if (groupExists) {
-        setSelectedGroup(defaultGroup);
-        setCourse(defaultCourse);
-        console.log('Инициализация: установлена группа по умолчанию:', defaultGroup, 'курс:', defaultCourse);
-      } else if (groups.length > 0) {
-        setSelectedGroup(groups[0]);
-        console.log('Инициализация: группа по умолчанию не найдена, установлена первая группа:', groups[0]);
+  // Применяем настройки немедленно
+  const applySettingsImmediately = (settings) => {
+    console.log('Немедленное применение настроек:', settings);
+    
+    setIsTeacherMode(settings.format === 'teacher');
+    
+    if (settings.format === 'student') {
+      // Устанавливаем курс из настроек
+      setCourse(settings.course);
+      
+      // Если селектор скрыт и есть группа по умолчанию, устанавливаем её
+      if (!settings.showSelector && settings.group) {
+        setSelectedGroup(settings.group);
+        console.log('Немедленно установлена группа по умолчанию:', settings.group);
       }
+    } else if (settings.format === 'teacher' && settings.teacher) {
+      fetchTeacherSchedule(settings.teacher);
     }
-  }, [defaultGroup, defaultCourse, groups, isTeacherMode, selectedGroup, isInitialized]);
+    
+    // Форсируем обновление компонента
+    setForceUpdate(prev => prev + 1);
+  };
+
+  // Инициализация состояния на основе настроек
+  useEffect(() => {
+    if (isInitialized && scheduleSettings) {
+      console.log('Инициализация состояния:', scheduleSettings);
+      applySettingsImmediately(scheduleSettings);
+    }
+  }, [isInitialized, scheduleSettings]);
+
+  // Обработка выбора группы - принудительно сохраняем в настройки
+  const handleGroupSelect = async (group) => {
+    setSelectedGroup(group);
+    console.log('Выбрана группа:', group, 'курс:', course);
+    
+    // Сохраняем выбор группы в настройки
+    try {
+      await SecureStore.setItemAsync('default_group', group);
+      await SecureStore.setItemAsync('default_course', course.toString());
+      
+      // Обновляем локальное состояние
+      const newSettings = {
+        ...scheduleSettings,
+        group: group,
+        course: course
+      };
+      
+      setScheduleSettings(newSettings);
+      
+      // Уведомляем родительский компонент об изменении настроек
+      if (onSettingsUpdate) {
+        onSettingsUpdate(newSettings);
+      }
+      
+      console.log('Группа сохранена в настройки:', group, 'курс:', course);
+    } catch (error) {
+      console.error('Ошибка сохранения группы:', error);
+    }
+  };
+
+  // Обработка выбора курса - принудительно сохраняем в настройки
+  const handleCourseSelect = async (courseId) => {
+    setCourse(courseId);
+    setSelectedGroup(null); // Сбрасываем выбор группы при смене курса
+    
+    // Сохраняем выбор курса в настройки
+    try {
+      await SecureStore.setItemAsync('default_course', courseId.toString());
+      await SecureStore.setItemAsync('default_group', ''); // Сбрасываем группу
+      
+      // Обновляем локальное состояние
+      const newSettings = {
+        ...scheduleSettings,
+        course: courseId,
+        group: ''
+      };
+      
+      setScheduleSettings(newSettings);
+      
+      // Уведомляем родительский компонент об изменении настроек
+      if (onSettingsUpdate) {
+        onSettingsUpdate(newSettings);
+      }
+      
+      console.log('Курс сохранен в настройки:', courseId);
+    } catch (error) {
+      console.error('Ошибка сохранения курса:', error);
+    }
+  };
 
   const loadScheduleSettings = async () => {
     try {
@@ -93,19 +186,19 @@ const ScheduleScreen = ({ theme, accentColor }) => {
       const group = await SecureStore.getItemAsync('default_group') || '';
       const savedCourse = await SecureStore.getItemAsync('default_course') || '1';
       
-      setScheduleFormat(format);
-      setTeacherName(teacher);
-      setIsTeacherMode(format === 'teacher');
-      setShowCourseSelector(showSelector !== 'false');
-      setDefaultGroup(group);
-      setDefaultCourse(parseInt(savedCourse));
-
-      if (format === 'teacher' && teacher) {
-        fetchTeacherSchedule(teacher);
-      }
+      const settings = {
+        format: format,
+        group: group,
+        course: parseInt(savedCourse),
+        teacher: teacher,
+        showSelector: showSelector !== 'false'
+      };
       
+      setScheduleSettings(settings);
+      setIsTeacherMode(format === 'teacher');
       setIsInitialized(true);
-      console.log('Настройки расписания загружены. Группа:', group, 'Курс:', savedCourse);
+      
+      console.log('Настройки расписания загружены:', settings);
     } catch (error) {
       console.error('Error loading schedule settings:', error);
       setIsInitialized(true);
@@ -136,8 +229,8 @@ const ScheduleScreen = ({ theme, accentColor }) => {
     const newWeek = currentWeek + weeks;
     setCurrentWeek(newWeek);
     
-    if (isTeacherMode && teacherName) {
-      fetchTeacherSchedule(teacherName, newWeek);
+    if (isTeacherMode && scheduleSettings.teacher) {
+      fetchTeacherSchedule(scheduleSettings.teacher, newWeek);
     }
   };
 
@@ -167,31 +260,55 @@ const ScheduleScreen = ({ theme, accentColor }) => {
     }
   };
 
+  // Очистка кэша расписания преподавателя
+  const clearTeacherScheduleCache = async () => {
+    try {
+      const keys = await AsyncStorage.getAllKeys();
+      const teacherKeys = keys.filter(key => key.startsWith('teacher_schedule_'));
+      
+      if (teacherKeys.length > 0) {
+        await AsyncStorage.multiRemove(teacherKeys);
+        console.log('Кэш расписания преподавателей очищен:', teacherKeys.length, 'ключей');
+      }
+      
+      return true;
+    } catch (error) {
+      console.error('Error clearing teacher schedule cache:', error);
+      return false;
+    }
+  };
+
   // Улучшенная функция обновления с очисткой кэша
   const handleRefresh = async () => {
     if (isOnline) {
-      await clearScheduleCache();
+      if (isTeacherMode) {
+        await clearTeacherScheduleCache();
+      } else {
+        await clearScheduleCache();
+      }
     }
     
-    if (isTeacherMode && teacherName) {
-      fetchTeacherSchedule(teacherName);
+    if (isTeacherMode && scheduleSettings.teacher) {
+      fetchTeacherSchedule(scheduleSettings.teacher);
     } else {
       onRefresh();
     }
   };
 
-  // Обработчик выбора группы - только меняем состояние, не сохраняем в настройки
-  const handleGroupSelect = (group) => {
-    setSelectedGroup(group);
-    console.log('Выбрана группа:', group, 'курс:', course);
-  };
-
-  // Обработчик выбора курса - только меняем состояние, не сохраняем в настройки
-  const handleCourseSelect = (courseId) => {
-    setCourse(courseId);
-    setSelectedGroup(null); // Сбрасываем выбор группы при смене курса
-    console.log('Выбран курс:', courseId);
-  };
+  // Автоматический выбор группы при загрузке групп
+  useEffect(() => {
+    if (groups.length > 0 && scheduleSettings.group && !selectedGroup && isInitialized) {
+      const groupExists = groups.includes(scheduleSettings.group);
+      if (groupExists) {
+        setSelectedGroup(scheduleSettings.group);
+        console.log('Автоматически выбрана группа из настроек:', scheduleSettings.group);
+      } else if (groups.length > 0 && !scheduleSettings.showSelector) {
+        // Если группа не найдена, но селектор скрыт, выбираем первую доступную
+        setSelectedGroup(groups[0]);
+        console.log('Группа из настроек не найдена, выбрана первая доступная:', groups[0]);
+      }
+    }
+  }, [groups, scheduleSettings, selectedGroup, isInitialized, forceUpdate]);
 
   const getTimeForLesson = (timeNumber) => {
     if (!pairsTime || !Array.isArray(pairsTime)) return null;
@@ -391,7 +508,7 @@ const ScheduleScreen = ({ theme, accentColor }) => {
             Расписание преподавателя
           </Text>
           <Text style={{ color: colors.primary, marginTop: 4, fontFamily: 'Montserrat_500Medium' }}>
-            {teacherName}
+            {scheduleSettings.teacher}
           </Text>
         </View>
       );
@@ -433,7 +550,7 @@ const ScheduleScreen = ({ theme, accentColor }) => {
     }
     
     // Студенческий режим
-    if (selectedGroup || showCourseSelector) {
+    if (selectedGroup || scheduleSettings.showSelector) {
       return (
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
           <View style={{ flexDirection: 'row', backgroundColor: cardBg, borderRadius: 8, padding: 4 }}>
@@ -501,7 +618,7 @@ const ScheduleScreen = ({ theme, accentColor }) => {
             )
           ) : (
             <Text style={{ textAlign: 'center', color: placeholderColor, marginTop: 20, fontFamily: 'Montserrat_400Regular' }}>
-              {teacherName ? 'Расписание не найдено' : 'Укажите ФИО преподавателя в настройках'}
+              {scheduleSettings.teacher ? 'Расписание не найдено' : 'Укажите ФИО преподавателя в настройках'}
             </Text>
           )}
         </View>
@@ -567,10 +684,10 @@ const ScheduleScreen = ({ theme, accentColor }) => {
         );
       }
 
-      if (!showCourseSelector && !selectedGroup && defaultGroup) {
+      if (!scheduleSettings.showSelector && !selectedGroup && scheduleSettings.group) {
         return (
           <Text style={{ textAlign: 'center', color: placeholderColor, marginTop: 20, fontFamily: 'Montserrat_400Regular' }}>
-            Загрузка расписания для группы {defaultGroup}...
+            Загрузка расписания для группы {scheduleSettings.group}...
           </Text>
         );
       }
@@ -586,7 +703,7 @@ const ScheduleScreen = ({ theme, accentColor }) => {
         <ConnectionError 
           type={error}
           loading={false}
-          onRetry={isTeacherMode ? () => teacherName && fetchTeacherSchedule(teacherName) : handleRetry}
+          onRetry={isTeacherMode ? () => scheduleSettings.teacher && fetchTeacherSchedule(scheduleSettings.teacher) : handleRetry}
           onViewCache={handleViewCache}
           showCacheButton={!!scheduleData}
           cacheAvailable={!!scheduleData}
@@ -635,7 +752,7 @@ const ScheduleScreen = ({ theme, accentColor }) => {
       {renderControls()}
       
       {/* Студенческий режим: кнопки курса и групп (только если включен селектор) */}
-      {!isTeacherMode && showCourseSelector && (
+      {!isTeacherMode && scheduleSettings.showSelector && (
         <>
           {/* Кнопки выбора курса */}
           <View style={{ 
@@ -707,7 +824,7 @@ const ScheduleScreen = ({ theme, accentColor }) => {
       )}
 
       {/* Информация о скрытом селекторе */}
-      {!isTeacherMode && !showCourseSelector && selectedGroup && (
+      {!isTeacherMode && !scheduleSettings.showSelector && selectedGroup && (
         <View style={{ 
           backgroundColor: colors.light, 
           padding: 12, 
@@ -719,12 +836,18 @@ const ScheduleScreen = ({ theme, accentColor }) => {
         }}>
           <Icon name="information-circle-outline" size={16} color={colors.primary} />
           <Text style={{ color: colors.primary, marginLeft: 8, fontFamily: 'Montserrat_400Regular' }}>
-            Показано расписание для группы {selectedGroup} ({COURSES.find(c => c.id === course)?.label})
+            Показано расписание для группы {selectedGroup}
           </Text>
           <TouchableOpacity 
             onPress={() => {
-              setShowCourseSelector(true);
-              SecureStore.setItemAsync('show_course_selector', 'true');
+              // Временно показываем селектор, но не сохраняем в настройки
+              const newSettings = { ...scheduleSettings, showSelector: true };
+              setScheduleSettings(newSettings);
+              
+              // Уведомляем родительский компонент
+              if (onSettingsUpdate) {
+                onSettingsUpdate(newSettings);
+              }
             }}
             style={{ marginLeft: 12 }}
           >
