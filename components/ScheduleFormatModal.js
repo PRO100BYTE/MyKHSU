@@ -5,10 +5,10 @@ import * as SecureStore from 'expo-secure-store';
 import { ACCENT_COLORS, COURSES } from '../utils/constants';
 import ApiService from '../utils/api';
 
-const ScheduleFormatModal = ({ visible, onClose, theme, accentColor }) => {
+const ScheduleFormatModal = ({ visible, onClose, theme, accentColor, onSettingsChange }) => {
   const [scheduleFormat, setScheduleFormat] = useState('student');
   const [defaultGroup, setDefaultGroup] = useState('');
-  const [defaultCourse, setDefaultCourse] = useState(1); // Добавлено состояние для курса
+  const [defaultCourse, setDefaultCourse] = useState(1);
   const [teacherName, setTeacherName] = useState('');
   const [availableGroups, setAvailableGroups] = useState([]);
   const [selectedCourse, setSelectedCourse] = useState(1);
@@ -38,13 +38,13 @@ const ScheduleFormatModal = ({ visible, onClose, theme, accentColor }) => {
     try {
       const savedFormat = await SecureStore.getItemAsync('schedule_format');
       const savedGroup = await SecureStore.getItemAsync('default_group');
-      const savedCourse = await SecureStore.getItemAsync('default_course'); // Загружаем курс
+      const savedCourse = await SecureStore.getItemAsync('default_course');
       const savedTeacher = await SecureStore.getItemAsync('teacher_name');
       const savedShowSelector = await SecureStore.getItemAsync('show_course_selector');
       
       if (savedFormat) setScheduleFormat(savedFormat);
       if (savedGroup) setDefaultGroup(savedGroup);
-      if (savedCourse) setDefaultCourse(parseInt(savedCourse)); // Устанавливаем сохраненный курс
+      if (savedCourse) setDefaultCourse(parseInt(savedCourse));
       if (savedTeacher) setTeacherName(savedTeacher);
       if (savedShowSelector !== null) setShowCourseSelector(savedShowSelector === 'true');
       
@@ -105,7 +105,7 @@ const ScheduleFormatModal = ({ visible, onClose, theme, accentColor }) => {
 
       await SecureStore.setItemAsync('schedule_format', scheduleFormat);
       await SecureStore.setItemAsync('default_group', defaultGroup);
-      await SecureStore.setItemAsync('default_course', selectedCourse.toString()); // Сохраняем курс
+      await SecureStore.setItemAsync('default_course', selectedCourse.toString());
       await SecureStore.setItemAsync('teacher_name', teacherName.trim());
       await SecureStore.setItemAsync('show_course_selector', showCourseSelector.toString());
       
@@ -115,6 +115,17 @@ const ScheduleFormatModal = ({ visible, onClose, theme, accentColor }) => {
         course: selectedCourse,
         teacher: teacherName.trim() 
       });
+      
+      // Вызываем колбэк для передачи новых настроек
+      if (onSettingsChange) {
+        onSettingsChange({
+          format: scheduleFormat,
+          group: defaultGroup,
+          course: selectedCourse,
+          teacher: teacherName.trim(),
+          showSelector: showCourseSelector
+        });
+      }
       
       Alert.alert('Успех', 'Настройки расписания сохранены');
       onClose();
@@ -347,12 +358,6 @@ const ScheduleFormatModal = ({ visible, onClose, theme, accentColor }) => {
                     </Text>
                   )}
 
-                  {!showCourseSelector && defaultGroup && (
-                    <Text style={[styles.infoText, { color: colors.primary }]}>
-                       
-                    </Text>
-                  )}
-                  
                   {!showCourseSelector && defaultGroup && (
                     <Text style={[styles.infoText, { color: colors.primary }]}>
                       При скрытом селекторе будет показано расписание для группы {defaultGroup} ({COURSES.find(c => c.id === selectedCourse)?.label})
