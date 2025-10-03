@@ -7,8 +7,10 @@
     "development": {
       "developmentClient": true,
       "distribution": "internal",
-      "gradleCommand": ":app:assembleDebug",
-      "buildType": "debug"
+      "android": {
+        "gradleCommand": ":app:assembleDebug",
+        "buildType": "apk"
+      }      
     },
     "preview": {
       "distribution": "internal"
