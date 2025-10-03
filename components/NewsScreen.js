@@ -1,4 +1,3 @@
-// components/NewsScreen.js
 import React, { useState, useEffect } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, StyleSheet, RefreshControl } from 'react-native';
 import { Ionicons as Icon } from '@expo/vector-icons';
