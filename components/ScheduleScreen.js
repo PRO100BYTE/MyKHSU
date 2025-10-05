@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, StyleSheet, Dimensions, RefreshControl } from 'react-native';
+import React, { useState, useEffect, useRef } from 'react';
+import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, StyleSheet, Dimensions, RefreshControl, Animated } from 'react-native';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import { getWeekNumber, formatDate, getDateByWeekAndDay } from '../utils/dateUtils';
 import { ACCENT_COLORS, COURSES } from '../utils/constants';
@@ -22,6 +22,10 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
   const [teacherSchedule, setTeacherSchedule] = useState(null);
   const [loadingTeacher, setLoadingTeacher] = useState(false);
   const [showCourseSelector, setShowCourseSelector] = useState(true);
+  const [teacherName, setTeacherName] = useState('');
+  
+  // Анимация появления
+  const fadeAnim = useRef(new Animated.Value(0)).current;
 
   // Используем хук для логики студенческого режима
   const {
@@ -52,6 +56,15 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
     setError
   } = useScheduleLogic();
 
+  // Запуск анимации при монтировании
+  useEffect(() => {
+    Animated.timing(fadeAnim, {
+      toValue: 1,
+      duration: 300,
+      useNativeDriver: true,
+    }).start();
+  }, []);
+
   const bgColor = theme === 'light' ? '#f3f4f6' : '#111827';
   const cardBg = theme === 'light' ? '#ffffff' : '#1f2937';
   const textColor = theme === 'light' ? '#111827' : '#ffffff';
@@ -75,11 +88,26 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
     try {
       const format = await SecureStore.getItemAsync('schedule_format') || 'student';
       const showSelector = await SecureStore.getItemAsync('show_course_selector');
+      const teacher = await SecureStore.getItemAsync('teacher_name') || '';
+      
+      // Явно преобразуем строку в boolean
+      const shouldShowSelector = showSelector !== 'false';
       
       setIsTeacherMode(format === 'teacher');
-      setShowCourseSelector(showSelector !== 'false');
+      setShowCourseSelector(shouldShowSelector);
+      setTeacherName(teacher);
       
-      console.log('Настройки расписания загружены:', { format, showSelector });
+      console.log('Настройки расписания загружены:', { 
+        format, 
+        showSelector, 
+        shouldShowSelector, 
+        teacher 
+      });
+      
+      // Если режим преподавателя и есть ФИО, загружаем расписание
+      if (format === 'teacher' && teacher) {
+        fetchTeacherSchedule(teacher);
+      }
     } catch (error) {
       console.error('Error loading schedule settings:', error);
     }
@@ -89,7 +117,8 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
     console.log('Применение внешних настроек:', settings);
     
     setIsTeacherMode(settings.format === 'teacher');
-    setShowCourseSelector(settings.showSelector);
+    setShowCourseSelector(settings.showSelector !== false); // Явно проверяем на false
+    setTeacherName(settings.teacher || '');
     
     if (settings.format === 'teacher' && settings.teacher) {
       fetchTeacherSchedule(settings.teacher);
@@ -154,14 +183,19 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
   };
 
   const fetchTeacherSchedule = async (teacher, week = null) => {
-    if (!teacher) return;
+    if (!teacher) {
+      console.log('ФИО преподавателя не указано');
+      return;
+    }
     
     setLoadingTeacher(true);
     setError(null);
     try {
+      console.log('Загрузка расписания для преподавателя:', teacher, 'неделя:', week || currentWeek);
       const result = await ApiService.getTeacherSchedule(teacher, week || currentWeek);
       if (result.data) {
         setTeacherSchedule(result.data);
+        console.log('Расписание преподавателя загружено:', result.data);
       } else {
         throw new Error('INVALID_RESPONSE');
       }
@@ -177,8 +211,8 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
     const newWeek = currentWeek + weeks;
     setCurrentWeek(newWeek);
     
-    if (isTeacherMode && externalSettings && externalSettings.teacher) {
-      fetchTeacherSchedule(externalSettings.teacher, newWeek);
+    if (isTeacherMode && teacherName) {
+      fetchTeacherSchedule(teacherName, newWeek);
     }
   };
 
@@ -236,8 +270,8 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
       }
     }
     
-    if (isTeacherMode && externalSettings && externalSettings.teacher) {
-      fetchTeacherSchedule(externalSettings.teacher);
+    if (isTeacherMode && teacherName) {
+      fetchTeacherSchedule(teacherName);
     } else {
       onRefresh();
     }
@@ -323,6 +357,16 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
                     Аудитория: {lesson.auditory}
                   </Text>
                 </View>
+
+                {/* Блок с группами - отображается только в режиме преподавателя */}
+                {isTeacherMode && lesson.group && Array.isArray(lesson.group) && lesson.group.length > 0 && (
+                  <View style={{ flexDirection: 'row', alignItems: 'flex-start', marginTop: 4 }}>
+                    <Icon name="people-outline" size={14} color={placeholderColor} style={{ marginTop: 2 }} />
+                    <Text style={{ color: textColor, marginLeft: 8, fontSize: 14, fontFamily: 'Montserrat_400Regular', flex: 1 }}>
+                      Группы: {lesson.group.join(', ')}
+                    </Text>
+                  </View>
+                )}
                 
                 {pairTime && (
                   <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
@@ -441,7 +485,7 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
             Расписание преподавателя
           </Text>
           <Text style={{ color: colors.primary, marginTop: 4, fontFamily: 'Montserrat_500Medium' }}>
-            {externalSettings?.teacher || 'ФИО не указано'}
+            {teacherName || 'ФИО не указано'}
           </Text>
         </View>
       );
@@ -551,7 +595,7 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
             )
           ) : (
             <Text style={{ textAlign: 'center', color: placeholderColor, marginTop: 20, fontFamily: 'Montserrat_400Regular' }}>
-              {externalSettings?.teacher ? 'Расписание не найдено' : 'Укажите ФИО преподавателя в настройках'}
+              {teacherName ? 'Расписание не найдено' : 'Укажите ФИО преподавателя в настройках'}
             </Text>
           )}
         </View>
@@ -632,11 +676,11 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
   // Обработка ошибок
   if (error && !loadingGroups && !loadingSchedule && !loadingTeacher) {
     return (
-      <View style={{ flex: 1, backgroundColor: bgColor }}>
+      <Animated.View style={{ flex: 1, backgroundColor: bgColor, opacity: fadeAnim }}>
         <ConnectionError 
           type={error}
           loading={false}
-          onRetry={isTeacherMode ? () => externalSettings?.teacher && fetchTeacherSchedule(externalSettings.teacher) : handleRetry}
+          onRetry={isTeacherMode ? () => teacherName && fetchTeacherSchedule(teacherName) : handleRetry}
           onViewCache={handleViewCache}
           showCacheButton={!!scheduleData}
           cacheAvailable={!!scheduleData}
@@ -645,166 +689,178 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
           contentType="schedule"
           message={error === 'NO_INTERNET' ? 'Расписание недоступно без подключения к интернету' : 'Не удалось загрузить расписание'}
         />
-      </View>
+      </Animated.View>
     );
   }
 
   return (
-    <ScrollView 
-      style={{ flex: 1, backgroundColor: bgColor, padding: 16 }}
-      refreshControl={
-        <RefreshControl
-          refreshing={refreshing}
-          onRefresh={handleRefresh}
-          colors={[colors.primary]}
-          tintColor={colors.primary}
-        />
-      }
-    >
-      {showCachedData && (
-        <View style={{ 
-          backgroundColor: colors.light, 
-          padding: 12, 
-          borderRadius: 8,
-          alignItems: 'center',
-          flexDirection: 'row',
-          justifyContent: 'center',
-          marginBottom: 16
-        }}>
-          <Icon name="time-outline" size={16} color={colors.primary} />
-          <Text style={{ color: colors.primary, marginLeft: 8, fontFamily: 'Montserrat_400Regular' }}>
-            {cacheInfo?.source === 'stale_cache' ? 'Показаны ранее загруженные данные' : 'Показаны кэшированные данные'}
-          </Text>
-        </View>
-      )}
-      
-      {/* Заголовок */}
-      {renderHeader()}
-
-      {/* Управление */}
-      {renderControls()}
-      
-      {/* Студенческий режим: кнопки курса и групп (только если включен селектор) */}
-      {!isTeacherMode && showCourseSelector && (
-        <>
-          {/* Кнопки выбора курса */}
+    <Animated.View style={{ flex: 1, backgroundColor: bgColor, opacity: fadeAnim }}>
+      <ScrollView 
+        style={{ flex: 1, padding: 16 }}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
+            colors={[colors.primary]}
+            tintColor={colors.primary}
+          />
+        }
+      >
+        {showCachedData && (
           <View style={{ 
-            flexDirection: 'row', 
-            flexWrap: 'wrap',
-            backgroundColor: bgColor, 
-            borderRadius: 24, 
-            padding: 4, 
-            marginBottom: 16,
-            borderWidth: 1,
-            borderColor
+            backgroundColor: colors.light, 
+            padding: 12, 
+            borderRadius: 8,
+            alignItems: 'center',
+            flexDirection: 'row',
+            justifyContent: 'center',
+            marginBottom: 16
           }}>
-            {COURSES.map(courseItem => (
-              <TouchableOpacity
-                key={courseItem.id}
-                onPress={() => handleCourseSelect(courseItem.id)}
-                style={{
-                  paddingVertical: 8,
-                  paddingHorizontal: 16,
-                  borderRadius: 20,
-                  backgroundColor: course === courseItem.id ? colors.primary : 'transparent',
-                  alignItems: 'center',
-                  margin: 2,
-                  flexGrow: 1,
-                  minWidth: '18%'
-                }}
-              >
-                <Text style={{ 
-                  color: course === courseItem.id ? '#ffffff' : textColor,
-                  fontWeight: '500',
-                  fontFamily: 'Montserrat_500Medium'
-                }}>
-                  {courseItem.label}
-                </Text>
-              </TouchableOpacity>
-            ))}
+            <Icon name="time-outline" size={16} color={colors.primary} />
+            <Text style={{ color: colors.primary, marginLeft: 8, fontFamily: 'Montserrat_400Regular' }}>
+              {cacheInfo?.source === 'stale_cache' ? 'Показаны ранее загруженные данные' : 'Показаны кэшированные данные'}
+            </Text>
           </View>
+        )}
+        
+        {/* Заголовок */}
+        {renderHeader()}
 
-          {/* Список групп */}
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', marginBottom: 16 }}>
-            {loadingGroups ? (
-              <ActivityIndicator size="large" color={colors.primary} />
-            ) : (
-              groups.map(group => (
+        {/* Управление */}
+        {renderControls()}
+        
+        {/* Студенческий режим: кнопки курса и групп (только если включен селектор) */}
+        {!isTeacherMode && showCourseSelector && (
+          <>
+            {/* Кнопки выбора курса */}
+            <View style={{ 
+              flexDirection: 'row', 
+              flexWrap: 'wrap',
+              backgroundColor: bgColor, 
+              borderRadius: 24, 
+              padding: 4, 
+              marginBottom: 16,
+              borderWidth: 1,
+              borderColor
+            }}>
+              {COURSES.map(courseItem => (
                 <TouchableOpacity
-                  key={group}
-                  onPress={() => handleGroupSelect(group)}
+                  key={courseItem.id}
+                  onPress={() => handleCourseSelect(courseItem.id)}
                   style={{
                     paddingVertical: 8,
                     paddingHorizontal: 16,
-                    borderRadius: 8,
-                    margin: 4,
-                    backgroundColor: selectedGroup === group ? colors.primary : cardBg,
-                    borderWidth: 1,
-                    borderColor: selectedGroup === group ? colors.primary : borderColor
+                    borderRadius: 20,
+                    backgroundColor: course === courseItem.id ? colors.primary : 'transparent',
+                    alignItems: 'center',
+                    margin: 2,
+                    flexGrow: 1,
+                    minWidth: '18%'
                   }}
                 >
                   <Text style={{ 
-                    color: selectedGroup === group ? '#ffffff' : textColor,
+                    color: course === courseItem.id ? '#ffffff' : textColor,
+                    fontWeight: '500',
                     fontFamily: 'Montserrat_500Medium'
                   }}>
-                    {group}
+                    {courseItem.label}
                   </Text>
                 </TouchableOpacity>
-              ))
-            )}
-          </View>
-        </>
-      )}
+              ))}
+            </View>
 
-      {/* Информация о скрытом селекторе */}
-      {!isTeacherMode && !showCourseSelector && selectedGroup && (
-        <View style={{ 
-          backgroundColor: colors.light, 
-          padding: 12, 
-          borderRadius: 8,
-          alignItems: 'center',
-          flexDirection: 'row',
-          justifyContent: 'center',
-          marginBottom: 16
-        }}>
-          <Icon name="information-circle-outline" size={16} color={colors.primary} />
-          <Text style={{ color: colors.primary, marginLeft: 8, fontFamily: 'Montserrat_400Regular' }}>
-            Показано расписание для группы {selectedGroup}
-          </Text>
-          <TouchableOpacity 
-            onPress={() => {
-              const newSettings = { ...externalSettings, showSelector: true };
-              if (onSettingsUpdate) {
-                onSettingsUpdate(newSettings);
-              }
-            }}
-            style={{ marginLeft: 12 }}
-          >
-            <Text style={{ color: colors.primary, textDecorationLine: 'underline', fontFamily: 'Montserrat_500Medium' }}>
-              Изменить
+            {/* Список групп */}
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', marginBottom: 16 }}>
+              {loadingGroups ? (
+                <ActivityIndicator size="large" color={colors.primary} />
+              ) : (
+                groups.map(group => (
+                  <TouchableOpacity
+                    key={group}
+                    onPress={() => handleGroupSelect(group)}
+                    style={{
+                      paddingVertical: 8,
+                      paddingHorizontal: 16,
+                      borderRadius: 8,
+                      margin: 4,
+                      backgroundColor: selectedGroup === group ? colors.primary : cardBg,
+                      borderWidth: 1,
+                      borderColor: selectedGroup === group ? colors.primary : borderColor
+                    }}
+                  >
+                    <Text style={{ 
+                      color: selectedGroup === group ? '#ffffff' : textColor,
+                      fontFamily: 'Montserrat_500Medium'
+                    }}>
+                      {group}
+                    </Text>
+                  </TouchableOpacity>
+                ))
+              )}
+            </View>
+          </>
+        )}
+
+        {/* Информация о скрытом селекторе */}
+        {!isTeacherMode && !showCourseSelector && selectedGroup && (
+          <View style={{ 
+            backgroundColor: colors.light, 
+            padding: 12, 
+            borderRadius: 8,
+            alignItems: 'center',
+            flexDirection: 'row',
+            justifyContent: 'center',
+            marginBottom: 16
+          }}>
+            <Icon name="information-circle-outline" size={16} color={colors.primary} />
+            <Text style={{ color: colors.primary, marginLeft: 8, fontFamily: 'Montserrat_400Regular' }}>
+              Показано расписание для группы {selectedGroup}
             </Text>
-          </TouchableOpacity>
-        </View>
-      )}
+            <TouchableOpacity 
+              onPress={() => {
+                // Включаем отображение селектора
+                setShowCourseSelector(true);
+                
+                // Обновляем настройки
+                const newSettings = { 
+                  ...externalSettings, 
+                  showSelector: true 
+                };
+                
+                if (onSettingsUpdate) {
+                  onSettingsUpdate(newSettings);
+                }
+                
+                console.log('Селектор групп включен');
+              }}
+              style={{ marginLeft: 12 }}
+            >
+              <Text style={{ color: colors.primary, textDecorationLine: 'underline', fontFamily: 'Montserrat_500Medium' }}>
+                Изменить
+              </Text>
+            </TouchableOpacity>
+          </View>
+        )}
 
-      {/* Содержимое расписания */}
-      {renderContent()}
+        {/* Содержимое расписания */}
+        {renderContent()}
 
-      {!isOnline && !error && !showCachedData && (
-        <View style={{ 
-          backgroundColor: colors.light, 
-          padding: 16, 
-          borderRadius: 8, 
-          alignItems: 'center',
-          marginTop: 16
-        }}>
-          <Icon name="cloud-offline-outline" size={20} color={colors.primary} />
-          <Text style={{ color: colors.primary, marginTop: 8, textAlign: 'center', fontFamily: 'Montserrat_400Regular' }}>
-            Нет подключения к интернету. Показаны ранее загруженные данные.
-          </Text>
-        </View>
-      )}
-    </ScrollView>
+        {!isOnline && !error && !showCachedData && (
+          <View style={{ 
+            backgroundColor: colors.light, 
+            padding: 16, 
+            borderRadius: 8, 
+            alignItems: 'center',
+            marginTop: 16
+          }}>
+            <Icon name="cloud-offline-outline" size={20} color={colors.primary} />
+            <Text style={{ color: colors.primary, marginTop: 8, textAlign: 'center', fontFamily: 'Montserrat_400Regular' }}>
+              Нет подключения к интернету. Показаны ранее загруженные данные.
+            </Text>
+          </View>
+        )}
+      </ScrollView>
+    </Animated.View>
   );
 };
 
