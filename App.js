@@ -15,6 +15,7 @@ import ScheduleScreen from './components/ScheduleScreen';
 import SettingsScreen from './components/SettingsScreen';
 import MapScreen from './components/MapScreen';
 import NotificationSettingsModal from './components/NotificationSettingsModal';
+import FreshmanScreen from './components/FreshmanScreen';
 
 // Импорт утилит
 import { ACCENT_COLORS, SCREENS } from './utils/constants';
@@ -248,7 +249,7 @@ export default Sentry.wrap(function App() {
           <MapScreen theme={effectiveTheme} accentColor={accentColor} key={`map-${refresh}`} />
         )}
         {activeScreen === SCREENS.FRESHMAN && (
-          <PlaceholderScreen title={SCREENS.FRESHMAN} theme={effectiveTheme} key={`freshman-${refresh}`} />
+          <FreshmanScreen theme={effectiveTheme} accentColor={accentColor} key={`freshman-${refresh}`} />
         )}
         {activeScreen === SCREENS.NEWS && (
           <NewsScreen theme={effectiveTheme} accentColor={accentColor} key={`news-${refresh}`} />
