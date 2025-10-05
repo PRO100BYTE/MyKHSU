@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, StyleSheet, RefreshControl } from 'react-native';
+import React, { useState, useEffect, useRef } from 'react';
+import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, StyleSheet, RefreshControl, Animated } from 'react-native';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import { ACCENT_COLORS } from '../utils/constants';
 import ConnectionError from './ConnectionError';
@@ -21,6 +21,9 @@ const NewsScreen = ({ theme, accentColor }) => {
   const [cacheInfo, setCacheInfo] = useState(null);
   const [hasMoreNews, setHasMoreNews] = useState(true);
   const [lastNewsCheck, setLastNewsCheck] = useState(null);
+  
+  // Анимация появления
+  const fadeAnim = useRef(new Animated.Value(0)).current;
 
   const bgColor = theme === 'light' ? '#f3f4f6' : '#111827';
   const cardBg = theme === 'light' ? '#ffffff' : '#1f2937';
@@ -28,6 +31,15 @@ const NewsScreen = ({ theme, accentColor }) => {
   const placeholderColor = theme === 'light' ? '#6b7280' : '#9ca3af';
   const borderColor = theme === 'light' ? '#e5e7eb' : '#374151';
   const colors = ACCENT_COLORS[accentColor];
+
+  // Запуск анимации при монтировании
+  useEffect(() => {
+    Animated.timing(fadeAnim, {
+      toValue: 1,
+      duration: 300,
+      useNativeDriver: true,
+    }).start();
+  }, []);
 
   // Функция для очистки кэша новостей
   const clearNewsCache = async () => {
@@ -225,7 +237,7 @@ const NewsScreen = ({ theme, accentColor }) => {
   // Если есть ошибка и нет загрузки, показываем соответствующий экран
   if (error && !loading) {
     return (
-      <View style={{ flex: 1, backgroundColor: bgColor }}>
+      <Animated.View style={{ flex: 1, backgroundColor: bgColor, opacity: fadeAnim }}>
         <ConnectionError 
           type={error}
           loading={false}
@@ -238,12 +250,12 @@ const NewsScreen = ({ theme, accentColor }) => {
           contentType="news"
           message={error === 'NO_INTERNET' ? 'Новости недоступны без подключения к интернету' : 'Не удалось загрузить новости'}
         />
-      </View>
+      </Animated.View>
     );
   }
 
   return (
-    <View style={{ flex: 1, backgroundColor: bgColor }}>
+    <Animated.View style={{ flex: 1, backgroundColor: bgColor, opacity: fadeAnim }}>
       {showCachedData && (
         <View style={{ 
           backgroundColor: colors.light, 
@@ -370,7 +382,7 @@ const NewsScreen = ({ theme, accentColor }) => {
           </Text>
         </View>
       )}
-    </View>
+    </Animated.View>
   );
 };
 
