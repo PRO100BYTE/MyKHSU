@@ -1,4 +1,4 @@
-package com.pro100byte.mykhsu
+package com.pro100byte.myitikhsu
 
 import android.os.Build
 import android.os.Bundle

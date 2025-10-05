@@ -1,4 +1,4 @@
-package com.pro100byte.mykhsu
+package com.pro100byte.myitikhsu
 
 import android.app.Application
 import android.content.res.Configuration
