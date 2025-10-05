@@ -1,8 +1,8 @@
 {
   "expo": {
-    "name": "MyKHSU",
+    "name": "Мой ИТИ ХГУ",
     "slug": "mykhsu",
-    "version": "2.1.6",
+    "version": "2.1.8",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
@@ -14,7 +14,7 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.pro100byte.mykhsu",
+      "bundleIdentifier": "com.pro100byte.myitikhsu",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
         "NSLocationWhenInUseUsageDescription": "Приложению требуется доступ к вашему местоположению для показа ближайших корпусов ХГУ на карте.",
@@ -29,7 +29,7 @@
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
-      "package": "com.pro100byte.mykhsu",
+      "package": "com.pro100byte.myitikhsu",
       "versionCode": 1,
       "permissions": [
         "ACCESS_COARSE_LOCATION",
