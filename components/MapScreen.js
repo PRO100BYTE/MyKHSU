@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, Alert, Linking, Platform, Dimensions, TouchableOpacity } from 'react-native';
+import React, { useState, useEffect, useRef } from 'react';
+import { View, Text, StyleSheet, Alert, Linking, Platform, Dimensions, TouchableOpacity, Animated } from 'react-native';
 import MapView, { Marker, PROVIDER_DEFAULT, UrlTile } from 'react-native-maps';
 import NetInfo from '@react-native-community/netinfo';
 import { Ionicons as Icon } from '@expo/vector-icons';
@@ -16,6 +16,18 @@ const MapScreen = ({ theme, accentColor }) => {
   const colors = ACCENT_COLORS[accentColor];
   const bgColor = theme === 'light' ? '#f3f4f6' : '#111827';
   const textColor = theme === 'light' ? '#111827' : '#ffffff';
+  
+  // Анимация появления
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+
+  // Запуск анимации при монтировании
+  useEffect(() => {
+    Animated.timing(fadeAnim, {
+      toValue: 1,
+      duration: 300,
+      useNativeDriver: true,
+    }).start();
+  }, []);
 
   // Координаты корпусов ХГУ
   const buildings = [
@@ -150,7 +162,7 @@ const MapScreen = ({ theme, accentColor }) => {
     }
 
     return (
-      <View style={{ flex: 1, backgroundColor: bgColor }}>
+      <Animated.View style={{ flex: 1, backgroundColor: bgColor, opacity: fadeAnim }}>
         <ConnectionError 
           type={errorType}
           loading={loading}
@@ -160,12 +172,12 @@ const MapScreen = ({ theme, accentColor }) => {
           contentType="map"
           message={error === 'NO_INTERNET' ? 'Карта недоступна без подключения к интернету' : 'Не удалось загрузить карту'}
         />
-      </View>
+      </Animated.View>
     );
   }
 
   return (
-    <View style={styles.container}>
+    <Animated.View style={[styles.container, { opacity: fadeAnim }]}>
       <MapView
         style={styles.map}
         provider={PROVIDER_DEFAULT}
@@ -225,7 +237,7 @@ const MapScreen = ({ theme, accentColor }) => {
           {theme === 'dark' ? 'Тёмная карта' : 'Светлая карта'}
         </Text>
       </View>
-    </View>
+    </Animated.View>
   );
 };
 
