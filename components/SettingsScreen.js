@@ -16,7 +16,6 @@ const SettingsScreen = ({ theme, accentColor, setTheme, setAccentColor, onSchedu
   const [aboutModalVisible, setAboutModalVisible] = useState(false);
   const [notificationModalVisible, setNotificationModalVisible] = useState(false);
   const [scheduleFormatModalVisible, setScheduleFormatModalVisible] = useState(false);
-  const [currentGroups, setCurrentGroups] = useState([]);
   const [scheduleSettings, setScheduleSettings] = useState(null);
 
   const bgColor = theme === 'light' ? '#f3f4f6' : '#111827';
@@ -38,13 +37,17 @@ const SettingsScreen = ({ theme, accentColor, setTheme, setAccentColor, onSchedu
       const teacher = await SecureStore.getItemAsync('teacher_name') || '';
       const showSelector = await SecureStore.getItemAsync('show_course_selector') !== 'false';
       
-      setScheduleSettings({
+      const settings = {
         format,
         group,
         course: parseInt(course),
         teacher,
         showSelector
-      });
+      };
+      
+      setScheduleSettings(settings);
+      
+      console.log('Настройки расписания загружены:', settings);
     } catch (error) {
       console.error('Error loading schedule settings:', error);
     }
@@ -106,7 +109,7 @@ const SettingsScreen = ({ theme, accentColor, setTheme, setAccentColor, onSchedu
 
   return (
     <ScrollView style={{ flex: 1, backgroundColor: bgColor, padding: 16 }}>
-      {/* Новый пункт: Формат расписания */}
+      {/* Формат расписания */}
       <TouchableOpacity 
         style={{ 
           backgroundColor: cardBg, 
@@ -327,7 +330,6 @@ const SettingsScreen = ({ theme, accentColor, setTheme, setAccentColor, onSchedu
         onClose={() => setScheduleFormatModalVisible(false)}
         theme={theme}
         accentColor={accentColor}
-        currentGroups={currentGroups}
         onSettingsChange={handleScheduleSettingsChange}
       />
     </ScrollView>
