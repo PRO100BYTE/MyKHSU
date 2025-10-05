@@ -3,6 +3,7 @@ import NetInfo from '@react-native-community/netinfo';
 import ApiService from '../utils/api';
 import notificationService from '../utils/notificationService';
 import { getWeekNumber } from '../utils/dateUtils';
+import * as SecureStore from 'expo-secure-store';
 
 export const useScheduleLogic = () => {
   const [course, setCourse] = useState(1);
@@ -46,6 +47,11 @@ export const useScheduleLogic = () => {
     return () => unsubscribe();
   }, []);
 
+  // Загрузка начальных настроек при монтировании
+  useEffect(() => {
+    loadInitialSettings();
+  }, []);
+
   // Загрузка групп при изменении курса
   useEffect(() => {
     fetchGroupsForCourse(course);
@@ -62,6 +68,21 @@ export const useScheduleLogic = () => {
       fetchScheduleData(selectedGroup);
     }
   }, [viewMode, currentDate, currentWeek, selectedGroup]);
+
+  const loadInitialSettings = async () => {
+    try {
+      const savedCourse = await SecureStore.getItemAsync('default_course');
+      const savedGroup = await SecureStore.getItemAsync('default_group');
+      
+      if (savedCourse) {
+        setCourse(parseInt(savedCourse));
+      }
+      
+      console.log('Загружены начальные настройки:', { course: savedCourse, group: savedGroup });
+    } catch (error) {
+      console.error('Error loading initial settings:', error);
+    }
+  };
 
   const fetchGroupsForCourse = async (courseId) => {
     setLoadingGroups(true);
@@ -81,6 +102,9 @@ export const useScheduleLogic = () => {
       
       console.log('Загружены группы для курса', courseId, ':', processedGroups);
       
+      // Автоматический выбор группы после загрузки
+      await autoSelectGroup(processedGroups, courseId);
+      
     } catch (error) {
       console.error('Error fetching groups:', error);
       setError('load-error');
@@ -88,11 +112,42 @@ export const useScheduleLogic = () => {
       if (cachedGroups.length > 0) {
         setGroups(cachedGroups);
         setShowCachedData(true);
+        // Пробуем выбрать группу из кэша
+        autoSelectGroup(cachedGroups, courseId);
       } else {
         setGroups([]);
       }
     } finally {
       setLoadingGroups(false);
+    }
+  };
+
+  const autoSelectGroup = async (availableGroups, currentCourseId) => {
+    if (availableGroups.length === 0) return;
+    
+    try {
+      const savedGroup = await SecureStore.getItemAsync('default_group');
+      const savedCourse = await SecureStore.getItemAsync('default_course');
+      const showSelector = await SecureStore.getItemAsync('show_course_selector');
+      
+      // Если есть сохраненная группа и она доступна в текущем курсе
+      if (savedGroup && availableGroups.includes(savedGroup) && 
+          parseInt(savedCourse) === currentCourseId) {
+        setSelectedGroup(savedGroup);
+        console.log('Автоматически выбрана сохраненная группа:', savedGroup);
+      } 
+      // Если нет выбранной группы, но есть сохраненная (даже если курс не совпадает)
+      else if (!selectedGroup && savedGroup && availableGroups.includes(savedGroup)) {
+        setSelectedGroup(savedGroup);
+        console.log('Выбрана сохраненная группа (курс мог измениться):', savedGroup);
+      }
+      // Если все еще нет выбранной группы, выбираем первую
+      else if (!selectedGroup && availableGroups.length > 0) {
+        setSelectedGroup(availableGroups[0]);
+        console.log('Выбрана первая группа из списка:', availableGroups[0]);
+      }
+    } catch (error) {
+      console.error('Error in autoSelectGroup:', error);
     }
   };
 
@@ -227,10 +282,8 @@ export const useScheduleLogic = () => {
   return {
     // States
     course,
-    setCourse,
     groups,
     selectedGroup,
-    setSelectedGroup,
     scheduleData,
     pairsTime,
     loadingGroups,
@@ -242,9 +295,13 @@ export const useScheduleLogic = () => {
     cacheInfo,
     currentTime,
     viewMode,
-    setViewMode,
     currentDate,
     currentWeek,
+    
+    // Setters
+    setCourse,
+    setSelectedGroup,
+    setViewMode,
     setCurrentWeek,
     
     // Functions
