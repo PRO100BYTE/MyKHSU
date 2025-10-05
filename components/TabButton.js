@@ -1,5 +1,5 @@
 import React from 'react';
-import { TouchableOpacity, Text, StyleSheet } from 'react-native';
+import { TouchableOpacity, Text, StyleSheet, Platform } from 'react-native';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import { ACCENT_COLORS } from '../utils/constants';
 
@@ -32,7 +32,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     paddingVertical: 8,
-    borderRadius: 8
+    borderRadius: 8,
+    // Добавляем минимальную высоту для лучшего касания на Android
+    minHeight: Platform.OS === 'android' ? 60 : 50
   },
   tabText: {
     fontSize: 10,
