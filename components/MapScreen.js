@@ -235,6 +235,8 @@ const styles = StyleSheet.create({
   },
   map: {
     flex: 1,
+    // Добавляем отступ снизу для навигационных кнопок Android
+    marginBottom: Platform.OS === 'android' ? 5 : 0
   },
   marker: {
     backgroundColor: 'white',
@@ -245,7 +247,7 @@ const styles = StyleSheet.create({
   },
   attribution: {
     position: 'absolute',
-    bottom: 16,
+    bottom: Platform.OS === 'android' ? 70 : 16, // Увеличиваем отступ для Android
     left: 16,
     padding: 6,
     borderRadius: 4,
@@ -256,7 +258,7 @@ const styles = StyleSheet.create({
   },
   themeIndicatorBadge: {
     position: 'absolute',
-    top: Platform.OS === 'ios' ? 50 : 20,
+    top: Platform.OS === 'ios' ? 50 : 40, // Увеличиваем отступ сверху для Android
     left: 16,
     padding: 6,
     borderRadius: 4,
