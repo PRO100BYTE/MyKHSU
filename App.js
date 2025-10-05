@@ -77,7 +77,13 @@ const styles = StyleSheet.create({
     shadowRadius: 3.84,
     elevation: 5,
     paddingHorizontal: 4,
-    paddingVertical: 8
+    paddingVertical: 8,
+    // Добавляем отступ для навигационных кнопок Android
+    paddingBottom: Platform.OS === 'android' ? 10 : 8
+  },
+  // Новый стиль для безопасной области
+  safeAreaBottom: {
+    paddingBottom: Platform.OS === 'android' ? 20 : 0
   }
 });
 
@@ -225,7 +231,7 @@ export default Sentry.wrap(function App() {
   const colors = ACCENT_COLORS[accentColor];
   
   return (
-    <View style={{ flex: 1, backgroundColor: bgColor }}>
+    <View style={[{ flex: 1, backgroundColor: bgColor }, styles.safeAreaBottom]}>
       {/* Заголовок */}
       <View style={[styles.header, { backgroundColor: headerBg }]}>
         <Text style={[styles.headerText, { color: textColor }]}>
