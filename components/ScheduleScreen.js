@@ -18,22 +18,10 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 const { width } = Dimensions.get('window');
 
 const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings, onSettingsUpdate }) => {
-  // Локальное состояние настроек, которое может обновляться извне
-  const [scheduleSettings, setScheduleSettings] = useState(
-    externalSettings || {
-      format: 'student',
-      group: '',
-      course: 1,
-      teacher: '',
-      showSelector: true
-    }
-  );
-  
   const [isTeacherMode, setIsTeacherMode] = useState(false);
   const [teacherSchedule, setTeacherSchedule] = useState(null);
   const [loadingTeacher, setLoadingTeacher] = useState(false);
-  const [isInitialized, setIsInitialized] = useState(false);
-  const [forceUpdate, setForceUpdate] = useState(0);
+  const [showCourseSelector, setShowCourseSelector] = useState(true);
 
   // Используем хук для логики студенческого режима
   const {
@@ -71,54 +59,50 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
   const borderColor = theme === 'light' ? '#e5e7eb' : '#374151';
   const placeholderColor = theme === 'light' ? '#6b7280' : '#9ca3af';
 
-  // Обновляем состояние при получении новых настроек извне
+  // Загрузка настроек при монтировании
+  useEffect(() => {
+    loadScheduleSettings();
+  }, []);
+
+  // Применение внешних настроек
   useEffect(() => {
     if (externalSettings) {
-      console.log('Получены новые настройки извне:', externalSettings);
-      setScheduleSettings(externalSettings);
-      applySettingsImmediately(externalSettings);
+      applyExternalSettings(externalSettings);
     }
   }, [externalSettings]);
 
-  // Загрузка настроек при монтировании
-  useEffect(() => {
-    if (!externalSettings) {
-      loadScheduleSettings();
-    }
-  }, []);
-
-  // Применяем настройки немедленно
-  const applySettingsImmediately = (settings) => {
-    console.log('Немедленное применение настроек:', settings);
-    
-    setIsTeacherMode(settings.format === 'teacher');
-    
-    if (settings.format === 'student') {
-      // Устанавливаем курс из настроек
-      setCourse(settings.course);
+  const loadScheduleSettings = async () => {
+    try {
+      const format = await SecureStore.getItemAsync('schedule_format') || 'student';
+      const showSelector = await SecureStore.getItemAsync('show_course_selector');
       
-      // Если селектор скрыт и есть группа по умолчанию, устанавливаем её
-      if (!settings.showSelector && settings.group) {
-        setSelectedGroup(settings.group);
-        console.log('Немедленно установлена группа по умолчанию:', settings.group);
-      }
-    } else if (settings.format === 'teacher' && settings.teacher) {
-      fetchTeacherSchedule(settings.teacher);
+      setIsTeacherMode(format === 'teacher');
+      setShowCourseSelector(showSelector !== 'false');
+      
+      console.log('Настройки расписания загружены:', { format, showSelector });
+    } catch (error) {
+      console.error('Error loading schedule settings:', error);
     }
-    
-    // Форсируем обновление компонента
-    setForceUpdate(prev => prev + 1);
   };
 
-  // Инициализация состояния на основе настроек
-  useEffect(() => {
-    if (isInitialized && scheduleSettings) {
-      console.log('Инициализация состояния:', scheduleSettings);
-      applySettingsImmediately(scheduleSettings);
+  const applyExternalSettings = (settings) => {
+    console.log('Применение внешних настроек:', settings);
+    
+    setIsTeacherMode(settings.format === 'teacher');
+    setShowCourseSelector(settings.showSelector);
+    
+    if (settings.format === 'teacher' && settings.teacher) {
+      fetchTeacherSchedule(settings.teacher);
+    } else if (settings.format === 'student') {
+      // Если в настройках есть группа по умолчанию и селектор скрыт, устанавливаем ее
+      if (settings.group && !settings.showSelector) {
+        setSelectedGroup(settings.group);
+        console.log('Установлена группа из настроек:', settings.group);
+      }
     }
-  }, [isInitialized, scheduleSettings]);
+  };
 
-  // Обработка выбора группы - принудительно сохраняем в настройки
+  // Обработка выбора группы - сохраняем в настройки
   const handleGroupSelect = async (group) => {
     setSelectedGroup(group);
     console.log('Выбрана группа:', group, 'курс:', course);
@@ -128,16 +112,13 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
       await SecureStore.setItemAsync('default_group', group);
       await SecureStore.setItemAsync('default_course', course.toString());
       
-      // Обновляем локальное состояние
+      // Обновляем локальное состояние и уведомляем родительский компонент
       const newSettings = {
-        ...scheduleSettings,
+        ...externalSettings,
         group: group,
         course: course
       };
       
-      setScheduleSettings(newSettings);
-      
-      // Уведомляем родительский компонент об изменении настроек
       if (onSettingsUpdate) {
         onSettingsUpdate(newSettings);
       }
@@ -148,26 +129,20 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
     }
   };
 
-  // Обработка выбора курса - принудительно сохраняем в настройки
+  // Обработка выбора курса - сохраняем в настройки
   const handleCourseSelect = async (courseId) => {
     setCourse(courseId);
-    setSelectedGroup(null); // Сбрасываем выбор группы при смене курса
     
     // Сохраняем выбор курса в настройки
     try {
       await SecureStore.setItemAsync('default_course', courseId.toString());
-      await SecureStore.setItemAsync('default_group', ''); // Сбрасываем группу
       
-      // Обновляем локальное состояние
       const newSettings = {
-        ...scheduleSettings,
+        ...externalSettings,
         course: courseId,
-        group: ''
+        group: '' // Сбрасываем группу при смене курса
       };
       
-      setScheduleSettings(newSettings);
-      
-      // Уведомляем родительский компонент об изменении настроек
       if (onSettingsUpdate) {
         onSettingsUpdate(newSettings);
       }
@@ -175,33 +150,6 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
       console.log('Курс сохранен в настройки:', courseId);
     } catch (error) {
       console.error('Ошибка сохранения курса:', error);
-    }
-  };
-
-  const loadScheduleSettings = async () => {
-    try {
-      const format = await SecureStore.getItemAsync('schedule_format') || 'student';
-      const teacher = await SecureStore.getItemAsync('teacher_name') || '';
-      const showSelector = await SecureStore.getItemAsync('show_course_selector');
-      const group = await SecureStore.getItemAsync('default_group') || '';
-      const savedCourse = await SecureStore.getItemAsync('default_course') || '1';
-      
-      const settings = {
-        format: format,
-        group: group,
-        course: parseInt(savedCourse),
-        teacher: teacher,
-        showSelector: showSelector !== 'false'
-      };
-      
-      setScheduleSettings(settings);
-      setIsTeacherMode(format === 'teacher');
-      setIsInitialized(true);
-      
-      console.log('Настройки расписания загружены:', settings);
-    } catch (error) {
-      console.error('Error loading schedule settings:', error);
-      setIsInitialized(true);
     }
   };
 
@@ -229,8 +177,8 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
     const newWeek = currentWeek + weeks;
     setCurrentWeek(newWeek);
     
-    if (isTeacherMode && scheduleSettings.teacher) {
-      fetchTeacherSchedule(scheduleSettings.teacher, newWeek);
+    if (isTeacherMode && externalSettings && externalSettings.teacher) {
+      fetchTeacherSchedule(externalSettings.teacher, newWeek);
     }
   };
 
@@ -238,7 +186,7 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
     navigateDate(days);
   };
 
-  // Очистка кэша расписания при принудительном обновлении
+  // Очистка кэша расписания
   const clearScheduleCache = async () => {
     try {
       const keys = await AsyncStorage.getAllKeys();
@@ -288,27 +236,12 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
       }
     }
     
-    if (isTeacherMode && scheduleSettings.teacher) {
-      fetchTeacherSchedule(scheduleSettings.teacher);
+    if (isTeacherMode && externalSettings && externalSettings.teacher) {
+      fetchTeacherSchedule(externalSettings.teacher);
     } else {
       onRefresh();
     }
   };
-
-  // Автоматический выбор группы при загрузке групп
-  useEffect(() => {
-    if (groups.length > 0 && scheduleSettings.group && !selectedGroup && isInitialized) {
-      const groupExists = groups.includes(scheduleSettings.group);
-      if (groupExists) {
-        setSelectedGroup(scheduleSettings.group);
-        console.log('Автоматически выбрана группа из настроек:', scheduleSettings.group);
-      } else if (groups.length > 0 && !scheduleSettings.showSelector) {
-        // Если группа не найдена, но селектор скрыт, выбираем первую доступную
-        setSelectedGroup(groups[0]);
-        console.log('Группа из настроек не найдена, выбрана первая доступная:', groups[0]);
-      }
-    }
-  }, [groups, scheduleSettings, selectedGroup, isInitialized, forceUpdate]);
 
   const getTimeForLesson = (timeNumber) => {
     if (!pairsTime || !Array.isArray(pairsTime)) return null;
@@ -508,7 +441,7 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
             Расписание преподавателя
           </Text>
           <Text style={{ color: colors.primary, marginTop: 4, fontFamily: 'Montserrat_500Medium' }}>
-            {scheduleSettings.teacher}
+            {externalSettings?.teacher || 'ФИО не указано'}
           </Text>
         </View>
       );
@@ -550,7 +483,7 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
     }
     
     // Студенческий режим
-    if (selectedGroup || scheduleSettings.showSelector) {
+    if (selectedGroup || showCourseSelector) {
       return (
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
           <View style={{ flexDirection: 'row', backgroundColor: cardBg, borderRadius: 8, padding: 4 }}>
@@ -618,7 +551,7 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
             )
           ) : (
             <Text style={{ textAlign: 'center', color: placeholderColor, marginTop: 20, fontFamily: 'Montserrat_400Regular' }}>
-              {scheduleSettings.teacher ? 'Расписание не найдено' : 'Укажите ФИО преподавателя в настройках'}
+              {externalSettings?.teacher ? 'Расписание не найдено' : 'Укажите ФИО преподавателя в настройках'}
             </Text>
           )}
         </View>
@@ -668,7 +601,7 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
         }
       }
       
-      if (!selectedGroup && groups.length > 0) {
+      if (!selectedGroup && groups.length > 0 && showCourseSelector) {
         return (
           <Text style={{ textAlign: 'center', color: placeholderColor, marginTop: 20, fontFamily: 'Montserrat_400Regular' }}>
             Выберите группу для отображения расписания
@@ -684,10 +617,10 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
         );
       }
 
-      if (!scheduleSettings.showSelector && !selectedGroup && scheduleSettings.group) {
+      if (!showCourseSelector && !selectedGroup && externalSettings?.group) {
         return (
           <Text style={{ textAlign: 'center', color: placeholderColor, marginTop: 20, fontFamily: 'Montserrat_400Regular' }}>
-            Загрузка расписания для группы {scheduleSettings.group}...
+            Загрузка расписания для группы {externalSettings.group}...
           </Text>
         );
       }
@@ -703,7 +636,7 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
         <ConnectionError 
           type={error}
           loading={false}
-          onRetry={isTeacherMode ? () => scheduleSettings.teacher && fetchTeacherSchedule(scheduleSettings.teacher) : handleRetry}
+          onRetry={isTeacherMode ? () => externalSettings?.teacher && fetchTeacherSchedule(externalSettings.teacher) : handleRetry}
           onViewCache={handleViewCache}
           showCacheButton={!!scheduleData}
           cacheAvailable={!!scheduleData}
@@ -752,7 +685,7 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
       {renderControls()}
       
       {/* Студенческий режим: кнопки курса и групп (только если включен селектор) */}
-      {!isTeacherMode && scheduleSettings.showSelector && (
+      {!isTeacherMode && showCourseSelector && (
         <>
           {/* Кнопки выбора курса */}
           <View style={{ 
@@ -824,7 +757,7 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
       )}
 
       {/* Информация о скрытом селекторе */}
-      {!isTeacherMode && !scheduleSettings.showSelector && selectedGroup && (
+      {!isTeacherMode && !showCourseSelector && selectedGroup && (
         <View style={{ 
           backgroundColor: colors.light, 
           padding: 12, 
@@ -840,11 +773,7 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
           </Text>
           <TouchableOpacity 
             onPress={() => {
-              // Временно показываем селектор, но не сохраняем в настройки
-              const newSettings = { ...scheduleSettings, showSelector: true };
-              setScheduleSettings(newSettings);
-              
-              // Уведомляем родительский компонент
+              const newSettings = { ...externalSettings, showSelector: true };
               if (onSettingsUpdate) {
                 onSettingsUpdate(newSettings);
               }
