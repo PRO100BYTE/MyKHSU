@@ -1,33 +1,69 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, StyleSheet, Dimensions, RefreshControl } from 'react-native';
+import React, { useState, useEffect, useRef } from 'react';
+import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, StyleSheet, Dimensions, RefreshControl, Animated } from 'react-native';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import { getWeekNumber, formatDate, getDateByWeekAndDay } from '../utils/dateUtils';
-import { ACCENT_COLORS } from '../utils/constants';
+import { ACCENT_COLORS, COURSES } from '../utils/constants';
 import ConnectionError from './ConnectionError';
-import NetInfo from '@react-native-community/netinfo';
 import ApiService from '../utils/api';
+import { useScheduleLogic } from '../hooks/useScheduleLogic';
+import { 
+  isCurrentLesson, 
+  getLessonDateForWeek, 
+  isCurrentDay,
+  getCurrentLessonStyle 
+} from '../utils/scheduleUtils';
+import * as SecureStore from 'expo-secure-store';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const { width } = Dimensions.get('window');
 
-const ScheduleScreen = ({ theme, accentColor }) => {
-  const [course, setCourse] = useState(1);
-  const [groups, setGroups] = useState([]);
-  const [cachedGroups, setCachedGroups] = useState([]);
-  const [selectedGroup, setSelectedGroup] = useState(null);
-  const [scheduleData, setScheduleData] = useState(null);
-  const [cachedScheduleData, setCachedScheduleData] = useState(null);
-  const [pairsTime, setPairsTime] = useState([]);
-  const [cachedPairsTime, setCachedPairsTime] = useState([]);
-  const [loadingGroups, setLoadingGroups] = useState(false);
-  const [loadingSchedule, setLoadingSchedule] = useState(false);
-  const [refreshing, setRefreshing] = useState(false);
-  const [viewMode, setViewMode] = useState('day');
-  const [currentDate, setCurrentDate] = useState(new Date());
-  const [currentWeek, setCurrentWeek] = useState(getWeekNumber(new Date()));
-  const [error, setError] = useState(null);
-  const [isOnline, setIsOnline] = useState(true);
-  const [showCachedData, setShowCachedData] = useState(false);
-  const [cacheInfo, setCacheInfo] = useState(null);
+const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings, onSettingsUpdate }) => {
+  const [isTeacherMode, setIsTeacherMode] = useState(false);
+  const [teacherSchedule, setTeacherSchedule] = useState(null);
+  const [loadingTeacher, setLoadingTeacher] = useState(false);
+  const [showCourseSelector, setShowCourseSelector] = useState(true);
+  const [teacherName, setTeacherName] = useState('');
+  
+  // Анимация появления
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+
+  // Используем хук для логики студенческого режима
+  const {
+    course,
+    setCourse,
+    groups,
+    selectedGroup,
+    setSelectedGroup,
+    scheduleData,
+    pairsTime,
+    loadingGroups,
+    loadingSchedule,
+    refreshing,
+    error,
+    isOnline,
+    showCachedData,
+    cacheInfo,
+    currentTime,
+    viewMode,
+    setViewMode,
+    currentDate,
+    currentWeek,
+    setCurrentWeek,
+    handleRetry,
+    handleViewCache,
+    onRefresh,
+    navigateDate,
+    setError
+  } = useScheduleLogic();
+
+  // Запуск анимации при монтировании
+  useEffect(() => {
+    Animated.timing(fadeAnim, {
+      toValue: 1,
+      duration: 300,
+      useNativeDriver: true,
+    }).start();
+  }, []);
 
   const bgColor = theme === 'light' ? '#f3f4f6' : '#111827';
   const cardBg = theme === 'light' ? '#ffffff' : '#1f2937';
@@ -36,209 +72,266 @@ const ScheduleScreen = ({ theme, accentColor }) => {
   const borderColor = theme === 'light' ? '#e5e7eb' : '#374151';
   const placeholderColor = theme === 'light' ? '#6b7280' : '#9ca3af';
 
+  // Загрузка настроек при монтировании
   useEffect(() => {
-    // Проверяем подключение к интернету
-    const unsubscribe = NetInfo.addEventListener(state => {
-      setIsOnline(state.isConnected);
-      
-      // Если появилось соединение, сбрасываем флаг показа кэша
-      if (state.isConnected) {
-        setShowCachedData(false);
-      }
-    });
+    loadScheduleSettings();
+  }, []);
 
-    fetchGroupsForCourse(course);
-    fetchPairsTime();
-
-    return () => unsubscribe();
-  }, [course]);
-
+  // Применение внешних настроек
   useEffect(() => {
-    if (selectedGroup) {
-      fetchScheduleData(selectedGroup);
+    if (externalSettings) {
+      applyExternalSettings(externalSettings);
     }
-  }, [viewMode, currentDate, currentWeek, selectedGroup]);
+  }, [externalSettings]);
 
-  const fetchGroupsForCourse = async (course) => {
-    setLoadingGroups(true);
-    setError(null);
-    setShowCachedData(false);
-    
+  const loadScheduleSettings = async () => {
     try {
-      const result = await ApiService.getGroups(course);
+      const format = await SecureStore.getItemAsync('schedule_format') || 'student';
+      const showSelector = await SecureStore.getItemAsync('show_course_selector');
+      const teacher = await SecureStore.getItemAsync('teacher_name') || '';
       
-      // Проверяем, что данные существуют
-      if (result.data && result.data.groups) {
-        setGroups(result.data.groups);
-        setCachedGroups(result.data.groups);
-        setCacheInfo(result);
-        
-        // Если данные из кэша, показываем соответствующий индикатор
-        if (result.source === 'cache' || result.source === 'stale_cache') {
-          setShowCachedData(true);
-        }
-      } else {
-        throw new Error('INVALID_RESPONSE');
+      // Явно преобразуем строку в boolean
+      const shouldShowSelector = showSelector !== 'false';
+      
+      setIsTeacherMode(format === 'teacher');
+      setShowCourseSelector(shouldShowSelector);
+      setTeacherName(teacher);
+      
+      console.log('Настройки расписания загружены:', { 
+        format, 
+        showSelector, 
+        shouldShowSelector, 
+        teacher 
+      });
+      
+      // Если режим преподавателя и есть ФИО, загружаем расписание
+      if (format === 'teacher' && teacher) {
+        fetchTeacherSchedule(teacher);
       }
     } catch (error) {
-      console.error('Error fetching groups:', error);
-      
-      // При ошибке пытаемся показать кэшированные данные
-      if (cachedGroups.length > 0) {
-        setGroups(cachedGroups);
-        setShowCachedData(true);
-        setCacheInfo({ source: 'stale_cache', cacheInfo: { cacheDate: new Date().toISOString() } });
-      } else {
-        setError(error.message || 'load-error');
-      }
-    } finally {
-      setLoadingGroups(false);
+      console.error('Error loading schedule settings:', error);
     }
   };
 
-  const fetchScheduleData = async (group) => {
+  const applyExternalSettings = (settings) => {
+    console.log('Применение внешних настроек:', settings);
+    
+    setIsTeacherMode(settings.format === 'teacher');
+    setShowCourseSelector(settings.showSelector !== false); // Явно проверяем на false
+    setTeacherName(settings.teacher || '');
+    
+    if (settings.format === 'teacher' && settings.teacher) {
+      fetchTeacherSchedule(settings.teacher);
+    } else if (settings.format === 'student') {
+      // Если в настройках есть группа по умолчанию и селектор скрыт, устанавливаем ее
+      if (settings.group && !settings.showSelector) {
+        setSelectedGroup(settings.group);
+        console.log('Установлена группа из настроек:', settings.group);
+      }
+    }
+  };
+
+  // Обработка выбора группы - сохраняем в настройки
+  const handleGroupSelect = async (group) => {
     setSelectedGroup(group);
-    setLoadingSchedule(true);
-    setError(null);
-    setShowCachedData(false);
+    console.log('Выбрана группа:', group, 'курс:', course);
     
+    // Сохраняем выбор группы в настройки
     try {
-      let result;
+      await SecureStore.setItemAsync('default_group', group);
+      await SecureStore.setItemAsync('default_course', course.toString());
       
-      if (viewMode === 'week') {
-        result = await ApiService.getSchedule(group, null, currentWeek);
-      } else {
-        result = await ApiService.getSchedule(group, currentDate);
+      // Обновляем локальное состояние и уведомляем родительский компонент
+      const newSettings = {
+        ...externalSettings,
+        group: group,
+        course: course
+      };
+      
+      if (onSettingsUpdate) {
+        onSettingsUpdate(newSettings);
       }
       
-      // Проверяем, что данные существуют
+      console.log('Группа сохранена в настройки:', group, 'курс:', course);
+    } catch (error) {
+      console.error('Ошибка сохранения группы:', error);
+    }
+  };
+
+  // Обработка выбора курса - сохраняем в настройки
+  const handleCourseSelect = async (courseId) => {
+    setCourse(courseId);
+    
+    // Сохраняем выбор курса в настройки
+    try {
+      await SecureStore.setItemAsync('default_course', courseId.toString());
+      
+      const newSettings = {
+        ...externalSettings,
+        course: courseId,
+        group: '' // Сбрасываем группу при смене курса
+      };
+      
+      if (onSettingsUpdate) {
+        onSettingsUpdate(newSettings);
+      }
+      
+      console.log('Курс сохранен в настройки:', courseId);
+    } catch (error) {
+      console.error('Ошибка сохранения курса:', error);
+    }
+  };
+
+  const fetchTeacherSchedule = async (teacher, week = null) => {
+    if (!teacher) {
+      console.log('ФИО преподавателя не указано');
+      return;
+    }
+    
+    setLoadingTeacher(true);
+    setError(null);
+    try {
+      console.log('Загрузка расписания для преподавателя:', teacher, 'неделя:', week || currentWeek);
+      const result = await ApiService.getTeacherSchedule(teacher, week || currentWeek);
       if (result.data) {
-        setScheduleData(result.data);
-        setCachedScheduleData(result.data);
-        setCacheInfo(result);
-        
-        // Если данные из кэша, показываем соответствующий индикатор
-        if (result.source === 'cache' || result.source === 'stale_cache') {
-          setShowCachedData(true);
-        }
+        setTeacherSchedule(result.data);
+        console.log('Расписание преподавателя загружено:', result.data);
       } else {
         throw new Error('INVALID_RESPONSE');
       }
     } catch (error) {
-      console.error('Error fetching schedule:', error);
-      
-      // При ошибке пытаемся показать кэшированные данные
-      if (cachedScheduleData) {
-        setScheduleData(cachedScheduleData);
-        setShowCachedData(true);
-        setCacheInfo({ source: 'stale_cache', cacheInfo: { cacheDate: new Date().toISOString() } });
-      } else {
-        setError(error.message || 'load-error');
-      }
+      console.error('Error fetching teacher schedule:', error);
+      setError(error.message || 'load-error');
     } finally {
-      setLoadingSchedule(false);
-      setRefreshing(false);
+      setLoadingTeacher(false);
     }
   };
 
-  const fetchPairsTime = async () => {
+  const changeWeek = (weeks) => {
+    const newWeek = currentWeek + weeks;
+    setCurrentWeek(newWeek);
+    
+    if (isTeacherMode && teacherName) {
+      fetchTeacherSchedule(teacherName, newWeek);
+    }
+  };
+
+  const changeDate = (days) => {
+    navigateDate(days);
+  };
+
+  // Очистка кэша расписания
+  const clearScheduleCache = async () => {
     try {
-      const result = await ApiService.getPairsTime();
+      const keys = await AsyncStorage.getAllKeys();
+      const scheduleKeys = keys.filter(key => 
+        key.startsWith('schedule_') || 
+        key.startsWith('groups_') ||
+        key.startsWith('pairs_time')
+      );
       
-      // Проверяем, что данные существуют
-      if (result.data && result.data.pairs_time) {
-        setPairsTime(result.data.pairs_time);
-        setCachedPairsTime(result.data.pairs_time);
+      if (scheduleKeys.length > 0) {
+        await AsyncStorage.multiRemove(scheduleKeys);
+        console.log('Кэш расписания очищен:', scheduleKeys.length, 'ключей');
       }
+      
+      return true;
     } catch (error) {
-      console.error('Error fetching pairs time:', error);
+      console.error('Error clearing schedule cache:', error);
+      return false;
+    }
+  };
+
+  // Очистка кэша расписания преподавателя
+  const clearTeacherScheduleCache = async () => {
+    try {
+      const keys = await AsyncStorage.getAllKeys();
+      const teacherKeys = keys.filter(key => key.startsWith('teacher_schedule_'));
       
-      // При ошибке пытаемся показать кэшированные данные
-      if (cachedPairsTime.length > 0) {
-        setPairsTime(cachedPairsTime);
+      if (teacherKeys.length > 0) {
+        await AsyncStorage.multiRemove(teacherKeys);
+        console.log('Кэш расписания преподавателей очищен:', teacherKeys.length, 'ключей');
       }
+      
+      return true;
+    } catch (error) {
+      console.error('Error clearing teacher schedule cache:', error);
+      return false;
+    }
+  };
+
+  // Улучшенная функция обновления с очисткой кэша
+  const handleRefresh = async () => {
+    if (isOnline) {
+      if (isTeacherMode) {
+        await clearTeacherScheduleCache();
+      } else {
+        await clearScheduleCache();
+      }
+    }
+    
+    if (isTeacherMode && teacherName) {
+      fetchTeacherSchedule(teacherName);
+    } else {
+      onRefresh();
     }
   };
 
   const getTimeForLesson = (timeNumber) => {
-    return pairsTime.find(pair => pair.time === timeNumber);
-  };
-
-  const changeDate = (days) => {
-    const newDate = new Date(currentDate);
-    newDate.setDate(newDate.getDate() + days);
-    setCurrentDate(newDate);
-  };
-
-  const changeWeek = (weeks) => {
-    setCurrentWeek(currentWeek + weeks);
-  };
-
-  const handleRetry = () => {
-    setError(null);
-    setShowCachedData(false);
-    if (selectedGroup) {
-      fetchScheduleData(selectedGroup);
-    } else {
-      fetchGroupsForCourse(course);
-    }
-  };
-
-  const handleViewCache = () => {
-    if (cachedScheduleData) {
-      setScheduleData(cachedScheduleData);
-      setShowCachedData(true);
-      setError(null);
-      setCacheInfo({ source: 'stale_cache', cacheInfo: { cacheDate: new Date().toISOString() } });
-    }
-  };
-
-  const onRefresh = () => {
-    setRefreshing(true);
-    if (selectedGroup) {
-      fetchScheduleData(selectedGroup);
-    } else {
-      fetchGroupsForCourse(course);
-    }
+    if (!pairsTime || !Array.isArray(pairsTime)) return null;
+    return pairsTime.find(pair => pair && pair.time === timeNumber);
   };
 
   const weekdays = ["Понедельник", "Вторник", "Среда", "Четверг", "Пятница", "Суббота", "Воскресенье"];
 
-  const renderDaySchedule = (day) => {
+  // Рендер дня расписания (общий для обоих режимов)
+  const renderDaySchedule = (day, weekNumber = currentWeek) => {
     if (!day || !day.lessons) return null;
     
-    const date = getDateByWeekAndDay(currentWeek, day.weekday);
+    const date = getDateByWeekAndDay(weekNumber, day.weekday);
+    const isCurrent = isCurrentDay(weekNumber, day.weekday, currentTime);
+    
     return (
       <View 
         key={day.weekday} 
-        style={{ 
+        style={[{ 
           backgroundColor: cardBg, 
           borderRadius: 12, 
           padding: 16, 
           marginBottom: 16,
           borderWidth: 1,
           borderColor
-        }}
+        }, isCurrent ? {
+          borderColor: colors.primary,
+          borderWidth: 2
+        } : {}]}
       >
         <Text style={{ fontSize: 18, fontWeight: 'bold', color: colors.primary, marginBottom: 4, fontFamily: 'Montserrat_600SemiBold' }}>
           {weekdays[day.weekday - 1]}
+          {isCurrent && ' (Сегодня)'}
         </Text>
         <Text style={{ color: placeholderColor, marginBottom: 12, fontFamily: 'Montserrat_400Regular' }}>
           {formatDate(date)}
         </Text>
 
-        {day.lessons.length > 0 ? (
-          day.lessons.map(lesson => {
+        {day.lessons && day.lessons.length > 0 ? (
+          day.lessons.map((lesson, index) => {
+            if (!lesson) return null;
+            
             const pairTime = getTimeForLesson(lesson.time);
+            const lessonDate = getLessonDateForWeek(weekNumber, day.weekday, currentTime);
+            const isCurrentLessonFlag = isCurrentLesson(lesson, pairTime, currentTime, lessonDate);
+            const lessonStyle = getCurrentLessonStyle(isCurrentLessonFlag, colors);
+            
             return (
               <View 
-                key={lesson.id} 
-                style={{ 
+                key={lesson.id || index} 
+                style={[{ 
                   paddingVertical: 12, 
                   borderTopWidth: 1, 
                   borderTopColor: borderColor,
                   marginTop: 12
-                }}
+                }, lessonStyle]}
               >
                 <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
                   <Icon name="book-outline" size={14} color={placeholderColor} />
@@ -264,6 +357,16 @@ const ScheduleScreen = ({ theme, accentColor }) => {
                     Аудитория: {lesson.auditory}
                   </Text>
                 </View>
+
+                {/* Блок с группами - отображается только в режиме преподавателя */}
+                {isTeacherMode && lesson.group && Array.isArray(lesson.group) && lesson.group.length > 0 && (
+                  <View style={{ flexDirection: 'row', alignItems: 'flex-start', marginTop: 4 }}>
+                    <Icon name="people-outline" size={14} color={placeholderColor} style={{ marginTop: 2 }} />
+                    <Text style={{ color: textColor, marginLeft: 8, fontSize: 14, fontFamily: 'Montserrat_400Regular', flex: 1 }}>
+                      Группы: {lesson.group.join(', ')}
+                    </Text>
+                  </View>
+                )}
                 
                 {pairTime && (
                   <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
@@ -283,12 +386,13 @@ const ScheduleScreen = ({ theme, accentColor }) => {
     );
   };
 
+  // Рендер дневного расписания (только для студенческого режима)
   const renderDailySchedule = () => {
     if (!scheduleData) return null;
     
     const weekday = currentDate.getDay() === 0 ? 7 : currentDate.getDay();
     const daySchedule = scheduleData.days ? 
-      scheduleData.days.find(d => d.weekday === weekday) : 
+      scheduleData.days.find(d => d && d.weekday === weekday) : 
       { lessons: scheduleData.lessons || [] };
     
     if (!daySchedule) return null;
@@ -312,17 +416,22 @@ const ScheduleScreen = ({ theme, accentColor }) => {
         </Text>
 
         {daySchedule.lessons && daySchedule.lessons.length > 0 ? (
-          daySchedule.lessons.map(lesson => {
+          daySchedule.lessons.map((lesson, index) => {
+            if (!lesson) return null;
+            
             const pairTime = getTimeForLesson(lesson.time);
+            const isCurrentLessonFlag = isCurrentLesson(lesson, pairTime, currentTime, currentDate);
+            const lessonStyle = getCurrentLessonStyle(isCurrentLessonFlag, colors);
+            
             return (
               <View 
-                key={lesson.id} 
-                style={{ 
+                key={lesson.id || index} 
+                style={[{ 
                   paddingVertical: 12, 
                   borderTopWidth: 1, 
                   borderTopColor: borderColor,
                   marginTop: 12
-                }}
+                }, lessonStyle]}
               >
                 <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
                   <Icon name="book-outline" size={14} color={placeholderColor} />
@@ -367,231 +476,391 @@ const ScheduleScreen = ({ theme, accentColor }) => {
     );
   };
 
-  // Если есть ошибка и нет загрузки, показываем соответствующий экран
-  if (error && !loadingGroups && !loadingSchedule) {
-    return (
-      <View style={{ flex: 1, backgroundColor: bgColor }}>
-        <ConnectionError 
-          type={error}
-          loading={false}
-          onRetry={handleRetry}
-          onViewCache={handleViewCache}
-          showCacheButton={!!cachedScheduleData}
-          cacheAvailable={!!cachedScheduleData}
-          theme={theme}
-          accentColor={accentColor}
-          contentType="schedule"
-          message={error === 'NO_INTERNET' ? 'Расписание недоступно без подключения к интернету' : 'Не удалось загрузить расписание'}
-          cacheDate={cacheInfo?.cacheInfo?.cacheDate}
-        />
-      </View>
-    );
-  }
-
-  return (
-    <ScrollView 
-      style={{ flex: 1, backgroundColor: bgColor, padding: 16 }}
-      refreshControl={
-        <RefreshControl
-          refreshing={refreshing}
-          onRefresh={onRefresh}
-          colors={[colors.primary]}
-          tintColor={colors.primary}
-        />
-      }
-    >
-      {showCachedData && (
-        <View style={{ 
-          backgroundColor: colors.light, 
-          padding: 12, 
-          borderRadius: 8,
-          alignItems: 'center',
-          flexDirection: 'row',
-          justifyContent: 'center',
-          marginBottom: 16
-        }}>
-          <Icon name="time-outline" size={16} color={colors.primary} />
-          <Text style={{ color: colors.primary, marginLeft: 8, fontFamily: 'Montserrat_400Regular' }}>
-            {cacheInfo?.source === 'stale_cache' ? 'Показаны ранее загруженные данные' : 'Показаны кэшированные данные'}
+  // Рендер заголовка
+  const renderHeader = () => {
+    if (isTeacherMode) {
+      return (
+        <View style={{ alignItems: 'center', marginBottom: 16 }}>
+          <Text style={{ fontSize: 20, fontWeight: 'bold', color: textColor, fontFamily: 'Montserrat_600SemiBold' }}>
+            Расписание преподавателя
+          </Text>
+          <Text style={{ color: colors.primary, marginTop: 4, fontFamily: 'Montserrat_500Medium' }}>
+            {teacherName || 'ФИО не указано'}
           </Text>
         </View>
-      )}
-      
-      {/* Текущая дата */}
+      );
+    }
+    
+    return (
       <View style={{ marginBottom: 16 }}>
         <Text style={{ color: textColor, fontWeight: '500', textAlign: 'center', fontFamily: 'Montserrat_500Medium' }}>
           Сегодня: {formatDate(new Date())}
         </Text>
       </View>
+    );
+  };
 
-      {/* Кнопки выбора курса */}
-      <View style={{ 
-        flexDirection: 'row', 
-        flexWrap: 'wrap',
-        backgroundColor: bgColor, 
-        borderRadius: 24, 
-        padding: 4, 
-        marginBottom: 16,
-        borderWidth: 1,
-        borderColor
-      }}>
-        {[-1, 1, 2, 3, 4, 5].map(c => (
-          <TouchableOpacity
-            key={c}
-            onPress={() => setCourse(c)}
-            style={{
-              paddingVertical: 8,
-              paddingHorizontal: 16,
-              borderRadius: 20,
-              backgroundColor: course === c ? colors.primary : 'transparent',
-              alignItems: 'center',
-              margin: 2,
-              flexGrow: 1,
-              minWidth: '18%'
-            }}
-          >
-            <Text style={{ 
-              color: course === c ? '#ffffff' : textColor,
-              fontWeight: '500',
-              fontFamily: 'Montserrat_500Medium'
-            }}>
-              {c === -1 ? 'Магистратура' : `${c} курс`}
+  // Рендер управления
+  const renderControls = () => {
+    if (isTeacherMode) {
+      return (
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+          <Text style={{ color: textColor, fontWeight: '500', fontFamily: 'Montserrat_500Medium' }}>
+            Недельное расписание
+          </Text>
+          
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <TouchableOpacity onPress={() => changeWeek(-1)} style={{ padding: 8 }}>
+              <Icon name="chevron-back" size={24} color={colors.primary} />
+            </TouchableOpacity>
+            
+            <Text style={{ color: textColor, fontWeight: '500', marginHorizontal: 8, fontFamily: 'Montserrat_500Medium' }}>
+              Неделя {currentWeek}
             </Text>
-          </TouchableOpacity>
-        ))}
-      </View>
-
-      {/* Список групп */}
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', marginBottom: 16 }}>
-        {loadingGroups ? (
-          <ActivityIndicator size="large" color={colors.primary} />
-        ) : (
-          groups.map(group => (
+            
+            <TouchableOpacity onPress={() => changeWeek(1)} style={{ padding: 8 }}>
+              <Icon name="chevron-forward" size={24} color={colors.primary} />
+            </TouchableOpacity>
+          </View>
+        </View>
+      );
+    }
+    
+    // Студенческий режим
+    if (selectedGroup || showCourseSelector) {
+      return (
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+          <View style={{ flexDirection: 'row', backgroundColor: cardBg, borderRadius: 8, padding: 4 }}>
             <TouchableOpacity
-              key={group}
-              onPress={() => fetchScheduleData(group)}
+              onPress={() => setViewMode('day')}
               style={{
-                paddingVertical: 8,
-                paddingHorizontal: 16,
-                borderRadius: 8,
-                margin: 4,
-                backgroundColor: selectedGroup === group ? colors.primary : cardBg,
-                borderWidth: 1,
-                borderColor: selectedGroup === group ? colors.primary : borderColor
+                paddingVertical: 6,
+                paddingHorizontal: 12,
+                borderRadius: 6,
+                backgroundColor: viewMode === 'day' ? colors.primary : 'transparent'
               }}
             >
-              <Text style={{ 
-                color: selectedGroup === group ? '#ffffff' : textColor,
-                fontFamily: 'Montserrat_500Medium'
-              }}>
-                {group}
-              </Text>
+              <Text style={{ color: viewMode === 'day' ? '#ffffff' : textColor, fontFamily: 'Montserrat_500Medium' }}>День</Text>
             </TouchableOpacity>
-          ))
-        )}
-      </View>
-
-      {/* Управление расписанием (только после выбора группы) */}
-      {selectedGroup && (
-        <>
-          {/* Переключение режимов и навигация */}
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-            <View style={{ flexDirection: 'row', backgroundColor: cardBg, borderRadius: 8, padding: 4 }}>
-              <TouchableOpacity
-                onPress={() => setViewMode('day')}
-                style={{
-                  paddingVertical: 6,
-                  paddingHorizontal: 12,
-                  borderRadius: 6,
-                  backgroundColor: viewMode === 'day' ? colors.primary : 'transparent'
-                }}
-              >
-                <Text style={{ color: viewMode === 'day' ? '#ffffff' : textColor, fontFamily: 'Montserrat_500Medium' }}>День</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                onPress={() => setViewMode('week')}
-                style={{
-                  paddingVertical: 6,
-                  paddingHorizontal: 12,
-                  borderRadius: 6,
-                  backgroundColor: viewMode === 'week' ? colors.primary : 'transparent'
-                }}
-              >
-                <Text style={{ color: viewMode === 'week' ? '#ffffff' : textColor, fontFamily: 'Montserrat_500Medium' }}>Неделя</Text>
-              </TouchableOpacity>
-            </View>
-
-            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-              <TouchableOpacity
-                onPress={() => viewMode === 'day' ? changeDate(-1) : changeWeek(-1)}
-                style={{ padding: 8 }}
-              >
-                <Icon name="chevron-back" size={24} color={colors.primary} />
-              </TouchableOpacity>
-              
-              <Text style={{ color: textColor, fontWeight: '500', marginHorizontal: 8, fontFamily: 'Montserrat_500Medium' }}>
-                {viewMode === 'day' ? formatDate(currentDate) : `Неделя ${currentWeek}`}
-              </Text>
-              
-              <TouchableOpacity
-                onPress={() => viewMode === 'day' ? changeDate(1) : changeWeek(1)}
-                style={{ padding: 8 }}
-              >
-                <Icon name="chevron-forward" size={24} color={colors.primary} />
-              </TouchableOpacity>
-            </View>
+            <TouchableOpacity
+              onPress={() => setViewMode('week')}
+              style={{
+                paddingVertical: 6,
+                paddingHorizontal: 12,
+                borderRadius: 6,
+                backgroundColor: viewMode === 'week' ? colors.primary : 'transparent'
+              }}
+            >
+              <Text style={{ color: viewMode === 'week' ? '#ffffff' : textColor, fontFamily: 'Montserrat_500Medium' }}>Неделя</Text>
+            </TouchableOpacity>
           </View>
 
-          {/* Расписание */}
-          {loadingSchedule ? (
-            <ActivityIndicator size="large" color={colors.primary} />
-          ) : scheduleData && scheduleData.days && viewMode === 'week' ? (
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <TouchableOpacity
+              onPress={() => viewMode === 'day' ? changeDate(-1) : changeWeek(-1)}
+              style={{ padding: 8 }}
+            >
+              <Icon name="chevron-back" size={24} color={colors.primary} />
+            </TouchableOpacity>
+            
+            <Text style={{ color: textColor, fontWeight: '500', marginHorizontal: 8, fontFamily: 'Montserrat_500Medium' }}>
+              {viewMode === 'day' ? formatDate(currentDate) : `Неделя ${currentWeek}`}
+            </Text>
+            
+            <TouchableOpacity
+              onPress={() => viewMode === 'day' ? changeDate(1) : changeWeek(1)}
+              style={{ padding: 8 }}
+            >
+              <Icon name="chevron-forward" size={24} color={colors.primary} />
+            </TouchableOpacity>
+          </View>
+        </View>
+      );
+    }
+    return null;
+  };
+
+  // Рендер содержимого
+  const renderContent = () => {
+    if (isTeacherMode) {
+      if (loadingTeacher) {
+        return <ActivityIndicator size="large" color={colors.primary} />;
+      }
+      
+      return (
+        <View>
+          {teacherSchedule && teacherSchedule.days ? (
+            teacherSchedule.days.map(day => 
+              day && day.lessons ? renderDaySchedule(day, currentWeek) : null
+            )
+          ) : (
+            <Text style={{ textAlign: 'center', color: placeholderColor, marginTop: 20, fontFamily: 'Montserrat_400Regular' }}>
+              {teacherName ? 'Расписание не найдено' : 'Укажите ФИО преподавателя в настройках'}
+            </Text>
+          )}
+        </View>
+      );
+    } else {
+      if (loadingSchedule) {
+        return <ActivityIndicator size="large" color={colors.primary} />;
+      }
+      
+      if (scheduleData && selectedGroup) {
+        if (viewMode === 'week' && scheduleData.days) {
+          return (
             <View>
               <View style={{ alignItems: 'center', marginBottom: 16 }}>
                 <Text style={{ fontSize: 20, fontWeight: 'bold', color: textColor, fontFamily: 'Montserrat_600SemiBold' }}>
                   Расписание для {selectedGroup}
                 </Text>
                 <Text style={{ color: placeholderColor, marginTop: 4, fontFamily: 'Montserrat_400Regular' }}>
-                  Неделя: {scheduleData.week_number} ({scheduleData.dates?.date_start} - {scheduleData.dates?.date_end})
+                  {COURSES.find(c => c.id === course)?.label}
                 </Text>
+                {scheduleData.dates && (
+                  <Text style={{ color: placeholderColor, marginTop: 4, fontFamily: 'Montserrat_400Regular' }}>
+                    Неделя: {scheduleData.week_number} ({scheduleData.dates.date_start} - {scheduleData.dates.date_end})
+                  </Text>
+                )}
               </View>
 
               {scheduleData.days.map(day => 
                 day && day.lessons ? renderDaySchedule(day) : null
               )}
             </View>
-          ) : scheduleData && viewMode === 'day' ? (
+          );
+        } else if (viewMode === 'day') {
+          return (
             <View>
               <View style={{ alignItems: 'center', marginBottom: 16 }}>
                 <Text style={{ fontSize: 20, fontWeight: 'bold', color: textColor, fontFamily: 'Montserrat_600SemiBold' }}>
                   Расписание для {selectedGroup}
                 </Text>
+                <Text style={{ color: placeholderColor, marginTop: 4, fontFamily: 'Montserrat_400Regular' }}>
+                  {COURSES.find(c => c.id === course)?.label}
+                </Text>
               </View>
               {renderDailySchedule()}
             </View>
-          ) : scheduleData && !loadingSchedule ? (
-            <Text style={{ textAlign: 'center', color: placeholderColor, marginTop: 20, fontFamily: 'Montserrat_400Regular' }}>
-              На {viewMode === 'day' ? 'этот день' : 'эту неделю'} занятий нет.
-            </Text>
-          ) : null}
-        </>
-      )}
+          );
+        }
+      }
       
-      {!isOnline && !error && !showCachedData && (
-        <View style={{ 
-          backgroundColor: colors.light, 
-          padding: 16, 
-          borderRadius: 8, 
-          alignItems: 'center',
-          marginTop: 16
-        }}>
-          <Icon name="cloud-offline-outline" size={20} color={colors.primary} />
-          <Text style={{ color: colors.primary, marginTop: 8, textAlign: 'center', fontFamily: 'Montserrat_400Regular' }}>
-            Нет подключения к интернету. Показаны ранее загруженные данные.
+      if (!selectedGroup && groups.length > 0 && showCourseSelector) {
+        return (
+          <Text style={{ textAlign: 'center', color: placeholderColor, marginTop: 20, fontFamily: 'Montserrat_400Regular' }}>
+            Выберите группу для отображения расписания
           </Text>
-        </View>
-      )}
-    </ScrollView>
+        );
+      }
+
+      if (scheduleData && !loadingSchedule) {
+        return (
+          <Text style={{ textAlign: 'center', color: placeholderColor, marginTop: 20, fontFamily: 'Montserrat_400Regular' }}>
+            На {viewMode === 'day' ? 'этот день' : 'эту неделю'} занятий нет.
+          </Text>
+        );
+      }
+
+      if (!showCourseSelector && !selectedGroup && externalSettings?.group) {
+        return (
+          <Text style={{ textAlign: 'center', color: placeholderColor, marginTop: 20, fontFamily: 'Montserrat_400Regular' }}>
+            Загрузка расписания для группы {externalSettings.group}...
+          </Text>
+        );
+      }
+    }
+    
+    return null;
+  };
+
+  // Обработка ошибок
+  if (error && !loadingGroups && !loadingSchedule && !loadingTeacher) {
+    return (
+      <Animated.View style={{ flex: 1, backgroundColor: bgColor, opacity: fadeAnim }}>
+        <ConnectionError 
+          type={error}
+          loading={false}
+          onRetry={isTeacherMode ? () => teacherName && fetchTeacherSchedule(teacherName) : handleRetry}
+          onViewCache={handleViewCache}
+          showCacheButton={!!scheduleData}
+          cacheAvailable={!!scheduleData}
+          theme={theme}
+          accentColor={accentColor}
+          contentType="schedule"
+          message={error === 'NO_INTERNET' ? 'Расписание недоступно без подключения к интернету' : 'Не удалось загрузить расписание'}
+        />
+      </Animated.View>
+    );
+  }
+
+  return (
+    <Animated.View style={{ flex: 1, backgroundColor: bgColor, opacity: fadeAnim }}>
+      <ScrollView 
+        style={{ flex: 1, padding: 16 }}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
+            colors={[colors.primary]}
+            tintColor={colors.primary}
+          />
+        }
+      >
+        {showCachedData && (
+          <View style={{ 
+            backgroundColor: colors.light, 
+            padding: 12, 
+            borderRadius: 8,
+            alignItems: 'center',
+            flexDirection: 'row',
+            justifyContent: 'center',
+            marginBottom: 16
+          }}>
+            <Icon name="time-outline" size={16} color={colors.primary} />
+            <Text style={{ color: colors.primary, marginLeft: 8, fontFamily: 'Montserrat_400Regular' }}>
+              {cacheInfo?.source === 'stale_cache' ? 'Показаны ранее загруженные данные' : 'Показаны кэшированные данные'}
+            </Text>
+          </View>
+        )}
+        
+        {/* Заголовок */}
+        {renderHeader()}
+
+        {/* Управление */}
+        {renderControls()}
+        
+        {/* Студенческий режим: кнопки курса и групп (только если включен селектор) */}
+        {!isTeacherMode && showCourseSelector && (
+          <>
+            {/* Кнопки выбора курса */}
+            <View style={{ 
+              flexDirection: 'row', 
+              flexWrap: 'wrap',
+              backgroundColor: bgColor, 
+              borderRadius: 24, 
+              padding: 4, 
+              marginBottom: 16,
+              borderWidth: 1,
+              borderColor
+            }}>
+              {COURSES.map(courseItem => (
+                <TouchableOpacity
+                  key={courseItem.id}
+                  onPress={() => handleCourseSelect(courseItem.id)}
+                  style={{
+                    paddingVertical: 8,
+                    paddingHorizontal: 16,
+                    borderRadius: 20,
+                    backgroundColor: course === courseItem.id ? colors.primary : 'transparent',
+                    alignItems: 'center',
+                    margin: 2,
+                    flexGrow: 1,
+                    minWidth: '18%'
+                  }}
+                >
+                  <Text style={{ 
+                    color: course === courseItem.id ? '#ffffff' : textColor,
+                    fontWeight: '500',
+                    fontFamily: 'Montserrat_500Medium'
+                  }}>
+                    {courseItem.label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            {/* Список групп */}
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', marginBottom: 16 }}>
+              {loadingGroups ? (
+                <ActivityIndicator size="large" color={colors.primary} />
+              ) : (
+                groups.map(group => (
+                  <TouchableOpacity
+                    key={group}
+                    onPress={() => handleGroupSelect(group)}
+                    style={{
+                      paddingVertical: 8,
+                      paddingHorizontal: 16,
+                      borderRadius: 8,
+                      margin: 4,
+                      backgroundColor: selectedGroup === group ? colors.primary : cardBg,
+                      borderWidth: 1,
+                      borderColor: selectedGroup === group ? colors.primary : borderColor
+                    }}
+                  >
+                    <Text style={{ 
+                      color: selectedGroup === group ? '#ffffff' : textColor,
+                      fontFamily: 'Montserrat_500Medium'
+                    }}>
+                      {group}
+                    </Text>
+                  </TouchableOpacity>
+                ))
+              )}
+            </View>
+          </>
+        )}
+
+        {/* Информация о скрытом селекторе */}
+        {!isTeacherMode && !showCourseSelector && selectedGroup && (
+          <View style={{ 
+            backgroundColor: colors.light, 
+            padding: 12, 
+            borderRadius: 8,
+            alignItems: 'center',
+            flexDirection: 'row',
+            justifyContent: 'center',
+            marginBottom: 16
+          }}>
+            <Icon name="information-circle-outline" size={16} color={colors.primary} />
+            <Text style={{ color: colors.primary, marginLeft: 8, fontFamily: 'Montserrat_400Regular' }}>
+              Показано расписание для группы {selectedGroup}
+            </Text>
+            <TouchableOpacity 
+              onPress={() => {
+                // Включаем отображение селектора
+                setShowCourseSelector(true);
+                
+                // Обновляем настройки
+                const newSettings = { 
+                  ...externalSettings, 
+                  showSelector: true 
+                };
+                
+                if (onSettingsUpdate) {
+                  onSettingsUpdate(newSettings);
+                }
+                
+                console.log('Селектор групп включен');
+              }}
+              style={{ marginLeft: 12 }}
+            >
+              <Text style={{ color: colors.primary, textDecorationLine: 'underline', fontFamily: 'Montserrat_500Medium' }}>
+                Изменить
+              </Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {/* Содержимое расписания */}
+        {renderContent()}
+
+        {!isOnline && !error && !showCachedData && (
+          <View style={{ 
+            backgroundColor: colors.light, 
+            padding: 16, 
+            borderRadius: 8, 
+            alignItems: 'center',
+            marginTop: 16
+          }}>
+            <Icon name="cloud-offline-outline" size={20} color={colors.primary} />
+            <Text style={{ color: colors.primary, marginTop: 8, textAlign: 'center', fontFamily: 'Montserrat_400Regular' }}>
+              Нет подключения к интернету. Показаны ранее загруженные данные.
+            </Text>
+          </View>
+        )}
+      </ScrollView>
+    </Animated.View>
   );
 };
 

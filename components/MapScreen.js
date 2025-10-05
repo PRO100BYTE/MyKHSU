@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, Alert, Linking, Platform, Dimensions, TouchableOpacity } from 'react-native';
+import React, { useState, useEffect, useRef } from 'react';
+import { View, Text, StyleSheet, Alert, Linking, Platform, Dimensions, TouchableOpacity, Animated } from 'react-native';
 import MapView, { Marker, PROVIDER_DEFAULT, UrlTile } from 'react-native-maps';
 import NetInfo from '@react-native-community/netinfo';
 import { Ionicons as Icon } from '@expo/vector-icons';
@@ -16,6 +16,18 @@ const MapScreen = ({ theme, accentColor }) => {
   const colors = ACCENT_COLORS[accentColor];
   const bgColor = theme === 'light' ? '#f3f4f6' : '#111827';
   const textColor = theme === 'light' ? '#111827' : '#ffffff';
+  
+  // Анимация появления
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+
+  // Запуск анимации при монтировании
+  useEffect(() => {
+    Animated.timing(fadeAnim, {
+      toValue: 1,
+      duration: 300,
+      useNativeDriver: true,
+    }).start();
+  }, []);
 
   // Координаты корпусов ХГУ
   const buildings = [
@@ -73,10 +85,10 @@ const MapScreen = ({ theme, accentColor }) => {
   const mapTheme = MAP_THEMES[theme] || MAP_THEMES.light;
 
   useEffect(() => {
-    loadMap();
+    initializeMap();
   }, [theme]);
 
-  const loadMap = async () => {
+  const initializeMap = async () => {
     setLoading(true);
     setError(null);
     
@@ -91,20 +103,20 @@ const MapScreen = ({ theme, accentColor }) => {
         return;
       }
 
-      // Простая загрузка онлайн карты без сложного кэширования
+      // Простая загрузка онлайн карты
       setTimeout(() => {
         setMapLoaded(true);
         setLoading(false);
       }, 1000);
     } catch (error) {
-      console.error('Error loading map:', error);
+      console.error('Error initializing map:', error);
       setError('LOAD_ERROR');
       setLoading(false);
     }
   };
 
   const handleRetry = () => {
-    loadMap();
+    initializeMap();
   };
 
   const handleOpenDirections = async (building) => {
@@ -150,7 +162,7 @@ const MapScreen = ({ theme, accentColor }) => {
     }
 
     return (
-      <View style={{ flex: 1, backgroundColor: bgColor }}>
+      <Animated.View style={{ flex: 1, backgroundColor: bgColor, opacity: fadeAnim }}>
         <ConnectionError 
           type={errorType}
           loading={loading}
@@ -160,12 +172,12 @@ const MapScreen = ({ theme, accentColor }) => {
           contentType="map"
           message={error === 'NO_INTERNET' ? 'Карта недоступна без подключения к интернету' : 'Не удалось загрузить карту'}
         />
-      </View>
+      </Animated.View>
     );
   }
 
   return (
-    <View style={styles.container}>
+    <Animated.View style={[styles.container, { opacity: fadeAnim }]}>
       <MapView
         style={styles.map}
         provider={PROVIDER_DEFAULT}
@@ -225,7 +237,7 @@ const MapScreen = ({ theme, accentColor }) => {
           {theme === 'dark' ? 'Тёмная карта' : 'Светлая карта'}
         </Text>
       </View>
-    </View>
+    </Animated.View>
   );
 };
 
@@ -235,6 +247,8 @@ const styles = StyleSheet.create({
   },
   map: {
     flex: 1,
+    // Добавляем отступ снизу для навигационных кнопок Android
+    marginBottom: Platform.OS === 'android' ? 5 : 0
   },
   marker: {
     backgroundColor: 'white',
@@ -245,7 +259,7 @@ const styles = StyleSheet.create({
   },
   attribution: {
     position: 'absolute',
-    bottom: 16,
+    bottom: Platform.OS === 'android' ? 70 : 16, // Увеличиваем отступ для Android
     left: 16,
     padding: 6,
     borderRadius: 4,
@@ -256,7 +270,7 @@ const styles = StyleSheet.create({
   },
   themeIndicatorBadge: {
     position: 'absolute',
-    top: Platform.OS === 'ios' ? 50 : 20,
+    top: Platform.OS === 'ios' ? 50 : 40, // Увеличиваем отступ сверху для Android
     left: 16,
     padding: 6,
     borderRadius: 4,

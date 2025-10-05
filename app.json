@@ -1,8 +1,8 @@
 {
   "expo": {
-    "name": "MyKHSU",
+    "name": "Мой ИТИ ХГУ",
     "slug": "mykhsu",
-    "version": "1.0.2",
+    "version": "2.2.1",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
@@ -14,12 +14,14 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.pro100byte.mykhsu",
+      "bundleIdentifier": "com.pro100byte.myitikhsu",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
         "NSLocationWhenInUseUsageDescription": "Приложению требуется доступ к вашему местоположению для показа ближайших корпусов ХГУ на карте.",
-        "NSLocationAlwaysUsageDescription": "Приложению требуется доступ к вашему местоположению для показа ближайших корпусов ХГУ на карте."
-      }
+        "NSLocationAlwaysUsageDescription": "Приложению требуется доступ к вашему местоположению для показа ближайших корпусов ХГУ на карте.",
+        "UIBackgroundModes": ["remote-notification", "fetch"]
+      },
+      "backgroundColor": "#ffffff"
     },
     "android": {
       "adaptiveIcon": {
@@ -27,7 +29,7 @@
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
-      "package": "com.pro100byte.mykhsu",
+      "package": "com.pro100byte.myitikhsu",
       "versionCode": 1,
       "permissions": [
         "ACCESS_COARSE_LOCATION",
@@ -37,7 +39,8 @@
         "googleMaps": {
           "apiKey": "YOUR_GOOGLE_MAPS_API_KEY_OPTIONAL"
         }
-      }
+      },
+      "allowBackup": true
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -58,6 +61,14 @@
         "expo-location",
         {
           "locationAlwaysAndWhenInUsePermission": "Разрешить $(PRODUCT_NAME) использовать ваше местоположение для показа ближайших корпусов ХГУ на карте."
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/notification.png",
+          "color": "#ffffff",
+          "sounds": ["./assets/notification.wav"]
         }
       ]
     ],

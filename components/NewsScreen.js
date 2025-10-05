@@ -1,10 +1,12 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, StyleSheet, RefreshControl } from 'react-native';
+import React, { useState, useEffect, useRef } from 'react';
+import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, StyleSheet, RefreshControl, Animated } from 'react-native';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import { ACCENT_COLORS } from '../utils/constants';
 import ConnectionError from './ConnectionError';
 import NetInfo from '@react-native-community/netinfo';
 import ApiService from '../utils/api';
+import notificationService from '../utils/notificationService';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const NewsScreen = ({ theme, accentColor }) => {
   const [news, setNews] = useState([]);
@@ -18,6 +20,10 @@ const NewsScreen = ({ theme, accentColor }) => {
   const [showCachedData, setShowCachedData] = useState(false);
   const [cacheInfo, setCacheInfo] = useState(null);
   const [hasMoreNews, setHasMoreNews] = useState(true);
+  const [lastNewsCheck, setLastNewsCheck] = useState(null);
+  
+  // Анимация появления
+  const fadeAnim = useRef(new Animated.Value(0)).current;
 
   const bgColor = theme === 'light' ? '#f3f4f6' : '#111827';
   const cardBg = theme === 'light' ? '#ffffff' : '#1f2937';
@@ -25,6 +31,77 @@ const NewsScreen = ({ theme, accentColor }) => {
   const placeholderColor = theme === 'light' ? '#6b7280' : '#9ca3af';
   const borderColor = theme === 'light' ? '#e5e7eb' : '#374151';
   const colors = ACCENT_COLORS[accentColor];
+
+  // Запуск анимации при монтировании
+  useEffect(() => {
+    Animated.timing(fadeAnim, {
+      toValue: 1,
+      duration: 300,
+      useNativeDriver: true,
+    }).start();
+  }, []);
+
+  // Функция для очистки кэша новостей
+  const clearNewsCache = async () => {
+    try {
+      const keys = await AsyncStorage.getAllKeys();
+      const newsKeys = keys.filter(key => key.startsWith('news_'));
+      await AsyncStorage.multiRemove(newsKeys);
+      console.log('Кэш новостей очищен:', newsKeys.length, 'ключей');
+      return true;
+    } catch (error) {
+      console.error('Error clearing news cache:', error);
+      return false;
+    }
+  };
+
+  // Фильтрация и обработка новостей
+  const filterAndProcessNews = (newsData) => {
+    if (!newsData || !Array.isArray(newsData)) return [];
+    
+    return newsData
+      .filter(item => item.content && item.content.trim() !== "")
+      .map(item => ({
+        ...item,
+        id: createNewsId(item),
+        normalizedDate: normalizeDate(item.date)
+      }))
+      .filter((item, index, self) => 
+        index === self.findIndex(t => t.id === item.id)
+      )
+      .sort((a, b) => new Date(b.normalizedDate) - new Date(a.normalizedDate));
+  };
+
+  // Создание уникального ID для новости
+  const createNewsId = (newsItem) => {
+    const contentHash = newsItem.content.substring(0, 100).replace(/\s+/g, '_');
+    return `${newsItem.date}_${contentHash}`;
+  };
+
+  // Проверка, является ли новость той же самой
+  const isSameNews = (news1, news2) => {
+    return createNewsId(news1) === createNewsId(news2);
+  };
+
+  // Нормализация даты
+  const normalizeDate = (dateString) => {
+    try {
+      return new Date(dateString).toISOString();
+    } catch {
+      return dateString;
+    }
+  };
+
+  // Проверка новых новостей для уведомлений
+  const checkForNewNews = async (currentNews) => {
+    if (!isOnline || loading || loadingMore) return;
+    
+    try {
+      await notificationService.checkForNewNews(currentNews);
+    } catch (error) {
+      console.error('Error checking for new news:', error);
+    }
+  };
 
   useEffect(() => {
     // Проверяем подключение к интернету
@@ -37,6 +114,13 @@ const NewsScreen = ({ theme, accentColor }) => {
 
     return () => unsubscribe();
   }, []);
+
+  // Проверяем новые новости при загрузке
+  useEffect(() => {
+    if (news.length > 0 && !loading && !loadingMore) {
+      checkForNewNews(news);
+    }
+  }, [news, loading, loadingMore]);
 
   const fetchNews = async (isInitial = false, targetFrom = null) => {
     if (loading || loadingMore) return;
@@ -55,24 +139,29 @@ const NewsScreen = ({ theme, accentColor }) => {
     try {
       const result = await ApiService.getNews(currentFrom, 10);
       
-      // Фильтрация пустого контента
-      const filteredData = result.data.filter(item => item.content && item.content.trim() !== "");
+      if (!result.data || !Array.isArray(result.data)) {
+        throw new Error('INVALID_RESPONSE');
+      }
       
-      if (filteredData.length === 0) {
+      // Фильтрация пустого контента и дубликатов
+      const filteredData = filterAndProcessNews(result.data);
+      
+      if (filteredData.length === 0 && currentFrom === 0) {
+        setHasMoreNews(false);
+      } else if (filteredData.length < 10) {
         setHasMoreNews(false);
       }
       
       if (isInitial) {
         setNews(filteredData);
-        setFrom(currentFrom + 10);
+        setFrom(currentFrom + filteredData.length);
       } else {
         setNews(prevNews => {
-          // Объединяем новости, убирая дубликаты по дате и содержанию
+          // Объединяем новости, убирая дубликаты
           const combinedNews = [...prevNews];
           filteredData.forEach(newItem => {
             const exists = combinedNews.some(existingItem => 
-              existingItem.date === newItem.date && 
-              existingItem.content === newItem.content
+              isSameNews(existingItem, newItem)
             );
             if (!exists) {
               combinedNews.push(newItem);
@@ -80,7 +169,7 @@ const NewsScreen = ({ theme, accentColor }) => {
           });
           return combinedNews;
         });
-        setFrom(currentFrom + 10);
+        setFrom(currentFrom + filteredData.length);
       }
       
       setCachedNews(filteredData);
@@ -89,16 +178,19 @@ const NewsScreen = ({ theme, accentColor }) => {
       if (result.source === 'cache' || result.source === 'stale_cache') {
         setShowCachedData(true);
       }
+
+      // Сохраняем время последней проверки
+      setLastNewsCheck(new Date().toISOString());
+      
     } catch (error) {
       console.error('Error fetching news:', error);
+      setError('load-error');
       
       // При ошибке пытаемся показать кэшированные данные
       if (cachedNews.length > 0) {
         setNews(cachedNews);
         setShowCachedData(true);
         setCacheInfo({ source: 'stale_cache', cacheInfo: { cacheDate: new Date().toISOString() } });
-      } else {
-        setError(error.message || 'load-error');
       }
     } finally {
       setLoading(false);
@@ -122,10 +214,17 @@ const NewsScreen = ({ theme, accentColor }) => {
     }
   };
 
-  const onRefresh = () => {
+  // Улучшенная функция обновления с очисткой кэша
+  const handleRefresh = async () => {
     setRefreshing(true);
     setFrom(0);
     setHasMoreNews(true);
+    
+    // Очищаем кэш при наличии интернета
+    if (isOnline) {
+      await clearNewsCache();
+    }
+    
     fetchNews(true, 0);
   };
 
@@ -138,7 +237,7 @@ const NewsScreen = ({ theme, accentColor }) => {
   // Если есть ошибка и нет загрузки, показываем соответствующий экран
   if (error && !loading) {
     return (
-      <View style={{ flex: 1, backgroundColor: bgColor }}>
+      <Animated.View style={{ flex: 1, backgroundColor: bgColor, opacity: fadeAnim }}>
         <ConnectionError 
           type={error}
           loading={false}
@@ -151,12 +250,12 @@ const NewsScreen = ({ theme, accentColor }) => {
           contentType="news"
           message={error === 'NO_INTERNET' ? 'Новости недоступны без подключения к интернету' : 'Не удалось загрузить новости'}
         />
-      </View>
+      </Animated.View>
     );
   }
 
   return (
-    <View style={{ flex: 1, backgroundColor: bgColor }}>
+    <Animated.View style={{ flex: 1, backgroundColor: bgColor, opacity: fadeAnim }}>
       {showCachedData && (
         <View style={{ 
           backgroundColor: colors.light, 
@@ -177,15 +276,15 @@ const NewsScreen = ({ theme, accentColor }) => {
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
-            onRefresh={onRefresh}
+            onRefresh={handleRefresh}
             colors={[colors.primary]}
             tintColor={colors.primary}
           />
         }
       >
-        {news.map((item, index) => (
+        {news.map((item) => (
           <View 
-            key={`${item.date}-${index}`} 
+            key={item.id} 
             style={{ 
               backgroundColor: cardBg, 
               borderRadius: 12, 
@@ -262,6 +361,17 @@ const NewsScreen = ({ theme, accentColor }) => {
             </Text>
           </View>
         )}
+
+        {lastNewsCheck && (
+          <View style={{ 
+            padding: 8, 
+            alignItems: 'center'
+          }}>
+            <Text style={{ color: placeholderColor, fontSize: 10, fontFamily: 'Montserrat_400Regular' }}>
+              Последнее обновление: {new Date(lastNewsCheck).toLocaleString('ru-RU')}
+            </Text>
+          </View>
+        )}
       </ScrollView>
       
       {loading && news.length === 0 && (
@@ -272,7 +382,7 @@ const NewsScreen = ({ theme, accentColor }) => {
           </Text>
         </View>
       )}
-    </View>
+    </Animated.View>
   );
 };
 
