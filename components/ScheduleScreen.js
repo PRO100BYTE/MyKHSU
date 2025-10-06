@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, StyleSheet, Dimensions, RefreshControl, Animated } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, StyleSheet, Dimensions, RefreshControl, Animated, StatusBar } from 'react-native';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import { getWeekNumber, formatDate, getDateByWeekAndDay } from '../utils/dateUtils';
 import { ACCENT_COLORS, COURSES } from '../utils/constants';
@@ -695,6 +695,10 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
 
   return (
     <Animated.View style={{ flex: 1, backgroundColor: bgColor, opacity: fadeAnim }}>
+      <StatusBar 
+        barStyle={theme === 'light' ? 'dark-content' : 'light-content'}
+        backgroundColor={bgColor}
+      />
       <ScrollView 
         style={{ flex: 1, padding: 16 }}
         refreshControl={
