@@ -3,7 +3,6 @@ import { View, Text, StyleSheet, Alert, Linking, Platform, Dimensions, Touchable
 import MapView, { Marker, PROVIDER_DEFAULT, UrlTile } from 'react-native-maps';
 import NetInfo from '@react-native-community/netinfo';
 import { Ionicons as Icon } from '@expo/vector-icons';
-import * as SecureStore from 'expo-secure-store';
 import { ACCENT_COLORS } from '../utils/constants';
 import { buildings, initialRegion } from '../utils/buildingCoordinates';
 import ConnectionError from './ConnectionError';
@@ -12,9 +11,9 @@ const { width, height } = Dimensions.get('window');
 
 const MapScreen = ({ theme, accentColor }) => {
   const [isOnline, setIsOnline] = useState(true);
-  const [mapLoaded, setMapLoaded] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [mapKey, setMapKey] = useState(0); // Ключ для принудительного пересоздания карты
   const mapRef = useRef(null);
   const colors = ACCENT_COLORS[accentColor];
   
@@ -30,54 +29,63 @@ const MapScreen = ({ theme, accentColor }) => {
     }).start();
   }, []);
 
-  // Mapbox стили как основной вариант
-  const MAPBOX_THEMES = {
-    light: {
-      urlTemplate: 'https://api.mapbox.com/styles/v1/mapbox/light-v10/tiles/256/{z}/{x}/{y}@2x?access_token=pk.eyJ1IjoicHJvMTAwYnl0ZSIsImEiOiJjbHZ5b2N1c3YwMDB0MmpxcTV0b3N5b2VpIn0.8QlXYi2nQK2kY9Ql7Qqj9A',
+  // ЖЕСТКО определяем URL тайлов на основе темы ПРИЛОЖЕНИЯ
+  const getTileUrl = () => {
+    // Используем ТОЛЬКО тему приложения, игнорируем системную
+    const appTheme = theme;
+    
+    console.log('Карта: Тема приложения:', appTheme);
+    
+    // Mapbox URLs для разных тем
+    const mapboxUrls = {
+      light: 'https://api.mapbox.com/styles/v1/mapbox/light-v10/tiles/256/{z}/{x}/{y}@2x?access_token=pk.eyJ1IjoicHJvMTAwYnl0ZSIsImEiOiJjbHZ5b2N1c3YwMDB0MmpxcTV0b3N5b2VpIn0.8QlXYi2nQK2kY9Ql7Qqj9A',
+      dark: 'https://api.mapbox.com/styles/v1/mapbox/dark-v10/tiles/256/{z}/{x}/{y}@2x?access_token=pk.eyJ1IjoicHJvMTAwYnl0ZSIsImEiOiJjbHZ5b2N1c3YwMDB0MmpxcTV0b3N5b2VpIn0.8QlXYi2nQK2kY9Ql7Qqj9A'
+    };
+
+    // OpenStreetMap как резервный
+    const osmUrls = {
+      light: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+      dark: 'https://tiles.wmflabs.org/dark-matter/{z}/{x}/{y}.png'
+    };
+
+    // ВСЕГДА используем тему ПРИЛОЖЕНИЯ
+    const selectedTheme = appTheme === 'dark' ? 'dark' : 'light';
+    
+    // Пробуем Mapbox сначала
+    return {
+      url: mapboxUrls[selectedTheme],
       attribution: '© Mapbox © OpenStreetMap',
-      markerColor: colors.primary
-    },
-    dark: {
-      urlTemplate: 'https://api.mapbox.com/styles/v1/mapbox/dark-v10/tiles/256/{z}/{x}/{y}@2x?access_token=pk.eyJ1IjoicHJvMTAwYnl0ZSIsImEiOiJjbHZ5b2N1c3YwMDB0MmpxcTV0b3N5b2VpIn0.8QlXYi2nQK2kY9Ql7Qqj9A',
-      attribution: '© Mapbox © OpenStreetMap',
-      markerColor: colors.dark
-    }
+      provider: 'mapbox'
+    };
   };
 
-  // OpenStreetMap как резервный вариант
-  const OSM_THEMES = {
-    light: {
-      urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-      attribution: '© OpenStreetMap contributors',
-      markerColor: colors.primary
-    },
-    dark: {
-      urlTemplate: 'https://tiles.wmflabs.org/dark-matter/{z}/{x}/{y}.png',
-      attribution: '© OpenStreetMap contributors, Dark Matter style',
-      markerColor: colors.dark
-    }
-  };
+  const [tileConfig, setTileConfig] = useState(getTileUrl());
 
-  // Используем Mapbox как основной провайдер
-  const [currentMapProvider, setCurrentMapProvider] = useState('mapbox');
-  const [currentTheme, setCurrentTheme] = useState(MAPBOX_THEMES[theme] || MAPBOX_THEMES.light);
+  // ПРИНУДИТЕЛЬНО пересоздаем карту при ЛЮБОМ изменении темы приложения
+  useEffect(() => {
+    console.log('Карта: Смена темы приложения, пересоздаем карту...', theme);
+    
+    const newConfig = getTileUrl();
+    setTileConfig(newConfig);
+    
+    // Меняем ключ для принудительного пересоздания компонента MapView
+    setMapKey(prev => prev + 1);
+    
+    // Показываем индикатор загрузки на короткое время
+    setLoading(true);
+    setTimeout(() => {
+      setLoading(false);
+    }, 500);
+    
+  }, [theme]); // Срабатывает ТОЛЬКО при изменении темы приложения
 
-  // Цвета фона и текста на основе темы из пропсов
+  // Цвета фона и текста на основе темы ПРИЛОЖЕНИЯ
   const bgColor = theme === 'light' ? '#f3f4f6' : '#111827';
   const textColor = theme === 'light' ? '#111827' : '#ffffff';
 
-  // Обновляем тему карты при изменении темы приложения
   useEffect(() => {
-    updateMapTheme();
-  }, [theme, currentMapProvider]);
-
-  const updateMapTheme = () => {
-    if (currentMapProvider === 'mapbox') {
-      setCurrentTheme(MAPBOX_THEMES[theme] || MAPBOX_THEMES.light);
-    } else {
-      setCurrentTheme(OSM_THEMES[theme] || OSM_THEMES.light);
-    }
-  };
+    initializeMap();
+  }, []);
 
   const initializeMap = async () => {
     setLoading(true);
@@ -94,27 +102,16 @@ const MapScreen = ({ theme, accentColor }) => {
         return;
       }
 
-      // Сначала пробуем Mapbox
-      setCurrentMapProvider('mapbox');
-      setCurrentTheme(MAPBOX_THEMES[theme] || MAPBOX_THEMES.light);
-
       // Загрузка карты
       setTimeout(() => {
-        setMapLoaded(true);
         setLoading(false);
       }, 1000);
     } catch (error) {
       console.error('Error initializing map:', error);
-      // Если Mapbox не работает, используем OSM как fallback
-      setCurrentMapProvider('osm');
-      setCurrentTheme(OSM_THEMES[theme] || OSM_THEMES.light);
+      setError('LOAD_ERROR');
       setLoading(false);
     }
   };
-
-  useEffect(() => {
-    initializeMap();
-  }, []);
 
   const handleRetry = () => {
     initializeMap();
@@ -256,7 +253,10 @@ const MapScreen = ({ theme, accentColor }) => {
         barStyle={theme === 'light' ? 'dark-content' : 'light-content'}
         backgroundColor={bgColor}
       />
+      
+      {/* Ключ mapKey принудительно пересоздает MapView при изменении темы */}
       <MapView
+        key={`map_${mapKey}_${theme}`}
         ref={mapRef}
         style={styles.map}
         provider={PROVIDER_DEFAULT}
@@ -265,14 +265,14 @@ const MapScreen = ({ theme, accentColor }) => {
         showsMyLocationButton={true}
         showsCompass={true}
         showsScale={true}
-        key={`map_${theme}_${accentColor}_${currentMapProvider}`}
       >
+        {/* UrlTile с URL, зависящим от темы приложения */}
         <UrlTile
-          urlTemplate={currentTheme.urlTemplate}
+          urlTemplate={tileConfig.url}
           maximumZ={19}
           flipY={false}
           tileSize={Platform.OS === 'android' ? 256 : 512}
-          key={`tile_${theme}_${currentMapProvider}`}
+          key={`tile_${mapKey}_${theme}`}
         />
         
         {buildings.map(building => (
@@ -314,13 +314,8 @@ const MapScreen = ({ theme, accentColor }) => {
 
       <View style={[styles.attribution, { backgroundColor: theme === 'dark' ? '#000000' : '#ffffff' }]}>
         <Text style={[styles.attributionText, { color: theme === 'dark' ? '#ffffff' : '#333333' }]}>
-          {currentTheme.attribution}
+          {tileConfig.attribution}
         </Text>
-        {currentMapProvider === 'osm' && (
-          <Text style={[styles.fallbackText, { color: theme === 'dark' ? '#ff6b6b' : '#dc2626' }]}>
-            (резервный режим)
-          </Text>
-        )}
       </View>
 
       {/* Индикатор темы карты */}
@@ -333,9 +328,6 @@ const MapScreen = ({ theme, accentColor }) => {
         <Text style={[styles.themeIndicatorText, { color: theme === 'dark' ? '#ffffff' : '#333333' }]}>
           {theme === 'dark' ? 'Тёмная карта' : 'Светлая карта'}
         </Text>
-        {currentMapProvider === 'osm' && (
-          <Icon name="warning" size={12} color="#f59e0b" style={styles.warningIcon} />
-        )}
       </View>
     </Animated.View>
   );
@@ -373,11 +365,6 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontFamily: 'Montserrat_400Regular',
   },
-  fallbackText: {
-    fontSize: 8,
-    fontFamily: 'Montserrat_400Regular',
-    marginLeft: 4,
-  },
   themeIndicatorBadge: {
     position: 'absolute',
     top: Platform.OS === 'ios' ? 50 : 40,
@@ -391,9 +378,6 @@ const styles = StyleSheet.create({
     fontSize: 10,
     marginLeft: 4,
     fontFamily: 'Montserrat_400Regular',
-  },
-  warningIcon: {
-    marginLeft: 4,
   },
   centerButton: {
     position: 'absolute',
