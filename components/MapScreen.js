@@ -1,11 +1,29 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, Alert, Linking, Platform, Dimensions, TouchableOpacity, Animated, StatusBar } from 'react-native';
-import MapView, { Marker, PROVIDER_DEFAULT, UrlTile } from 'react-native-maps';
+import MapboxGL from '@react-native-mapbox-gl/maps';
 import NetInfo from '@react-native-community/netinfo';
 import { Ionicons as Icon } from '@expo/vector-icons';
+import Constants from 'expo-constants';
 import { ACCENT_COLORS } from '../utils/constants';
 import { buildings, initialRegion } from '../utils/buildingCoordinates';
 import ConnectionError from './ConnectionError';
+
+// Получаем токен из environment variables
+const MAPBOX_ACCESS_TOKEN = Constants.expoConfig?.extra?.mapboxAccessToken || Constants.manifest?.extra?.mapboxAccessToken;
+
+// Проверяем и устанавливаем токен Mapbox
+let mapboxInitialized = false;
+if (MAPBOX_ACCESS_TOKEN) {
+  try {
+    MapboxGL.setAccessToken(MAPBOX_ACCESS_TOKEN);
+    mapboxInitialized = true;
+    console.log('Mapbox initialized successfully');
+  } catch (error) {
+    console.error('Failed to initialize Mapbox:', error);
+  }
+} else {
+  console.error('Mapbox access token is missing!');
+}
 
 const { width, height } = Dimensions.get('window');
 
@@ -13,7 +31,8 @@ const MapScreen = ({ theme, accentColor }) => {
   const [isOnline, setIsOnline] = useState(true);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [mapKey, setMapKey] = useState(0);
+  const [mapReady, setMapReady] = useState(false);
+  const cameraRef = useRef(null);
   const mapRef = useRef(null);
   const colors = ACCENT_COLORS[accentColor];
   
@@ -29,52 +48,27 @@ const MapScreen = ({ theme, accentColor }) => {
     }).start();
   }, []);
 
-  // УНИВЕРСАЛЬНЫЙ поставщик карт - OpenStreetMap для всех платформ
-  const getTileConfig = () => {
-    // Используем ТОЛЬКО тему приложения
-    const appTheme = theme;
-    
-    console.log('Карта: Тема приложения:', appTheme, 'Платформа:', Platform.OS);
-    
-    // OpenStreetMap как основной универсальный провайдер
-    const osmConfig = {
-      light: {
-        urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-        attribution: '© OpenStreetMap contributors',
-        provider: 'osm'
-      },
-      dark: {
-        // Альтернативные темные стили OSM
-        urlTemplate: 'https://tiles.wmflabs.org/dark-matter/{z}/{x}/{y}.png',
-        attribution: '© OpenStreetMap contributors, Dark Matter style',
-        provider: 'osm-dark'
-      }
-    };
+  // Проверяем инициализацию Mapbox
+  useEffect(() => {
+    if (!mapboxInitialized) {
+      setError('MAPBOX_INIT_ERROR');
+      setLoading(false);
+    }
+  }, []);
 
-    // ВСЕГДА используем тему ПРИЛОЖЕНИЯ
-    const selectedTheme = appTheme === 'dark' ? 'dark' : 'light';
-    
-    return osmConfig[selectedTheme];
+  // Определяем стиль карты на основе темы приложения
+  const getMapStyle = () => {
+    return theme === 'dark' 
+      ? 'mapbox://styles/mapbox/dark-v10'
+      : 'mapbox://styles/mapbox/light-v10';
   };
 
-  const [tileConfig, setTileConfig] = useState(getTileConfig());
+  const [mapStyle, setMapStyle] = useState(getMapStyle());
 
-  // ПРИНУДИТЕЛЬНО пересоздаем карту при изменении темы приложения
+  // Обновляем стиль карты при изменении темы приложения
   useEffect(() => {
-    console.log('Карта: Смена темы приложения, пересоздаем карту...', theme);
-    
-    const newConfig = getTileConfig();
-    setTileConfig(newConfig);
-    
-    // Меняем ключ для принудительного пересоздания компонента MapView
-    setMapKey(prev => prev + 1);
-    
-    // Показываем индикатор загрузки на короткое время
-    setLoading(true);
-    setTimeout(() => {
-      setLoading(false);
-    }, 300);
-    
+    console.log('Обновление стиля карты для темы:', theme);
+    setMapStyle(getMapStyle());
   }, [theme]);
 
   // Цвета фона и текста на основе темы ПРИЛОЖЕНИЯ
@@ -86,6 +80,13 @@ const MapScreen = ({ theme, accentColor }) => {
   }, []);
 
   const initializeMap = async () => {
+    // Если Mapbox не инициализирован, показываем ошибку
+    if (!mapboxInitialized) {
+      setError('MAPBOX_INIT_ERROR');
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
     setError(null);
     
@@ -100,10 +101,10 @@ const MapScreen = ({ theme, accentColor }) => {
         return;
       }
 
-      // Загрузка карты
+      // Инициализация карты
       setTimeout(() => {
         setLoading(false);
-      }, 800);
+      }, 2000);
     } catch (error) {
       console.error('Error initializing map:', error);
       setError('LOAD_ERROR');
@@ -112,6 +113,8 @@ const MapScreen = ({ theme, accentColor }) => {
   };
 
   const handleRetry = () => {
+    setError(null);
+    setLoading(true);
     initializeMap();
   };
 
@@ -198,54 +201,84 @@ const MapScreen = ({ theme, accentColor }) => {
 
   const openGoogleMapsRoute = async (building) => {
     const googleMapsAppUrl = `https://www.google.com/maps/dir/?api=1&destination=${building.latitude},${building.longitude}`;
-    const googleMapsWebUrl = `https://www.google.com/maps/dir/?api=1&destination=${building.latitude},${building.longitude}`;
     
     try {
-      // Пробуем открыть в приложении Google Maps
       await Linking.openURL(googleMapsAppUrl);
     } catch (error) {
       console.error('Error opening Google Maps:', error);
-      try {
-        // Fallback на веб-версию
-        await Linking.openURL(googleMapsWebUrl);
-      } catch (webError) {
-        Alert.alert('Ошибка', 'Не удалось открыть Google Карты');
-      }
+      Alert.alert('Ошибка', 'Не удалось открыть Google Карты');
     }
   };
 
   const BUILDING_ICONS = {
-    main: 'business-outline',
-    academic: 'school-outline',
-    library: 'library-outline',
-    dormitory: 'home-outline',
-    sports: 'barbell-outline',
-    cafeteria: 'restaurant-outline'
+    main: 'business',
+    academic: 'school',
+    library: 'library',
+    dormitory: 'home',
+    sports: 'barbell',
+    cafeteria: 'restaurant'
   };
 
   const getMarkerIcon = (buildingType) => {
-    return BUILDING_ICONS[buildingType] || 'business-outline';
+    return BUILDING_ICONS[buildingType] || 'business';
   };
 
   const focusOnAllBuildings = () => {
-    if (mapRef.current && buildings.length > 0) {
-      mapRef.current.fitToCoordinates(buildings.map(b => ({
-        latitude: b.latitude,
-        longitude: b.longitude
-      })), {
-        edgePadding: { top: 50, right: 50, bottom: 50, left: 50 },
-        animated: true,
-      });
+    if (cameraRef.current && buildings.length > 0) {
+      const coordinates = buildings.map(building => [building.longitude, building.latitude]);
+      
+      cameraRef.current.fitBounds(
+        coordinates,
+        {
+          padding: { top: 50, bottom: 50, left: 50, right: 50 },
+          duration: 1000
+        }
+      );
     }
   };
 
+  const handleMapReady = () => {
+    setMapReady(true);
+    setLoading(false);
+  };
+
+  // Если Mapbox не инициализирован, показываем заглушку
+  if (!mapboxInitialized) {
+    return (
+      <View style={{ flex: 1, backgroundColor: bgColor, justifyContent: 'center', alignItems: 'center' }}>
+        <StatusBar 
+          barStyle={theme === 'light' ? 'dark-content' : 'light-content'}
+          backgroundColor={bgColor}
+        />
+        <Icon name="map-outline" size={64} color={colors.primary} />
+        <Text style={{ marginTop: 16, color: textColor, textAlign: 'center', paddingHorizontal: 20 }}>
+          Карта временно недоступна. Пожалуйста, обновите приложение или обратитесь в поддержку.
+        </Text>
+      </View>
+    );
+  }
+
   // Если есть ошибка или загрузка, показываем соответствующий экран
-  if (loading || error) {
+  if (error && !loading) {
     let errorType = error;
-    if (error === 'NO_INTERNET') {
-      errorType = 'no-internet';
-    } else if (error === 'LOAD_ERROR') {
-      errorType = 'load-error';
+    let errorMessage = '';
+
+    switch (error) {
+      case 'NO_INTERNET':
+        errorType = 'no-internet';
+        errorMessage = 'Карта недоступна без подключения к интернету';
+        break;
+      case 'LOAD_ERROR':
+        errorType = 'load-error';
+        errorMessage = 'Не удалось загрузить карту';
+        break;
+      case 'MAPBOX_INIT_ERROR':
+        errorType = 'config-error';
+        errorMessage = 'Ошибка инициализации карты';
+        break;
+      default:
+        errorType = 'load-error';
+        errorMessage = 'Не удалось загрузить карту';
     }
 
     return (
@@ -261,7 +294,7 @@ const MapScreen = ({ theme, accentColor }) => {
           theme={theme}
           accentColor={accentColor}
           contentType="map"
-          message={error === 'NO_INTERNET' ? 'Карта недоступна без подключения к интернету' : 'Не удалось загрузить карту'}
+          message={errorMessage}
         />
       </Animated.View>
     );
@@ -274,59 +307,73 @@ const MapScreen = ({ theme, accentColor }) => {
         backgroundColor={bgColor}
       />
       
-      {/* Универсальная карта на OpenStreetMap для всех платформ */}
-      <MapView
-        key={`map_${mapKey}_${theme}_${Platform.OS}`}
-        ref={mapRef}
-        style={styles.map}
-        provider={PROVIDER_DEFAULT}
-        initialRegion={initialRegion}
-        showsUserLocation={true}
-        showsMyLocationButton={true}
-        showsCompass={true}
-        showsScale={true}
-        // Отключаем все Google-специфичные настройки для Android
-        {...(Platform.OS === 'android' && {
-          googleMapsApiKey: undefined
-        })}
-      >
-        {/* Универсальные тайлы OpenStreetMap */}
-        <UrlTile
-          urlTemplate={tileConfig.urlTemplate}
-          maximumZ={19}
-          flipY={false}
-          tileSize={256}
-          key={`tile_${mapKey}_${theme}_${tileConfig.provider}`}
-        />
-        
-        {buildings.map(building => (
-          <Marker
-            key={building.id}
-            coordinate={{
-              latitude: building.latitude,
-              longitude: building.longitude
+      {/* Карта Mapbox */}
+      <View style={styles.mapContainer}>
+        <MapboxGL.MapView
+          ref={mapRef}
+          style={styles.map}
+          styleURL={mapStyle}
+          onDidFinishLoadingMap={handleMapReady}
+          compassEnabled={true}
+          logoEnabled={true}
+          attributionEnabled={true}
+          scaleBarEnabled={true}
+        >
+          <MapboxGL.Camera
+            ref={cameraRef}
+            defaultSettings={{
+              center: [initialRegion.longitude, initialRegion.latitude],
+              zoom: initialRegion.longitudeDelta,
+              pitch: 0,
+              heading: 0
             }}
-            title={building.name}
-            description={building.description}
-            onPress={() => handleMarkerPress(building)}
-          >
-            <View style={[
-              styles.marker, 
-              { 
-                backgroundColor: colors.light, 
-                borderColor: colors.primary,
-                padding: 8,
-              }
-            ]}>
-              <Icon 
-                name={getMarkerIcon(building.type)} 
-                size={20} 
-                color={colors.primary} 
-              />
+          />
+          
+          <MapboxGL.UserLocation 
+            visible={true}
+            animated={true}
+            rendersMode={'normal'}
+          />
+          
+          {/* Маркеры зданий */}
+          {buildings.map((building, index) => (
+            <MapboxGL.PointAnnotation
+              key={building.id}
+              id={`building-${building.id}`}
+              coordinate={[building.longitude, building.latitude]}
+              onSelected={() => handleMarkerPress(building)}
+            >
+              <View style={[
+                styles.marker, 
+                { 
+                  backgroundColor: colors.light, 
+                  borderColor: colors.primary,
+                }
+              ]}>
+                <Icon 
+                  name={getMarkerIcon(building.type)} 
+                  size={20} 
+                  color={colors.primary} 
+                />
+              </View>
+              
+              <MapboxGL.Callout title={building.name} />
+            </MapboxGL.PointAnnotation>
+          ))}
+        </MapboxGL.MapView>
+        
+        {/* Индикатор загрузки */}
+        {loading && (
+          <View style={styles.loadingOverlay}>
+            <View style={[styles.loadingIndicator, { backgroundColor: colors.light }]}>
+              <Icon name="map-outline" size={32} color={colors.primary} />
+              <Text style={[styles.loadingText, { color: colors.primary, marginTop: 8 }]}>
+                Загрузка карты...
+              </Text>
             </View>
-          </Marker>
-        ))}
-      </MapView>
+          </View>
+        )}
+      </View>
       
       {/* Кнопка центрирования на зданиях */}
       <TouchableOpacity 
@@ -335,13 +382,6 @@ const MapScreen = ({ theme, accentColor }) => {
       >
         <Icon name="locate" size={24} color="#ffffff" />
       </TouchableOpacity>
-
-      {/* Аттрибуция */}
-      <View style={[styles.attribution, { backgroundColor: theme === 'dark' ? '#000000' : '#ffffff' }]}>
-        <Text style={[styles.attributionText, { color: theme === 'dark' ? '#ffffff' : '#333333' }]}>
-          {tileConfig.attribution}
-        </Text>
-      </View>
 
       {/* Индикатор темы карты */}
       <View style={[styles.themeIndicatorBadge, { backgroundColor: theme === 'dark' ? '#000000' : '#ffffff' }]}>
@@ -355,11 +395,11 @@ const MapScreen = ({ theme, accentColor }) => {
         </Text>
       </View>
 
-      {/* Информация о платформе для отладки */}
+      {/* Отладочная информация */}
       {__DEV__ && (
         <View style={[styles.debugInfo, { backgroundColor: theme === 'dark' ? '#000000' : '#ffffff' }]}>
           <Text style={[styles.debugText, { color: theme === 'dark' ? '#ffffff' : '#333333' }]}>
-            {Platform.OS.toUpperCase()} • {tileConfig.provider}
+            Mapbox • {theme === 'dark' ? 'Dark' : 'Light'} • {Platform.OS.toUpperCase()}
           </Text>
         </View>
       )}
@@ -371,28 +411,49 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
+  mapContainer: {
+    flex: 1,
+    position: 'relative',
+  },
   map: {
     flex: 1,
   },
   marker: {
-    borderRadius: 12,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     borderWidth: 2,
+    justifyContent: 'center',
+    alignItems: 'center',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.3,
     shadowRadius: 4,
     elevation: 5,
   },
-  attribution: {
+  loadingOverlay: {
     position: 'absolute',
-    bottom: 16,
-    left: 16,
-    padding: 6,
-    borderRadius: 4,
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  attributionText: {
-    fontSize: 10,
-    fontFamily: 'Montserrat_400Regular',
+  loadingIndicator: {
+    padding: 20,
+    borderRadius: 12,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  loadingText: {
+    fontSize: 14,
+    fontFamily: 'Montserrat_500Medium',
   },
   themeIndicatorBadge: {
     position: 'absolute',
