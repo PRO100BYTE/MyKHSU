@@ -29,7 +29,7 @@ const styles = StyleSheet.create({
     alignItems: 'center'
   },
   title: {
-    fontSize: 32,
+    fontSize: 30,
     fontWeight: 'bold'
   }
 });
