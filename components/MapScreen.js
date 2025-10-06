@@ -3,7 +3,9 @@ import { View, Text, StyleSheet, Alert, Linking, Platform, Dimensions, Touchable
 import MapView, { Marker, PROVIDER_DEFAULT, UrlTile } from 'react-native-maps';
 import NetInfo from '@react-native-community/netinfo';
 import { Ionicons as Icon } from '@expo/vector-icons';
+import * as SecureStore from 'expo-secure-store';
 import { ACCENT_COLORS } from '../utils/constants';
+import { buildings, initialRegion } from '../utils/buildingCoordinates';
 import ConnectionError from './ConnectionError';
 
 const { width, height } = Dimensions.get('window');
@@ -13,12 +15,41 @@ const MapScreen = ({ theme, accentColor }) => {
   const [mapLoaded, setMapLoaded] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [appTheme, setAppTheme] = useState('light');
+  const mapRef = useRef(null);
   const colors = ACCENT_COLORS[accentColor];
-  const bgColor = theme === 'light' ? '#f3f4f6' : '#111827';
-  const textColor = theme === 'light' ? '#111827' : '#ffffff';
+  const bgColor = appTheme === 'light' ? '#f3f4f6' : '#111827';
+  const textColor = appTheme === 'light' ? '#111827' : '#ffffff';
   
   // Анимация появления
   const fadeAnim = useRef(new Animated.Value(0)).current;
+
+  // Загружаем тему приложения из SecureStore
+  useEffect(() => {
+    loadAppTheme();
+  }, []);
+
+  // Обновляем локальную тему при изменении пропса theme
+  useEffect(() => {
+    if (theme) {
+      setAppTheme(theme);
+    }
+  }, [theme]);
+
+  const loadAppTheme = async () => {
+    try {
+      const savedTheme = await SecureStore.getItemAsync('theme');
+      if (savedTheme) {
+        const effectiveTheme = savedTheme === 'auto' ? 'light' : savedTheme;
+        setAppTheme(effectiveTheme);
+      } else if (theme) {
+        setAppTheme(theme);
+      }
+    } catch (error) {
+      console.error('Error loading app theme:', error);
+      setAppTheme(theme || 'light');
+    }
+  };
 
   // Запуск анимации при монтировании
   useEffect(() => {
@@ -29,36 +60,22 @@ const MapScreen = ({ theme, accentColor }) => {
     }).start();
   }, []);
 
-  // Координаты корпусов ХГУ
-  const buildings = [
-    {
-      id: 1,
-      name: 'Корпус №2 (ИТИ)',
-      latitude: 53.722143,
-      longitude: 91.439183,
-      description: 'ул. Ленина, 92/1',
-      type: 'academic'
+  // Mapbox стили для светлой и темной тем
+  const MAPBOX_THEMES = {
+    light: {
+      urlTemplate: 'https://api.mapbox.com/styles/v1/mapbox/light-v10/tiles/256/{z}/{x}/{y}@2x?access_token=pk.eyJ1IjoibWFwYm94IiwiYSI6ImNpejY4NXVycTA2emYycXBndHRqcmZ3N3gifQ.rJcFIG214AriISLbB6B5aw',
+      attribution: '© Mapbox © OpenStreetMap',
+      markerColor: colors.primary
     },
-    {
-      id: 2,
-      name: 'Административный корпус',
-      latitude: 53.722127,
-      longitude: 91.438486,
-      description: 'ул. Ленина, 92',
-      type: 'main'
-    },
-    {
-      id: 3,
-      name: 'Корпус №1 (ИЕНиМ)',
-      latitude: 53.722481,
-      longitude: 91.441737,
-      description: 'ул. Ленина, 90',
-      type: 'academic'
+    dark: {
+      urlTemplate: 'https://api.mapbox.com/styles/v1/mapbox/dark-v10/tiles/256/{z}/{x}/{y}@2x?access_token=pk.eyJ1IjoibWFwYm94IiwiYSI6ImNpejY4NXVycTA2emYycXBndHRqcmZ3N3gifQ.rJcFIG214AriISLbB6B5aw',
+      attribution: '© Mapbox © OpenStreetMap',
+      markerColor: colors.dark
     }
-  ];
+  };
 
-  // URL шаблоны для разных тем карты
-  const MAP_THEMES = {
+  // Резервные OSM стили
+  const OSM_THEMES = {
     light: {
       urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
       attribution: '© OpenStreetMap contributors',
@@ -71,6 +88,9 @@ const MapScreen = ({ theme, accentColor }) => {
     }
   };
 
+  // Используем Mapbox как основной провайдер, OSM как запасной
+  const mapThemes = MAPBOX_THEMES;
+
   // Иконки для разных типов зданий
   const BUILDING_ICONS = {
     main: 'business-outline',
@@ -81,12 +101,12 @@ const MapScreen = ({ theme, accentColor }) => {
     cafeteria: 'restaurant-outline'
   };
 
-  // Получаем настройки текущей темы карты
-  const mapTheme = MAP_THEMES[theme] || MAP_THEMES.light;
+  // Получаем настройки текущей темы карты из настроек приложения
+  const mapTheme = mapThemes[appTheme] || mapThemes.light;
 
   useEffect(() => {
     initializeMap();
-  }, [theme]);
+  }, [appTheme]);
 
   const initializeMap = async () => {
     setLoading(true);
@@ -119,21 +139,6 @@ const MapScreen = ({ theme, accentColor }) => {
     initializeMap();
   };
 
-  const handleOpenDirections = async (building) => {
-    const url = `https://www.openstreetmap.org/directions?from=&to=${building.latitude},${building.longitude}`;
-    try {
-      const supported = await Linking.canOpenURL(url);
-      if (supported) {
-        await Linking.openURL(url);
-      } else {
-        Alert.alert('Ошибка', 'Не удалось открыть приложение для построения маршрута');
-      }
-    } catch (error) {
-      console.error('Error opening URL:', error);
-      Alert.alert('Ошибка', 'Не удалось открыть приложение для построения маршрута');
-    }
-  };
-
   const handleMarkerPress = (building) => {
     Alert.alert(
       building.name,
@@ -142,14 +147,83 @@ const MapScreen = ({ theme, accentColor }) => {
         { text: 'Закрыть', style: 'cancel' },
         { 
           text: 'Построить маршрут', 
-          onPress: () => handleOpenDirections(building)
+          onPress: () => showRouteOptions(building)
         }
       ]
     );
   };
 
+  // Показываем выбор приложения для построения маршрута
+  const showRouteOptions = (building) => {
+    Alert.alert(
+      'Построение маршрута',
+      'Выберите приложение для построения маршрута:',
+      [
+        {
+          text: 'Яндекс Карты',
+          onPress: () => openYandexMapsRoute(building)
+        },
+        {
+          text: '2ГИС',
+          onPress: () => open2GISRoute(building)
+        },
+        {
+          text: 'Отмена',
+          style: 'cancel'
+        }
+      ]
+    );
+  };
+
+  // Построение маршрута через Яндекс Карты
+  const openYandexMapsRoute = async (building) => {
+    const yandexMapsUrl = `https://yandex.ru/maps/?rtext=~${building.latitude},${building.longitude}&rtt=auto`;
+    
+    try {
+      const supported = await Linking.canOpenURL(yandexMapsUrl);
+      if (supported) {
+        await Linking.openURL(yandexMapsUrl);
+      } else {
+        Alert.alert('Ошибка', 'Не удалось открыть Яндекс Карты');
+      }
+    } catch (error) {
+      console.error('Error opening Yandex Maps:', error);
+      Alert.alert('Ошибка', 'Не удалось открыть Яндекс Карты');
+    }
+  };
+
+  // Построение маршрута через 2ГИС
+  const open2GISRoute = async (building) => {
+    const twoGisUrl = `https://2gis.ru/routeSearch/rsType/car/to/${building.longitude},${building.latitude}`;
+    
+    try {
+      const supported = await Linking.canOpenURL(twoGisUrl);
+      if (supported) {
+        await Linking.openURL(twoGisUrl);
+      } else {
+        Alert.alert('Ошибка', 'Не удалось открыть 2ГИС');
+      }
+    } catch (error) {
+      console.error('Error opening 2GIS:', error);
+      Alert.alert('Ошибка', 'Не удалось открыть 2ГИС');
+    }
+  };
+
   const getMarkerIcon = (buildingType) => {
     return BUILDING_ICONS[buildingType] || 'business-outline';
+  };
+
+  // Функция для центрирования карты на всех зданиях
+  const focusOnAllBuildings = () => {
+    if (mapRef.current && buildings.length > 0) {
+      mapRef.current.fitToCoordinates(buildings.map(b => ({
+        latitude: b.latitude,
+        longitude: b.longitude
+      })), {
+        edgePadding: { top: 50, right: 50, bottom: 50, left: 50 },
+        animated: true,
+      });
+    }
   };
 
   // Если есть ошибка или загрузка, показываем соответствующий экран
@@ -167,7 +241,7 @@ const MapScreen = ({ theme, accentColor }) => {
           type={errorType}
           loading={loading}
           onRetry={handleRetry}
-          theme={theme}
+          theme={appTheme}
           accentColor={accentColor}
           contentType="map"
           message={error === 'NO_INTERNET' ? 'Карта недоступна без подключения к интернету' : 'Не удалось загрузить карту'}
@@ -179,23 +253,24 @@ const MapScreen = ({ theme, accentColor }) => {
   return (
     <Animated.View style={[styles.container, { opacity: fadeAnim }]}>
       <MapView
+        ref={mapRef}
         style={styles.map}
         provider={PROVIDER_DEFAULT}
-        initialRegion={{
-          latitude: 53.7213,
-          longitude: 91.4424,
-          latitudeDelta: 0.01,
-          longitudeDelta: 0.01,
-        }}
+        initialRegion={initialRegion}
         showsUserLocation={true}
         showsMyLocationButton={true}
-        userInterfaceStyle={theme}
+        showsCompass={true}
+        showsScale={true}
+        // Принудительно обновляем карту при смене темы приложения
+        key={`map_${appTheme}_${accentColor}`}
       >
-        {/* Используем тайлы в зависимости от темы */}
+        {/* Используем Mapbox тайлы для обеих платформ */}
         <UrlTile
           urlTemplate={mapTheme.urlTemplate}
-          maximumZ={19}
+          maximumZ={20}
           flipY={false}
+          tileSize={256}
+          key={`tile_${appTheme}`}
         />
         
         {buildings.map(building => (
@@ -209,32 +284,48 @@ const MapScreen = ({ theme, accentColor }) => {
             description={building.description}
             onPress={() => handleMarkerPress(building)}
           >
-            <View style={[styles.marker, { backgroundColor: colors.light }]}>
+            <View style={[
+              styles.marker, 
+              { 
+                backgroundColor: colors.light, 
+                borderColor: colors.primary,
+                // Уменьшаем размер маркеров на Android
+                padding: Platform.OS === 'android' ? 4 : 8,
+              }
+            ]}>
               <Icon 
                 name={getMarkerIcon(building.type)} 
-                size={24} 
-                color={mapTheme.markerColor} 
+                size={Platform.OS === 'android' ? 18 : 24} 
+                color={colors.primary} 
               />
             </View>
           </Marker>
         ))}
       </MapView>
       
-      <View style={[styles.attribution, { backgroundColor: theme === 'dark' ? '#000000' : '#ffffff' }]}>
-        <Text style={[styles.attributionText, { color: theme === 'dark' ? '#ffffff' : '#333333' }]}>
+      {/* Кнопка центрирования на зданиях */}
+      <TouchableOpacity 
+        style={[styles.centerButton, { backgroundColor: colors.primary }]}
+        onPress={focusOnAllBuildings}
+      >
+        <Icon name="locate" size={24} color="#ffffff" />
+      </TouchableOpacity>
+
+      <View style={[styles.attribution, { backgroundColor: appTheme === 'dark' ? '#000000' : '#ffffff' }]}>
+        <Text style={[styles.attributionText, { color: appTheme === 'dark' ? '#ffffff' : '#333333' }]}>
           {mapTheme.attribution}
         </Text>
       </View>
 
       {/* Индикатор темы карты */}
-      <View style={[styles.themeIndicatorBadge, { backgroundColor: theme === 'dark' ? '#000000' : '#ffffff' }]}>
+      <View style={[styles.themeIndicatorBadge, { backgroundColor: appTheme === 'dark' ? '#000000' : '#ffffff' }]}>
         <Icon 
-          name={theme === 'dark' ? 'moon' : 'sunny'} 
+          name={appTheme === 'dark' ? 'moon' : 'sunny'} 
           size={14} 
-          color={theme === 'dark' ? '#ffffff' : '#333333'} 
+          color={appTheme === 'dark' ? '#ffffff' : '#333333'} 
         />
-        <Text style={[styles.themeIndicatorText, { color: theme === 'dark' ? '#ffffff' : '#333333' }]}>
-          {theme === 'dark' ? 'Тёмная карта' : 'Светлая карта'}
+        <Text style={[styles.themeIndicatorText, { color: appTheme === 'dark' ? '#ffffff' : '#333333' }]}>
+          {appTheme === 'dark' ? 'Тёмная карта' : 'Светлая карта'}
         </Text>
       </View>
     </Animated.View>
@@ -247,19 +338,22 @@ const styles = StyleSheet.create({
   },
   map: {
     flex: 1,
-    // Добавляем отступ снизу для навигационных кнопок Android
     marginBottom: Platform.OS === 'android' ? 5 : 0
   },
   marker: {
     backgroundColor: 'white',
     borderRadius: 12,
-    padding: 4,
-    borderWidth: 1,
+    borderWidth: 2,
     borderColor: '#ddd',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 5,
   },
   attribution: {
     position: 'absolute',
-    bottom: Platform.OS === 'android' ? 70 : 16, // Увеличиваем отступ для Android
+    bottom: Platform.OS === 'android' ? 70 : 16,
     left: 16,
     padding: 6,
     borderRadius: 4,
@@ -270,7 +364,7 @@ const styles = StyleSheet.create({
   },
   themeIndicatorBadge: {
     position: 'absolute',
-    top: Platform.OS === 'ios' ? 50 : 40, // Увеличиваем отступ сверху для Android
+    top: Platform.OS === 'ios' ? 50 : 40,
     left: 16,
     padding: 6,
     borderRadius: 4,
@@ -281,6 +375,18 @@ const styles = StyleSheet.create({
     fontSize: 10,
     marginLeft: 4,
     fontFamily: 'Montserrat_400Regular',
+  },
+  centerButton: {
+    position: 'absolute',
+    top: Platform.OS === 'ios' ? 50 : 40,
+    right: 16,
+    padding: 12,
+    borderRadius: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 5,
   },
 });
 
