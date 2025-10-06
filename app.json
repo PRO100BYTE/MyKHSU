@@ -6,7 +6,7 @@
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
-    "newArchEnabled": true,
+    "newArchEnabled": false,
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
@@ -19,7 +19,8 @@
         "ITSAppUsesNonExemptEncryption": false,
         "NSLocationWhenInUseUsageDescription": "Приложению требуется доступ к вашему местоположению для показа ближайших корпусов ХГУ на карте.",
         "NSLocationAlwaysUsageDescription": "Приложению требуется доступ к вашему местоположению для показа ближайших корпусов ХГУ на карте.",
-        "UIBackgroundModes": ["remote-notification", "fetch"]
+        "UIBackgroundModes": ["remote-notification", "fetch"],
+        "MGLMapboxAccessToken": "$(MAPBOX_ACCESS_TOKEN)"
       },
       "backgroundColor": "#ffffff"
     },
@@ -35,8 +36,7 @@
         "ACCESS_COARSE_LOCATION",
         "ACCESS_FINE_LOCATION"
       ],
-      "config": {
-      },
+      "config": {},
       "allowBackup": true
     },
     "web": {
@@ -66,6 +66,13 @@
           "icon": "./assets/notification.png",
           "color": "#ffffff",
           "sounds": ["./assets/notification.wav"]
+        }
+      ],
+      [
+        "@react-native-mapbox-gl/maps",
+        {
+          "RNMapboxMapsDownloadToken": "$(MAPBOX_ACCESS_TOKEN)",
+          "RNMapboxMapsVersion": "10.0.0"
         }
       ]
     ],
