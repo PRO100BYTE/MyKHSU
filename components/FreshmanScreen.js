@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, Linking, StyleSheet, Animated } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, Linking, StyleSheet, Animated, StatusBar } from 'react-native';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import { ACCENT_COLORS } from '../utils/constants';
 import UnderDevelopmentModal from './UnderDevelopmentModal';
@@ -337,6 +337,10 @@ const FreshmanScreen = ({ theme, accentColor }) => {
 
   return (
     <View style={{ flex: 1, backgroundColor: bgColor }}>
+       <StatusBar 
+        barStyle={theme === 'light' ? 'dark-content' : 'light-content'}
+        backgroundColor={bgColor}
+      />
       {renderCurrentScreen()}
 
       {/* Модальное окно заглушки */}
