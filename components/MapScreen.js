@@ -13,7 +13,7 @@ const MapScreen = ({ theme, accentColor }) => {
   const [isOnline, setIsOnline] = useState(true);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [mapKey, setMapKey] = useState(0); // Ключ для принудительного пересоздания карты
+  const [mapKey, setMapKey] = useState(0);
   const mapRef = useRef(null);
   const colors = ACCENT_COLORS[accentColor];
   
@@ -29,43 +29,41 @@ const MapScreen = ({ theme, accentColor }) => {
     }).start();
   }, []);
 
-  // ЖЕСТКО определяем URL тайлов на основе темы ПРИЛОЖЕНИЯ
-  const getTileUrl = () => {
-    // Используем ТОЛЬКО тему приложения, игнорируем системную
+  // УНИВЕРСАЛЬНЫЙ поставщик карт - OpenStreetMap для всех платформ
+  const getTileConfig = () => {
+    // Используем ТОЛЬКО тему приложения
     const appTheme = theme;
     
-    console.log('Карта: Тема приложения:', appTheme);
+    console.log('Карта: Тема приложения:', appTheme, 'Платформа:', Platform.OS);
     
-    // Mapbox URLs для разных тем
-    const mapboxUrls = {
-      light: 'https://api.mapbox.com/styles/v1/mapbox/light-v10/tiles/256/{z}/{x}/{y}@2x?access_token=pk.eyJ1IjoicHJvMTAwYnl0ZSIsImEiOiJjbHZ5b2N1c3YwMDB0MmpxcTV0b3N5b2VpIn0.8QlXYi2nQK2kY9Ql7Qqj9A',
-      dark: 'https://api.mapbox.com/styles/v1/mapbox/dark-v10/tiles/256/{z}/{x}/{y}@2x?access_token=pk.eyJ1IjoicHJvMTAwYnl0ZSIsImEiOiJjbHZ5b2N1c3YwMDB0MmpxcTV0b3N5b2VpIn0.8QlXYi2nQK2kY9Ql7Qqj9A'
-    };
-
-    // OpenStreetMap как резервный
-    const osmUrls = {
-      light: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-      dark: 'https://tiles.wmflabs.org/dark-matter/{z}/{x}/{y}.png'
+    // OpenStreetMap как основной универсальный провайдер
+    const osmConfig = {
+      light: {
+        urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+        attribution: '© OpenStreetMap contributors',
+        provider: 'osm'
+      },
+      dark: {
+        // Альтернативные темные стили OSM
+        urlTemplate: 'https://tiles.wmflabs.org/dark-matter/{z}/{x}/{y}.png',
+        attribution: '© OpenStreetMap contributors, Dark Matter style',
+        provider: 'osm-dark'
+      }
     };
 
     // ВСЕГДА используем тему ПРИЛОЖЕНИЯ
     const selectedTheme = appTheme === 'dark' ? 'dark' : 'light';
     
-    // Пробуем Mapbox сначала
-    return {
-      url: mapboxUrls[selectedTheme],
-      attribution: '© Mapbox © OpenStreetMap',
-      provider: 'mapbox'
-    };
+    return osmConfig[selectedTheme];
   };
 
-  const [tileConfig, setTileConfig] = useState(getTileUrl());
+  const [tileConfig, setTileConfig] = useState(getTileConfig());
 
-  // ПРИНУДИТЕЛЬНО пересоздаем карту при ЛЮБОМ изменении темы приложения
+  // ПРИНУДИТЕЛЬНО пересоздаем карту при изменении темы приложения
   useEffect(() => {
     console.log('Карта: Смена темы приложения, пересоздаем карту...', theme);
     
-    const newConfig = getTileUrl();
+    const newConfig = getTileConfig();
     setTileConfig(newConfig);
     
     // Меняем ключ для принудительного пересоздания компонента MapView
@@ -75,9 +73,9 @@ const MapScreen = ({ theme, accentColor }) => {
     setLoading(true);
     setTimeout(() => {
       setLoading(false);
-    }, 500);
+    }, 300);
     
-  }, [theme]); // Срабатывает ТОЛЬКО при изменении темы приложения
+  }, [theme]);
 
   // Цвета фона и текста на основе темы ПРИЛОЖЕНИЯ
   const bgColor = theme === 'light' ? '#f3f4f6' : '#111827';
@@ -105,7 +103,7 @@ const MapScreen = ({ theme, accentColor }) => {
       // Загрузка карты
       setTimeout(() => {
         setLoading(false);
-      }, 1000);
+      }, 800);
     } catch (error) {
       console.error('Error initializing map:', error);
       setError('LOAD_ERROR');
@@ -143,6 +141,10 @@ const MapScreen = ({ theme, accentColor }) => {
         {
           text: '2ГИС',
           onPress: () => open2GISRoute(building)
+        },
+        {
+          text: 'Google Карты',
+          onPress: () => openGoogleMapsRoute(building)
         },
         {
           text: 'Отмена',
@@ -190,6 +192,24 @@ const MapScreen = ({ theme, accentColor }) => {
         await Linking.openURL(twoGisWebUrl);
       } catch (webError) {
         Alert.alert('Ошибка', 'Не удалось открыть 2ГИС');
+      }
+    }
+  };
+
+  const openGoogleMapsRoute = async (building) => {
+    const googleMapsAppUrl = `https://www.google.com/maps/dir/?api=1&destination=${building.latitude},${building.longitude}`;
+    const googleMapsWebUrl = `https://www.google.com/maps/dir/?api=1&destination=${building.latitude},${building.longitude}`;
+    
+    try {
+      // Пробуем открыть в приложении Google Maps
+      await Linking.openURL(googleMapsAppUrl);
+    } catch (error) {
+      console.error('Error opening Google Maps:', error);
+      try {
+        // Fallback на веб-версию
+        await Linking.openURL(googleMapsWebUrl);
+      } catch (webError) {
+        Alert.alert('Ошибка', 'Не удалось открыть Google Карты');
       }
     }
   };
@@ -254,9 +274,9 @@ const MapScreen = ({ theme, accentColor }) => {
         backgroundColor={bgColor}
       />
       
-      {/* Ключ mapKey принудительно пересоздает MapView при изменении темы */}
+      {/* Универсальная карта на OpenStreetMap для всех платформ */}
       <MapView
-        key={`map_${mapKey}_${theme}`}
+        key={`map_${mapKey}_${theme}_${Platform.OS}`}
         ref={mapRef}
         style={styles.map}
         provider={PROVIDER_DEFAULT}
@@ -265,14 +285,18 @@ const MapScreen = ({ theme, accentColor }) => {
         showsMyLocationButton={true}
         showsCompass={true}
         showsScale={true}
+        // Отключаем все Google-специфичные настройки для Android
+        {...(Platform.OS === 'android' && {
+          googleMapsApiKey: undefined
+        })}
       >
-        {/* UrlTile с URL, зависящим от темы приложения */}
+        {/* Универсальные тайлы OpenStreetMap */}
         <UrlTile
-          urlTemplate={tileConfig.url}
+          urlTemplate={tileConfig.urlTemplate}
           maximumZ={19}
           flipY={false}
-          tileSize={Platform.OS === 'android' ? 256 : 512}
-          key={`tile_${mapKey}_${theme}`}
+          tileSize={256}
+          key={`tile_${mapKey}_${theme}_${tileConfig.provider}`}
         />
         
         {buildings.map(building => (
@@ -291,12 +315,12 @@ const MapScreen = ({ theme, accentColor }) => {
               { 
                 backgroundColor: colors.light, 
                 borderColor: colors.primary,
-                padding: Platform.OS === 'android' ? 4 : 8,
+                padding: 8,
               }
             ]}>
               <Icon 
                 name={getMarkerIcon(building.type)} 
-                size={Platform.OS === 'android' ? 18 : 24} 
+                size={20} 
                 color={colors.primary} 
               />
             </View>
@@ -312,6 +336,7 @@ const MapScreen = ({ theme, accentColor }) => {
         <Icon name="locate" size={24} color="#ffffff" />
       </TouchableOpacity>
 
+      {/* Аттрибуция */}
       <View style={[styles.attribution, { backgroundColor: theme === 'dark' ? '#000000' : '#ffffff' }]}>
         <Text style={[styles.attributionText, { color: theme === 'dark' ? '#ffffff' : '#333333' }]}>
           {tileConfig.attribution}
@@ -329,6 +354,15 @@ const MapScreen = ({ theme, accentColor }) => {
           {theme === 'dark' ? 'Тёмная карта' : 'Светлая карта'}
         </Text>
       </View>
+
+      {/* Информация о платформе для отладки */}
+      {__DEV__ && (
+        <View style={[styles.debugInfo, { backgroundColor: theme === 'dark' ? '#000000' : '#ffffff' }]}>
+          <Text style={[styles.debugText, { color: theme === 'dark' ? '#ffffff' : '#333333' }]}>
+            {Platform.OS.toUpperCase()} • {tileConfig.provider}
+          </Text>
+        </View>
+      )}
     </Animated.View>
   );
 };
@@ -339,13 +373,10 @@ const styles = StyleSheet.create({
   },
   map: {
     flex: 1,
-    marginBottom: Platform.OS === 'android' ? 5 : 0
   },
   marker: {
-    backgroundColor: 'white',
     borderRadius: 12,
     borderWidth: 2,
-    borderColor: '#ddd',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.3,
@@ -354,12 +385,10 @@ const styles = StyleSheet.create({
   },
   attribution: {
     position: 'absolute',
-    bottom: Platform.OS === 'android' ? 70 : 16,
+    bottom: 16,
     left: 16,
     padding: 6,
     borderRadius: 4,
-    flexDirection: 'row',
-    alignItems: 'center',
   },
   attributionText: {
     fontSize: 10,
@@ -390,6 +419,17 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 4,
     elevation: 5,
+  },
+  debugInfo: {
+    position: 'absolute',
+    top: Platform.OS === 'ios' ? 90 : 80,
+    right: 16,
+    padding: 6,
+    borderRadius: 4,
+  },
+  debugText: {
+    fontSize: 10,
+    fontFamily: 'Montserrat_400Regular',
   },
 });
 

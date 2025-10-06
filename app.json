@@ -36,9 +36,6 @@
         "ACCESS_FINE_LOCATION"
       ],
       "config": {
-        "googleMaps": {
-          "apiKey": "YOUR_GOOGLE_MAPS_API_KEY_OPTIONAL"
-        }
       },
       "allowBackup": true
     },
