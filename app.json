@@ -19,8 +19,7 @@
         "ITSAppUsesNonExemptEncryption": false,
         "NSLocationWhenInUseUsageDescription": "Приложению требуется доступ к вашему местоположению для показа ближайших корпусов ХГУ на карте.",
         "NSLocationAlwaysUsageDescription": "Приложению требуется доступ к вашему местоположению для показа ближайших корпусов ХГУ на карте.",
-        "UIBackgroundModes": ["remote-notification", "fetch"],
-        "MGLMapboxAccessToken": "$(MAPBOX_ACCESS_TOKEN)"
+        "UIBackgroundModes": ["remote-notification", "fetch"]
       },
       "backgroundColor": "#ffffff"
     },
@@ -66,13 +65,6 @@
           "icon": "./assets/notification.png",
           "color": "#ffffff",
           "sounds": ["./assets/notification.wav"]
-        }
-      ],
-      [
-        "@react-native-mapbox-gl/maps",
-        {
-          "RNMapboxMapsDownloadToken": "$(MAPBOX_ACCESS_TOKEN)",
-          "RNMapboxMapsVersion": "10.0.0"
         }
       ]
     ],

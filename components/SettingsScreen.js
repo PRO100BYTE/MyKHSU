@@ -10,7 +10,7 @@ import AboutModal from './AboutModal';
 import NotificationSettingsModal from './NotificationSettingsModal';
 import ScheduleFormatModal from './ScheduleFormatModal';
 import { ACCENT_COLORS, APP_VERSION, APP_DEVELOPERS, APP_SUPPORTERS, GITHUB_REPO_URL, BUILD_VER, BUILD_DATE } from '../utils/constants';
-import { clearMapCache } from '../utils/mapCache';
+import mapCache from '../utils/mapCache';
 
 const SettingsScreen = ({ theme, accentColor, setTheme, setAccentColor, onScheduleSettingsChange }) => {
   const [appearanceSheetVisible, setAppearanceSheetVisible] = useState(false);
@@ -116,7 +116,7 @@ const SettingsScreen = ({ theme, accentColor, setTheme, setAccentColor, onSchedu
           text: 'Очистить',
           onPress: async () => {
             try {
-              const success = await clearMapCache();
+              const success = await mapCache.clearCache();
               if (success) {
                 Alert.alert('Успех', 'Кэш карты успешно очищен');
               } else {
