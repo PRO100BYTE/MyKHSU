@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, Alert, StyleSheet, Animated } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, Alert, StyleSheet, Animated, StatusBar } from 'react-native';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as SecureStore from 'expo-secure-store';
@@ -139,6 +139,10 @@ const SettingsScreen = ({ theme, accentColor, setTheme, setAccentColor, onSchedu
 
   return (
     <Animated.View style={{ flex: 1, backgroundColor: bgColor, opacity: fadeAnim }}>
+      <StatusBar 
+        barStyle={theme === 'light' ? 'dark-content' : 'light-content'}
+        backgroundColor={bgColor}
+      />
       <ScrollView style={{ padding: 16 }}>
         {/* Формат расписания */}
         <TouchableOpacity 
