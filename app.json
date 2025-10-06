@@ -17,8 +17,8 @@
       "bundleIdentifier": "com.pro100byte.myitikhsu",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
-        "NSLocationWhenInUseUsageDescription": "Приложению требуется доступ к вашему местоположению для показа ближайших корпусов ХГУ на карте.",
-        "NSLocationAlwaysUsageDescription": "Приложению требуется доступ к вашему местоположению для показа ближайших корпусов ХГУ на карте.",
+        "NSLocationWhenInUseUsageDescription": "Приложению Мой ИТИ ХГУ требуется доступ к вашему местоположению для показа ближайших корпусов ХГУ на карте.",
+        "NSLocationAlwaysUsageDescription": "Приложению Мой ИТИ ХГУ требуется доступ к вашему местоположению для показа ближайших корпусов ХГУ на карте.",
         "UIBackgroundModes": ["remote-notification", "fetch"]
       },
       "backgroundColor": "#ffffff"
@@ -57,7 +57,7 @@
       [
         "expo-location",
         {
-          "locationAlwaysAndWhenInUsePermission": "Разрешить $(PRODUCT_NAME) использовать ваше местоположение для показа ближайших корпусов ХГУ на карте."
+          "locationAlwaysAndWhenInUsePermission": "Разрешить приложению Мой ИТИ ХГУ использовать ваше местоположение для показа ближайших корпусов ХГУ на карте."
         }
       ],
       [
