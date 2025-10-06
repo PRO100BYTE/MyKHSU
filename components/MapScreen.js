@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, Alert, Linking, Platform, Dimensions, TouchableOpacity, Animated } from 'react-native';
+import { View, Text, StyleSheet, Alert, Linking, Platform, Dimensions, TouchableOpacity, Animated, StatusBar } from 'react-native';
 import MapView, { Marker, PROVIDER_DEFAULT, UrlTile } from 'react-native-maps';
 import NetInfo from '@react-native-community/netinfo';
 import { Ionicons as Icon } from '@expo/vector-icons';
@@ -15,41 +15,11 @@ const MapScreen = ({ theme, accentColor }) => {
   const [mapLoaded, setMapLoaded] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [appTheme, setAppTheme] = useState('light');
   const mapRef = useRef(null);
   const colors = ACCENT_COLORS[accentColor];
-  const bgColor = appTheme === 'light' ? '#f3f4f6' : '#111827';
-  const textColor = appTheme === 'light' ? '#111827' : '#ffffff';
   
   // Анимация появления
   const fadeAnim = useRef(new Animated.Value(0)).current;
-
-  // Загружаем тему приложения из SecureStore
-  useEffect(() => {
-    loadAppTheme();
-  }, []);
-
-  // Обновляем локальную тему при изменении пропса theme
-  useEffect(() => {
-    if (theme) {
-      setAppTheme(theme);
-    }
-  }, [theme]);
-
-  const loadAppTheme = async () => {
-    try {
-      const savedTheme = await SecureStore.getItemAsync('theme');
-      if (savedTheme) {
-        const effectiveTheme = savedTheme === 'auto' ? 'light' : savedTheme;
-        setAppTheme(effectiveTheme);
-      } else if (theme) {
-        setAppTheme(theme);
-      }
-    } catch (error) {
-      console.error('Error loading app theme:', error);
-      setAppTheme(theme || 'light');
-    }
-  };
 
   // Запуск анимации при монтировании
   useEffect(() => {
@@ -60,22 +30,22 @@ const MapScreen = ({ theme, accentColor }) => {
     }).start();
   }, []);
 
-  // Mapbox стили для светлой и темной тем
-  const MAPBOX_THEMES = {
+  // URL шаблоны для разных тем карты - Mapbox как основной, OpenStreetMap как резервный
+  const MAP_THEMES = {
     light: {
-      urlTemplate: 'https://api.mapbox.com/styles/v1/mapbox/light-v10/tiles/256/{z}/{x}/{y}@2x?access_token=pk.eyJ1IjoibWFwYm94IiwiYSI6ImNpejY4NXVycTA2emYycXBndHRqcmZ3N3gifQ.rJcFIG214AriISLbB6B5aw',
+      urlTemplate: 'https://api.mapbox.com/styles/v1/mapbox/light-v10/tiles/256/{z}/{x}/{y}@2x?access_token=pk.eyJ1IjoicHJvMTAwYnl0ZSIsImEiOiJjbHZ5b2N1c3YwMDB0MmpxcTV0b3N5b2VpIn0.8QlXYi2nQK2kY9Ql7Qqj9A',
       attribution: '© Mapbox © OpenStreetMap',
       markerColor: colors.primary
     },
     dark: {
-      urlTemplate: 'https://api.mapbox.com/styles/v1/mapbox/dark-v10/tiles/256/{z}/{x}/{y}@2x?access_token=pk.eyJ1IjoibWFwYm94IiwiYSI6ImNpejY4NXVycTA2emYycXBndHRqcmZ3N3gifQ.rJcFIG214AriISLbB6B5aw',
+      urlTemplate: 'https://api.mapbox.com/styles/v1/mapbox/dark-v10/tiles/256/{z}/{x}/{y}@2x?access_token=pk.eyJ1IjoicHJvMTAwYnl0ZSIsImEiOiJjbHZ5b2N1c3YwMDB0MmpxcTV0b3N5b2VpIn0.8QlXYi2nQK2kY9Ql7Qqj9A',
       attribution: '© Mapbox © OpenStreetMap',
       markerColor: colors.dark
     }
   };
 
-  // Резервные OSM стили
-  const OSM_THEMES = {
+  // Резервные тайлы OpenStreetMap
+  const FALLBACK_THEMES = {
     light: {
       urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
       attribution: '© OpenStreetMap contributors',
@@ -88,25 +58,17 @@ const MapScreen = ({ theme, accentColor }) => {
     }
   };
 
-  // Используем Mapbox как основной провайдер, OSM как запасной
-  const mapThemes = MAPBOX_THEMES;
+  // Получаем настройки текущей темы карты ИСКЛЮЧИТЕЛЬНО из пропсов
+  const [currentMapTheme, setCurrentMapTheme] = useState(MAP_THEMES[theme] || MAP_THEMES.light);
+  const [usingFallback, setUsingFallback] = useState(false);
 
-  // Иконки для разных типов зданий
-  const BUILDING_ICONS = {
-    main: 'business-outline',
-    academic: 'school-outline',
-    library: 'library-outline',
-    dormitory: 'home-outline',
-    sports: 'barbell-outline',
-    cafeteria: 'restaurant-outline'
-  };
-
-  // Получаем настройки текущей темы карты из настроек приложения
-  const mapTheme = mapThemes[appTheme] || mapThemes.light;
+  // Цвета фона и текста на основе темы из пропсов
+  const bgColor = theme === 'light' ? '#f3f4f6' : '#111827';
+  const textColor = theme === 'light' ? '#111827' : '#ffffff';
 
   useEffect(() => {
     initializeMap();
-  }, [appTheme]);
+  }, [theme]); // Переинициализируем карту при смене темы
 
   const initializeMap = async () => {
     setLoading(true);
@@ -123,14 +85,20 @@ const MapScreen = ({ theme, accentColor }) => {
         return;
       }
 
-      // Простая загрузка онлайн карты
+      // Сначала пробуем Mapbox
+      setCurrentMapTheme(MAP_THEMES[theme] || MAP_THEMES.light);
+      setUsingFallback(false);
+
+      // Загрузка карты
       setTimeout(() => {
         setMapLoaded(true);
         setLoading(false);
       }, 1000);
     } catch (error) {
       console.error('Error initializing map:', error);
-      setError('LOAD_ERROR');
+      // Если Mapbox не работает, используем fallback
+      setCurrentMapTheme(FALLBACK_THEMES[theme] || FALLBACK_THEMES.light);
+      setUsingFallback(true);
       setLoading(false);
     }
   };
@@ -175,38 +143,68 @@ const MapScreen = ({ theme, accentColor }) => {
     );
   };
 
-  // Построение маршрута через Яндекс Карты
+  // Построение маршрута через Яндекс Карты - используем deep links
   const openYandexMapsRoute = async (building) => {
-    const yandexMapsUrl = `https://yandex.ru/maps/?rtext=~${building.latitude},${building.longitude}&rtt=auto`;
+    // Пробуем открыть через нативное приложение
+    const yandexMapsAppUrl = `yandexmaps://build_route_on_map?lat_to=${building.latitude}&lon_to=${building.longitude}`;
+    // Fallback на веб-версию
+    const yandexMapsWebUrl = `https://yandex.ru/maps/?rtext=~${building.latitude},${building.longitude}&rtt=auto`;
     
     try {
-      const supported = await Linking.canOpenURL(yandexMapsUrl);
+      // Сначала пробуем открыть в приложении
+      const supported = await Linking.canOpenURL(yandexMapsAppUrl);
       if (supported) {
-        await Linking.openURL(yandexMapsUrl);
+        await Linking.openURL(yandexMapsAppUrl);
       } else {
-        Alert.alert('Ошибка', 'Не удалось открыть Яндекс Карты');
+        // Если приложения нет, открываем веб-версию
+        await Linking.openURL(yandexMapsWebUrl);
       }
     } catch (error) {
       console.error('Error opening Yandex Maps:', error);
-      Alert.alert('Ошибка', 'Не удалось открыть Яндекс Карты');
+      // Если произошла ошибка, пробуем открыть веб-версию
+      try {
+        await Linking.openURL(yandexMapsWebUrl);
+      } catch (webError) {
+        Alert.alert('Ошибка', 'Не удалось открыть Яндекс Карты');
+      }
     }
   };
 
-  // Построение маршрута через 2ГИС
+  // Построение маршрута через 2ГИС - используем deep links
   const open2GISRoute = async (building) => {
-    const twoGisUrl = `https://2gis.ru/routeSearch/rsType/car/to/${building.longitude},${building.latitude}`;
+    // Пробуем открыть через нативное приложение
+    const twoGisAppUrl = `dgis://2gis.ru/routeSearch/rsType/car/to/${building.longitude},${building.latitude}`;
+    // Fallback на веб-версию
+    const twoGisWebUrl = `https://2gis.ru/routeSearch/rsType/car/to/${building.longitude},${building.latitude}`;
     
     try {
-      const supported = await Linking.canOpenURL(twoGisUrl);
+      // Сначала пробуем открыть в приложении
+      const supported = await Linking.canOpenURL(twoGisAppUrl);
       if (supported) {
-        await Linking.openURL(twoGisUrl);
+        await Linking.openURL(twoGisAppUrl);
       } else {
-        Alert.alert('Ошибка', 'Не удалось открыть 2ГИС');
+        // Если приложения нет, открываем веб-версию
+        await Linking.openURL(twoGisWebUrl);
       }
     } catch (error) {
       console.error('Error opening 2GIS:', error);
-      Alert.alert('Ошибка', 'Не удалось открыть 2ГИС');
+      // Если произошла ошибка, пробуем открыть веб-версию
+      try {
+        await Linking.openURL(twoGisWebUrl);
+      } catch (webError) {
+        Alert.alert('Ошибка', 'Не удалось открыть 2ГИС');
+      }
     }
+  };
+
+  // Иконки для разных типов зданий
+  const BUILDING_ICONS = {
+    main: 'business-outline',
+    academic: 'school-outline',
+    library: 'library-outline',
+    dormitory: 'home-outline',
+    sports: 'barbell-outline',
+    cafeteria: 'restaurant-outline'
   };
 
   const getMarkerIcon = (buildingType) => {
@@ -241,7 +239,7 @@ const MapScreen = ({ theme, accentColor }) => {
           type={errorType}
           loading={loading}
           onRetry={handleRetry}
-          theme={appTheme}
+          theme={theme}
           accentColor={accentColor}
           contentType="map"
           message={error === 'NO_INTERNET' ? 'Карта недоступна без подключения к интернету' : 'Не удалось загрузить карту'}
@@ -251,7 +249,11 @@ const MapScreen = ({ theme, accentColor }) => {
   }
 
   return (
-    <Animated.View style={[styles.container, { opacity: fadeAnim }]}>
+    <Animated.View style={[styles.container, { backgroundColor: bgColor, opacity: fadeAnim }]}>
+      <StatusBar 
+        barStyle={theme === 'light' ? 'dark-content' : 'light-content'}
+        backgroundColor={theme === 'light' ? '#ffffff' : '#1f2937'}
+      />
       <MapView
         ref={mapRef}
         style={styles.map}
@@ -261,16 +263,16 @@ const MapScreen = ({ theme, accentColor }) => {
         showsMyLocationButton={true}
         showsCompass={true}
         showsScale={true}
-        // Принудительно обновляем карту при смене темы приложения
-        key={`map_${appTheme}_${accentColor}`}
+        // Принудительно обновляем карту при смене темы
+        key={`map_${theme}_${accentColor}`}
       >
-        {/* Используем Mapbox тайлы для обеих платформ */}
+        {/* Используем тайлы в зависимости от темы из пропсов */}
         <UrlTile
-          urlTemplate={mapTheme.urlTemplate}
-          maximumZ={20}
+          urlTemplate={currentMapTheme.urlTemplate}
+          maximumZ={19}
           flipY={false}
-          tileSize={256}
-          key={`tile_${appTheme}`}
+          tileSize={Platform.OS === 'android' ? 256 : 512}
+          key={`tile_${theme}_${usingFallback ? 'fallback' : 'mapbox'}`}
         />
         
         {buildings.map(building => (
@@ -289,7 +291,6 @@ const MapScreen = ({ theme, accentColor }) => {
               { 
                 backgroundColor: colors.light, 
                 borderColor: colors.primary,
-                // Уменьшаем размер маркеров на Android
                 padding: Platform.OS === 'android' ? 4 : 8,
               }
             ]}>
@@ -311,22 +312,30 @@ const MapScreen = ({ theme, accentColor }) => {
         <Icon name="locate" size={24} color="#ffffff" />
       </TouchableOpacity>
 
-      <View style={[styles.attribution, { backgroundColor: appTheme === 'dark' ? '#000000' : '#ffffff' }]}>
-        <Text style={[styles.attributionText, { color: appTheme === 'dark' ? '#ffffff' : '#333333' }]}>
-          {mapTheme.attribution}
+      <View style={[styles.attribution, { backgroundColor: theme === 'dark' ? '#000000' : '#ffffff' }]}>
+        <Text style={[styles.attributionText, { color: theme === 'dark' ? '#ffffff' : '#333333' }]}>
+          {currentMapTheme.attribution}
         </Text>
+        {usingFallback && (
+          <Text style={[styles.fallbackText, { color: theme === 'dark' ? '#ff6b6b' : '#dc2626' }]}>
+            (резервный режим)
+          </Text>
+        )}
       </View>
 
       {/* Индикатор темы карты */}
-      <View style={[styles.themeIndicatorBadge, { backgroundColor: appTheme === 'dark' ? '#000000' : '#ffffff' }]}>
+      <View style={[styles.themeIndicatorBadge, { backgroundColor: theme === 'dark' ? '#000000' : '#ffffff' }]}>
         <Icon 
-          name={appTheme === 'dark' ? 'moon' : 'sunny'} 
+          name={theme === 'dark' ? 'moon' : 'sunny'} 
           size={14} 
-          color={appTheme === 'dark' ? '#ffffff' : '#333333'} 
+          color={theme === 'dark' ? '#ffffff' : '#333333'} 
         />
-        <Text style={[styles.themeIndicatorText, { color: appTheme === 'dark' ? '#ffffff' : '#333333' }]}>
-          {appTheme === 'dark' ? 'Тёмная карта' : 'Светлая карта'}
+        <Text style={[styles.themeIndicatorText, { color: theme === 'dark' ? '#ffffff' : '#333333' }]}>
+          {theme === 'dark' ? 'Тёмная карта' : 'Светлая карта'}
         </Text>
+        {usingFallback && (
+          <Icon name="warning" size={12} color="#f59e0b" style={styles.warningIcon} />
+        )}
       </View>
     </Animated.View>
   );
@@ -357,10 +366,17 @@ const styles = StyleSheet.create({
     left: 16,
     padding: 6,
     borderRadius: 4,
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   attributionText: {
     fontSize: 10,
     fontFamily: 'Montserrat_400Regular',
+  },
+  fallbackText: {
+    fontSize: 8,
+    fontFamily: 'Montserrat_400Regular',
+    marginLeft: 4,
   },
   themeIndicatorBadge: {
     position: 'absolute',
@@ -375,6 +391,9 @@ const styles = StyleSheet.create({
     fontSize: 10,
     marginLeft: 4,
     fontFamily: 'Montserrat_400Regular',
+  },
+  warningIcon: {
+    marginLeft: 4,
   },
   centerButton: {
     position: 'absolute',
