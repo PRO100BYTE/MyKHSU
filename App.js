@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, Platform, Appearance, StyleSheet } from 'react-native';
+import { View, Text, Platform, Appearance, StyleSheet, StatusBar } from 'react-native';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import * as SecureStore from 'expo-secure-store';
 import { useFonts, Montserrat_400Regular, Montserrat_500Medium, Montserrat_600SemiBold, Montserrat_700Bold } from '@expo-google-fonts/montserrat';
@@ -56,7 +56,7 @@ TaskManager.defineTask(BACKGROUND_NEWS_CHECK, async () => {
 const styles = StyleSheet.create({
   header: {
     padding: 16, 
-    paddingTop: Platform.OS === 'ios' ? 50 : 40, 
+    paddingTop: Platform.OS === 'ios' ? 50 : StatusBar.currentHeight + 10, 
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
@@ -233,6 +233,13 @@ export default Sentry.wrap(function App() {
   
   return (
     <View style={[{ flex: 1, backgroundColor: bgColor }, styles.safeAreaBottom]}>
+      {/* Статусбар с правильными настройками */}
+      <StatusBar 
+        barStyle={effectiveTheme === 'light' ? 'dark-content' : 'light-content'}
+        backgroundColor={headerBg}
+        translucent={false}
+      />
+      
       {/* Заголовок */}
       <View style={[styles.header, { backgroundColor: headerBg }]}>
         <Text style={[styles.headerText, { color: textColor }]}>
