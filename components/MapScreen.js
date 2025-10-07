@@ -1,7 +1,6 @@
-// MapScreen.js
 import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, Alert, Linking, Platform, Dimensions, TouchableOpacity, Animated } from 'react-native';
-import MapView, { Marker, PROVIDER_DEFAULT, UrlTile, PROVIDER_GOOGLE } from 'react-native-maps';
+import MapView, { Marker, UrlTile } from 'react-native-maps';
 import NetInfo from '@react-native-community/netinfo';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import { ACCENT_COLORS } from '../utils/constants';
@@ -12,7 +11,6 @@ const { width, height } = Dimensions.get('window');
 
 const MapScreen = ({ theme, accentColor }) => {
   const [isOnline, setIsOnline] = useState(true);
-  const [mapLoaded, setMapLoaded] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [showRouteOptions, setShowRouteOptions] = useState(false);
@@ -34,35 +32,34 @@ const MapScreen = ({ theme, accentColor }) => {
     }).start();
   }, []);
 
-  // URL шаблоны для разных тем карты (только OpenStreetMap)
-  const MAP_THEMES = {
-    light: {
-      urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-      attribution: '© OpenStreetMap contributors',
-      markerColor: colors.primary
-    },
-    dark: {
-      urlTemplate: 'https://tiles.wmflabs.org/dark-matter/{z}/{x}/{y}.png',
-      attribution: '© OpenStreetMap contributors, Dark Matter style',
-      markerColor: colors.dark
+  // Простые URL шаблоны для OpenStreetMap
+  const getMapTheme = () => {
+    if (theme === 'dark') {
+      return {
+        urlTemplate: 'https://tiles.wmflabs.org/dark-matter/{z}/{x}/{y}.png',
+        attribution: '© OpenStreetMap contributors'
+      };
     }
+    return {
+      urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+      attribution: '© OpenStreetMap contributors'
+    };
   };
+
+  const mapTheme = getMapTheme();
 
   // Иконки для разных типов зданий
-  const BUILDING_ICONS = {
-    main: 'business-outline',
-    academic: 'school-outline',
-    library: 'library-outline',
-    dormitory: 'home-outline',
-    sports: 'barbell-outline',
-    cafeteria: 'restaurant-outline'
+  const getMarkerIcon = (buildingType) => {
+    const icons = {
+      main: 'business-outline',
+      academic: 'school-outline',
+      library: 'library-outline',
+      dormitory: 'home-outline',
+      sports: 'barbell-outline',
+      cafeteria: 'restaurant-outline'
+    };
+    return icons[buildingType] || 'business-outline';
   };
-
-  // Получаем настройки текущей темы карты
-  const mapTheme = MAP_THEMES[theme] || MAP_THEMES.light;
-
-  // Для Android используем только OSM, для iOS - дефолтный провайдер
-  const mapProvider = Platform.OS === 'android' ? undefined : PROVIDER_DEFAULT;
 
   useEffect(() => {
     initializeMap();
@@ -73,21 +70,18 @@ const MapScreen = ({ theme, accentColor }) => {
     setError(null);
     
     try {
-      // Проверяем подключение к интернету
+      // Простая проверка подключения
       const netState = await NetInfo.fetch();
       setIsOnline(netState.isConnected);
       
       if (!netState.isConnected) {
         setError('NO_INTERNET');
-        setLoading(false);
-        return;
       }
 
-      // Простая загрузка онлайн карты
+      // Минимальная задержка для инициализации
       setTimeout(() => {
-        setMapLoaded(true);
         setLoading(false);
-      }, 1000);
+      }, 500);
     } catch (error) {
       console.error('Error initializing map:', error);
       setError('LOAD_ERROR');
@@ -112,29 +106,19 @@ const MapScreen = ({ theme, accentColor }) => {
     try {
       let url;
       
-      switch (service) {
-        case 'yandex':
-          // Веб-версия Яндекс.Карт для построения маршрута
-          url = `https://yandex.ru/maps/?rtext=~${selectedBuilding.latitude},${selectedBuilding.longitude}&rtt=auto`;
-          break;
-        case '2gis':
-          // Веб-версия 2ГИС для построения маршрута
-          url = `https://2gis.ru/routeSearch/rsType?from=&to=${selectedBuilding.longitude},${selectedBuilding.latitude}`;
-          break;
-        default:
-          return;
+      if (service === 'yandex') {
+        url = `https://yandex.ru/maps/?rtext=~${selectedBuilding.latitude},${selectedBuilding.longitude}&rtt=auto`;
+      } else if (service === '2gis') {
+        url = `https://2gis.ru/routeSearch/rsType?from=&to=${selectedBuilding.longitude},${selectedBuilding.latitude}`;
+      } else {
+        return;
       }
 
-      // Всегда открываем веб-версию сервиса
       await Linking.openURL(url);
     } catch (error) {
       console.error('Error opening route URL:', error);
       Alert.alert('Ошибка', 'Не удалось открыть веб-сервис для построения маршрута');
     }
-  };
-
-  const getMarkerIcon = (buildingType) => {
-    return BUILDING_ICONS[buildingType] || 'business-outline';
   };
 
   // Если есть ошибка или загрузка, показываем соответствующий экран
@@ -165,21 +149,19 @@ const MapScreen = ({ theme, accentColor }) => {
     <Animated.View style={[styles.container, { opacity: fadeAnim }]}>
       <MapView
         style={styles.map}
-        provider={mapProvider}
+        provider={null} // Явно отключаем провайдера для Android
         initialRegion={initialRegion}
         showsUserLocation={true}
         showsMyLocationButton={true}
-        userInterfaceStyle={theme}
       >
-        {/* Для Android используем только OSM тайлы */}
-        {Platform.OS === 'android' && (
-          <UrlTile
-            urlTemplate={mapTheme.urlTemplate}
-            maximumZ={19}
-            flipY={false}
-          />
-        )}
+        {/* OpenStreetMap тайлы */}
+        <UrlTile
+          urlTemplate={mapTheme.urlTemplate}
+          maximumZ={19}
+          flipY={false}
+        />
         
+        {/* Маркеры зданий */}
         {buildings.map(building => (
           <Marker
             key={building.id}
@@ -194,8 +176,8 @@ const MapScreen = ({ theme, accentColor }) => {
             <View style={[styles.marker, { backgroundColor: colors.light }]}>
               <Icon 
                 name={getMarkerIcon(building.type)} 
-                size={24} 
-                color={mapTheme.markerColor} 
+                size={20} 
+                color={colors.primary} 
               />
             </View>
           </Marker>
@@ -206,30 +188,6 @@ const MapScreen = ({ theme, accentColor }) => {
       <View style={[styles.attribution, { backgroundColor: theme === 'dark' ? '#000000' : '#ffffff' }]}>
         <Text style={[styles.attributionText, { color: theme === 'dark' ? '#ffffff' : '#333333' }]}>
           {mapTheme.attribution}
-        </Text>
-      </View>
-
-      {/* Индикатор темы карты */}
-      <View style={[styles.themeIndicatorBadge, { backgroundColor: theme === 'dark' ? '#000000' : '#ffffff' }]}>
-        <Icon 
-          name={theme === 'dark' ? 'moon' : 'sunny'} 
-          size={14} 
-          color={theme === 'dark' ? '#ffffff' : '#333333'} 
-        />
-        <Text style={[styles.themeIndicatorText, { color: theme === 'dark' ? '#ffffff' : '#333333' }]}>
-          {theme === 'dark' ? 'Тёмная карта' : 'Светлая карта'}
-        </Text>
-      </View>
-
-      {/* Информация о провайдере карты */}
-      <View style={[styles.providerInfo, { backgroundColor: theme === 'dark' ? '#000000' : '#ffffff' }]}>
-        <Icon 
-          name={Platform.OS === 'android' ? 'logo-android' : 'logo-apple'} 
-          size={12} 
-          color={theme === 'dark' ? '#ffffff' : '#333333'} 
-        />
-        <Text style={[styles.providerInfoText, { color: theme === 'dark' ? '#ffffff' : '#333333' }]}>
-          {Platform.OS === 'android' ? 'OpenStreetMap' : 'Apple Maps'}
         </Text>
       </View>
 
@@ -258,7 +216,7 @@ const MapScreen = ({ theme, accentColor }) => {
           </TouchableOpacity>
 
           <TouchableOpacity 
-            style={[styles.routeOption, { backgroundColor: colors.light, marginTop: 12 }]}
+            style={[styles.routeOption, { backgroundColor: colors.light, marginTop: 8 }]}
             onPress={() => handleRouteServiceSelect('2gis')}
           >
             <View style={[styles.routeIcon, { backgroundColor: colors.primary }]}>
@@ -275,7 +233,7 @@ const MapScreen = ({ theme, accentColor }) => {
           </TouchableOpacity>
 
           <TouchableOpacity 
-            style={[styles.cancelButton, { marginTop: 16 }]}
+            style={[styles.cancelButton, { marginTop: 12 }]}
             onPress={() => setShowRouteOptions(false)}
           >
             <Text style={[styles.cancelButtonText, { color: theme === 'light' ? '#6b7280' : '#9ca3af' }]}>
@@ -294,61 +252,33 @@ const styles = StyleSheet.create({
   },
   map: {
     flex: 1,
-    marginBottom: Platform.OS === 'android' ? 5 : 0
   },
   marker: {
-    backgroundColor: 'white',
-    borderRadius: 12,
-    padding: 4,
-    borderWidth: 1,
-    borderColor: '#ddd',
+    padding: 8,
+    borderRadius: 20,
+    borderWidth: 2,
+    borderColor: '#ffffff',
   },
   attribution: {
     position: 'absolute',
-    bottom: Platform.OS === 'android' ? 70 : 16,
+    bottom: 16,
     left: 16,
-    padding: 6,
+    right: 16,
+    padding: 8,
     borderRadius: 4,
+    alignItems: 'center',
   },
   attributionText: {
     fontSize: 10,
     fontFamily: 'Montserrat_400Regular',
   },
-  themeIndicatorBadge: {
-    position: 'absolute',
-    top: Platform.OS === 'ios' ? 50 : 40,
-    left: 16,
-    padding: 6,
-    borderRadius: 4,
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  themeIndicatorText: {
-    fontSize: 10,
-    marginLeft: 4,
-    fontFamily: 'Montserrat_400Regular',
-  },
-  providerInfo: {
-    position: 'absolute',
-    top: Platform.OS === 'ios' ? 50 : 40,
-    right: 16,
-    padding: 6,
-    borderRadius: 4,
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  providerInfoText: {
-    fontSize: 10,
-    marginLeft: 4,
-    fontFamily: 'Montserrat_400Regular',
-  },
   routeModal: {
     position: 'absolute',
-    bottom: Platform.OS === 'android' ? 70 : 16,
+    bottom: 16,
     left: 16,
     right: 16,
-    borderRadius: 16,
-    padding: 20,
+    borderRadius: 12,
+    padding: 16,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
@@ -358,14 +288,14 @@ const styles = StyleSheet.create({
   routeModalTitle: {
     fontSize: 16,
     fontFamily: 'Montserrat_600SemiBold',
-    marginBottom: 16,
+    marginBottom: 12,
     textAlign: 'center',
   },
   routeOption: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 16,
-    borderRadius: 12,
+    padding: 12,
+    borderRadius: 8,
   },
   routeIcon: {
     width: 32,
@@ -373,6 +303,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     justifyContent: 'center',
     alignItems: 'center',
+    marginRight: 12,
   },
   routeIconText: {
     color: '#ffffff',
@@ -380,7 +311,6 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   routeOptionText: {
-    marginLeft: 12,
     flex: 1,
   },
   routeOptionTitle: {
