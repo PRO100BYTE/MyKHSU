@@ -152,7 +152,7 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
         onSettingsUpdate(newSettings);
       }
       
-      console.log('Группа сохранена в настройки:', group, 'курс:', course);
+      console.log('Группа сохранена в настройки:', group, ', курс:', course);
     } catch (error) {
       console.error('Ошибка сохранения группы:', error);
     }
@@ -675,22 +675,27 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
 
   // Обработка ошибок
   if (error && !loadingGroups && !loadingSchedule && !loadingTeacher) {
-    return (
-      <Animated.View style={{ flex: 1, backgroundColor: bgColor, opacity: fadeAnim }}>
-        <ConnectionError 
-          type={error}
-          loading={false}
-          onRetry={isTeacherMode ? () => teacherName && fetchTeacherSchedule(teacherName) : handleRetry}
-          onViewCache={handleViewCache}
-          showCacheButton={!!scheduleData}
-          cacheAvailable={!!scheduleData}
-          theme={theme}
-          accentColor={accentColor}
-          contentType="schedule"
-          message={error === 'NO_INTERNET' ? 'Расписание недоступно без подключения к интернету' : 'Не удалось загрузить расписание'}
-        />
-      </Animated.View>
-    );
+    // Если ошибка сети и есть кэшированные данные, показываем их
+    if (error === 'NO_INTERNET' && (scheduleData || teacherSchedule)) {
+      // Не показываем ошибку, продолжаем рендерить контент
+    } else {
+      return (
+        <Animated.View style={{ flex: 1, backgroundColor: bgColor, opacity: fadeAnim }}>
+          <ConnectionError 
+            type={error}
+            loading={false}
+            onRetry={isTeacherMode ? () => teacherName && fetchTeacherSchedule(teacherName) : handleRetry}
+            onViewCache={handleViewCache}
+            showCacheButton={!!scheduleData || !!teacherSchedule}
+            cacheAvailable={!!scheduleData || !!teacherSchedule}
+            theme={theme}
+            accentColor={accentColor}
+            contentType="schedule"
+            message={error === 'NO_INTERNET' ? 'Расписание недоступно без подключения к интернету' : 'Не удалось загрузить расписание'}
+          />
+        </Animated.View>
+      );
+    }
   }
 
   return (

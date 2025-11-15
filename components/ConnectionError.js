@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { View, Text, Platform, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import { ACCENT_COLORS } from '../utils/constants';
 
@@ -27,13 +27,13 @@ const ConnectionError = ({
         icon: 'map-outline',
         title: 'Карта недоступна',
         description: 'Для загрузки карты необходимо подключение к интернету',
-        cacheButton: 'Использовать оффлайн-карту'
+        cacheButton: 'Показать список корпусов'
       },
       'load-error': {
         icon: 'warning-outline',
         title: 'Ошибка загрузки карты',
         description: 'Не удалось загрузить карту. Проверьте подключение и попробуйте снова',
-        cacheButton: 'Использовать оффлайн-карту'
+        cacheButton: 'Показать список корпусов'
       }
     },
     schedule: {
@@ -95,6 +95,18 @@ const ConnectionError = ({
   // Определяем, показывать ли кнопку кэша
   const shouldShowCacheButton = (showCacheButton || cacheAvailable) && onViewCache;
 
+  // Автоматическое перенаправление на кэш при отсутствии интернета, если кэш доступен
+  React.useEffect(() => {
+    if (type === 'no-internet' && cacheAvailable && onViewCache && !loading) {
+      // Небольшая задержка перед автоматическим перенаправлением
+      const timer = setTimeout(() => {
+        onViewCache();
+      }, 2000); // 2 секунды для показа сообщения
+      
+      return () => clearTimeout(timer);
+    }
+  }, [type, cacheAvailable, onViewCache, loading]);
+
   if (loading) {
     return (
       <View style={[styles.container, { backgroundColor: bgColor }]}>
@@ -138,7 +150,7 @@ const ConnectionError = ({
               }]}
               onPress={onViewCache}
             >
-              <Icon name="time-outline" size={20} color={colors.primary} />
+              <Icon name="list-outline" size={20} color={colors.primary} />
               <Text style={[styles.cacheButtonText, { color: colors.primary }]}>
                 {config.cacheButton}
               </Text>

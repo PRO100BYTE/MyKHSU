@@ -7,22 +7,47 @@ export const getWithExpiry = async (key) => {
     if (!itemStr) return null;
     
     const item = JSON.parse(itemStr);
+    
+    // Проверка валидности данных
+    if (!item || typeof item.expiry !== 'number' || typeof item.value === 'undefined') {
+      await AsyncStorage.removeItem(key);
+      return null;
+    }
+    
     if (Date.now() > item.expiry) {
       await AsyncStorage.removeItem(key);
       return null;
     }
+    
     return item.value;
   } catch (error) {
     console.error('Error getting cache:', error);
+    // Удаляем поврежденный кэш
+    try {
+      await AsyncStorage.removeItem(key);
+    } catch (removeError) {
+      console.error('Error removing corrupted cache:', removeError);
+    }
     return null;
   }
 };
 
 export const setWithExpiry = async (key, value, ttl = CACHE_TTL) => {
   try {
+    // Ограничить TTL максимумом 1 год
+    const maxTTL = 365 * 24 * 60 * 60 * 1000;
+    const safeTTL = Math.min(ttl, maxTTL);
+    
+    const expiry = Date.now() + safeTTL;
+    
+    // Проверить, что expiry не превышает максимическую дату
+    if (expiry > Number.MAX_SAFE_INTEGER) {
+      throw new Error('TTL too large');
+    }
+    
     const item = {
       value,
-      expiry: Date.now() + ttl,
+      expiry,
       cacheDate: new Date().toISOString(),
       cacheVersion: '1.0'
     };
@@ -40,10 +65,27 @@ export const getCacheInfo = async (key) => {
     if (!itemStr) return null;
     
     const item = JSON.parse(itemStr);
+    
+    // Проверка валидности данных
+    if (!item || typeof item.expiry !== 'number' || typeof item.value === 'undefined') {
+      return null;
+    }
+    
+    let cacheDate = null;
+    try {
+      if (item.cacheDate) {
+        cacheDate = item.cacheDate;
+      } else if (item.timestamp && item.timestamp <= Number.MAX_SAFE_INTEGER) {
+        cacheDate = new Date(item.timestamp).toISOString();
+      }
+    } catch (dateError) {
+      console.error('Error parsing cache date:', dateError);
+    }
+    
     return {
       value: item.value,
       expiry: item.expiry,
-      cacheDate: item.cacheDate,
+      cacheDate,
       isExpired: Date.now() > item.expiry
     };
   } catch (error) {

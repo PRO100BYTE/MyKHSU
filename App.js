@@ -5,6 +5,7 @@ import * as SecureStore from 'expo-secure-store';
 import { useFonts, Montserrat_400Regular, Montserrat_500Medium, Montserrat_600SemiBold, Montserrat_700Bold } from '@expo-google-fonts/montserrat';
 import * as Notifications from 'expo-notifications';
 import * as TaskManager from 'expo-task-manager';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 // Импорт компонентов
 import SplashScreen from './components/SplashScreen';
@@ -102,6 +103,8 @@ export default Sentry.wrap(function App() {
   const [accentColor, setAccentColor] = useState('green');
   const [systemTheme, setSystemTheme] = useState(Appearance.getColorScheme() || 'light');
   const [refresh, setRefresh] = useState(0);
+  const [refreshKey, setRefreshKey] = useState(0);
+  const insets = useSafeAreaInsets();
 
   useEffect(() => {
     // Настройка обработчиков уведомлений
@@ -231,6 +234,15 @@ export default Sentry.wrap(function App() {
   const textColor = effectiveTheme === 'light' ? '#111827' : '#ffffff';
   const colors = ACCENT_COLORS[accentColor];
   
+  const handleTabPress = (screen) => {
+    if (activeScreen === screen) {
+      // Перезагрузка компонента при повторном нажатии
+      setRefreshKey(prev => prev + 1);
+    } else {
+      setActiveScreen(screen);
+    }
+  };
+
   return (
     <View style={[{ flex: 1, backgroundColor: bgColor }, styles.safeAreaBottom]}>
       {/* Статусбар с правильными настройками */}
@@ -250,16 +262,16 @@ export default Sentry.wrap(function App() {
       {/* Контент */}
       <View style={{ flex: 1 }}>
         {activeScreen === SCREENS.SCHEDULE && (
-          <ScheduleScreen theme={effectiveTheme} accentColor={accentColor} key={`schedule-${refresh}`} />
+          <ScheduleScreen theme={effectiveTheme} accentColor={accentColor} key={`schedule-${refreshKey}`} />
         )}
         {activeScreen === SCREENS.MAP && (
-          <MapScreen theme={effectiveTheme} accentColor={accentColor} key={`map-${refresh}`} />
+          <MapScreen theme={effectiveTheme} accentColor={accentColor} key={`map-${refreshKey}`} />
         )}
         {activeScreen === SCREENS.FRESHMAN && (
-          <FreshmanScreen theme={effectiveTheme} accentColor={accentColor} key={`freshman-${refresh}`} />
+          <FreshmanScreen theme={effectiveTheme} accentColor={accentColor} key={`freshman-${refreshKey}`} />
         )}
         {activeScreen === SCREENS.NEWS && (
-          <NewsScreen theme={effectiveTheme} accentColor={accentColor} key={`news-${refresh}`} />
+          <NewsScreen theme={effectiveTheme} accentColor={accentColor} key={`news-${refreshKey}`} />
         )}
         {activeScreen === SCREENS.SETTINGS && (
           <SettingsScreen 
@@ -267,18 +279,18 @@ export default Sentry.wrap(function App() {
             accentColor={accentColor} 
             setTheme={setTheme} 
             setAccentColor={setAccentColor} 
-            key={`settings-${refresh}`}
+            key={`settings-${refreshKey}`}
           />
         )}
       </View>
       
       {/* Навигация */}
-      <View style={[styles.navigation, { backgroundColor: headerBg }]}>
+      <View style={[styles.navigation, { backgroundColor: headerBg, paddingBottom: 8 }]}>
         <TabButton 
           icon="calendar-outline" 
           label={SCREENS.SCHEDULE} 
           isActive={activeScreen === SCREENS.SCHEDULE} 
-          onPress={() => setActiveScreen(SCREENS.SCHEDULE)}
+          onPress={() => handleTabPress(SCREENS.SCHEDULE)}
           theme={effectiveTheme}
           accentColor={accentColor}
         />
@@ -287,7 +299,7 @@ export default Sentry.wrap(function App() {
           icon="map-outline" 
           label={SCREENS.MAP} 
           isActive={activeScreen === SCREENS.MAP} 
-          onPress={() => setActiveScreen(SCREENS.MAP)}
+          onPress={() => handleTabPress(SCREENS.MAP)}
           theme={effectiveTheme}
           accentColor={accentColor}
         />
@@ -296,7 +308,7 @@ export default Sentry.wrap(function App() {
           icon="book-outline" 
           label={SCREENS.FRESHMAN} 
           isActive={activeScreen === SCREENS.FRESHMAN} 
-          onPress={() => setActiveScreen(SCREENS.FRESHMAN)}
+          onPress={() => handleTabPress(SCREENS.FRESHMAN)}
           theme={effectiveTheme}
           accentColor={accentColor}
         />
@@ -305,7 +317,7 @@ export default Sentry.wrap(function App() {
           icon="newspaper-outline" 
           label={SCREENS.NEWS} 
           isActive={activeScreen === SCREENS.NEWS} 
-          onPress={() => setActiveScreen(SCREENS.NEWS)}
+          onPress={() => handleTabPress(SCREENS.NEWS)}
           theme={effectiveTheme}
           accentColor={accentColor}
         />
@@ -314,7 +326,7 @@ export default Sentry.wrap(function App() {
           icon="settings-outline" 
           label={SCREENS.SETTINGS} 
           isActive={activeScreen === SCREENS.SETTINGS} 
-          onPress={() => setActiveScreen(SCREENS.SETTINGS)}
+          onPress={() => handleTabPress(SCREENS.SETTINGS)}
           theme={effectiveTheme}
           accentColor={accentColor}
         />

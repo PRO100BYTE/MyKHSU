@@ -1,0 +1,380 @@
+import React, { useState, useRef, useEffect } from 'react';
+import { 
+  View, 
+  Text, 
+  ScrollView, 
+  TouchableOpacity, 
+  Linking, 
+  StyleSheet, 
+  Animated, 
+  StatusBar, 
+  Alert,
+  Platform 
+} from 'react-native';
+import { Ionicons as Icon } from '@expo/vector-icons';
+import { ACCENT_COLORS } from '../utils/constants';
+import { buildings } from '../utils/buildingCoordinates';
+
+const BuildingsListScreen = ({ theme, accentColor, onBuildingSelect }) => {
+  const [showRouteOptions, setShowRouteOptions] = useState(false);
+  const [selectedBuilding, setSelectedBuilding] = useState(null);
+  
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const routeModalAnim = useRef(new Animated.Value(0)).current;
+
+  const bgColor = theme === 'light' ? '#f3f4f6' : '#111827';
+  const cardBg = theme === 'light' ? '#ffffff' : '#1f2937';
+  const textColor = theme === 'light' ? '#111827' : '#ffffff';
+  const placeholderColor = theme === 'light' ? '#6b7280' : '#9ca3af';
+  const colors = ACCENT_COLORS[accentColor];
+
+  useEffect(() => {
+    Animated.timing(fadeAnim, {
+      toValue: 1,
+      duration: 300,
+      useNativeDriver: true,
+    }).start();
+  }, []);
+
+  // Анимация модального окна
+  useEffect(() => {
+    if (showRouteOptions) {
+      Animated.spring(routeModalAnim, {
+        toValue: 1,
+        duration: 300,
+        useNativeDriver: true,
+      }).start();
+    } else {
+      Animated.timing(routeModalAnim, {
+        toValue: 0,
+        duration: 200,
+        useNativeDriver: true,
+      }).start();
+    }
+  }, [showRouteOptions]);
+
+  const handleRouteServiceSelect = async (service) => {
+    Animated.timing(routeModalAnim, {
+      toValue: 0,
+      duration: 200,
+      useNativeDriver: true,
+    }).start(() => {
+      setShowRouteOptions(false);
+      
+      if (!selectedBuilding) return;
+
+      try {
+        let url;
+        
+        switch (service) {
+          case 'yandex':
+            url = `https://yandex.ru/maps/?rtext=~${selectedBuilding.latitude},${selectedBuilding.longitude}&rtt=auto`;
+            break;
+          case '2gis':
+            const lon = selectedBuilding.longitude;
+            const lat = selectedBuilding.latitude;
+            url = `https://2gis.ru/abakan/directions/points/~${lon}%2C${lat}?m=${lon}%2C${lat}%2F16`;
+            break;
+          default:
+            return;
+        }
+
+        Linking.openURL(url);
+      } catch (error) {
+        console.error('Error opening route URL:', error);
+        Alert.alert('Ошибка', 'Не удалось открыть веб-сервис для построения маршрута');
+      }
+    });
+  };
+
+  const handleBuildingPress = (building) => {
+    if (onBuildingSelect) {
+      // Если передан обработчик из родителя, используем его
+      onBuildingSelect(building);
+    } else {
+      // Иначе показываем модальное окно в этом компоненте
+      setSelectedBuilding(building);
+      setShowRouteOptions(true);
+    }
+  };
+
+  const handleCloseRouteModal = () => {
+    Animated.timing(routeModalAnim, {
+      toValue: 0,
+      duration: 200,
+      useNativeDriver: true,
+    }).start(() => {
+      setShowRouteOptions(false);
+    });
+  };
+
+  const getBuildingIcon = (type) => {
+    switch (type) {
+      case 'main': return 'business-outline';
+      case 'academic': return 'school-outline';
+      case 'library': return 'library-outline';
+      case 'sports': return 'barbell-outline';
+      case 'dormitory': return 'home-outline';
+      case 'cafeteria': return 'restaurant-outline';
+      default: return 'location-outline';
+    }
+  };
+
+  const getBuildingTypeText = (type) => {
+    switch (type) {
+      case 'main': return 'Административный корпус';
+      case 'academic': return 'Учебный корпус';
+      case 'library': return 'Библиотека';
+      case 'sports': return 'Спортивный комплекс';
+      case 'dormitory': return 'Общежитие';
+      case 'cafeteria': return 'Столовая';
+      default: return 'Корпус';
+    }
+  };
+
+  const renderBuildingCard = (building, isLast = false) => (
+    <TouchableOpacity 
+      key={building.id}
+      style={{ 
+        backgroundColor: cardBg, 
+        borderRadius: 12, 
+        padding: 16, 
+        marginBottom: isLast ? 0 : 12,
+        flexDirection: 'row',
+        alignItems: 'center'
+      }}
+      onPress={() => handleBuildingPress(building)}
+    >
+      <View style={{ backgroundColor: colors.light, borderRadius: 8, padding: 8, marginRight: 12 }}>
+        <Icon 
+          name={getBuildingIcon(building.type)} 
+          size={20} 
+          color={colors.primary} 
+        />
+      </View>
+      <View style={{ flex: 1 }}>
+        <Text style={{ color: textColor, fontSize: 16, fontFamily: 'Montserrat_500Medium' }}>
+          {building.name}
+        </Text>
+        <Text style={{ color: placeholderColor, fontSize: 12, marginTop: 2, fontFamily: 'Montserrat_400Regular' }}>
+          {getBuildingTypeText(building.type)}
+        </Text>
+        <Text style={{ color: placeholderColor, fontSize: 14, marginTop: 4, fontFamily: 'Montserrat_400Regular' }}>
+          {building.description}
+        </Text>
+      </View>
+      <Icon name="navigate-outline" size={20} color={colors.primary} />
+    </TouchableOpacity>
+  );
+
+  return (
+    <Animated.View style={{ flex: 1, backgroundColor: bgColor, opacity: fadeAnim }}>
+      <StatusBar 
+        barStyle={theme === 'light' ? 'dark-content' : 'light-content'}
+        backgroundColor={bgColor}
+      />
+      
+      <View style={{ flex: 1, padding: 16 }}>
+        <View style={{ marginBottom: 20 }}>
+          <Text style={{ 
+            color: textColor, 
+            fontSize: 24, 
+            fontWeight: 'bold',
+            fontFamily: 'Montserrat_600SemiBold',
+            marginBottom: 8
+          }}>
+            Корпуса ХГУ
+          </Text>
+          <Text style={{ 
+            color: placeholderColor, 
+            fontSize: 16,
+            fontFamily: 'Montserrat_400Regular',
+            lineHeight: 22
+          }}>
+            Все корпуса Хакасского государственного университета.{'\n'}
+            Выберите корпус для построения маршрута.
+          </Text>
+        </View>
+
+        <ScrollView showsVerticalScrollIndicator={false}>
+          {buildings.map((building, index) => 
+            renderBuildingCard(building, index === buildings.length - 1)
+          )}
+          
+          {/* Информационный блок */}
+          <View style={[styles.infoCard, { backgroundColor: colors.light, marginTop: 16 }]}>
+            <Icon name="information-circle-outline" size={20} color={colors.primary} />
+            <Text style={[styles.infoText, { color: colors.primary, marginLeft: 8, flex: 1 }]}>
+              Для построения маршрута выберите корпус и сервис навигации
+            </Text>
+          </View>
+        </ScrollView>
+      </View>
+
+      {/* Модальное окно выбора сервиса для построения маршрута с анимацией */}
+      {showRouteOptions && (
+        <Animated.View 
+          style={[
+            styles.routeModalOverlay,
+            { 
+              opacity: routeModalAnim,
+              backgroundColor: 'rgba(0, 0, 0, 0.5)'
+            }
+          ]}
+        >
+          <Animated.View 
+            style={[
+              styles.routeModal,
+              { 
+                backgroundColor: theme === 'dark' ? '#1f2937' : '#ffffff',
+                transform: [{
+                  translateY: routeModalAnim.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [300, 0]
+                  })
+                }]
+              }
+            ]}
+          >
+            <Text style={[styles.routeModalTitle, { color: textColor, fontFamily: 'Montserrat_600SemiBold' }]}>
+              Построить маршрут
+            </Text>
+            <Text style={[styles.routeModalSubtitle, { color: textColor, fontFamily: 'Montserrat_500Medium' }]}>
+              {selectedBuilding?.name}
+            </Text>
+            <Text style={[styles.routeModalDescription, { color: placeholderColor, fontFamily: 'Montserrat_400Regular' }]}>
+              {selectedBuilding?.description}
+            </Text>
+            
+            <TouchableOpacity 
+              style={[styles.routeOption, { backgroundColor: colors.light }]}
+              onPress={() => handleRouteServiceSelect('yandex')}
+            >
+              <View style={[styles.routeIcon, { backgroundColor: colors.primary }]}>
+                <Text style={[styles.routeIconText, { fontFamily: 'Montserrat_700Bold' }]}>Я</Text>
+              </View>
+              <View style={styles.routeOptionText}>
+                <Text style={[styles.routeOptionTitle, { color: colors.primary, fontFamily: 'Montserrat_600SemiBold' }]}>
+                  Яндекс.Карты
+                </Text>
+                <Text style={[styles.routeOptionDesc, { color: colors.primary, fontFamily: 'Montserrat_400Regular' }]}>
+                  Открыть в веб-браузере
+                </Text>
+              </View>
+              <Icon name="open-outline" size={20} color={colors.primary} />
+            </TouchableOpacity>
+
+            <TouchableOpacity 
+              style={[styles.routeOption, { backgroundColor: colors.light, marginTop: 12 }]}
+              onPress={() => handleRouteServiceSelect('2gis')}
+            >
+              <View style={[styles.routeIcon, { backgroundColor: colors.primary }]}>
+                <Text style={[styles.routeIconText, { fontFamily: 'Montserrat_700Bold' }]}>2</Text>
+              </View>
+              <View style={styles.routeOptionText}>
+                <Text style={[styles.routeOptionTitle, { color: colors.primary, fontFamily: 'Montserrat_600SemiBold' }]}>
+                  2ГИС
+                </Text>
+                <Text style={[styles.routeOptionDesc, { color: colors.primary, fontFamily: 'Montserrat_400Regular' }]}>
+                  Открыть в веб-браузере
+                </Text>
+              </View>
+              <Icon name="open-outline" size={20} color={colors.primary} />
+            </TouchableOpacity>
+
+            <TouchableOpacity 
+              style={[styles.cancelButton, { marginTop: 16 }]}
+              onPress={handleCloseRouteModal}
+            >
+              <Text style={[styles.cancelButtonText, { color: placeholderColor, fontFamily: 'Montserrat_500Medium' }]}>
+                Отмена
+              </Text>
+            </TouchableOpacity>
+          </Animated.View>
+        </Animated.View>
+      )}
+    </Animated.View>
+  );
+};
+
+const styles = StyleSheet.create({
+  infoCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    borderRadius: 8,
+  },
+  infoText: {
+    fontSize: 14,
+    fontFamily: 'Montserrat_400Regular',
+  },
+  routeModalOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    justifyContent: 'flex-end',
+    zIndex: 1001,
+  },
+  routeModal: {
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+    padding: 20,
+    paddingBottom: Platform.OS === 'ios' ? 34 : 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  routeModalTitle: {
+    fontSize: 18,
+    marginBottom: 4,
+  },
+  routeModalSubtitle: {
+    fontSize: 16,
+    marginBottom: 2,
+  },
+  routeModalDescription: {
+    fontSize: 14,
+    marginBottom: 16,
+  },
+  routeOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    borderRadius: 12,
+  },
+  routeIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  routeIconText: {
+    color: '#ffffff',
+    fontSize: 14,
+  },
+  routeOptionText: {
+    marginLeft: 12,
+    flex: 1,
+  },
+  routeOptionTitle: {
+    fontSize: 16,
+  },
+  routeOptionDesc: {
+    fontSize: 12,
+    marginTop: 2,
+  },
+  cancelButton: {
+    padding: 12,
+    alignItems: 'center',
+  },
+  cancelButtonText: {
+    fontSize: 16,
+  },
+});
+
+export default BuildingsListScreen;
