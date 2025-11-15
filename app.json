@@ -24,7 +24,8 @@
         "ITSAppUsesNonExemptEncryption": false,
         "NSLocationWhenInUseUsageDescription": "Приложению Мой ИТИ ХГУ требуется доступ к вашему местоположению для показа ближайших корпусов ХГУ на карте.",
         "NSLocationAlwaysUsageDescription": "Приложению Мой ИТИ ХГУ требуется доступ к вашему местоположению для показа ближайших корпусов ХГУ на карте.",
-        "UIBackgroundModes": ["remote-notification", "fetch"]
+        "UIBackgroundModes": ["remote-notification", "fetch"],
+        "LSApplicationQueriesSchemes": ["yandexmaps", "yandexnavi", "comgooglemaps", "maps"]
       },
       "backgroundColor": "#ffffff"
     },
@@ -39,9 +40,17 @@
       "permissions": [
         "ACCESS_COARSE_LOCATION",
         "ACCESS_FINE_LOCATION",
-        "INTERNET"
+        "INTERNET",
+        "ACCESS_NETWORK_STATE",
+        "ACCESS_WIFI_STATE",
+        "FOREGROUND_SERVICE",
+        "WAKE_LOCK"
       ],
-      "config": {},
+      "config": {
+        "googleMaps": {
+          "apiKey": "$GOOGLE_MAPS_API_KEY"
+        }
+      },
       "allowBackup": true
     },
     "plugins": [
@@ -75,7 +84,8 @@
       "eas": {
         "projectId": "e1827dd8-4ea6-4b23-9f6a-5edc68c86d3d"
       },
-      "dgApiKey": "$DG_API_KEY"
+      "dgApiKey": "$DG_API_KEY",
+      "googleMapsApiKey": "$GOOGLE_MAPS_API_KEY"
     },
     "owner": "pro100byte",
     "sdkVersion": "54.0.0",
