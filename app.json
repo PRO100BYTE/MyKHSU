@@ -2,7 +2,7 @@
   "expo": {
     "name": "Мой ИТИ ХГУ",
     "slug": "mykhsu",
-    "version": "2.2.3",
+    "version": "2.2.5",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
@@ -38,9 +38,6 @@
       ],
       "config": {},
       "allowBackup": true
-    },
-    "web": {
-      "favicon": "./assets/favicon.png"
     },
     "plugins": [
       "expo-secure-store",
