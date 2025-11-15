@@ -2,7 +2,7 @@
   "expo": {
     "name": "Мой ИТИ ХГУ",
     "slug": "mykhsu",
-    "version": "2.2.5",
+    "version": "2.2.6",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
@@ -48,7 +48,7 @@
       ],
       "config": {
         "googleMaps": {
-          "apiKey": "$GOOGLE_MAPS_API_KEY"
+          "apiKey": "$googleMapsApiKey"
         }
       },
       "allowBackup": true
