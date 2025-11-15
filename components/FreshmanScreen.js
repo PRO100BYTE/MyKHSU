@@ -1,12 +1,14 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, Linking, StyleSheet, Animated, StatusBar } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, Linking, StyleSheet, Platform, Animated, StatusBar } from 'react-native';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import { ACCENT_COLORS } from '../utils/constants';
 import UnderDevelopmentModal from './UnderDevelopmentModal';
+import BuildingsListScreen from './BuildingsListScreen';
 
 const FreshmanScreen = ({ theme, accentColor }) => {
   const [modalVisible, setModalVisible] = useState(false);
   const [currentGroupType, setCurrentGroupType] = useState(null);
+  const [showBuildingsList, setShowBuildingsList] = useState(false);
   
   const fadeAnim = useRef(new Animated.Value(1)).current;
 
@@ -27,7 +29,7 @@ const FreshmanScreen = ({ theme, accentColor }) => {
       duration: 250,
       useNativeDriver: true,
     }).start();
-  }, [currentGroupType]);
+  }, [currentGroupType, showBuildingsList]);
 
   // Функции для открытия ссылок
   const openITIWebsite = () => {
@@ -166,6 +168,13 @@ const FreshmanScreen = ({ theme, accentColor }) => {
         'Преподаватели',
         'Информация о преподавателях ИТИ ХГУ',
         () => setModalVisible(true)
+      )}
+      
+      {renderSectionCard(
+        'business-outline',
+        'Корпуса ХГУ',
+        'Список всех корпусов университета с маршрутами',
+        () => setShowBuildingsList(true)
       )}
       
       {renderSectionCard(
@@ -314,11 +323,39 @@ const FreshmanScreen = ({ theme, accentColor }) => {
     </View>
   );
 
+  // Рендер списка корпусов
+  const renderBuildingsList = () => (
+    <View style={{ flex: 1 }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', padding: 16, backgroundColor: cardBg }}>
+        <TouchableOpacity 
+          onPress={() => setShowBuildingsList(false)}
+          style={{ padding: 8, marginRight: 12 }}
+        >
+          <Icon name="arrow-back" size={24} color={colors.primary} />
+        </TouchableOpacity>
+        <Text style={{ 
+          color: textColor, 
+          fontSize: 20, 
+          fontWeight: 'bold',
+          fontFamily: 'Montserrat_600SemiBold'
+        }}>
+          Корпуса ХГУ
+        </Text>
+      </View>
+      <BuildingsListScreen 
+        theme={theme} 
+        accentColor={accentColor} 
+      />
+    </View>
+  );
+
   // Рендер текущего экрана с анимацией
   const renderCurrentScreen = () => {
     let content = null;
     
-    if (!currentGroupType) {
+    if (showBuildingsList) {
+      content = renderBuildingsList();
+    } else if (!currentGroupType) {
       content = renderMainSections();
     } else if (currentGroupType === 'main') {
       content = renderGroupTypeSelection();
@@ -337,7 +374,7 @@ const FreshmanScreen = ({ theme, accentColor }) => {
 
   return (
     <View style={{ flex: 1, backgroundColor: bgColor }}>
-       <StatusBar 
+      <StatusBar 
         barStyle={theme === 'light' ? 'dark-content' : 'light-content'}
         backgroundColor={bgColor}
       />

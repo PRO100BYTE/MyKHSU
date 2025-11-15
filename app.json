@@ -72,7 +72,8 @@
     "extra": {
       "eas": {
         "projectId": "e1827dd8-4ea6-4b23-9f6a-5edc68c86d3d"
-      }
+      },
+      "dgApiKey": "$DG_API_KEY"
     },
     "owner": "pro100byte"
   }

@@ -196,7 +196,7 @@ export const useScheduleLogic = () => {
         console.error('Error scheduling notifications:', notifyError);
       }
       
-      console.log('Загружено расписание для группы', group);
+      console.log('Загружено расписание для группы', group, 'на', viewMode === 'day' ? currentDate.toDateString() : `неделю ${currentWeek}`);
     } catch (error) {
       console.error('Error fetching schedule:', error);
       setError('load-error');

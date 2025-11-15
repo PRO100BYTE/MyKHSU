@@ -1,37 +1,87 @@
 import { API_BASE_URL, CORS_PROXY } from './constants';
 import { getWithExpiry, setWithExpiry } from './cache';
 import NetInfo from '@react-native-community/netinfo';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as SecureStore from 'expo-secure-store';
 
 class ApiService {
   constructor() {
     this.timeout = 10000;
+    this.cacheSettings = {
+      enabled: true,
+      limitDays: 4,
+      limitWeeks: 3,
+      ttl: 7
+    };
+    this.loadCacheSettings();
+  }
+
+  // Загрузка настроек кэширования
+  async loadCacheSettings() {
+    try {
+      const saved = await SecureStore.getItemAsync('cache_settings');
+      if (saved) {
+        this.cacheSettings = JSON.parse(saved);
+      }
+    } catch (error) {
+      console.error('Error loading cache settings:', error);
+    }
   }
 
   // Универсальный метод для запросов
   async makeRequest(url, options = {}, useCache = true, cacheKey = null, cacheTTL = null) {
+    // Проверяем настройки кэширования
+    if (!this.cacheSettings.enabled) {
+      useCache = false;
+    }
+
     const netState = await NetInfo.fetch();
     const isOnline = netState.isConnected;
     
     const finalCacheKey = cacheKey || `api_${btoa(url)}`;
+    const finalTTL = cacheTTL || (this.cacheSettings.ttl * 24 * 60 * 60 * 1000);
     
     // Пытаемся получить данные из кэша
     if (useCache) {
       try {
-        const cachedData = await getWithExpiry(finalCacheKey);
-        if (cachedData) {
-          return {
-            data: cachedData,
-            source: 'cache',
-            cacheInfo: { cacheDate: new Date().toISOString() }
-          };
+        const itemStr = await AsyncStorage.getItem(finalCacheKey);
+        if (itemStr) {
+          const item = JSON.parse(itemStr);
+          const now = Date.now();
+          
+          // Проверяем срок действия
+          if (now - item.timestamp > finalTTL) {
+            await AsyncStorage.removeItem(finalCacheKey);
+          } else {
+            return {
+              data: item.data,
+              source: 'cache',
+              cacheInfo: { cacheDate: new Date(item.timestamp).toISOString() }
+            };
+          }
         }
       } catch (cacheError) {
         console.error('Cache read error:', cacheError);
       }
     }
     
-    // Если нет интернета, возвращаем ошибку
+    // Если нет интернета, возвращаем ошибку или пытаемся найти старый кэш
     if (!isOnline) {
+      if (useCache) {
+        try {
+          const itemStr = await AsyncStorage.getItem(finalCacheKey);
+          if (itemStr) {
+            const item = JSON.parse(itemStr);
+            return {
+              data: item.data,
+              source: 'stale_cache',
+              cacheInfo: { cacheDate: new Date(item.timestamp).toISOString() }
+            };
+          }
+        } catch (cacheError) {
+          console.error('Stale cache read error:', cacheError);
+        }
+      }
       throw new Error('NO_INTERNET');
     }
     
@@ -43,7 +93,15 @@ class ApiService {
       // Кэшируем успешный ответ
       if (useCache) {
         try {
-          await setWithExpiry(finalCacheKey, data, cacheTTL);
+          const cacheItem = {
+            data,
+            timestamp: Date.now(),
+            url
+          };
+          await AsyncStorage.setItem(finalCacheKey, JSON.stringify(cacheItem));
+          
+          // Очищаем старый кэш если превышен лимит
+          await this.cleanOldCache();
         } catch (cacheError) {
           console.error('Cache write error:', cacheError);
         }
@@ -66,7 +124,13 @@ class ApiService {
         // Кэшируем успешный ответ
         if (useCache) {
           try {
-            await setWithExpiry(finalCacheKey, data, cacheTTL);
+            const cacheItem = {
+              data,
+              timestamp: Date.now(),
+              url
+            };
+            await AsyncStorage.setItem(finalCacheKey, JSON.stringify(cacheItem));
+            await this.cleanOldCache();
           } catch (cacheError) {
             console.error('Cache write error:', cacheError);
           }
@@ -80,24 +144,55 @@ class ApiService {
       } catch (proxyError) {
         console.log('CORS proxy also failed');
         
-        // Если всё провалилось, пробуем вернуть кэш (даже просроченный)
+        // Если всё провалилось, пробуем вернуть старый кэш
         if (useCache) {
           try {
-            const cachedData = await getWithExpiry(finalCacheKey);
-            if (cachedData) {
+            const itemStr = await AsyncStorage.getItem(finalCacheKey);
+            if (itemStr) {
+              const item = JSON.parse(itemStr);
               return {
-                data: cachedData,
+                data: item.data,
                 source: 'stale_cache',
-                cacheInfo: { cacheDate: new Date().toISOString() }
+                cacheInfo: { cacheDate: new Date(item.timestamp).toISOString() }
               };
             }
           } catch (cacheError) {
-            console.error('Cache read error:', cacheError);
+            console.error('Stale cache read error:', cacheError);
           }
         }
         
         throw new Error('API_UNAVAILABLE');
       }
+    }
+  }
+
+  // Очистка старого кэша
+  async cleanOldCache() {
+    try {
+      const keys = await AsyncStorage.getAllKeys();
+      const cacheKeys = keys.filter(key => key.startsWith('api_') || key.startsWith('schedule_') || key.startsWith('groups_'));
+      
+      const now = Date.now();
+      const maxAgeDays = this.cacheSettings.limitDays * 24 * 60 * 60 * 1000;
+      const maxAgeWeeks = this.cacheSettings.limitWeeks * 7 * 24 * 60 * 60 * 1000;
+      const maxAge = Math.max(maxAgeDays, maxAgeWeeks);
+      
+      for (const key of cacheKeys) {
+        try {
+          const itemStr = await AsyncStorage.getItem(key);
+          if (itemStr) {
+            const item = JSON.parse(itemStr);
+            if (item.timestamp && now - item.timestamp > maxAge) {
+              await AsyncStorage.removeItem(key);
+            }
+          }
+        } catch (error) {
+          // Удаляем поврежденный кэш
+          await AsyncStorage.removeItem(key);
+        }
+      }
+    } catch (error) {
+      console.error('Error cleaning old cache:', error);
     }
   }
 
