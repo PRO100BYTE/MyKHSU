@@ -105,31 +105,8 @@ const SettingsScreen = ({ theme, accentColor, setTheme, setAccentColor, onSchedu
 
   const clearMapCacheHandler = async () => {
     Alert.alert(
-      'Очистка кэша карты',
-      'Удалить все сохраненные картографические данные? Это может улучшить работу карты при проблемах с отображением.',
-      [
-        {
-          text: 'Отмена',
-          style: 'cancel'
-        },
-        {
-          text: 'Очистить',
-          onPress: async () => {
-            try {
-              const success = await mapCache.clearCache();
-              if (success) {
-                Alert.alert('Успех', 'Кэш карты успешно очищен');
-              } else {
-                Alert.alert('Информация', 'Кэш карты уже пуст или произошла ошибка при очистке');
-              }
-            } catch (error) {
-              console.error('Error clearing map cache:', error);
-              Alert.alert('Ошибка', 'Не удалось очистить кэш карты');
-            }
-          },
-          style: 'destructive'
-        }
-      ]
+      'Информация',
+      'Очистка кэша карты недоступна. В данной версии приложения используется карта без возможностей кэширования.'
     );
   };
 
