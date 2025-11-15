@@ -209,6 +209,12 @@ const MapScreen = ({ theme, accentColor }) => {
       case 'sports': return 'barbell-outline';
       case 'dormitory': return 'home-outline';
       case 'cafeteria': return 'restaurant-outline';
+      case 'cafeteria': return 'restaurant-outline';
+      case '5ka': return 'nutrition-outline';
+      case 'sausage': return 'fast-food-outline';
+      case 'shop': return 'cart-outline';
+      case 'garden': return 'people-outline';
+      case 'cardatm': return 'card-outline';
       default: return 'location-outline';
     }
   };
