@@ -77,6 +77,11 @@
       },
       "dgApiKey": "$DG_API_KEY"
     },
-    "owner": "pro100byte"
+    "owner": "pro100byte",
+    "sdkVersion": "54.0.0",
+    "platforms": [
+    "ios",
+    "android"
+    ]
   }
 }
