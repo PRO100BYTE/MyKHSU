@@ -116,6 +116,11 @@ const BuildingsListScreen = ({ theme, accentColor, onBuildingSelect }) => {
       case 'sports': return 'barbell-outline';
       case 'dormitory': return 'home-outline';
       case 'cafeteria': return 'restaurant-outline';
+      case '5ka': return 'nutrition-outline';
+      case 'sausage': return 'fast-food-outline';
+      case 'shop': return 'cart-outline';
+      case 'garden': return 'people-outline';
+      case 'cardatm': return 'card-outline';
       default: return 'location-outline';
     }
   };
@@ -128,6 +133,11 @@ const BuildingsListScreen = ({ theme, accentColor, onBuildingSelect }) => {
       case 'sports': return 'Спортивный комплекс';
       case 'dormitory': return 'Общежитие';
       case 'cafeteria': return 'Столовая';
+      case '5ka': return 'Магазин "Пятёрочка"';
+      case 'sausage': return 'Сосисочная';
+      case 'shop': return 'Магазин';
+      case 'garden': return 'Университетский сквер';
+      case 'cardatm': return 'Банкомат';
       default: return 'Корпус';
     }
   };
@@ -176,15 +186,6 @@ const BuildingsListScreen = ({ theme, accentColor, onBuildingSelect }) => {
       
       <View style={{ flex: 1, padding: 16 }}>
         <View style={{ marginBottom: 20 }}>
-          <Text style={{ 
-            color: textColor, 
-            fontSize: 24, 
-            fontWeight: 'bold',
-            fontFamily: 'Montserrat_600SemiBold',
-            marginBottom: 8
-          }}>
-            Корпуса ХГУ
-          </Text>
           <Text style={{ 
             color: placeholderColor, 
             fontSize: 16,
