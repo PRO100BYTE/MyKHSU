@@ -23,6 +23,8 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
   const [loadingTeacher, setLoadingTeacher] = useState(false);
   const [showCourseSelector, setShowCourseSelector] = useState(true);
   const [teacherName, setTeacherName] = useState('');
+  const [availableCourses, setAvailableCourses] = useState([]);
+  const [loadingCourses, setLoadingCourses] = useState(false);
   
   // Анимация появления
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -72,9 +74,10 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
   const borderColor = theme === 'light' ? '#e5e7eb' : '#374151';
   const placeholderColor = theme === 'light' ? '#6b7280' : '#9ca3af';
 
-  // Загрузка настроек при монтировании
+  // Загрузка настроек и курсов при монтировании
   useEffect(() => {
     loadScheduleSettings();
+    fetchAvailableCourses();
   }, []);
 
   // Применение внешних настроек
@@ -83,6 +86,31 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
       applyExternalSettings(externalSettings);
     }
   }, [externalSettings]);
+
+  // Загрузка доступных курсов с API
+  const fetchAvailableCourses = async () => {
+    setLoadingCourses(true);
+    try {
+      const result = await ApiService.getCourses();
+      if (result.data && result.data.courses) {
+        const coursesFromApi = result.data.courses;
+        const filteredCourses = COURSES.filter(courseItem => 
+          coursesFromApi.includes(courseItem.id.toString())
+        );
+        setAvailableCourses(filteredCourses);
+        console.log('Доступные курсы загружены:', filteredCourses);
+      } else {
+        // Если API не вернуло курсы, используем все по умолчанию
+        setAvailableCourses(COURSES);
+      }
+    } catch (error) {
+      console.error('Error fetching courses:', error);
+      // В случае ошибки используем все курсы по умолчанию
+      setAvailableCourses(COURSES);
+    } finally {
+      setLoadingCourses(false);
+    }
+  };
 
   const loadScheduleSettings = async () => {
     try {
@@ -614,7 +642,7 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
                   Расписание для {selectedGroup}
                 </Text>
                 <Text style={{ color: placeholderColor, marginTop: 4, fontFamily: 'Montserrat_400Regular' }}>
-                  {COURSES.find(c => c.id === course)?.label}
+                  {availableCourses.find(c => c.id === course)?.label || `Курс ${course}`}
                 </Text>
                 {scheduleData.dates && (
                   <Text style={{ color: placeholderColor, marginTop: 4, fontFamily: 'Montserrat_400Regular' }}>
@@ -636,7 +664,7 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
                   Расписание для {selectedGroup}
                 </Text>
                 <Text style={{ color: placeholderColor, marginTop: 4, fontFamily: 'Montserrat_400Regular' }}>
-                  {COURSES.find(c => c.id === course)?.label}
+                  {availableCourses.find(c => c.id === course)?.label || `Курс ${course}`}
                 </Text>
               </View>
               {renderDailySchedule()}
@@ -720,13 +748,13 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
             backgroundColor: colors.light, 
             padding: 12, 
             borderRadius: 8,
-            alignItems: 'center',
             flexDirection: 'row',
-            justifyContent: 'center',
-            marginBottom: 16
+            alignItems: 'flex-start',
+            marginBottom: 16,
+            flexWrap: 'wrap'
           }}>
-            <Icon name="time-outline" size={16} color={colors.primary} />
-            <Text style={{ color: colors.primary, marginLeft: 8, fontFamily: 'Montserrat_400Regular' }}>
+            <Icon name="time-outline" size={16} color={colors.primary} style={{ marginTop: 2 }} />
+            <Text style={{ color: colors.primary, marginLeft: 8, fontFamily: 'Montserrat_400Regular', flex: 1, flexWrap: 'wrap' }}>
               {cacheInfo?.source === 'stale_cache' ? 'Показаны ранее загруженные данные' : 'Показаны кэшированные данные'}
             </Text>
           </View>
@@ -742,41 +770,45 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
         {!isTeacherMode && showCourseSelector && (
           <>
             {/* Кнопки выбора курса */}
-            <View style={{ 
-              flexDirection: 'row', 
-              flexWrap: 'wrap',
-              backgroundColor: bgColor, 
-              borderRadius: 24, 
-              padding: 4, 
-              marginBottom: 16,
-              borderWidth: 1,
-              borderColor
-            }}>
-              {COURSES.map(courseItem => (
-                <TouchableOpacity
-                  key={courseItem.id}
-                  onPress={() => handleCourseSelect(courseItem.id)}
-                  style={{
-                    paddingVertical: 8,
-                    paddingHorizontal: 16,
-                    borderRadius: 20,
-                    backgroundColor: course === courseItem.id ? colors.primary : 'transparent',
-                    alignItems: 'center',
-                    margin: 2,
-                    flexGrow: 1,
-                    minWidth: '18%'
-                  }}
-                >
-                  <Text style={{ 
-                    color: course === courseItem.id ? '#ffffff' : textColor,
-                    fontWeight: '500',
-                    fontFamily: 'Montserrat_500Medium'
-                  }}>
-                    {courseItem.label}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
+            {loadingCourses ? (
+              <ActivityIndicator size="small" color={colors.primary} style={{ marginBottom: 16 }} />
+            ) : (
+              <View style={{ 
+                flexDirection: 'row', 
+                flexWrap: 'wrap',
+                backgroundColor: bgColor, 
+                borderRadius: 24, 
+                padding: 4, 
+                marginBottom: 16,
+                borderWidth: 1,
+                borderColor
+              }}>
+                {availableCourses.map(courseItem => (
+                  <TouchableOpacity
+                    key={courseItem.id}
+                    onPress={() => handleCourseSelect(courseItem.id)}
+                    style={{
+                      paddingVertical: 8,
+                      paddingHorizontal: 12,
+                      borderRadius: 20,
+                      backgroundColor: course === courseItem.id ? colors.primary : 'transparent',
+                      alignItems: 'center',
+                      margin: 2,
+                      minWidth: '23%'
+                    }}
+                  >
+                    <Text style={{ 
+                      color: course === courseItem.id ? '#ffffff' : textColor,
+                      fontWeight: '500',
+                      fontFamily: 'Montserrat_500Medium',
+                      fontSize: 14
+                    }}>
+                      {courseItem.label}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
 
             {/* Список групп */}
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', marginBottom: 16 }}>
@@ -816,13 +848,13 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
             backgroundColor: colors.light, 
             padding: 12, 
             borderRadius: 8,
-            alignItems: 'center',
             flexDirection: 'row',
-            justifyContent: 'center',
-            marginBottom: 16
+            alignItems: 'flex-start',
+            marginBottom: 16,
+            flexWrap: 'wrap'
           }}>
-            <Icon name="information-circle-outline" size={16} color={colors.primary} />
-            <Text style={{ color: colors.primary, marginLeft: 8, fontFamily: 'Montserrat_400Regular' }}>
+            <Icon name="information-circle-outline" size={16} color={colors.primary} style={{ marginTop: 2 }} />
+            <Text style={{ color: colors.primary, marginLeft: 8, fontFamily: 'Montserrat_400Regular', flex: 1, flexWrap: 'wrap' }}>
               Показано расписание для группы {selectedGroup}
             </Text>
             <TouchableOpacity 
@@ -842,7 +874,7 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
                 
                 console.log('Селектор групп включен');
               }}
-              style={{ marginLeft: 12 }}
+              style={{ marginLeft: 8, alignSelf: 'flex-start' }}
             >
               <Text style={{ color: colors.primary, textDecorationLine: 'underline', fontFamily: 'Montserrat_500Medium' }}>
                 Изменить
