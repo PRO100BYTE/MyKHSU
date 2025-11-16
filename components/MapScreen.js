@@ -395,14 +395,10 @@ const MapScreen = ({ theme, accentColor }) => {
           type={errorType}
           loading={loading}
           onRetry={handleRetry}
-          onViewCache={handleViewBuildingsList}
           theme={theme}
           accentColor={accentColor}
           contentType="map"
           message={errorMessage}
-          showCacheButton={true}
-          cacheAvailable={true}
-          customCacheButtonText="Список корпусов"
           showFreshmanHint={true}
         />
       </Animated.View>
@@ -654,7 +650,7 @@ const MapScreen = ({ theme, accentColor }) => {
       {/* Заголовок с кнопкой фильтров */}
       <View style={[styles.header, { backgroundColor: cardBg }]}>
         <View style={styles.headerLeft}>
-          <Text style={[styles.headerTitle, { color: textColor }]}>Карта</Text>
+          <Text style={[styles.headerTitle, { color: textColor }]}>Корпуса ХГУ</Text>
           {selectedFilters.length > 0 && (
             <View style={[styles.activeFiltersBadge, { backgroundColor: colors.primary }]}>
               <Text style={styles.activeFiltersText}>{selectedFilters.length}</Text>
@@ -755,7 +751,7 @@ const MapScreen = ({ theme, accentColor }) => {
             <View style={[styles.loadingContent, { backgroundColor: theme === 'dark' ? '#1f2937' : '#ffffff' }]}>
               <ActivityIndicator size="large" color={colors.primary} />
               <Text style={[styles.loadingText, { color: textColor, marginTop: 12 }]}>
-                Загрузка карты 2ГИС...
+                Загрузка карты...
               </Text>
             </View>
           </View>
