@@ -13,12 +13,15 @@ const ConnectionError = ({
   contentType = 'general',
   message,
   showCacheButton = false,
-  cacheAvailable = false
+  cacheAvailable = false,
+  customCacheButtonText,
+  showFreshmanHint = false
 }) => {
   const colors = ACCENT_COLORS[accentColor];
   const bgColor = theme === 'light' ? '#f3f4f6' : '#111827';
   const textColor = theme === 'light' ? '#111827' : '#ffffff';
   const cardBg = theme === 'light' ? '#ffffff' : '#1f2937';
+  const placeholderColor = theme === 'light' ? '#6b7280' : '#9ca3af';
 
   // Конфигурация для разных типов контента
   const contentConfigs = {
@@ -27,13 +30,13 @@ const ConnectionError = ({
         icon: 'map-outline',
         title: 'Карта недоступна',
         description: 'Для загрузки карты необходимо подключение к интернету',
-        cacheButton: 'Показать список корпусов'
+        cacheButton: customCacheButtonText || 'Список корпусов'
       },
       'load-error': {
         icon: 'warning-outline',
         title: 'Ошибка загрузки карты',
         description: 'Не удалось загрузить карту. Проверьте подключение и попробуйте снова',
-        cacheButton: 'Показать список корпусов'
+        cacheButton: customCacheButtonText || 'Список корпусов'
       }
     },
     schedule: {
@@ -95,18 +98,6 @@ const ConnectionError = ({
   // Определяем, показывать ли кнопку кэша
   const shouldShowCacheButton = (showCacheButton || cacheAvailable) && onViewCache;
 
-  // Автоматическое перенаправление на кэш при отсутствии интернета, если кэш доступен
-  React.useEffect(() => {
-    if (type === 'no-internet' && cacheAvailable && onViewCache && !loading) {
-      // Небольшая задержка перед автоматическим перенаправлением
-      const timer = setTimeout(() => {
-        onViewCache();
-      }, 2000); // 2 секунды для показа сообщения
-      
-      return () => clearTimeout(timer);
-    }
-  }, [type, cacheAvailable, onViewCache, loading]);
-
   if (loading) {
     return (
       <View style={[styles.container, { backgroundColor: bgColor }]}>
@@ -132,6 +123,16 @@ const ConnectionError = ({
         <Text style={[styles.description, { color: textColor }]}>
           {message || config.description}
         </Text>
+        
+        {/* Подсказка о разделе Первокурснику */}
+        {showFreshmanHint && (
+          <View style={[styles.hintCard, { backgroundColor: colors.light + '40', marginBottom: 24 }]}>
+            <Icon name="information-circle-outline" size={20} color={colors.primary} />
+            <Text style={[styles.hintText, { color: colors.primary, marginLeft: 8, flex: 1 }]}>
+              Список корпусов также доступен в разделе "Первокурснику"
+            </Text>
+          </View>
+        )}
         
         <View style={styles.buttonsContainer}>
           <TouchableOpacity
@@ -194,6 +195,17 @@ const styles = StyleSheet.create({
     fontFamily: 'Montserrat_400Regular',
     marginBottom: 24,
     lineHeight: 22,
+  },
+  hintCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    borderRadius: 8,
+    width: '100%',
+  },
+  hintText: {
+    fontSize: 14,
+    fontFamily: 'Montserrat_400Regular',
   },
   buttonsContainer: {
     width: '100%',
