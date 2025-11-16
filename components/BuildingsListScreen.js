@@ -18,6 +18,7 @@ import { buildings } from '../utils/buildingCoordinates';
 const BuildingsListScreen = ({ theme, accentColor, onBuildingSelect }) => {
   const [showRouteOptions, setShowRouteOptions] = useState(false);
   const [selectedBuilding, setSelectedBuilding] = useState(null);
+  const [expandedSections, setExpandedSections] = useState({});
   
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const routeModalAnim = useRef(new Animated.Value(0)).current;
@@ -36,6 +37,30 @@ const BuildingsListScreen = ({ theme, accentColor, onBuildingSelect }) => {
     }).start();
   }, []);
 
+  // Группировка зданий по категориям
+  const groupedBuildings = {
+    main: buildings.filter(b => b.type === 'main'),
+    academic: buildings.filter(b => b.type === 'academic'),
+    dormitory: buildings.filter(b => b.type === 'dormitory'),
+    library: buildings.filter(b => b.type === 'library'),
+    cafeteria: buildings.filter(b => b.type === 'cafeteria'),
+    cardatm: buildings.filter(b => b.type === 'cardatm'),
+    sports: buildings.filter(b => b.type === 'sports'),
+    other: buildings.filter(b => ['5ka', 'sausage', 'shop', 'cafe', 'coffee', 'garden'].includes(b.type))
+  };
+
+  // Названия категорий
+  const categoryNames = {
+    main: 'Административный корпус',
+    academic: 'Учебные корпуса',
+    dormitory: 'Общежития',
+    library: 'Библиотеки ХГУ',
+    cafeteria: 'Столовые ХГУ',
+    cardatm: 'Банкоматы',
+    sports: 'Спортивные площадки',
+    other: 'Прочее'
+  };
+
   // Анимация модального окна
   useEffect(() => {
     if (showRouteOptions) {
@@ -52,6 +77,13 @@ const BuildingsListScreen = ({ theme, accentColor, onBuildingSelect }) => {
       }).start();
     }
   }, [showRouteOptions]);
+
+  const toggleSection = (section) => {
+    setExpandedSections(prev => ({
+      ...prev,
+      [section]: !prev[section]
+    }));
+  };
 
   const handleRouteServiceSelect = async (service) => {
     Animated.timing(routeModalAnim, {
@@ -89,10 +121,8 @@ const BuildingsListScreen = ({ theme, accentColor, onBuildingSelect }) => {
 
   const handleBuildingPress = (building) => {
     if (onBuildingSelect) {
-      // Если передан обработчик из родителя, используем его
       onBuildingSelect(building);
     } else {
-      // Иначе показываем модальное окно в этом компоненте
       setSelectedBuilding(building);
       setShowRouteOptions(true);
     }
@@ -149,7 +179,8 @@ const BuildingsListScreen = ({ theme, accentColor, onBuildingSelect }) => {
         backgroundColor: cardBg, 
         borderRadius: 12, 
         padding: 16, 
-        marginBottom: isLast ? 0 : 12,
+        marginBottom: isLast ? 0 : 8,
+        marginLeft: 16,
         flexDirection: 'row',
         alignItems: 'center'
       }}
@@ -177,6 +208,49 @@ const BuildingsListScreen = ({ theme, accentColor, onBuildingSelect }) => {
     </TouchableOpacity>
   );
 
+  const renderCategorySection = (category, buildingsList) => {
+    if (buildingsList.length === 0) return null;
+    
+    const isExpanded = expandedSections[category];
+    
+    return (
+      <View key={category} style={{ marginBottom: 16 }}>
+        <TouchableOpacity 
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            padding: 16,
+            backgroundColor: cardBg,
+            borderRadius: 12,
+          }}
+          onPress={() => toggleSection(category)}
+        >
+          <Text style={{ 
+            color: textColor, 
+            fontSize: 18, 
+            fontFamily: 'Montserrat_600SemiBold' 
+          }}>
+            {categoryNames[category]} ({buildingsList.length})
+          </Text>
+          <Icon 
+            name={isExpanded ? 'chevron-up' : 'chevron-down'} 
+            size={20} 
+            color={colors.primary} 
+          />
+        </TouchableOpacity>
+        
+        {isExpanded && (
+          <View style={{ marginTop: 8 }}>
+            {buildingsList.map((building, index) => 
+              renderBuildingCard(building, index === buildingsList.length - 1)
+            )}
+          </View>
+        )}
+      </View>
+    );
+  };
+
   return (
     <Animated.View style={{ flex: 1, backgroundColor: bgColor, opacity: fadeAnim }}>
       <StatusBar 
@@ -198,8 +272,8 @@ const BuildingsListScreen = ({ theme, accentColor, onBuildingSelect }) => {
         </View>
 
         <ScrollView showsVerticalScrollIndicator={false}>
-          {buildings.map((building, index) => 
-            renderBuildingCard(building, index === buildings.length - 1)
+          {Object.entries(groupedBuildings).map(([category, buildingsList]) => 
+            renderCategorySection(category, buildingsList)
           )}
           
           {/* Информационный блок */}
