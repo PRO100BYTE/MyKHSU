@@ -325,6 +325,12 @@ class ApiService {
     return this.makeRequest(url, {}, true, 'pairs_time', 7 * 24 * 60 * 60 * 1000);
   }
 
+  // Метод для загрузки доступных курсов
+  async getCourses() {
+    const url = `${API_BASE_URL}/getcourses`;
+    return this.makeRequest(url, {}, true, 'available_courses', 24 * 60 * 60 * 1000); // кэш на 1 день
+  }
+
   // Вспомогательный метод для форматирования даты
   formatDate(date) {
     return date.toLocaleDateString('ru-RU', {
