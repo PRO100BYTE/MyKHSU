@@ -95,9 +95,6 @@ const ConnectionError = ({
                 contentConfigs.general[type] || 
                 contentConfigs.general.default;
 
-  // Определяем, показывать ли кнопку кэша
-  const shouldShowCacheButton = (showCacheButton || cacheAvailable) && onViewCache;
-
   if (loading) {
     return (
       <View style={[styles.container, { backgroundColor: bgColor }]}>
@@ -126,10 +123,10 @@ const ConnectionError = ({
         
         {/* Подсказка о разделе Первокурснику */}
         {showFreshmanHint && (
-          <View style={[styles.hintCard, { backgroundColor: colors.light + '40', marginBottom: 24 }]}>
+          <View style={[styles.hintCard, { backgroundColor: '#ffffff', marginBottom: 24 }]}>
             <Icon name="information-circle-outline" size={20} color={colors.primary} />
             <Text style={[styles.hintText, { color: colors.primary, marginLeft: 8, flex: 1 }]}>
-              Список корпусов также доступен в разделе "Первокурснику"
+              Список всех корпусов доступен в разделе "Первокурснику"
             </Text>
           </View>
         )}
@@ -142,21 +139,6 @@ const ConnectionError = ({
             <Icon name="refresh" size={20} color="#ffffff" />
             <Text style={styles.retryButtonText}>Попробовать снова</Text>
           </TouchableOpacity>
-          
-          {shouldShowCacheButton && (
-            <TouchableOpacity
-              style={[styles.cacheButton, { 
-                backgroundColor: theme === 'light' ? colors.light : '#374151',
-                borderColor: colors.primary 
-              }]}
-              onPress={onViewCache}
-            >
-              <Icon name="list-outline" size={20} color={colors.primary} />
-              <Text style={[styles.cacheButtonText, { color: colors.primary }]}>
-                {config.cacheButton}
-              </Text>
-            </TouchableOpacity>
-          )}
         </View>
       </View>
     </View>
@@ -202,6 +184,11 @@ const styles = StyleSheet.create({
     padding: 16,
     borderRadius: 8,
     width: '100%',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    elevation: 2,
   },
   hintText: {
     fontSize: 14,
@@ -222,20 +209,6 @@ const styles = StyleSheet.create({
   },
   retryButtonText: {
     color: '#ffffff',
-    fontSize: 16,
-    fontFamily: 'Montserrat_500Medium',
-  },
-  cacheButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 14,
-    paddingHorizontal: 24,
-    borderRadius: 12,
-    borderWidth: 1,
-    gap: 8,
-  },
-  cacheButtonText: {
     fontSize: 16,
     fontFamily: 'Montserrat_500Medium',
   },
