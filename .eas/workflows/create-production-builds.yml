@@ -1,0 +1,16 @@
+name: Create Production Builds
+
+jobs:
+  build_android:
+    type: build # This job type creates a production build for Android (Google Play Store format)
+    params:
+      platform: android
+  build_android_apk:
+    type: build # This job type creates a production build for Android (APK format)
+    params:
+      platform: android
+      profile: release-apk
+  build_ios:
+    type: build # This job type creates a production build for iOS (App Store format)
+    params:
+      platform: ios
