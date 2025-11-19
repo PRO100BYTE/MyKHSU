@@ -749,12 +749,18 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
             padding: 12, 
             borderRadius: 8,
             flexDirection: 'row',
-            alignItems: 'flex-start',
-            marginBottom: 16,
-            flexWrap: 'wrap'
+            alignItems: 'center',
+            justifyContent: 'center',
+            marginBottom: 16
           }}>
-            <Icon name="time-outline" size={16} color={colors.primary} style={{ marginTop: 2 }} />
-            <Text style={{ color: colors.primary, marginLeft: 8, fontFamily: 'Montserrat_400Regular', flex: 1, flexWrap: 'wrap' }}>
+            <Icon name="time-outline" size={16} color={colors.primary} />
+            <Text style={{ 
+              color: colors.primary, 
+              marginLeft: 8, 
+              fontFamily: 'Montserrat_400Regular', 
+              textAlign: 'center',
+              flex: 1
+            }}>
               {cacheInfo?.source === 'stale_cache' ? 'Показаны ранее загруженные данные' : 'Показаны кэшированные данные'}
             </Text>
           </View>
@@ -781,7 +787,8 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
                 padding: 4, 
                 marginBottom: 16,
                 borderWidth: 1,
-                borderColor
+                borderColor,
+                justifyContent: 'center'
               }}>
                 {availableCourses.map(courseItem => (
                   <TouchableOpacity
@@ -794,14 +801,16 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
                       backgroundColor: course === courseItem.id ? colors.primary : 'transparent',
                       alignItems: 'center',
                       margin: 2,
-                      minWidth: '23%'
+                      minWidth: '23%',
+                      justifyContent: 'center'
                     }}
                   >
                     <Text style={{ 
                       color: course === courseItem.id ? '#ffffff' : textColor,
                       fontWeight: '500',
                       fontFamily: 'Montserrat_500Medium',
-                      fontSize: 14
+                      fontSize: 14,
+                      textAlign: 'center'
                     }}>
                       {courseItem.label}
                     </Text>
@@ -826,12 +835,15 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
                       margin: 4,
                       backgroundColor: selectedGroup === group ? colors.primary : cardBg,
                       borderWidth: 1,
-                      borderColor: selectedGroup === group ? colors.primary : borderColor
+                      borderColor: selectedGroup === group ? colors.primary : borderColor,
+                      justifyContent: 'center',
+                      alignItems: 'center'
                     }}
                   >
                     <Text style={{ 
                       color: selectedGroup === group ? '#ffffff' : textColor,
-                      fontFamily: 'Montserrat_500Medium'
+                      fontFamily: 'Montserrat_500Medium',
+                      textAlign: 'center'
                     }}>
                       {group}
                     </Text>
@@ -849,12 +861,18 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
             padding: 12, 
             borderRadius: 8,
             flexDirection: 'row',
-            alignItems: 'flex-start',
-            marginBottom: 16,
-            flexWrap: 'wrap'
+            alignItems: 'center',
+            justifyContent: 'center',
+            marginBottom: 16
           }}>
-            <Icon name="information-circle-outline" size={16} color={colors.primary} style={{ marginTop: 2 }} />
-            <Text style={{ color: colors.primary, marginLeft: 8, fontFamily: 'Montserrat_400Regular', flex: 1, flexWrap: 'wrap' }}>
+            <Icon name="information-circle-outline" size={16} color={colors.primary} />
+            <Text style={{ 
+              color: colors.primary, 
+              marginLeft: 8, 
+              fontFamily: 'Montserrat_400Regular', 
+              textAlign: 'center',
+              flex: 1
+            }}>
               Показано расписание для группы {selectedGroup}
             </Text>
             <TouchableOpacity 
@@ -874,9 +892,14 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
                 
                 console.log('Селектор групп включен');
               }}
-              style={{ marginLeft: 8, alignSelf: 'flex-start' }}
+              style={{ marginLeft: 8 }}
             >
-              <Text style={{ color: colors.primary, textDecorationLine: 'underline', fontFamily: 'Montserrat_500Medium' }}>
+              <Text style={{ 
+                color: colors.primary, 
+                textDecorationLine: 'underline', 
+                fontFamily: 'Montserrat_500Medium',
+                textAlign: 'center'
+              }}>
                 Изменить
               </Text>
             </TouchableOpacity>
@@ -895,7 +918,12 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
             marginTop: 16
           }}>
             <Icon name="cloud-offline-outline" size={20} color={colors.primary} />
-            <Text style={{ color: colors.primary, marginTop: 8, textAlign: 'center', fontFamily: 'Montserrat_400Regular' }}>
+            <Text style={{ 
+              color: colors.primary, 
+              marginTop: 8, 
+              textAlign: 'center', 
+              fontFamily: 'Montserrat_400Regular' 
+            }}>
               Нет подключения к интернету. Показаны ранее загруженные данные.
             </Text>
           </View>
