@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { 
   View, 
   Text, 
@@ -38,7 +38,7 @@ const BuildingsListScreen = ({ theme, accentColor, onBuildingSelect }) => {
   }, []);
 
   // Группировка зданий по категориям
-  const groupedBuildings = {
+  const groupedBuildings = useMemo(() => ({
     main: buildings.filter(b => b.type === 'main'),
     academic: buildings.filter(b => b.type === 'academic'),
     dormitory: buildings.filter(b => b.type === 'dormitory'),
@@ -47,7 +47,7 @@ const BuildingsListScreen = ({ theme, accentColor, onBuildingSelect }) => {
     cardatm: buildings.filter(b => b.type === 'cardatm'),
     sports: buildings.filter(b => b.type === 'sports'),
     other: buildings.filter(b => ['5ka', 'sausage', 'shop', 'cafe', 'coffee', 'garden'].includes(b.type))
-  };
+  }), []);
 
   // Названия категорий
   const categoryNames = {
