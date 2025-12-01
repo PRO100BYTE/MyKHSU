@@ -123,7 +123,7 @@ const ConnectionError = ({
         
         {/* Подсказка о разделе Первокурснику */}
         {showFreshmanHint && (
-          <View style={[styles.hintCard, { backgroundColor: '#ffffff', marginBottom: 24 }]}>
+          <View style={[styles.hintCard, { backgroundColor: cardBg, marginBottom: 24 }]}>
             <Icon name="information-circle-outline" size={20} color={colors.primary} />
             <Text style={[styles.hintText, { color: colors.primary, marginLeft: 8, flex: 1 }]}>
               Список всех корпусов доступен в разделе "Первокурснику"
