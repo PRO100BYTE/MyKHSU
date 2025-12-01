@@ -5,7 +5,7 @@ import { useColorScheme } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
 import { ACCENT_COLORS } from '../utils/constants';
 
-const AppearanceSettingsSheet = ({ visible, onClose, theme, accentColor, setTheme, setAccentColor }) => {
+const AppearanceSettingsSheet = ({ visible, onClose, theme, accentColor, setTheme, setAccentColor, onTabbarSettingsChange }) => {
   const systemColorScheme = useColorScheme();
   
   const bgColor = theme === 'light' ? '#ffffff' : '#1f2937';
@@ -57,11 +57,27 @@ const AppearanceSettingsSheet = ({ visible, onClose, theme, accentColor, setThem
   const handleShowLabelsChange = async (value) => {
     setShowTabbarLabels(value);
     await SecureStore.setItemAsync('tabbar_labels_enabled', value.toString());
+    
+    // Уведомляем родительский компонент о изменениях
+    if (onTabbarSettingsChange) {
+      onTabbarSettingsChange({
+        showLabels: value,
+        fontSize: tabbarFontSize
+      });
+    }
   };
 
   const handleFontSizeChange = async (size) => {
     setTabbarFontSize(size);
     await SecureStore.setItemAsync('tabbar_font_size', size);
+    
+    // Уведомляем родительский компонент о изменениях
+    if (onTabbarSettingsChange) {
+      onTabbarSettingsChange({
+        showLabels: showTabbarLabels,
+        fontSize: size
+      });
+    }
   };
 
   const getFontSizeText = (size) => {
@@ -291,14 +307,6 @@ const AppearanceSettingsSheet = ({ visible, onClose, theme, accentColor, setThem
                 </View>
               )}
             </View>
-
-            {/* Информационная секция */}
-            <View style={[styles.infoSection, { backgroundColor: inputBgColor }]}>
-              <Icon name="information-circle-outline" size={16} color={colors.primary} />
-              <Text style={[styles.infoText, { color: placeholderColor, marginLeft: 8, flex: 1 }]}>
-                Изменения вступят в силу после перезагрузки приложения
-              </Text>
-            </View>
           </ScrollView>
 
           <View style={styles.buttonsContainer}>
@@ -446,17 +454,6 @@ const styles = StyleSheet.create({
   },
   fontSizeOptionText: {
     fontFamily: 'Montserrat_500Medium',
-  },
-  infoSection: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 16,
-    borderRadius: 8,
-    marginTop: 16,
-  },
-  infoText: {
-    fontSize: 12,
-    fontFamily: 'Montserrat_400Regular',
   },
   buttonsContainer: {
     flexDirection: 'row',

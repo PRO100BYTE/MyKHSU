@@ -225,6 +225,12 @@ export default Sentry.wrap(function App() {
     }
   };
 
+  // Функция для обновления настроек таббара
+  const handleTabbarSettingsChange = (newSettings) => {
+    setShowTabbarLabels(newSettings.showLabels);
+    setTabbarFontSize(newSettings.fontSize);
+  };
+
   // Слушатель изменений системной темы
   useEffect(() => {
     const subscription = Appearance.addChangeListener(({ colorScheme }) => {
@@ -303,6 +309,7 @@ export default Sentry.wrap(function App() {
             setTheme={setTheme} 
             setAccentColor={setAccentColor} 
             key={`settings-${refreshKey}`}
+            onTabbarSettingsChange={handleTabbarSettingsChange}
           />
         )}
       </View>
