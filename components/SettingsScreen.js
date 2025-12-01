@@ -165,7 +165,7 @@ const SettingsScreen = ({ theme, accentColor, setTheme, setAccentColor, onSchedu
           <View style={{ flex: 1 }}>
             <Text style={{ color: textColor, fontSize: 16, fontFamily: 'Montserrat_500Medium' }}>Уведомления</Text>
             <Text style={{ color: placeholderColor, fontSize: 14, marginTop: 4, fontFamily: 'Montserrat_400Regular' }}>
-              Настройте уведомления о новостях и расписании
+              Настройте уведомления о новых новостях и расписании
             </Text>
           </View>
           <Icon name="chevron-forward" size={20} color={placeholderColor} />
@@ -189,7 +189,7 @@ const SettingsScreen = ({ theme, accentColor, setTheme, setAccentColor, onSchedu
           <View style={{ flex: 1 }}>
             <Text style={{ color: textColor, fontSize: 16, fontFamily: 'Montserrat_500Medium' }}>Внешний вид</Text>
             <Text style={{ color: placeholderColor, fontSize: 14, marginTop: 4, fontFamily: 'Montserrat_400Regular' }}>
-              Настройте тему и цветовую схему приложения
+              Настройте тему и цветовую схему приложения, а также панель навигации
             </Text>
           </View>
           <Icon name="chevron-forward" size={20} color={placeholderColor} />

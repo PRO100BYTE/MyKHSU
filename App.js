@@ -106,6 +106,10 @@ export default Sentry.wrap(function App() {
   const [refreshKey, setRefreshKey] = useState(0);
   const insets = useSafeAreaInsets();
 
+  // Состояния для настроек таббара
+  const [showTabbarLabels, setShowTabbarLabels] = useState(true);
+  const [tabbarFontSize, setTabbarFontSize] = useState('medium');
+
   useEffect(() => {
     // Настройка обработчиков уведомлений
     const subscription = Notifications.addNotificationReceivedListener(notification => {
@@ -125,6 +129,24 @@ export default Sentry.wrap(function App() {
     };
   }, []);
 
+  // Функция для загрузки настроек таббара
+  const loadTabbarSettings = async () => {
+    try {
+      const labelsEnabled = await SecureStore.getItemAsync('tabbar_labels_enabled');
+      const fontSize = await SecureStore.getItemAsync('tabbar_font_size');
+      
+      if (labelsEnabled !== null) {
+        setShowTabbarLabels(labelsEnabled === 'true');
+      }
+      
+      if (fontSize) {
+        setTabbarFontSize(fontSize);
+      }
+    } catch (error) {
+      console.error('Error loading tabbar settings:', error);
+    }
+  };
+
   const initializeApp = async () => {
     try {
       // Запрашиваем разрешения на уведомления
@@ -135,6 +157,7 @@ export default Sentry.wrap(function App() {
 
       // Загружаем сохраненные настройки
       await loadSettings();
+      await loadTabbarSettings();
 
       // Регистрируем фоновую задачу (только для Android)
       if (Platform.OS === 'android') {
@@ -293,6 +316,8 @@ export default Sentry.wrap(function App() {
           onPress={() => handleTabPress(SCREENS.SCHEDULE)}
           theme={effectiveTheme}
           accentColor={accentColor}
+          showLabels={showTabbarLabels}
+          fontSize={tabbarFontSize}
         />
         
         <TabButton 
@@ -302,6 +327,8 @@ export default Sentry.wrap(function App() {
           onPress={() => handleTabPress(SCREENS.MAP)}
           theme={effectiveTheme}
           accentColor={accentColor}
+          showLabels={showTabbarLabels}
+          fontSize={tabbarFontSize}
         />
         
         <TabButton 
@@ -311,6 +338,8 @@ export default Sentry.wrap(function App() {
           onPress={() => handleTabPress(SCREENS.FRESHMAN)}
           theme={effectiveTheme}
           accentColor={accentColor}
+          showLabels={showTabbarLabels}
+          fontSize={tabbarFontSize}
         />
         
         <TabButton 
@@ -320,6 +349,8 @@ export default Sentry.wrap(function App() {
           onPress={() => handleTabPress(SCREENS.NEWS)}
           theme={effectiveTheme}
           accentColor={accentColor}
+          showLabels={showTabbarLabels}
+          fontSize={tabbarFontSize}
         />
         
         <TabButton 
@@ -329,6 +360,8 @@ export default Sentry.wrap(function App() {
           onPress={() => handleTabPress(SCREENS.SETTINGS)}
           theme={effectiveTheme}
           accentColor={accentColor}
+          showLabels={showTabbarLabels}
+          fontSize={tabbarFontSize}
         />
       </View>
     </View>
