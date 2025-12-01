@@ -133,6 +133,13 @@ const MapScreen = ({ theme, accentColor }) => {
     setError(null);
     
     try {
+      // Для Android сразу показываем заглушку
+      if (Platform.OS === 'android') {
+        setError('ANDROID_NOT_SUPPORTED');
+        setLoading(false);
+        return;
+      }
+
       const netState = await NetInfo.fetch();
       setIsOnline(netState.isConnected);
       
@@ -157,6 +164,10 @@ const MapScreen = ({ theme, accentColor }) => {
   };
 
   const handleRetry = () => {
+    // Для Android retry не делает ничего, так как карта недоступна
+    if (Platform.OS === 'android') {
+      return;
+    }
     setWebViewKey(prev => prev + 1);
     initializeMap();
   };
@@ -204,8 +215,8 @@ const MapScreen = ({ theme, accentColor }) => {
     setShowRouteOptions(true);
     // Закрываем список корпусов, если он был открыт
     setShowBuildingsList(false);
-    // Центрировать карту на выбранном здании
-    if (mapRef.current) {
+    // Центрировать карту на выбранном здании (только для iOS)
+    if (mapRef.current && Platform.OS === 'ios') {
       mapRef.current.animateToRegion({
         latitude: building.latitude,
         longitude: building.longitude,
@@ -385,6 +396,9 @@ const MapScreen = ({ theme, accentColor }) => {
     } else if (error === 'NO_API_KEY') {
       errorType = 'load-error';
       errorMessage = 'API ключ 2ГИС не настроен';
+    } else if (error === 'ANDROID_NOT_SUPPORTED') {
+      errorType = 'android-not-supported';
+      errorMessage = 'В данный момент карта недоступна на платформе Android из-за отсутствия необходимых API ключей и ресурсов. Мы делаем все возможное, чтобы восстановить работоспособность карты на Android в кратчайшие сроки. Следите за обновлениями!';
     }
 
     return (
@@ -668,100 +682,104 @@ const MapScreen = ({ theme, accentColor }) => {
         </TouchableOpacity>
       </View>
       
-      {/* Реальная карта 2ГИС */}
-      <View style={styles.mapContainer}>
-        {Platform.OS === 'android' && mapError ? (
-          <WebView
-            key={webViewKey}
-            ref={webViewRef}
-            source={{ html: generateMapHTML() }}
-            style={styles.webview}
-            javaScriptEnabled={true}
-            domStorageEnabled={true}
-            startInLoadingState={true}
-            onLoadStart={() => setMapLoaded(false)}
-            onLoadEnd={() => {
-              setTimeout(() => {
-                if (!mapLoaded) {
-                  setError('LOAD_ERROR');
-                }
-              }, 10000);
-            }}
-          />
-        ) : (
-          <MapView
-            ref={mapRef}
-            provider={PROVIDER_DEFAULT}
-            style={styles.map}
-            customMapStyle={mapStyle}
-            initialRegion={{
-              latitude: initialRegion.latitude,
-              longitude: initialRegion.longitude,
-              latitudeDelta: 0.01,
-              longitudeDelta: 0.01,
-            }}
-            showsUserLocation={true}
-            showsMyLocationButton={true}
-            onMapReady={() => setMapLoaded(true)}
-            onMarkerPress={(e) => {
-              const building = filteredBuildings.find(b => b.latitude === e.nativeEvent.coordinate.latitude && b.longitude === e.nativeEvent.coordinate.longitude);
-              if (building) {
-                handleBuildingSelect(building);
+      {/* ============================================ */}
+      {/* КОД КАРТЫ ДЛЯ ANDROID (ЗАКОММЕНТИРОВАН ДЛЯ ВОЗМОЖНОГО ВОССТАНОВЛЕНИЯ) */}
+      {/* ============================================ */}
+      {/*
+      {Platform.OS === 'android' && mapError ? (
+        <WebView
+          key={webViewKey}
+          ref={webViewRef}
+          source={{ html: generateMapHTML() }}
+          style={styles.webview}
+          javaScriptEnabled={true}
+          domStorageEnabled={true}
+          startInLoadingState={true}
+          onLoadStart={() => setMapLoaded(false)}
+          onLoadEnd={() => {
+            setTimeout(() => {
+              if (!mapLoaded) {
+                setError('LOAD_ERROR');
               }
-            }}
-          >
-            {Platform.OS === 'android' && (
-              <UrlTile
-                urlTemplate={theme === 'dark' 
-                  ? "https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}"
-                  : "https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}"
-                }
-                maximumZ={19}
-                flipY={false}
-              />
-            )}
-            {filteredBuildings.map((building) => (
-              <Marker
-                key={building.id}
-                coordinate={{
-                  latitude: building.latitude,
-                  longitude: building.longitude,
-                }}
-                title={building.name}
-                description={building.description}
-                onPress={() => handleBuildingSelect(building)}
-              >
-                <View style={[styles.marker, { 
-                  backgroundColor: theme === 'light' ? '#ffffff' : '#374151',
-                  borderColor: colors.primary
-                }]}>
-                  <Icon name={getBuildingIcon(building.type)} size={16} color={colors.primary} />
-                </View>
-              </Marker>
-            ))}
-          </MapView>
-        )}
-        
-        {Platform.OS === 'android' && !mapError && (
-          <View style={[styles.attribution, { backgroundColor: theme === 'light' ? 'rgba(255, 255, 255, 0.8)' : 'rgba(31, 41, 55, 0.8)' }]}>
-            <Text style={[styles.attributionText, { color: textColor }]}>© Esri</Text>
+            }, 10000);
+          }}
+        />
+      ) : ( */}
+        <MapView
+          ref={mapRef}
+          provider={PROVIDER_DEFAULT}
+          style={styles.map}
+          customMapStyle={mapStyle}
+          initialRegion={{
+            latitude: initialRegion.latitude,
+            longitude: initialRegion.longitude,
+            latitudeDelta: 0.01,
+            longitudeDelta: 0.01,
+          }}
+          showsUserLocation={true}
+          showsMyLocationButton={true}
+          onMapReady={() => setMapLoaded(true)}
+          onMarkerPress={(e) => {
+            const building = filteredBuildings.find(b => b.latitude === e.nativeEvent.coordinate.latitude && b.longitude === e.nativeEvent.coordinate.longitude);
+            if (building) {
+              handleBuildingSelect(building);
+            }
+          }}
+        >
+          {Platform.OS === 'android' && (
+            <UrlTile
+              urlTemplate={theme === 'dark' 
+                ? "https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}"
+                : "https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}"
+              }
+              maximumZ={19}
+              flipY={false}
+            />
+          )}
+          {filteredBuildings.map((building) => (
+            <Marker
+              key={building.id}
+              coordinate={{
+                latitude: building.latitude,
+                longitude: building.longitude,
+              }}
+              title={building.name}
+              description={building.description}
+              onPress={() => handleBuildingSelect(building)}
+            >
+              <View style={[styles.marker, { 
+                backgroundColor: theme === 'light' ? '#ffffff' : '#374151',
+                borderColor: colors.primary
+              }]}>
+                <Icon name={getBuildingIcon(building.type)} size={16} color={colors.primary} />
+              </View>
+            </Marker>
+          ))}
+        </MapView>
+      {/* )} */}
+      {/* ============================================ */}
+      {/* КОНЕЦ ЗАКОММЕНТИРОВАННОГО КОДА ДЛЯ ANDROID */}
+      {/* ============================================ */}
+      
+      {Platform.OS === 'android' && !mapError && (
+        <View style={[styles.attribution, { backgroundColor: theme === 'light' ? 'rgba(255, 255, 255, 0.8)' : 'rgba(31, 41, 55, 0.8)' }]}>
+          <Text style={[styles.attributionText, { color: textColor }]}>© Esri</Text>
+        </View>
+      )}
+      
+      {!mapLoaded && Platform.OS === 'ios' && (
+        <View style={styles.loadingOverlay}>
+          <View style={[styles.loadingContent, { backgroundColor: theme === 'dark' ? '#1f2937' : '#ffffff' }]}>
+            <ActivityIndicator size="large" color={colors.primary} />
+            <Text style={[styles.loadingText, { color: textColor, marginTop: 12 }]}>
+              Загрузка карты...
+            </Text>
           </View>
-        )}
-        
-        {!mapLoaded && (
-          <View style={styles.loadingOverlay}>
-            <View style={[styles.loadingContent, { backgroundColor: theme === 'dark' ? '#1f2937' : '#ffffff' }]}>
-              <ActivityIndicator size="large" color={colors.primary} />
-              <Text style={[styles.loadingText, { color: textColor, marginTop: 12 }]}>
-                Загрузка карты...
-              </Text>
-            </View>
-          </View>
-        )}
-      </View>
+        </View>
+      )}
 
       {/* Модальное окно фильтров */}
-      {showFiltersModal && (
+      {showFiltersModal && Platform.OS === 'ios' && (
         <Animated.View 
           style={[
             styles.filtersModalOverlay,
@@ -849,7 +867,7 @@ const MapScreen = ({ theme, accentColor }) => {
       )}
 
       {/* Модальное окно выбора сервиса для построения маршрута с анимацией */}
-      {showRouteOptions && (
+      {showRouteOptions && Platform.OS === 'ios' && (
         <Animated.View 
           style={[
             styles.routeModalOverlay,

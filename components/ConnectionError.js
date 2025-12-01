@@ -30,13 +30,22 @@ const ConnectionError = ({
         icon: 'map-outline',
         title: 'Карта недоступна',
         description: 'Для загрузки карты необходимо подключение к интернету',
-        cacheButton: customCacheButtonText || 'Список корпусов'
+        cacheButton: customCacheButtonText || 'Список корпусов',
+        showRetryButton: true
       },
       'load-error': {
         icon: 'warning-outline',
         title: 'Ошибка загрузки карты',
         description: 'Не удалось загрузить карту. Проверьте подключение и попробуйте снова',
-        cacheButton: customCacheButtonText || 'Список корпусов'
+        cacheButton: customCacheButtonText || 'Список корпусов',
+        showRetryButton: true
+      },
+      'android-not-supported': {
+        icon: 'build-outline',
+        title: 'Карта временно недоступна',
+        description: 'В данный момент карта недоступна на платформе Android из-за отсутствия необходимых API ключей и ресурсов. Мы делаем все возможное, чтобы восстановить работоспособность карты на Android в кратчайшие сроки. Следите за обновлениями!',
+        cacheButton: customCacheButtonText || 'Список корпусов',
+        showRetryButton: false
       }
     },
     schedule: {
@@ -44,13 +53,15 @@ const ConnectionError = ({
         icon: 'calendar-outline',
         title: 'Расписание недоступно',
         description: 'Для загрузки расписания необходимо подключение к интернету',
-        cacheButton: 'Показать кэшированное расписание'
+        cacheButton: 'Показать кэшированное расписание',
+        showRetryButton: true
       },
       'load-error': {
         icon: 'warning-outline',
         title: 'Ошибка загрузки расписания',
         description: 'Не удалось загрузить расписание. Проверьте подключение и попробуйте снова',
-        cacheButton: 'Показать кэшированное расписание'
+        cacheButton: 'Показать кэшированное расписание',
+        showRetryButton: true
       }
     },
     news: {
@@ -58,13 +69,15 @@ const ConnectionError = ({
         icon: 'newspaper-outline',
         title: 'Новости недоступны',
         description: 'Для загрузки новостей необходимо подключение к интернету',
-        cacheButton: 'Показать кэшированные новости'
+        cacheButton: 'Показать кэшированные новости',
+        showRetryButton: true
       },
       'load-error': {
         icon: 'warning-outline',
         title: 'Ошибка загрузки новостей',
         description: 'Не удалось загрузить новости. Проверьте подключение и попробуйте снова',
-        cacheButton: 'Показать кэшированные новости'
+        cacheButton: 'Показать кэшированные новости',
+        showRetryButton: true
       }
     },
     general: {
@@ -72,19 +85,29 @@ const ConnectionError = ({
         icon: 'cloud-offline-outline',
         title: 'Нет подключения к интернету',
         description: 'Для загрузки данных необходимо подключение к интернету',
-        cacheButton: 'Показать кэшированные данные'
+        cacheButton: 'Показать кэшированные данные',
+        showRetryButton: true
       },
       'load-error': {
         icon: 'warning-outline',
         title: 'Ошибка загрузки',
         description: 'Не удалось загрузить данные. Проверьте подключение и попробуйте снова',
-        cacheButton: 'Показать кэшированные данные'
+        cacheButton: 'Показать кэшированные данные',
+        showRetryButton: true
+      },
+      'android-not-supported': {
+        icon: 'build-outline',
+        title: 'Сервис временно недоступен',
+        description: 'В данный момент сервис недоступен на платформе Android из-за отсутствия необходимых API ключей и ресурсов. Мы делаем все возможное, чтобы восстановить работоспособность в кратчайшие сроки. Следите за обновлениями!',
+        cacheButton: 'Показать кэшированные данные',
+        showRetryButton: false
       },
       'default': {
         icon: 'refresh-outline',
         title: 'Ошибка',
         description: 'Произошла непредвиденная ошибка',
-        cacheButton: 'Показать кэшированные данные'
+        cacheButton: 'Показать кэшированные данные',
+        showRetryButton: true
       }
     }
   };
@@ -94,6 +117,9 @@ const ConnectionError = ({
                 contentConfigs[contentType]['default'] || 
                 contentConfigs.general[type] || 
                 contentConfigs.general.default;
+
+  // Проверяем, нужно ли показывать кнопку "Попробовать снова"
+  const shouldShowRetryButton = config.showRetryButton !== false && onRetry;
 
   if (loading) {
     return (
@@ -132,13 +158,15 @@ const ConnectionError = ({
         )}
         
         <View style={styles.buttonsContainer}>
-          <TouchableOpacity
-            style={[styles.retryButton, { backgroundColor: colors.primary }]}
-            onPress={onRetry}
-          >
-            <Icon name="refresh" size={20} color="#ffffff" />
-            <Text style={styles.retryButtonText}>Попробовать снова</Text>
-          </TouchableOpacity>
+          {shouldShowRetryButton && (
+            <TouchableOpacity
+              style={[styles.retryButton, { backgroundColor: colors.primary }]}
+              onPress={onRetry}
+            >
+              <Icon name="refresh" size={20} color="#ffffff" />
+              <Text style={styles.retryButtonText}>Попробовать снова</Text>
+            </TouchableOpacity>
+          )}
         </View>
       </View>
     </View>
