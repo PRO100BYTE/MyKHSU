@@ -80,7 +80,7 @@ const MapScreen = ({ theme, accentColor }) => {
       
       return selectedFilters.includes(buildingType);
     });
-  }, [selectedFilters]);
+  }, [selectedFilters, buildings]);
 
   useEffect(() => {
     Animated.timing(fadeAnim, {
