@@ -31,6 +31,7 @@ const NewsScreen = ({ theme, accentColor }) => {
   const placeholderColor = theme === 'light' ? '#6b7280' : '#9ca3af';
   const borderColor = theme === 'light' ? '#e5e7eb' : '#374151';
   const colors = ACCENT_COLORS[accentColor];
+  const hintBgColor = theme === 'light' ? '#f9fafb' : '#2d3748'; // Более темный для темной темы
 
   // Запуск анимации при монтировании
   useEffect(() => {
@@ -260,23 +261,9 @@ const NewsScreen = ({ theme, accentColor }) => {
         barStyle={theme === 'light' ? 'dark-content' : 'light-content'}
         backgroundColor={bgColor}
       />
-      {showCachedData && (
-        <View style={{ 
-          backgroundColor: colors.light, 
-          padding: 12, 
-          alignItems: 'center',
-          flexDirection: 'row',
-          justifyContent: 'center'
-        }}>
-          <Icon name="time-outline" size={16} color={colors.primary} />
-          <Text style={{ color: colors.primary, marginLeft: 8, fontFamily: 'Montserrat_400Regular' }}>
-            {cacheInfo?.source === 'stale_cache' ? 'Показаны ранее загруженные новости' : 'Показаны кэшированные новости'}
-          </Text>
-        </View>
-      )}
       
       <ScrollView 
-        contentContainerStyle={{ padding: 16 }}
+        contentContainerStyle={{ paddingTop: 16, paddingHorizontal: 16 }}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -286,6 +273,30 @@ const NewsScreen = ({ theme, accentColor }) => {
           />
         }
       >
+        {showCachedData && (
+          <View style={{ 
+            backgroundColor: hintBgColor, 
+            padding: 12, 
+            borderRadius: 8,
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'center',
+            marginBottom: 16,
+            borderWidth: 1,
+            borderColor: borderColor,
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 1 },
+            shadowOpacity: theme === 'light' ? 0.05 : 0.2,
+            shadowRadius: 2,
+            elevation: 2
+          }}>
+            <Icon name="time-outline" size={16} color={colors.primary} />
+            <Text style={{ color: colors.primary, marginLeft: 8, fontFamily: 'Montserrat_400Regular' }}>
+              {cacheInfo?.source === 'stale_cache' ? 'Показаны ранее загруженные новости' : 'Показаны кэшированные новости'}
+            </Text>
+          </View>
+        )}
+        
         {news.map((item) => (
           <View 
             key={item.id} 
@@ -351,13 +362,20 @@ const NewsScreen = ({ theme, accentColor }) => {
         
         {!isOnline && news.length > 0 && (
           <View style={{ 
-            backgroundColor: colors.light, 
+            backgroundColor: hintBgColor, 
             padding: 16, 
             borderRadius: 8, 
             alignItems: 'center',
             marginTop: 16,
             flexDirection: 'row',
-            justifyContent: 'center'
+            justifyContent: 'center',
+            borderWidth: 1,
+            borderColor: borderColor,
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 1 },
+            shadowOpacity: theme === 'light' ? 0.05 : 0.2,
+            shadowRadius: 2,
+            elevation: 2
           }}>
             <Icon name="cloud-offline-outline" size={20} color={colors.primary} />
             <Text style={{ color: colors.primary, marginLeft: 8, textAlign: 'center', fontFamily: 'Montserrat_400Regular' }}>
@@ -369,7 +387,8 @@ const NewsScreen = ({ theme, accentColor }) => {
         {lastNewsCheck && (
           <View style={{ 
             padding: 8, 
-            alignItems: 'center'
+            alignItems: 'center',
+            marginBottom: 16
           }}>
             <Text style={{ color: placeholderColor, fontSize: 10, fontFamily: 'Montserrat_400Regular' }}>
               Последнее обновление: {new Date(lastNewsCheck).toLocaleString('ru-RU')}

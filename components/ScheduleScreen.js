@@ -73,6 +73,32 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
   const colors = ACCENT_COLORS[accentColor];
   const borderColor = theme === 'light' ? '#e5e7eb' : '#374151';
   const placeholderColor = theme === 'light' ? '#6b7280' : '#9ca3af';
+  const hintBgColor = theme === 'light' ? '#f9fafb' : '#2d3748'; // Более темный для темной темы
+
+  // Функция для получения иконки типа занятия
+  const getLessonTypeIcon = (type) => {
+    const typeLower = (type || '').toLowerCase().trim();
+    
+    if (typeLower.includes('лек') || typeLower === 'л.' || typeLower === 'лекция') {
+      return { icon: 'school-outline', color: colors.primary };
+    } else if (typeLower.includes('лаб') || typeLower === 'лаб.' || typeLower === 'лабораторная') {
+      return { icon: 'flask-outline', color: '#8b5cf6' }; // Фиолетовый для лабораторных
+    } else if (typeLower.includes('практ') || typeLower.includes('пр.') || typeLower === 'пр' || typeLower === 'практическая') {
+      return { icon: 'people-outline', color: '#10b981' }; // Зеленый для практических
+    } else if (typeLower.includes('конс') || typeLower === 'конс.' || typeLower === 'консультация') {
+      return { icon: 'chatbubble-outline', color: '#f59e0b' }; // Оранжевый для консультаций
+    } else if (typeLower.includes('экзамен') || typeLower.includes('экз.')) {
+      return { icon: 'document-text-outline', color: '#ef4444' }; // Красный для экзаменов
+    } else if (typeLower.includes('мероприят') || typeLower.includes('собрание')) {
+      return { icon: 'calendar-outline', color: '#6366f1' }; // Индиго для мероприятий
+    } else if (typeLower.includes('зачет') || typeLower.includes('зач.')) {
+      return { icon: 'checkmark-circle-outline', color: '#10b981' }; // Зеленый для зачетов
+    } else if (typeLower.includes('самост') || typeLower.includes('сам.')) {
+      return { icon: 'book-outline', color: '#6b7280' }; // Серый для самостоятельных
+    }
+    
+    return { icon: 'book-outline', color: placeholderColor };
+  };
 
   // Загрузка настроек и курсов при монтировании
   useEffect(() => {
@@ -350,6 +376,7 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
             const lessonDate = getLessonDateForWeek(weekNumber, day.weekday, currentTime);
             const isCurrentLessonFlag = isCurrentLesson(lesson, pairTime, currentTime, lessonDate);
             const lessonStyle = getCurrentLessonStyle(isCurrentLessonFlag, colors);
+            const typeIcon = getLessonTypeIcon(lesson.type_lesson);
             
             return (
               <View 
@@ -362,8 +389,8 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
                 }, lessonStyle]}
               >
                 <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
-                  <Icon name="book-outline" size={14} color={placeholderColor} />
-                  <Text style={{ color: placeholderColor, marginLeft: 8, fontSize: 14, fontFamily: 'Montserrat_400Regular' }}>
+                  <Icon name={typeIcon.icon} size={16} color={typeIcon.color} />
+                  <Text style={{ color: placeholderColor, fontSize: 14, fontFamily: 'Montserrat_400Regular', marginLeft: 8 }}>
                     Пара №{lesson.time}
                   </Text>
                 </View>
@@ -450,6 +477,7 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
             const pairTime = getTimeForLesson(lesson.time);
             const isCurrentLessonFlag = isCurrentLesson(lesson, pairTime, currentTime, currentDate);
             const lessonStyle = getCurrentLessonStyle(isCurrentLessonFlag, colors);
+            const typeIcon = getLessonTypeIcon(lesson.type_lesson);
             
             return (
               <View 
@@ -462,8 +490,8 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
                 }, lessonStyle]}
               >
                 <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
-                  <Icon name="book-outline" size={14} color={placeholderColor} />
-                  <Text style={{ color: placeholderColor, marginLeft: 8, fontSize: 14, fontFamily: 'Montserrat_400Regular' }}>
+                  <Icon name={typeIcon.icon} size={16} color={typeIcon.color} />
+                  <Text style={{ color: placeholderColor, fontSize: 14, fontFamily: 'Montserrat_400Regular', marginLeft: 8 }}>
                     Пара №{lesson.time}
                   </Text>
                 </View>
@@ -745,13 +773,20 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
       >
         {showCachedData && (
           <View style={{ 
-            backgroundColor: colors.light, 
+            backgroundColor: hintBgColor, 
             padding: 12, 
             borderRadius: 8,
             flexDirection: 'row',
             alignItems: 'center',
             justifyContent: 'center',
-            marginBottom: 16
+            marginBottom: 16,
+            borderWidth: 1,
+            borderColor: borderColor,
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 1 },
+            shadowOpacity: theme === 'light' ? 0.05 : 0.2,
+            shadowRadius: 2,
+            elevation: 2
           }}>
             <Icon name="time-outline" size={16} color={colors.primary} />
             <Text style={{ 
@@ -857,13 +892,20 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
         {/* Информация о скрытом селекторе */}
         {!isTeacherMode && !showCourseSelector && selectedGroup && (
           <View style={{ 
-            backgroundColor: colors.light, 
+            backgroundColor: hintBgColor, 
             padding: 12, 
             borderRadius: 8,
             flexDirection: 'row',
             alignItems: 'center',
             justifyContent: 'center',
-            marginBottom: 16
+            marginBottom: 16,
+            borderWidth: 1,
+            borderColor: borderColor,
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 1 },
+            shadowOpacity: theme === 'light' ? 0.05 : 0.2,
+            shadowRadius: 2,
+            elevation: 2
           }}>
             <Icon name="information-circle-outline" size={16} color={colors.primary} />
             <Text style={{ 
@@ -911,11 +953,18 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
 
         {!isOnline && !error && !showCachedData && (
           <View style={{ 
-            backgroundColor: colors.light, 
+            backgroundColor: hintBgColor, 
             padding: 16, 
             borderRadius: 8, 
             alignItems: 'center',
-            marginTop: 16
+            marginTop: 16,
+            borderWidth: 1,
+            borderColor: borderColor,
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 1 },
+            shadowOpacity: theme === 'light' ? 0.05 : 0.2,
+            shadowRadius: 2,
+            elevation: 2
           }}>
             <Icon name="cloud-offline-outline" size={20} color={colors.primary} />
             <Text style={{ 
