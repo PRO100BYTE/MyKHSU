@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { 
   View, 
   Text, 
@@ -10,7 +10,8 @@ import {
   TouchableOpacity, 
   Animated, 
   StatusBar, 
-  ActivityIndicator 
+  ActivityIndicator,
+  ScrollView
 } from 'react-native';
 import MapView, { Marker, PROVIDER_DEFAULT, UrlTile } from 'react-native-maps';
 import NetInfo from '@react-native-community/netinfo';
@@ -31,6 +32,8 @@ const MapScreen = ({ theme, accentColor }) => {
   const [showRouteOptions, setShowRouteOptions] = useState(false);
   const [selectedBuilding, setSelectedBuilding] = useState(null);
   const [mapLoaded, setMapLoaded] = useState(false);
+  const [showFiltersModal, setShowFiltersModal] = useState(false);
+  const [selectedFilters, setSelectedFilters] = useState([]);
   const [showBuildingsList, setShowBuildingsList] = useState(false);
   const [webViewKey, setWebViewKey] = useState(0);
   const [mapError, setMapError] = useState(false);
@@ -39,6 +42,7 @@ const MapScreen = ({ theme, accentColor }) => {
   const bgColor = theme === 'light' ? '#f3f4f6' : '#111827';
   const textColor = theme === 'light' ? '#111827' : '#ffffff';
   const placeholderColor = theme === 'light' ? '#6b7280' : '#9ca3af';
+  const cardBg = theme === 'light' ? '#ffffff' : '#1f2937';
   
   // Получаем API ключи
   const dgApiKey = Constants.expoConfig?.extra?.dgApiKey || Constants.manifest?.extra?.dgApiKey;
@@ -47,8 +51,36 @@ const MapScreen = ({ theme, accentColor }) => {
   // Анимации
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const routeModalAnim = useRef(new Animated.Value(0)).current;
+  const filtersModalAnim = useRef(new Animated.Value(0)).current;
   const mapRef = useRef(null);
   const webViewRef = useRef(null);
+
+  // Категории фильтров
+  const filterCategories = [
+    { id: 'main', name: 'Административный корпус', icon: 'business-outline' },
+    { id: 'academic', name: 'Учебные корпуса', icon: 'school-outline' },
+    { id: 'dormitory', name: 'Общежития', icon: 'home-outline' },
+    { id: 'library', name: 'Библиотеки ХГУ', icon: 'library-outline' },
+    { id: 'cafeteria', name: 'Столовые ХГУ', icon: 'restaurant-outline' },
+    { id: 'cardatm', name: 'Банкоматы', icon: 'card-outline' },
+    { id: 'sports', name: 'Спортивные площадки', icon: 'barbell-outline' },
+    { id: 'other', name: 'Прочее', icon: 'ellipse-outline' }
+  ];
+
+  // Фильтрация зданий
+  const filteredBuildings = useMemo(() => {
+    return buildings.filter(building => {
+      if (selectedFilters.length === 0) return true;
+      
+      let buildingType = building.type;
+      // Относим типы 5ka, sausage, shop, cafe, coffee, garden к категории "other"
+      if (['5ka', 'sausage', 'shop', 'cafe', 'coffee', 'garden'].includes(building.type)) {
+        buildingType = 'other';
+      }
+      
+      return selectedFilters.includes(buildingType);
+    });
+  }, [selectedFilters, buildings]);
 
   useEffect(() => {
     Animated.timing(fadeAnim, {
@@ -62,7 +94,7 @@ const MapScreen = ({ theme, accentColor }) => {
     initializeMap();
   }, [theme]);
 
-  // Анимация появления модального окна
+  // Анимация появления модального окна маршрута
   useEffect(() => {
     if (showRouteOptions) {
       Animated.spring(routeModalAnim, {
@@ -79,11 +111,35 @@ const MapScreen = ({ theme, accentColor }) => {
     }
   }, [showRouteOptions]);
 
+  // Анимация появления модального окна фильтров
+  useEffect(() => {
+    if (showFiltersModal) {
+      Animated.spring(filtersModalAnim, {
+        toValue: 1,
+        duration: 300,
+        useNativeDriver: true,
+      }).start();
+    } else {
+      Animated.timing(filtersModalAnim, {
+        toValue: 0,
+        duration: 200,
+        useNativeDriver: true,
+      }).start();
+    }
+  }, [showFiltersModal]);
+
   const initializeMap = async () => {
     setLoading(true);
     setError(null);
     
     try {
+      // Для Android сразу показываем заглушку
+      if (Platform.OS === 'android') {
+        setError('ANDROID_NOT_SUPPORTED');
+        setLoading(false);
+        return;
+      }
+
       const netState = await NetInfo.fetch();
       setIsOnline(netState.isConnected);
       
@@ -108,6 +164,10 @@ const MapScreen = ({ theme, accentColor }) => {
   };
 
   const handleRetry = () => {
+    // Для Android retry не делает ничего, так как карта недоступна
+    if (Platform.OS === 'android') {
+      return;
+    }
     setWebViewKey(prev => prev + 1);
     initializeMap();
   };
@@ -117,7 +177,6 @@ const MapScreen = ({ theme, accentColor }) => {
   };
 
   const handleRouteServiceSelect = async (service) => {
-    // Анимация закрытия перед действием
     Animated.timing(routeModalAnim, {
       toValue: 0,
       duration: 200,
@@ -154,8 +213,10 @@ const MapScreen = ({ theme, accentColor }) => {
   const handleBuildingSelect = (building) => {
     setSelectedBuilding(building);
     setShowRouteOptions(true);
-    // Центрировать карту на выбранном здании
-    if (mapRef.current) {
+    // Закрываем список корпусов, если он был открыт
+    setShowBuildingsList(false);
+    // Центрировать карту на выбранном здании (только для iOS)
+    if (mapRef.current && Platform.OS === 'ios') {
       mapRef.current.animateToRegion({
         latitude: building.latitude,
         longitude: building.longitude,
@@ -175,30 +236,28 @@ const MapScreen = ({ theme, accentColor }) => {
     });
   };
 
-  const handleWebViewMessage = (event) => {
-    try {
-      const data = JSON.parse(event.nativeEvent.data);
-      
-      switch (data.type) {
-        case 'mapLoaded':
-          setMapLoaded(true);
-          break;
-        case 'buildingSelected':
-          const building = buildings.find(b => b.id === data.buildingId);
-          if (building) {
-            handleBuildingSelect(building);
-          }
-          break;
-        case 'loadError':
-          console.error('2GIS map loading error:', data.error);
-          setError('LOAD_ERROR');
-          break;
-        default:
-          console.log('Unknown message from WebView:', data);
+  const handleToggleFilter = (filterId) => {
+    setSelectedFilters(prev => {
+      if (prev.includes(filterId)) {
+        return prev.filter(id => id !== filterId);
+      } else {
+        return [...prev, filterId];
       }
-    } catch (error) {
-      console.error('Error parsing WebView message:', error);
-    }
+    });
+  };
+
+  const handleClearFilters = () => {
+    setSelectedFilters([]);
+  };
+
+  const handleCloseFiltersModal = () => {
+    Animated.timing(filtersModalAnim, {
+      toValue: 0,
+      duration: 200,
+      useNativeDriver: true,
+    }).start(() => {
+      setShowFiltersModal(false);
+    });
   };
 
   const getBuildingIcon = (type) => {
@@ -208,7 +267,6 @@ const MapScreen = ({ theme, accentColor }) => {
       case 'library': return 'library-outline';
       case 'sports': return 'barbell-outline';
       case 'dormitory': return 'home-outline';
-      case 'cafeteria': return 'restaurant-outline';
       case 'cafeteria': return 'restaurant-outline';
       case '5ka': return 'nutrition-outline';
       case 'sausage': return 'fast-food-outline';
@@ -299,7 +357,7 @@ const MapScreen = ({ theme, accentColor }) => {
           barStyle={theme === 'light' ? 'dark-content' : 'light-content'}
           backgroundColor={bgColor}
         />
-        <View style={{ flexDirection: 'row', alignItems: 'center', padding: 16, backgroundColor: theme === 'light' ? '#ffffff' : '#1f2937' }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', padding: 16, backgroundColor: cardBg }}>
           <TouchableOpacity 
             onPress={() => setShowBuildingsList(false)}
             style={{ padding: 8, marginRight: 12 }}
@@ -338,6 +396,9 @@ const MapScreen = ({ theme, accentColor }) => {
     } else if (error === 'NO_API_KEY') {
       errorType = 'load-error';
       errorMessage = 'API ключ 2ГИС не настроен';
+    } else if (error === 'ANDROID_NOT_SUPPORTED') {
+      errorType = 'android-not-supported';
+      errorMessage = 'В данный момент карта недоступна на платформе Android из-за отсутствия необходимых API ключей и ресурсов. Мы делаем все возможное, чтобы восстановить работоспособность карты на Android в кратчайшие сроки. Следите за обновлениями!';
     }
 
     return (
@@ -350,13 +411,11 @@ const MapScreen = ({ theme, accentColor }) => {
           type={errorType}
           loading={loading}
           onRetry={handleRetry}
-          onViewCache={handleViewBuildingsList}
           theme={theme}
           accentColor={accentColor}
           contentType="map"
           message={errorMessage}
-          showCacheButton={true}
-          cacheAvailable={true}
+          showFreshmanHint={true}
         />
       </Animated.View>
     );
@@ -604,113 +663,211 @@ const MapScreen = ({ theme, accentColor }) => {
         backgroundColor={bgColor}
       />
       
-      {/* Заголовок с кнопкой списка корпусов */}
-      <View style={[styles.header, { backgroundColor: theme === 'light' ? '#ffffff' : '#1f2937' }]}>
-        <Text style={[styles.headerTitle, { color: textColor }]}>Карта кампуса</Text>
+      {/* Заголовок с кнопкой фильтров */}
+      <View style={[styles.header, { backgroundColor: cardBg }]}>
+        <View style={styles.headerLeft}>
+          <Text style={[styles.headerTitle, { color: textColor }]}>Корпуса ХГУ</Text>
+          {selectedFilters.length > 0 && (
+            <View style={[styles.activeFiltersBadge, { backgroundColor: colors.primary }]}>
+              <Text style={styles.activeFiltersText}>{selectedFilters.length}</Text>
+            </View>
+          )}
+        </View>
         <TouchableOpacity 
-          style={[styles.buildingsButton, { backgroundColor: colors.light }]}
-          onPress={handleViewBuildingsList}
+          style={[styles.filtersButton, { backgroundColor: colors.light }]}
+          onPress={() => setShowFiltersModal(true)}
         >
-          <Icon name="list-outline" size={20} color={colors.primary} />
-          <Text style={[styles.buildingsButtonText, { color: colors.primary }]}>Список корпусов</Text>
+          <Icon name="filter-outline" size={20} color={colors.primary} />
+          <Text style={[styles.filtersButtonText, { color: colors.primary }]}>Фильтры</Text>
         </TouchableOpacity>
       </View>
       
-      {/* Реальная карта 2ГИС */}
-      <View style={styles.mapContainer}>
-        {Platform.OS === 'android' && mapError ? (
-          <WebView
-            key={webViewKey}
-            ref={webViewRef}
-            source={{ html: generateMapHTML() }}
-            style={styles.webview}
-            javaScriptEnabled={true}
-            domStorageEnabled={true}
-            startInLoadingState={true}
-            onMessage={handleWebViewMessage}
-            onLoadStart={() => setMapLoaded(false)}
-            onLoadEnd={() => {
-              setTimeout(() => {
-                if (!mapLoaded) {
-                  setError('LOAD_ERROR');
-                }
-              }, 10000);
-            }}
-          />
-        ) : (
-          <MapView
-            ref={mapRef}
-            provider={PROVIDER_DEFAULT}
-            style={styles.map}
-            customMapStyle={mapStyle}
-            initialRegion={{
-              latitude: initialRegion.latitude,
-              longitude: initialRegion.longitude,
-              latitudeDelta: 0.01,
-              longitudeDelta: 0.01,
-            }}
-            showsUserLocation={true}
-            showsMyLocationButton={true}
-            onMapReady={() => setMapLoaded(true)}
-            onMarkerPress={(e) => {
-              const building = buildings.find(b => b.latitude === e.nativeEvent.coordinate.latitude && b.longitude === e.nativeEvent.coordinate.longitude);
-              if (building) {
-                handleBuildingSelect(building);
+      {/* ============================================ */}
+      {/* КОД КАРТЫ ДЛЯ ANDROID (ЗАКОММЕНТИРОВАН ДЛЯ ВОЗМОЖНОГО ВОССТАНОВЛЕНИЯ) */}
+      {/* ============================================ */}
+      {/*
+      {Platform.OS === 'android' && mapError ? (
+        <WebView
+          key={webViewKey}
+          ref={webViewRef}
+          source={{ html: generateMapHTML() }}
+          style={styles.webview}
+          javaScriptEnabled={true}
+          domStorageEnabled={true}
+          startInLoadingState={true}
+          onLoadStart={() => setMapLoaded(false)}
+          onLoadEnd={() => {
+            setTimeout(() => {
+              if (!mapLoaded) {
+                setError('LOAD_ERROR');
               }
-            }}
+            }, 10000);
+          }}
+        />
+      ) : ( */}
+        <MapView
+          ref={mapRef}
+          provider={PROVIDER_DEFAULT}
+          style={styles.map}
+          customMapStyle={mapStyle}
+          initialRegion={{
+            latitude: initialRegion.latitude,
+            longitude: initialRegion.longitude,
+            latitudeDelta: 0.01,
+            longitudeDelta: 0.01,
+          }}
+          showsUserLocation={true}
+          showsMyLocationButton={true}
+          onMapReady={() => setMapLoaded(true)}
+          onMarkerPress={(e) => {
+            const building = filteredBuildings.find(b => b.latitude === e.nativeEvent.coordinate.latitude && b.longitude === e.nativeEvent.coordinate.longitude);
+            if (building) {
+              handleBuildingSelect(building);
+            }
+          }}
+        >
+          {Platform.OS === 'android' && (
+            <UrlTile
+              urlTemplate={theme === 'dark' 
+                ? "https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}"
+                : "https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}"
+              }
+              maximumZ={19}
+              flipY={false}
+            />
+          )}
+          {filteredBuildings.map((building) => (
+            <Marker
+              key={building.id}
+              coordinate={{
+                latitude: building.latitude,
+                longitude: building.longitude,
+              }}
+              title={building.name}
+              description={building.description}
+              onPress={() => handleBuildingSelect(building)}
+            >
+              <View style={[styles.marker, { 
+                backgroundColor: theme === 'light' ? '#ffffff' : '#374151',
+                borderColor: colors.primary
+              }]}>
+                <Icon name={getBuildingIcon(building.type)} size={16} color={colors.primary} />
+              </View>
+            </Marker>
+          ))}
+        </MapView>
+      {/* )} */}
+      {/* ============================================ */}
+      {/* КОНЕЦ ЗАКОММЕНТИРОВАННОГО КОДА ДЛЯ ANDROID */}
+      {/* ============================================ */}
+      
+      {Platform.OS === 'android' && !mapError && (
+        <View style={[styles.attribution, { backgroundColor: theme === 'light' ? 'rgba(255, 255, 255, 0.8)' : 'rgba(31, 41, 55, 0.8)' }]}>
+          <Text style={[styles.attributionText, { color: textColor }]}>© Esri</Text>
+        </View>
+      )}
+      
+      {!mapLoaded && Platform.OS === 'ios' && (
+        <View style={styles.loadingOverlay}>
+          <View style={[styles.loadingContent, { backgroundColor: theme === 'dark' ? '#1f2937' : '#ffffff' }]}>
+            <ActivityIndicator size="large" color={colors.primary} />
+            <Text style={[styles.loadingText, { color: textColor, marginTop: 12 }]}>
+              Загрузка карты...
+            </Text>
+          </View>
+        </View>
+      )}
+
+      {/* Модальное окно фильтров */}
+      {showFiltersModal && Platform.OS === 'ios' && (
+        <Animated.View 
+          style={[
+            styles.filtersModalOverlay,
+            { 
+              opacity: filtersModalAnim,
+              backgroundColor: 'rgba(0, 0, 0, 0.5)'
+            }
+          ]}
+        >
+          <Animated.View 
+            style={[
+              styles.filtersModal,
+              { 
+                backgroundColor: cardBg,
+                transform: [{
+                  translateY: filtersModalAnim.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [300, 0]
+                  })
+                }]
+              }
+            ]}
           >
-            {Platform.OS === 'android' && (
-              <UrlTile
-                urlTemplate={theme === 'dark' 
-                  ? "https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}"
-                  : "https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}"
-                }
-                maximumZ={19}
-                flipY={false}
-              />
-            )}
-            {buildings.map((building) => (
-              <Marker
-                key={building.id}
-                coordinate={{
-                  latitude: building.latitude,
-                  longitude: building.longitude,
-                }}
-                title={building.name}
-                description={building.description}
-                onPress={() => handleBuildingSelect(building)}
-              >
-                <View style={[styles.marker, { 
-                  backgroundColor: theme === 'light' ? '#ffffff' : '#374151',
-                  borderColor: colors.primary
-                }]}>
-                  <Icon name={getBuildingIcon(building.type)} size={16} color={colors.primary} />
-                </View>
-              </Marker>
-            ))}
-          </MapView>
-        )}
-        
-        {Platform.OS === 'android' && !mapError && (
-          <View style={[styles.attribution, { backgroundColor: theme === 'light' ? 'rgba(255, 255, 255, 0.8)' : 'rgba(31, 41, 55, 0.8)' }]}>
-            <Text style={[styles.attributionText, { color: textColor }]}>© Esri</Text>
-          </View>
-        )}
-        
-        {!mapLoaded && (
-          <View style={styles.loadingOverlay}>
-            <View style={[styles.loadingContent, { backgroundColor: theme === 'dark' ? '#1f2937' : '#ffffff' }]}>
-              <ActivityIndicator size="large" color={colors.primary} />
-              <Text style={[styles.loadingText, { color: textColor, marginTop: 12 }]}>
-                Загрузка карты 2ГИС...
+            <View style={styles.filtersHeader}>
+              <Text style={[styles.filtersTitle, { color: textColor, fontFamily: 'Montserrat_600SemiBold' }]}>
+                Фильтры
               </Text>
+              <TouchableOpacity onPress={handleCloseFiltersModal}>
+                <Icon name="close" size={24} color={placeholderColor} />
+              </TouchableOpacity>
             </View>
-          </View>
-        )}
-      </View>
+
+            <ScrollView style={styles.filtersList} showsVerticalScrollIndicator={false}>
+              {filterCategories.map((category, index) => (
+                <TouchableOpacity
+                  key={category.id}
+                  style={[
+                    styles.filterItem,
+                    { 
+                      backgroundColor: selectedFilters.includes(category.id) ? colors.light + '40' : 'transparent',
+                      borderBottomWidth: index === filterCategories.length - 1 ? 0 : 1,
+                      borderBottomColor: theme === 'light' ? '#f3f4f6' : '#374151',
+                    }
+                  ]}
+                  onPress={() => handleToggleFilter(category.id)}
+                >
+                  <View style={styles.filterItemLeft}>
+                    <View style={[styles.filterIcon, { backgroundColor: selectedFilters.includes(category.id) ? colors.primary : colors.light }]}>
+                      <Icon name={category.icon} size={18} color={selectedFilters.includes(category.id) ? '#ffffff' : colors.primary} />
+                    </View>
+                    <Text style={[styles.filterName, { 
+                      color: selectedFilters.includes(category.id) ? colors.primary : textColor, 
+                      fontFamily: 'Montserrat_500Medium' 
+                    }]}>
+                      {category.name}
+                    </Text>
+                  </View>
+                  {selectedFilters.includes(category.id) && (
+                    <Icon name="checkmark" size={20} color={colors.primary} />
+                  )}
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+
+            <View style={styles.filtersFooter}>
+              <TouchableOpacity 
+                style={[styles.clearButton, { borderColor: colors.primary }]}
+                onPress={handleClearFilters}
+              >
+                <Text style={[styles.clearButtonText, { color: colors.primary, fontFamily: 'Montserrat_500Medium' }]}>
+                  Сбросить
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={[styles.applyButton, { backgroundColor: colors.primary }]}
+                onPress={handleCloseFiltersModal}
+              >
+                <Text style={[styles.applyButtonText, { fontFamily: 'Montserrat_500Medium' }]}>
+                  Применить
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </Animated.View>
+        </Animated.View>
+      )}
 
       {/* Модальное окно выбора сервиса для построения маршрута с анимацией */}
-      {showRouteOptions && (
+      {showRouteOptions && Platform.OS === 'ios' && (
         <Animated.View 
           style={[
             styles.routeModalOverlay,
@@ -724,7 +881,7 @@ const MapScreen = ({ theme, accentColor }) => {
             style={[
               styles.routeModal,
               { 
-                backgroundColor: theme === 'dark' ? '#1f2937' : '#ffffff',
+                backgroundColor: cardBg,
                 transform: [{
                   translateY: routeModalAnim.interpolate({
                     inputRange: [0, 1],
@@ -806,11 +963,28 @@ const styles = StyleSheet.create({
     shadowRadius: 3,
     elevation: 3,
   },
+  headerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
   headerTitle: {
     fontSize: 18,
     fontFamily: 'Montserrat_600SemiBold',
   },
-  buildingsButton: {
+  activeFiltersBadge: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: 8,
+  },
+  activeFiltersText: {
+    color: '#ffffff',
+    fontSize: 12,
+    fontFamily: 'Montserrat_600SemiBold',
+  },
+  filtersButton: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 12,
@@ -818,7 +992,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     gap: 6,
   },
-  buildingsButtonText: {
+  filtersButtonText: {
     fontSize: 14,
     fontFamily: 'Montserrat_500Medium',
   },
@@ -858,7 +1032,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontFamily: 'Montserrat_500Medium',
   },
-  routeModalOverlay: {
+  filtersModalOverlay: {
     position: 'absolute',
     top: 0,
     left: 0,
@@ -866,6 +1040,89 @@ const styles = StyleSheet.create({
     bottom: 0,
     justifyContent: 'flex-end',
     zIndex: 1001,
+  },
+  filtersModal: {
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+    padding: 20,
+    paddingBottom: Platform.OS === 'ios' ? 34 : 20,
+    maxHeight: '80%',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  filtersHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  filtersTitle: {
+    fontSize: 18,
+  },
+  filtersList: {
+    maxHeight: 400,
+  },
+  filterItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 16,
+    paddingHorizontal: 8,
+    borderRadius: 8,
+  },
+  filterItemLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  filterIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  filterName: {
+    fontSize: 16,
+    flex: 1,
+  },
+  filtersFooter: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 20,
+  },
+  clearButton: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 12,
+    borderWidth: 1,
+    alignItems: 'center',
+  },
+  clearButtonText: {
+    fontSize: 16,
+  },
+  applyButton: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  applyButtonText: {
+    color: '#ffffff',
+    fontSize: 16,
+  },
+  routeModalOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    justifyContent: 'flex-end',
+    zIndex: 1002,
   },
   routeModal: {
     borderTopLeftRadius: 16,

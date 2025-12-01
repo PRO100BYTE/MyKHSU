@@ -12,12 +12,15 @@ import ScheduleFormatModal from './ScheduleFormatModal';
 import { ACCENT_COLORS, APP_VERSION, APP_DEVELOPERS, APP_SUPPORTERS, GITHUB_REPO_URL, BUILD_VER, BUILD_DATE } from '../utils/constants';
 import mapCache from '../utils/mapCache';
 
-const SettingsScreen = ({ theme, accentColor, setTheme, setAccentColor, onScheduleSettingsChange }) => {
+const SettingsScreen = ({ theme, accentColor, setTheme, setAccentColor, onScheduleSettingsChange, onTabbarSettingsChange }) => {
   const [appearanceSheetVisible, setAppearanceSheetVisible] = useState(false);
   const [aboutModalVisible, setAboutModalVisible] = useState(false);
   const [notificationModalVisible, setNotificationModalVisible] = useState(false);
   const [scheduleFormatModalVisible, setScheduleFormatModalVisible] = useState(false);
   const [scheduleSettings, setScheduleSettings] = useState(null);
+  const [versionTapCount, setVersionTapCount] = useState(0);
+  const [easterEggActive, setEasterEggActive] = useState(false);
+  const [secretMessage, setSecretMessage] = useState('');
   
   // Анимация появления
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -27,6 +30,20 @@ const SettingsScreen = ({ theme, accentColor, setTheme, setAccentColor, onSchedu
   const textColor = theme === 'light' ? '#111827' : '#ffffff';
   const placeholderColor = theme === 'light' ? '#6b7280' : '#9ca3af';
   const colors = ACCENT_COLORS[accentColor];
+
+  // Сообщения для пасхалки
+  const easterEggMessages = [
+    'Секретный уровень разблокирован! 🎉',
+    'ХГУ - лучший университет! 💻',
+    'Разработано с любовью к студентам 💕',
+    'Кто ищет, тот всегда найдет 👀',
+    'А ты настойчивый! Продолжай в том же духе! 🔥',
+    'Ты обнаружил секретную функцию! 🥳',
+    'ИТИ ХГУ гордится такими студентами! 🎓',
+    'Ты настоящий исследователь! 🔍',
+    'Приложение стало лучше благодаря тебе! ✨',
+    'Ты заслужил виртуальное печенье! 🍪'
+  ];
 
   // Запуск анимации при монтировании
   useEffect(() => {
@@ -41,6 +58,52 @@ const SettingsScreen = ({ theme, accentColor, setTheme, setAccentColor, onSchedu
   useEffect(() => {
     loadScheduleSettings();
   }, []);
+
+  // Обработчик нажатия на версию
+  const handleVersionPress = () => {
+    const newCount = versionTapCount + 1;
+    setVersionTapCount(newCount);
+    
+    // Активируем пасхалку при 5 нажатиях
+    if (newCount >= 5 && !easterEggActive) {
+      setEasterEggActive(true);
+      
+      // Выбираем случайное сообщение
+      const randomMessage = easterEggMessages[Math.floor(Math.random() * easterEggMessages.length)];
+      setSecretMessage(randomMessage);
+      
+      // Показываем алерт с секретным сообщением
+      Alert.alert(
+        '🎉 Пасхалка обнаружена!',
+        randomMessage,
+        [
+          {
+            text: 'Круто!',
+            onPress: () => {
+              // Сбрасываем счетчик через 5 секунд
+              setTimeout(() => {
+                setVersionTapCount(0);
+                setEasterEggActive(false);
+                setSecretMessage('');
+              }, 3000);
+            }
+          }
+        ]
+      );
+      
+      // Сбрасываем счетчик
+      setVersionTapCount(0);
+    }
+    
+    // Если нажали 3 раза, показываем подсказку
+    if (newCount === 3 && !easterEggActive) {
+      Alert.alert(
+        'Ого!',
+        'Ты уже нажал 3 раза! Попробуй ещё пару раз 😉',
+        [{ text: 'Интересно...' }]
+      );
+    }
+  };
 
   const loadScheduleSettings = async () => {
     try {
@@ -73,6 +136,13 @@ const SettingsScreen = ({ theme, accentColor, setTheme, setAccentColor, onSchedu
     // Передаем изменения в родительский компонент для немедленного применения
     if (onScheduleSettingsChange) {
       onScheduleSettingsChange(newSettings);
+    }
+  };
+
+  const handleTabbarSettingsChange = (newSettings) => {
+    // Передаем изменения в родительский компонент для немедленного применения
+    if (onTabbarSettingsChange) {
+      onTabbarSettingsChange(newSettings);
     }
   };
 
@@ -291,27 +361,73 @@ const SettingsScreen = ({ theme, accentColor, setTheme, setAccentColor, onSchedu
           <Icon name="chevron-forward" size={20} color={placeholderColor} />
         </TouchableOpacity>
 
-        {/* Информация о версии */}
-        <View style={{ 
-          backgroundColor: cardBg, 
-          borderRadius: 12, 
-          padding: 16, 
-          marginBottom: 16,
-          alignItems: 'center'
-        }}>
-          <Text style={{ color: '#9ca3af', fontSize: 12, fontFamily: 'Montserrat_400Regular', textAlign: 'center' }}>
+        {/* Информация о версии (пасхалка) */}
+        <TouchableOpacity 
+          style={{ 
+            backgroundColor: cardBg, 
+            borderRadius: 12, 
+            padding: 16, 
+            marginBottom: 16,
+            alignItems: 'center',
+            borderWidth: easterEggActive ? 2 : 0,
+            borderColor: easterEggActive ? colors.primary : 'transparent',
+            shadowColor: easterEggActive ? colors.primary : 'transparent',
+            shadowOffset: { width: 0, height: 0 },
+            shadowOpacity: easterEggActive ? 0.5 : 0,
+            shadowRadius: 10,
+          }}
+          onPress={handleVersionPress}
+          activeOpacity={0.7}
+        >
+          <Text style={{ color: placeholderColor, fontSize: 12, fontFamily: 'Montserrat_400Regular', textAlign: 'center' }}>
             Версия: {APP_VERSION}
           </Text>
-          <Text style={{ color: '#9ca3af', fontSize: 12, marginTop: 4, fontFamily: 'Montserrat_400Regular', textAlign: 'center' }}>
+          <Text style={{ color: placeholderColor, fontSize: 12, marginTop: 4, fontFamily: 'Montserrat_400Regular', textAlign: 'center' }}>
             Сборка {BUILD_VER} от {BUILD_DATE}
           </Text>
-          <Text style={{ color: '#9ca3af', fontSize: 12, marginTop: 4, fontFamily: 'Montserrat_400Regular', textAlign: 'center' }}>
+          <Text style={{ color: placeholderColor, fontSize: 12, marginTop: 4, fontFamily: 'Montserrat_400Regular', textAlign: 'center' }}>
             Разработано с  ❤️  {APP_DEVELOPERS}
           </Text>
-          <Text style={{ color: '#9ca3af', fontSize: 12, marginTop: 4, fontFamily: 'Montserrat_400Regular', textAlign: 'center' }}>
+          <Text style={{ color: placeholderColor, fontSize: 12, marginTop: 4, fontFamily: 'Montserrat_400Regular', textAlign: 'center' }}>
             При поддержке {APP_SUPPORTERS}
           </Text>
-        </View>
+          
+          {/* Секретное сообщение при активированной пасхалке */}
+          {easterEggActive && secretMessage && (
+            <View style={{ 
+              marginTop: 12, 
+              padding: 8, 
+              backgroundColor: colors.light, 
+              borderRadius: 8,
+              alignItems: 'center',
+            }}>
+              <Icon name="sparkles" size={16} color={colors.primary} />
+              <Text style={{ 
+                color: colors.primary, 
+                fontSize: 10, 
+                marginTop: 4,
+                fontFamily: 'Montserrat_500Medium',
+                textAlign: 'center'
+              }}>
+                {secretMessage}
+              </Text>
+            </View>
+          )}
+          
+          {/* Индикатор нажатий (для отладки) */}
+          {versionTapCount > 0 && versionTapCount < 5 && (
+            <Text style={{ 
+              color: colors.primary, 
+              fontSize: 10, 
+              marginTop: 4,
+              fontFamily: 'Montserrat_400Regular',
+              textAlign: 'center',
+              opacity: 0.7
+            }}>
+              Нажатий: {versionTapCount}/5
+            </Text>
+          )}
+        </TouchableOpacity>
 
         {/* Модальные окна */}
         <AppearanceSettingsSheet
@@ -321,6 +437,7 @@ const SettingsScreen = ({ theme, accentColor, setTheme, setAccentColor, onSchedu
           accentColor={accentColor}
           setTheme={setTheme}
           setAccentColor={setAccentColor}
+          onTabbarSettingsChange={handleTabbarSettingsChange}
         />
 
         <AboutModal

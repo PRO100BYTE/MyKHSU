@@ -13,12 +13,15 @@ const ConnectionError = ({
   contentType = 'general',
   message,
   showCacheButton = false,
-  cacheAvailable = false
+  cacheAvailable = false,
+  customCacheButtonText,
+  showFreshmanHint = false
 }) => {
   const colors = ACCENT_COLORS[accentColor];
   const bgColor = theme === 'light' ? '#f3f4f6' : '#111827';
   const textColor = theme === 'light' ? '#111827' : '#ffffff';
   const cardBg = theme === 'light' ? '#ffffff' : '#1f2937';
+  const placeholderColor = theme === 'light' ? '#6b7280' : '#9ca3af';
 
   // Конфигурация для разных типов контента
   const contentConfigs = {
@@ -27,13 +30,22 @@ const ConnectionError = ({
         icon: 'map-outline',
         title: 'Карта недоступна',
         description: 'Для загрузки карты необходимо подключение к интернету',
-        cacheButton: 'Показать список корпусов'
+        cacheButton: customCacheButtonText || 'Список корпусов',
+        showRetryButton: true
       },
       'load-error': {
         icon: 'warning-outline',
         title: 'Ошибка загрузки карты',
         description: 'Не удалось загрузить карту. Проверьте подключение и попробуйте снова',
-        cacheButton: 'Показать список корпусов'
+        cacheButton: customCacheButtonText || 'Список корпусов',
+        showRetryButton: true
+      },
+      'android-not-supported': {
+        icon: 'build-outline',
+        title: 'Карта временно недоступна',
+        description: 'В данный момент карта недоступна на платформе Android из-за отсутствия необходимых API ключей и ресурсов. Мы делаем все возможное, чтобы восстановить работоспособность карты на Android в кратчайшие сроки. Следите за обновлениями!',
+        cacheButton: customCacheButtonText || 'Список корпусов',
+        showRetryButton: false
       }
     },
     schedule: {
@@ -41,13 +53,15 @@ const ConnectionError = ({
         icon: 'calendar-outline',
         title: 'Расписание недоступно',
         description: 'Для загрузки расписания необходимо подключение к интернету',
-        cacheButton: 'Показать кэшированное расписание'
+        cacheButton: 'Показать кэшированное расписание',
+        showRetryButton: true
       },
       'load-error': {
         icon: 'warning-outline',
         title: 'Ошибка загрузки расписания',
         description: 'Не удалось загрузить расписание. Проверьте подключение и попробуйте снова',
-        cacheButton: 'Показать кэшированное расписание'
+        cacheButton: 'Показать кэшированное расписание',
+        showRetryButton: true
       }
     },
     news: {
@@ -55,13 +69,15 @@ const ConnectionError = ({
         icon: 'newspaper-outline',
         title: 'Новости недоступны',
         description: 'Для загрузки новостей необходимо подключение к интернету',
-        cacheButton: 'Показать кэшированные новости'
+        cacheButton: 'Показать кэшированные новости',
+        showRetryButton: true
       },
       'load-error': {
         icon: 'warning-outline',
         title: 'Ошибка загрузки новостей',
         description: 'Не удалось загрузить новости. Проверьте подключение и попробуйте снова',
-        cacheButton: 'Показать кэшированные новости'
+        cacheButton: 'Показать кэшированные новости',
+        showRetryButton: true
       }
     },
     general: {
@@ -69,19 +85,29 @@ const ConnectionError = ({
         icon: 'cloud-offline-outline',
         title: 'Нет подключения к интернету',
         description: 'Для загрузки данных необходимо подключение к интернету',
-        cacheButton: 'Показать кэшированные данные'
+        cacheButton: 'Показать кэшированные данные',
+        showRetryButton: true
       },
       'load-error': {
         icon: 'warning-outline',
         title: 'Ошибка загрузки',
         description: 'Не удалось загрузить данные. Проверьте подключение и попробуйте снова',
-        cacheButton: 'Показать кэшированные данные'
+        cacheButton: 'Показать кэшированные данные',
+        showRetryButton: true
+      },
+      'android-not-supported': {
+        icon: 'build-outline',
+        title: 'Сервис временно недоступен',
+        description: 'В данный момент сервис недоступен на платформе Android из-за отсутствия необходимых API ключей и ресурсов. Мы делаем все возможное, чтобы восстановить работоспособность в кратчайшие сроки. Следите за обновлениями!',
+        cacheButton: 'Показать кэшированные данные',
+        showRetryButton: false
       },
       'default': {
         icon: 'refresh-outline',
         title: 'Ошибка',
         description: 'Произошла непредвиденная ошибка',
-        cacheButton: 'Показать кэшированные данные'
+        cacheButton: 'Показать кэшированные данные',
+        showRetryButton: true
       }
     }
   };
@@ -92,20 +118,8 @@ const ConnectionError = ({
                 contentConfigs.general[type] || 
                 contentConfigs.general.default;
 
-  // Определяем, показывать ли кнопку кэша
-  const shouldShowCacheButton = (showCacheButton || cacheAvailable) && onViewCache;
-
-  // Автоматическое перенаправление на кэш при отсутствии интернета, если кэш доступен
-  React.useEffect(() => {
-    if (type === 'no-internet' && cacheAvailable && onViewCache && !loading) {
-      // Небольшая задержка перед автоматическим перенаправлением
-      const timer = setTimeout(() => {
-        onViewCache();
-      }, 2000); // 2 секунды для показа сообщения
-      
-      return () => clearTimeout(timer);
-    }
-  }, [type, cacheAvailable, onViewCache, loading]);
+  // Проверяем, нужно ли показывать кнопку "Попробовать снова"
+  const shouldShowRetryButton = config.showRetryButton !== false && onRetry;
 
   if (loading) {
     return (
@@ -133,27 +147,24 @@ const ConnectionError = ({
           {message || config.description}
         </Text>
         
+        {/* Подсказка о разделе Первокурснику */}
+        {showFreshmanHint && (
+          <View style={[styles.hintCard, { backgroundColor: cardBg, marginBottom: 24 }]}>
+            <Icon name="information-circle-outline" size={20} color={colors.primary} />
+            <Text style={[styles.hintText, { color: colors.primary, marginLeft: 8, flex: 1 }]}>
+              Список всех корпусов доступен в разделе "Первокурснику"
+            </Text>
+          </View>
+        )}
+        
         <View style={styles.buttonsContainer}>
-          <TouchableOpacity
-            style={[styles.retryButton, { backgroundColor: colors.primary }]}
-            onPress={onRetry}
-          >
-            <Icon name="refresh" size={20} color="#ffffff" />
-            <Text style={styles.retryButtonText}>Попробовать снова</Text>
-          </TouchableOpacity>
-          
-          {shouldShowCacheButton && (
+          {shouldShowRetryButton && (
             <TouchableOpacity
-              style={[styles.cacheButton, { 
-                backgroundColor: theme === 'light' ? colors.light : '#374151',
-                borderColor: colors.primary 
-              }]}
-              onPress={onViewCache}
+              style={[styles.retryButton, { backgroundColor: colors.primary }]}
+              onPress={onRetry}
             >
-              <Icon name="list-outline" size={20} color={colors.primary} />
-              <Text style={[styles.cacheButtonText, { color: colors.primary }]}>
-                {config.cacheButton}
-              </Text>
+              <Icon name="refresh" size={20} color="#ffffff" />
+              <Text style={styles.retryButtonText}>Попробовать снова</Text>
             </TouchableOpacity>
           )}
         </View>
@@ -195,6 +206,22 @@ const styles = StyleSheet.create({
     marginBottom: 24,
     lineHeight: 22,
   },
+  hintCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    borderRadius: 8,
+    width: '100%',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    elevation: 2,
+  },
+  hintText: {
+    fontSize: 14,
+    fontFamily: 'Montserrat_400Regular',
+  },
   buttonsContainer: {
     width: '100%',
     gap: 12,
@@ -210,20 +237,6 @@ const styles = StyleSheet.create({
   },
   retryButtonText: {
     color: '#ffffff',
-    fontSize: 16,
-    fontFamily: 'Montserrat_500Medium',
-  },
-  cacheButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 14,
-    paddingHorizontal: 24,
-    borderRadius: 12,
-    borderWidth: 1,
-    gap: 8,
-  },
-  cacheButtonText: {
     fontSize: 16,
     fontFamily: 'Montserrat_500Medium',
   },

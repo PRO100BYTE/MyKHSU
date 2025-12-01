@@ -1,26 +1,47 @@
-// components/AppearanceSettingsSheet.js
 import React, { useState, useEffect } from 'react';
-import { View, Text, Modal, TouchableOpacity, ScrollView, StyleSheet } from 'react-native';
+import { View, Text, Modal, TouchableOpacity, ScrollView, StyleSheet, Switch } from 'react-native';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import { useColorScheme } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
 import { ACCENT_COLORS } from '../utils/constants';
 
-const AppearanceSettingsSheet = ({ visible, onClose, theme, accentColor, setTheme, setAccentColor }) => {
+const AppearanceSettingsSheet = ({ visible, onClose, theme, accentColor, setTheme, setAccentColor, onTabbarSettingsChange }) => {
   const systemColorScheme = useColorScheme();
   
   const bgColor = theme === 'light' ? '#ffffff' : '#1f2937';
   const textColor = theme === 'light' ? '#111827' : '#ffffff';
   const placeholderColor = theme === 'light' ? '#6b7280' : '#9ca3af';
+  const inputBgColor = theme === 'light' ? '#f9fafb' : '#374151';
+  const borderColor = theme === 'light' ? '#e5e7eb' : '#4b5563';
   const colors = ACCENT_COLORS[accentColor];
 
   const [selectedTheme, setSelectedTheme] = useState(theme);
+  const [showTabbarLabels, setShowTabbarLabels] = useState(true);
+  const [tabbarFontSize, setTabbarFontSize] = useState('medium');
 
   useEffect(() => {
     if (visible) {
       setSelectedTheme(theme);
+      loadTabbarSettings();
     }
   }, [visible, theme]);
+
+  const loadTabbarSettings = async () => {
+    try {
+      const labelsEnabled = await SecureStore.getItemAsync('tabbar_labels_enabled');
+      const fontSize = await SecureStore.getItemAsync('tabbar_font_size');
+      
+      if (labelsEnabled !== null) {
+        setShowTabbarLabels(labelsEnabled === 'true');
+      }
+      
+      if (fontSize) {
+        setTabbarFontSize(fontSize);
+      }
+    } catch (error) {
+      console.error('Error loading tabbar settings:', error);
+    }
+  };
 
   const handleThemeChange = async (newTheme) => {
     setSelectedTheme(newTheme);
@@ -31,6 +52,41 @@ const AppearanceSettingsSheet = ({ visible, onClose, theme, accentColor, setThem
   const handleAccentColorChange = async (newColor) => {
     setAccentColor(newColor);
     await SecureStore.setItemAsync('accentColor', newColor);
+  };
+
+  const handleShowLabelsChange = async (value) => {
+    setShowTabbarLabels(value);
+    await SecureStore.setItemAsync('tabbar_labels_enabled', value.toString());
+    
+    // Уведомляем родительский компонент о изменениях
+    if (onTabbarSettingsChange) {
+      onTabbarSettingsChange({
+        showLabels: value,
+        fontSize: tabbarFontSize
+      });
+    }
+  };
+
+  const handleFontSizeChange = async (size) => {
+    setTabbarFontSize(size);
+    await SecureStore.setItemAsync('tabbar_font_size', size);
+    
+    // Уведомляем родительский компонент о изменениях
+    if (onTabbarSettingsChange) {
+      onTabbarSettingsChange({
+        showLabels: showTabbarLabels,
+        fontSize: size
+      });
+    }
+  };
+
+  const getFontSizeText = (size) => {
+    switch (size) {
+      case 'small': return 'Маленький';
+      case 'medium': return 'Средний';
+      case 'large': return 'Большой';
+      default: return 'Средний';
+    }
   };
 
   if (!visible) return null;
@@ -46,7 +102,8 @@ const AppearanceSettingsSheet = ({ visible, onClose, theme, accentColor, setThem
         <View style={[styles.modalContent, { backgroundColor: bgColor }]}>
           <Text style={[styles.title, { color: textColor }]}>Внешний вид приложения</Text>
           
-          <ScrollView style={styles.scrollView}>
+          <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+            {/* Секция темы */}
             <View style={styles.section}>
               <Text style={[styles.sectionTitle, { color: textColor }]}>Тема</Text>
               
@@ -55,8 +112,8 @@ const AppearanceSettingsSheet = ({ visible, onClose, theme, accentColor, setThem
                   style={[
                     styles.option,
                     { 
-                      backgroundColor: selectedTheme === 'light' ? colors.light : 'transparent',
-                      borderColor: selectedTheme === 'light' ? colors.primary : '#e5e7eb'
+                      backgroundColor: selectedTheme === 'light' ? colors.light + '40' : 'transparent',
+                      borderColor: selectedTheme === 'light' ? colors.primary : borderColor
                     }
                   ]}
                   onPress={() => handleThemeChange('light')}
@@ -75,7 +132,7 @@ const AppearanceSettingsSheet = ({ visible, onClose, theme, accentColor, setThem
                     </Text>
                   </View>
                   {selectedTheme === 'light' && (
-                    <Icon name="checkmark-circle" size={20} color={colors.primary} />
+                    <Icon name="checkmark" size={20} color={colors.primary} />
                   )}
                 </TouchableOpacity>
                 
@@ -83,8 +140,8 @@ const AppearanceSettingsSheet = ({ visible, onClose, theme, accentColor, setThem
                   style={[
                     styles.option,
                     { 
-                      backgroundColor: selectedTheme === 'dark' ? colors.light : 'transparent',
-                      borderColor: selectedTheme === 'dark' ? colors.primary : '#e5e7eb'
+                      backgroundColor: selectedTheme === 'dark' ? colors.light + '40' : 'transparent',
+                      borderColor: selectedTheme === 'dark' ? colors.primary : borderColor
                     }
                   ]}
                   onPress={() => handleThemeChange('dark')}
@@ -103,7 +160,7 @@ const AppearanceSettingsSheet = ({ visible, onClose, theme, accentColor, setThem
                     </Text>
                   </View>
                   {selectedTheme === 'dark' && (
-                    <Icon name="checkmark-circle" size={20} color={colors.primary} />
+                    <Icon name="checkmark" size={20} color={colors.primary} />
                   )}
                 </TouchableOpacity>
                 
@@ -111,8 +168,8 @@ const AppearanceSettingsSheet = ({ visible, onClose, theme, accentColor, setThem
                   style={[
                     styles.option,
                     { 
-                      backgroundColor: selectedTheme === 'auto' ? colors.light : 'transparent',
-                      borderColor: selectedTheme === 'auto' ? colors.primary : '#e5e7eb'
+                      backgroundColor: selectedTheme === 'auto' ? colors.light + '40' : 'transparent',
+                      borderColor: selectedTheme === 'auto' ? colors.primary : borderColor
                     }
                   ]}
                   onPress={() => handleThemeChange('auto')}
@@ -136,52 +193,138 @@ const AppearanceSettingsSheet = ({ visible, onClose, theme, accentColor, setThem
                     </View>
                   </View>
                   {selectedTheme === 'auto' && (
-                    <Icon name="checkmark-circle" size={20} color={colors.primary} />
+                    <Icon name="checkmark" size={20} color={colors.primary} />
                   )}
                 </TouchableOpacity>
               </View>
             </View>
             
+            {/* Секция акцентного цвета */}
             <View style={styles.section}>
               <Text style={[styles.sectionTitle, { color: textColor }]}>Акцентный цвет</Text>
               
               <View style={styles.colorOptions}>
                 <TouchableOpacity
-                  style={[styles.colorOption, { backgroundColor: ACCENT_COLORS.green.primary }]}
+                  style={[
+                    styles.colorOption, 
+                    { backgroundColor: ACCENT_COLORS.green.primary }
+                  ]}
                   onPress={() => handleAccentColorChange('green')}
                 >
-                  {accentColor === 'green' && <Icon name="checkmark" size={20} color="#ffffff" />}
+                  {accentColor === 'green' && (
+                    <Icon name="checkmark" size={20} color="#ffffff" />
+                  )}
                 </TouchableOpacity>
                 
                 <TouchableOpacity
-                  style={[styles.colorOption, { backgroundColor: ACCENT_COLORS.blue.primary }]}
+                  style={[
+                    styles.colorOption, 
+                    { backgroundColor: ACCENT_COLORS.blue.primary }
+                  ]}
                   onPress={() => handleAccentColorChange('blue')}
                 >
-                  {accentColor === 'blue' && <Icon name="checkmark" size={20} color="#ffffff" />}
+                  {accentColor === 'blue' && (
+                    <Icon name="checkmark" size={20} color="#ffffff" />
+                  )}
                 </TouchableOpacity>
                 
                 <TouchableOpacity
-                  style={[styles.colorOption, { backgroundColor: ACCENT_COLORS.purple.primary }]}
+                  style={[
+                    styles.colorOption, 
+                    { backgroundColor: ACCENT_COLORS.purple.primary }
+                  ]}
                   onPress={() => handleAccentColorChange('purple')}
                 >
-                  {accentColor === 'purple' && <Icon name="checkmark" size={20} color="#ffffff" />}
+                  {accentColor === 'purple' && (
+                    <Icon name="checkmark" size={20} color="#ffffff" />
+                  )}
                 </TouchableOpacity>
               </View>
             </View>
 
-            <View style={styles.infoSection}>
-              <Text style={[styles.infoText, { color: placeholderColor }]}>
-                Внимание! Настройки оформления применяются автоматически
+            {/* Секция настроек панели навигации */}
+            <View style={styles.section}>
+              <Text style={[styles.sectionTitle, { color: textColor }]}>Панель навигации</Text>
+              
+              {/* Переключатель подписей иконок */}
+              <TouchableOpacity
+                style={[styles.settingItem, { borderBottomWidth: 1, borderBottomColor: borderColor }]}
+                onPress={() => handleShowLabelsChange(!showTabbarLabels)}
+              >
+                <View style={styles.settingInfo}>
+                  <Icon name="text-outline" size={24} color={showTabbarLabels ? colors.primary : placeholderColor} />
+                  <View style={styles.textContainer}>
+                    <Text style={[styles.settingLabel, { color: textColor }]}>Показывать подписи иконок</Text>
+                    <Text style={[styles.settingDescription, { color: placeholderColor }]}>
+                      Отображать названия вкладок под иконками
+                    </Text>
+                  </View>
+                </View>
+                <Switch
+                  value={showTabbarLabels}
+                  onValueChange={handleShowLabelsChange}
+                  trackColor={{ false: '#f0f0f0', true: colors.light }}
+                  thumbColor={showTabbarLabels ? colors.primary : '#f4f3f4'}
+                />
+              </TouchableOpacity>
+
+              {/* Выбор размера шрифта подписей */}
+              {showTabbarLabels && (
+                <View style={{ marginTop: 16 }}>
+                  <Text style={[styles.subSectionTitle, { color: textColor }]}>Размер шрифта подписей</Text>
+                  <Text style={[styles.subSectionDescription, { color: placeholderColor }]}>
+                    Выберите размер текста под иконками навигации
+                  </Text>
+                  
+                  <View style={styles.fontSizeOptions}>
+                    {['small', 'medium', 'large'].map((size) => (
+                      <TouchableOpacity
+                        key={size}
+                        style={[
+                          styles.fontSizeOption,
+                          {
+                            backgroundColor: tabbarFontSize === size ? colors.primary : inputBgColor,
+                            borderColor: tabbarFontSize === size ? colors.primary : borderColor
+                          }
+                        ]}
+                        onPress={() => handleFontSizeChange(size)}
+                      >
+                        <Text style={[
+                          styles.fontSizeOptionText,
+                          { 
+                            color: tabbarFontSize === size ? '#ffffff' : textColor,
+                            fontSize: size === 'small' ? 10 : size === 'medium' ? 12 : 14
+                          }
+                        ]}>
+                          {getFontSizeText(size)}
+                        </Text>
+                        {tabbarFontSize === size && (
+                          <Icon name="checkmark" size={16} color="#ffffff" style={{ marginLeft: 4 }} />
+                        )}
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </View>
+              )}
+            </View>
+
+            {/* Информационная секция */}
+            <View style={[styles.infoSection, { backgroundColor: inputBgColor }]}>
+              <Icon name="information-circle-outline" size={16} color={colors.primary} />
+              <Text style={[styles.infoText, { color: placeholderColor, marginLeft: 8, flex: 1 }]}>
+                Настройки оформления применяются автоматически
               </Text>
             </View>
           </ScrollView>
 
-          <TouchableOpacity
-            style={[styles.closeButton, { backgroundColor: colors.primary }]}
-            onPress={onClose}
-          >
-            <Text style={styles.closeButtonText}>Закрыть</Text>
-          </TouchableOpacity>
+          <View style={styles.buttonsContainer}>
+            <TouchableOpacity
+              style={[styles.button, styles.cancelButton, { backgroundColor: inputBgColor }]}
+              onPress={onClose}
+            >
+              <Text style={[styles.buttonText, { color: textColor }]}>Закрыть</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       </View>
     </Modal>
@@ -199,7 +342,12 @@ const styles = StyleSheet.create({
     width: '100%',
     borderRadius: 16,
     padding: 20,
-    maxHeight: '80%',
+    maxHeight: '90%',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 5,
   },
   title: {
     fontSize: 20,
@@ -209,7 +357,7 @@ const styles = StyleSheet.create({
     fontFamily: 'Montserrat_600SemiBold',
   },
   scrollView: {
-    maxHeight: 400,
+    maxHeight: 500,
   },
   section: {
     marginBottom: 24,
@@ -219,6 +367,17 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginBottom: 12,
     fontFamily: 'Montserrat_600SemiBold',
+  },
+  subSectionTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    marginBottom: 4,
+    fontFamily: 'Montserrat_600SemiBold',
+  },
+  subSectionDescription: {
+    fontSize: 12,
+    marginBottom: 12,
+    fontFamily: 'Montserrat_400Regular',
   },
   optionsContainer: {
     gap: 8,
@@ -241,11 +400,13 @@ const styles = StyleSheet.create({
   optionText: {
     fontSize: 16,
     fontFamily: 'Montserrat_500Medium',
+    marginLeft: 12,
   },
   optionDescription: {
     fontSize: 12,
     fontFamily: 'Montserrat_400Regular',
     marginTop: 2,
+    marginLeft: 12,
   },
   colorOptions: {
     flexDirection: 'row',
@@ -259,26 +420,75 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  infoSection: {
-    marginTop: 16,
-    padding: 12,
-    borderRadius: 8,
-    backgroundColor: 'rgba(0, 0, 0, 0.05)',
+  settingItem: {
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 12,
+  },
+  settingInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  textContainer: {
+    marginLeft: 12,
+    flex: 1,
+  },
+  settingLabel: {
+    fontSize: 16,
+    fontFamily: 'Montserrat_500Medium',
+    marginBottom: 2,
+  },
+  settingDescription: {
+    fontSize: 14,
+    fontFamily: 'Montserrat_400Regular',
+  },
+  fontSizeOptions: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 8,
+    gap: 8,
+  },
+  fontSizeOption: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 8,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  fontSizeOptionText: {
+    fontFamily: 'Montserrat_500Medium',
+  },
+  infoSection: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    borderRadius: 8,
+    marginTop: 16,
   },
   infoText: {
     fontSize: 12,
     fontFamily: 'Montserrat_400Regular',
-    textAlign: 'center',
   },
-  closeButton: {
+  buttonsContainer: {
+    flexDirection: 'row',
+    marginTop: 20,
+  },
+  button: {
+    flex: 1,
     borderRadius: 12,
     padding: 16,
     alignItems: 'center',
-    marginTop: 20,
   },
-  closeButtonText: {
-    color: '#ffffff',
+  cancelButton: {
+    borderWidth: 1,
+    borderColor: '#d1d5db',
+  },
+  buttonText: {
     fontSize: 16,
     fontWeight: '600',
     fontFamily: 'Montserrat_600SemiBold',

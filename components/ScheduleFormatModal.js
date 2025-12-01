@@ -14,6 +14,8 @@ const ScheduleFormatModal = ({ visible, onClose, theme, accentColor, onSettingsC
   const [selectedCourse, setSelectedCourse] = useState(1);
   const [loadingGroups, setLoadingGroups] = useState(false);
   const [showCourseSelector, setShowCourseSelector] = useState(true);
+  const [availableCourses, setAvailableCourses] = useState([]);
+  const [loadingCourses, setLoadingCourses] = useState(false);
 
   const colors = ACCENT_COLORS[accentColor];
   const bgColor = theme === 'light' ? '#ffffff' : '#1f2937';
@@ -25,6 +27,7 @@ const ScheduleFormatModal = ({ visible, onClose, theme, accentColor, onSettingsC
   useEffect(() => {
     if (visible) {
       loadSettings();
+      fetchAvailableCourses();
     }
   }, [visible]);
 
@@ -33,6 +36,31 @@ const ScheduleFormatModal = ({ visible, onClose, theme, accentColor, onSettingsC
       loadGroupsForCourse(selectedCourse);
     }
   }, [visible, selectedCourse]);
+
+  // Загрузка доступных курсов с API
+  const fetchAvailableCourses = async () => {
+    setLoadingCourses(true);
+    try {
+      const result = await ApiService.getCourses();
+      if (result.data && result.data.courses) {
+        const coursesFromApi = result.data.courses;
+        const filteredCourses = COURSES.filter(courseItem => 
+          coursesFromApi.includes(courseItem.id.toString())
+        );
+        setAvailableCourses(filteredCourses);
+        console.log('Доступные курсы загружены в модальном окне:', filteredCourses);
+      } else {
+        // Если API не вернуло курсы, используем все по умолчанию
+        setAvailableCourses(COURSES);
+      }
+    } catch (error) {
+      console.error('Error fetching courses in modal:', error);
+      // В случае ошибки используем все курсы по умолчанию
+      setAvailableCourses(COURSES);
+    } finally {
+      setLoadingCourses(false);
+    }
+  };
 
   const loadSettings = async () => {
     try {
@@ -241,28 +269,37 @@ const ScheduleFormatModal = ({ visible, onClose, theme, accentColor, onSettingsC
                   
                   {/* Выбор курса */}
                   <Text style={[styles.subSectionTitle, { color: textColor }]}>Выберите курс:</Text>
-                  <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.coursesScroll}>
-                    {COURSES.map((courseItem) => (
-                      <TouchableOpacity
-                        key={courseItem.id}
-                        style={[
-                          styles.courseOption,
-                          {
-                            backgroundColor: selectedCourse === courseItem.id ? colors.primary : inputBgColor,
-                            borderColor: selectedCourse === courseItem.id ? colors.primary : borderColor
-                          }
-                        ]}
-                        onPress={() => handleCourseChange(courseItem.id)}
-                      >
-                        <Text style={[
-                          styles.courseOptionText,
-                          { color: selectedCourse === courseItem.id ? '#ffffff' : textColor }
-                        ]}>
-                          {courseItem.label}
-                        </Text>
-                      </TouchableOpacity>
-                    ))}
-                  </ScrollView>
+                  {loadingCourses ? (
+                    <View style={{ alignItems: 'center', padding: 10 }}>
+                      <ActivityIndicator size="small" color={colors.primary} />
+                      <Text style={{ color: placeholderColor, marginTop: 8, fontFamily: 'Montserrat_400Regular' }}>
+                        Загрузка курсов...
+                      </Text>
+                    </View>
+                  ) : (
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.coursesScroll}>
+                      {availableCourses.map((courseItem) => (
+                        <TouchableOpacity
+                          key={courseItem.id}
+                          style={[
+                            styles.courseOption,
+                            {
+                              backgroundColor: selectedCourse === courseItem.id ? colors.primary : inputBgColor,
+                              borderColor: selectedCourse === courseItem.id ? colors.primary : borderColor
+                            }
+                          ]}
+                          onPress={() => handleCourseChange(courseItem.id)}
+                        >
+                          <Text style={[
+                            styles.courseOptionText,
+                            { color: selectedCourse === courseItem.id ? '#ffffff' : textColor }
+                          ]}>
+                            {courseItem.label}
+                          </Text>
+                        </TouchableOpacity>
+                      ))}
+                    </ScrollView>
+                  )}
                   
                   {/* Список групп */}
                   <Text style={[styles.subSectionTitle, { color: textColor }]}>Выберите группу:</Text>
@@ -313,7 +350,7 @@ const ScheduleFormatModal = ({ visible, onClose, theme, accentColor, onSettingsC
                     <View style={[styles.selectedInfo, { backgroundColor: colors.light }]}>
                       <Icon name="checkmark-circle" size={16} color={colors.primary} />
                       <Text style={[styles.selectedInfoText, { color: colors.primary }]}>
-                        Выбрана группа: {defaultGroup} ({COURSES.find(c => c.id === selectedCourse)?.label})
+                        Выбрана группа: {defaultGroup} ({availableCourses.find(c => c.id === selectedCourse)?.label || `Курс ${selectedCourse}`})
                       </Text>
                     </View>
                   )}
@@ -360,7 +397,7 @@ const ScheduleFormatModal = ({ visible, onClose, theme, accentColor, onSettingsC
 
                   {!showCourseSelector && defaultGroup && (
                     <Text style={[styles.infoText, { color: colors.primary }]}>
-                      При скрытом селекторе будет показано расписание для группы {defaultGroup} ({COURSES.find(c => c.id === selectedCourse)?.label})
+                      При скрытом селекторе будет показано расписание для группы {defaultGroup} ({availableCourses.find(c => c.id === selectedCourse)?.label || `Курс ${selectedCourse}`})
                     </Text>
                   )}
                 </View>

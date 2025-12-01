@@ -3,7 +3,7 @@ import { TouchableOpacity, Text, StyleSheet, Platform } from 'react-native';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import { ACCENT_COLORS } from '../utils/constants';
 
-const TabButton = ({ icon, label, isActive, onPress, theme, accentColor }) => {
+const TabButton = ({ icon, label, isActive, onPress, theme, accentColor, showLabels = true, fontSize = 'medium' }) => {
   const colors = ACCENT_COLORS[accentColor];
   const iconColor = isActive ? 
     (theme === 'light' ? colors.primary : colors.dark) : 
@@ -13,6 +13,16 @@ const TabButton = ({ icon, label, isActive, onPress, theme, accentColor }) => {
     (theme === 'light' ? colors.primary : colors.dark) : 
     (theme === 'light' ? '#6b7280' : '#9ca3af');
 
+  // Определяем размер шрифта
+  const getFontSize = () => {
+    switch (fontSize) {
+      case 'small': return 8;
+      case 'medium': return 10;
+      case 'large': return 12;
+      default: return 10;
+    }
+  };
+
   return (
     <TouchableOpacity 
       onPress={onPress}
@@ -21,7 +31,16 @@ const TabButton = ({ icon, label, isActive, onPress, theme, accentColor }) => {
       }]}
     >
       <Icon name={icon} size={24} color={iconColor} />
-      <Text style={[styles.tabText, { color: textColor, fontFamily: 'Montserrat_500Medium' }]}>{label}</Text>
+      {showLabels && (
+        <Text style={[styles.tabText, { 
+          color: textColor, 
+          fontFamily: 'Montserrat_500Medium',
+          fontSize: getFontSize(),
+          marginTop: 4
+        }]}>
+          {label}
+        </Text>
+      )}
     </TouchableOpacity>
   );
 };
@@ -33,7 +52,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 8,
     borderRadius: 8,
-    // Добавляем минимальную высоту для лучшего касания на Android
     minHeight: Platform.OS === 'android' ? 60 : 50
   },
   tabText: {
