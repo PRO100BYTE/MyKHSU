@@ -307,6 +307,14 @@ const AppearanceSettingsSheet = ({ visible, onClose, theme, accentColor, setThem
                 </View>
               )}
             </View>
+
+            {/* Информационная секция */}
+            <View style={[styles.infoSection, { backgroundColor: inputBgColor }]}>
+              <Icon name="information-circle-outline" size={16} color={colors.primary} />
+              <Text style={[styles.infoText, { color: placeholderColor, marginLeft: 8, flex: 1 }]}>
+                Настройки оформления применяются автоматически
+              </Text>
+            </View>
           </ScrollView>
 
           <View style={styles.buttonsContainer}>
@@ -454,6 +462,17 @@ const styles = StyleSheet.create({
   },
   fontSizeOptionText: {
     fontFamily: 'Montserrat_500Medium',
+  },
+  infoSection: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    borderRadius: 8,
+    marginTop: 16,
+  },
+  infoText: {
+    fontSize: 12,
+    fontFamily: 'Montserrat_400Regular',
   },
   buttonsContainer: {
     flexDirection: 'row',
