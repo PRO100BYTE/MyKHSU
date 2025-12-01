@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { 
   View, 
   Text, 
@@ -68,17 +68,19 @@ const MapScreen = ({ theme, accentColor }) => {
   ];
 
   // Фильтрация зданий
-  const filteredBuildings = buildings.filter(building => {
-    if (selectedFilters.length === 0) return true;
-    
-    let buildingType = building.type;
-    // Относим типы 5ka, sausage, shop, cafe, coffee, garden к категории "other"
-    if (['5ka', 'sausage', 'shop', 'cafe', 'coffee', 'garden'].includes(building.type)) {
-      buildingType = 'other';
-    }
-    
-    return selectedFilters.includes(buildingType);
-  });
+  const filteredBuildings = useMemo(() => {
+    return buildings.filter(building => {
+      if (selectedFilters.length === 0) return true;
+      
+      let buildingType = building.type;
+      // Относим типы 5ka, sausage, shop, cafe, coffee, garden к категории "other"
+      if (['5ka', 'sausage', 'shop', 'cafe', 'coffee', 'garden'].includes(building.type)) {
+        buildingType = 'other';
+      }
+      
+      return selectedFilters.includes(buildingType);
+    });
+  }, [selectedFilters]);
 
   useEffect(() => {
     Animated.timing(fadeAnim, {
