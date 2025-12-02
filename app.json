@@ -10,12 +10,14 @@
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
-      "backgroundColor": "#ffffff",
+      "backgroundColor": "#f3f4f6",
+      "imageWidth": 60,
       "dark": {
-            "image": "./assets/splash-icon.png",
-            "resizeMode": "contain",
-            "backgroundColor": "#000000"
-          }
+        "image": "./assets/splash-icon.png",
+        "resizeMode": "contain",
+        "backgroundColor": "#111827",
+        "imageWidth": 60
+      }
     },
     "ios": {
       "supportsTablet": true,
@@ -78,7 +80,8 @@
           "color": "#ffffff",
           "sounds": ["./assets/notification.wav"]
         }
-      ]
+      ],
+      "expo-splash-screen"
     ],
     "extra": {
       "eas": {
@@ -90,8 +93,8 @@
     "owner": "pro100byte",
     "sdkVersion": "54.0.0",
     "platforms": [
-    "ios",
-    "android"
+      "ios",
+      "android"
     ]
   }
 }
