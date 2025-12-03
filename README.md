@@ -3,12 +3,6 @@
     <img src="https://raw.githubusercontent.com/PRO100BYTE/MyKHSU/master/.github/images/mykhsu.png" alt="Мой ИТИ ХГУ" width="100%">
   </a>
 
-  <h1>Мой ИТИ ХГУ</h1>
-  
-  <p>
-    <b>Твой университет в кармане</b>
-  </p>
-
   <p>
     <a href="https://github.com/PRO100BYTE/MyKHSU/releases">
       <img src="https://img.shields.io/badge/версия-2.2.9-blue?style=flat-square" alt="Версия" />
@@ -27,6 +21,8 @@
     </a>
   </p>
 </div>
+
+# Мой ИТИ ХГУ - Твой университет в кармане
 
 ---
 
@@ -66,7 +62,7 @@
 
 ### Предварительные требования
 - Node.js
-- npm или yarn
+- npm
 - Git
 
 ### Установка и запуск
