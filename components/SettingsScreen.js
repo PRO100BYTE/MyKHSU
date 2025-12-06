@@ -30,6 +30,8 @@ const SettingsScreen = ({ theme, accentColor, setTheme, setAccentColor, onSchedu
   const textColor = theme === 'light' ? '#111827' : '#ffffff';
   const placeholderColor = theme === 'light' ? '#6b7280' : '#9ca3af';
   const colors = ACCENT_COLORS[accentColor];
+  const borderColor = theme === 'light' ? '#e5e7eb' : '#374151';
+  const hintBgColor = theme === 'light' ? '#f9fafb' : '#2d3748';
 
   // Сообщения для пасхалки
   const easterEggMessages = [
@@ -396,18 +398,30 @@ const SettingsScreen = ({ theme, accentColor, setTheme, setAccentColor, onSchedu
           {easterEggActive && secretMessage && (
             <View style={{ 
               marginTop: 12, 
-              padding: 8, 
-              backgroundColor: colors.light, 
+              padding: 12, 
+              backgroundColor: hintBgColor, 
               borderRadius: 8,
+              flexDirection: 'row',
               alignItems: 'center',
+              justifyContent: 'center',
+              marginBottom: 16,
+              borderWidth: 1,
+              borderColor: borderColor,
+              shadowColor: '#000',
+              shadowOffset: { width: 0, height: 1 },
+              shadowOpacity: theme === 'light' ? 0.05 : 0.2,
+              shadowRadius: 2,
+              elevation: 2,
+              width: '100%'
             }}>
               <Icon name="sparkles" size={16} color={colors.primary} />
               <Text style={{ 
                 color: colors.primary, 
-                fontSize: 10, 
-                marginTop: 4,
-                fontFamily: 'Montserrat_500Medium',
-                textAlign: 'center'
+                marginLeft: 8, 
+                fontFamily: 'Montserrat_400Regular', 
+                textAlign: 'center',
+                flex: 1,
+                fontSize: 12
               }}>
                 {secretMessage}
               </Text>
