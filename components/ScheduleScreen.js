@@ -1,5 +1,17 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, StyleSheet, Dimensions, RefreshControl, Animated, StatusBar } from 'react-native';
+import { 
+  View, 
+  Text, 
+  ScrollView, 
+  TouchableOpacity, 
+  ActivityIndicator, 
+  StyleSheet, 
+  Dimensions, 
+  RefreshControl, 
+  Animated, 
+  StatusBar,
+  useWindowDimensions
+} from 'react-native';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import { getWeekNumber, formatDate, getDateByWeekAndDay } from '../utils/dateUtils';
 import { ACCENT_COLORS, COURSES } from '../utils/constants';
@@ -15,7 +27,7 @@ import {
 import * as SecureStore from 'expo-secure-store';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const { width } = Dimensions.get('window');
+const { width, height } = Dimensions.get('window');
 
 const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings, onSettingsUpdate }) => {
   const [isTeacherMode, setIsTeacherMode] = useState(false);
@@ -37,9 +49,21 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
   const dateSlideAnim = useRef(new Animated.Value(0)).current;
   const dateOpacityAnim = useRef(new Animated.Value(1)).current;
   
+  // Анимация для заголовка при скролле
+  const headerScrollAnim = useRef(new Animated.Value(0)).current;
+  
   // Состояние для анимации
   const [isAnimating, setIsAnimating] = useState(false);
   const [animationDirection, setAnimationDirection] = useState('right');
+  
+  // Состояние для скролла
+  const [scrollOffset, setScrollOffset] = useState(0);
+  const [showFixedHeader, setShowFixedHeader] = useState(false);
+  const scrollViewRef = useRef(null);
+  const dayRefs = useRef({});
+  
+  // Получаем размеры окна для адаптации
+  const windowDimensions = useWindowDimensions();
 
   // Используем хук для логики студенческого режима
   const {
@@ -78,6 +102,108 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
       useNativeDriver: true,
     }).start();
   }, []);
+
+  // Функция для адаптации размеров на маленьких экранах
+  const getAdaptivePadding = () => {
+    if (windowDimensions.width < 350) return 12;
+    if (windowDimensions.width < 400) return 14;
+    return 16;
+  };
+
+  const getAdaptiveIconSize = (baseSize) => {
+    if (windowDimensions.width < 350) return baseSize * 0.9;
+    if (windowDimensions.width < 400) return baseSize * 0.95;
+    return baseSize;
+  };
+
+  // Функция для определения, нужно ли показывать фиксированный заголовок
+  const shouldShowFixedHeader = () => {
+    if (isTeacherMode) {
+      return true; // Преподавательский режим - только недельный
+    }
+    if (!isTeacherMode && viewMode === 'week') {
+      return true; // Студенческий недельный режим
+    }
+    return false; // Студенческий дневной режим
+  };
+
+  // Обработчик скролла
+  const handleScroll = (event) => {
+    const offsetY = event.nativeEvent.contentOffset.y;
+    setScrollOffset(offsetY);
+    
+    // Показываем фиксированный заголовок при скролле вниз
+    if (shouldShowFixedHeader()) {
+      const showHeader = offsetY > 100;
+      if (showHeader !== showFixedHeader) {
+        setShowFixedHeader(showHeader);
+        
+        // Анимация появления/скрытия заголовка
+        Animated.timing(headerScrollAnim, {
+          toValue: showHeader ? 1 : 0,
+          duration: 200,
+          useNativeDriver: true,
+        }).start();
+      }
+    }
+  };
+
+  // Функция для скролла к текущей дате
+  const scrollToCurrentDate = () => {
+    if (!shouldShowFixedHeader()) return;
+    
+    const today = new Date();
+    const todayFormatted = formatDate(today);
+    
+    // Проверяем, есть ли текущая дата в отображаемой неделе
+    const daysArray = isTeacherMode && teacherSchedule ? teacherSchedule.days : 
+                     scheduleData && scheduleData.days ? scheduleData.days : [];
+    
+    // Ищем день с текущей датой
+    let currentDayIndex = -1;
+    daysArray.forEach((day, index) => {
+      if (day && day.weekday) {
+        const dayDate = getDateByWeekAndDay(currentWeek, day.weekday);
+        if (formatDate(dayDate) === todayFormatted) {
+          currentDayIndex = index;
+        }
+      }
+    });
+    
+    if (currentDayIndex !== -1 && dayRefs.current[currentDayIndex] && scrollViewRef.current) {
+      // Используем requestAnimationFrame для плавного скролла
+      requestAnimationFrame(() => {
+        dayRefs.current[currentDayIndex].measure((x, y, width, height, pageX, pageY) => {
+          // Прокручиваем с отступом
+          const scrollPosition = Math.max(0, y - 150);
+          
+          if (scrollViewRef.current) {
+            scrollViewRef.current.scrollTo({
+              y: scrollPosition,
+              animated: true,
+            });
+          }
+        });
+      });
+    }
+  };
+
+  // Автоматический скролл при изменении режима или данных
+  useEffect(() => {
+    if (shouldShowFixedHeader() && (scheduleData || teacherSchedule)) {
+      // Небольшая задержка для гарантированной отрисовки компонентов
+      const timer = setTimeout(() => {
+        scrollToCurrentDate();
+      }, 300);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [viewMode, isTeacherMode, scheduleData, teacherSchedule, currentWeek]);
+
+  // Сброс refs при изменении данных
+  useEffect(() => {
+    dayRefs.current = {};
+  }, [scheduleData, teacherSchedule]);
 
   const bgColor = theme === 'light' ? '#f3f4f6' : '#111827';
   const cardBg = theme === 'light' ? '#ffffff' : '#1f2937';
@@ -432,7 +558,7 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
   const weekdays = ["Понедельник", "Вторник", "Среда", "Четверг", "Пятница", "Суббота", "Воскресенье"];
 
   // Рендер дня расписания
-  const renderDaySchedule = (day, weekNumber = currentWeek) => {
+  const renderDaySchedule = (day, weekNumber = currentWeek, index) => {
     if (!day || !day.lessons) return null;
     
     const date = getDateByWeekAndDay(weekNumber, day.weekday);
@@ -440,6 +566,9 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
     
     return (
       <View 
+        ref={ref => {
+          if (ref) dayRefs.current[index] = ref;
+        }}
         key={day.weekday} 
         style={[{ 
           backgroundColor: cardBg, 
@@ -453,16 +582,27 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
           borderWidth: 2
         } : {}]}
       >
-        <Text style={{ fontSize: 18, fontWeight: 'bold', color: colors.primary, marginBottom: 4, fontFamily: 'Montserrat_600SemiBold' }}>
+        <Text style={{ 
+          fontSize: 18, 
+          fontWeight: '600', 
+          color: colors.primary, 
+          marginBottom: 4, 
+          fontFamily: 'Montserrat_600SemiBold' 
+        }}>
           {weekdays[day.weekday - 1]}
           {isCurrent && ' (Сегодня)'}
         </Text>
-        <Text style={{ color: placeholderColor, marginBottom: 12, fontFamily: 'Montserrat_400Regular' }}>
+        <Text style={{ 
+          color: placeholderColor, 
+          marginBottom: 12, 
+          fontSize: 14,
+          fontFamily: 'Montserrat_400Regular' 
+        }}>
           {formatDate(date)}
         </Text>
 
         {day.lessons && day.lessons.length > 0 ? (
-          day.lessons.map((lesson, index) => {
+          day.lessons.map((lesson, lessonIndex) => {
             if (!lesson) return null;
             
             const pairTime = getTimeForLesson(lesson.time);
@@ -473,7 +613,7 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
             
             return (
               <View 
-                key={lesson.id || index} 
+                key={lesson.id || lessonIndex} 
                 style={[{ 
                   paddingVertical: 12, 
                   borderTopWidth: 1, 
@@ -483,25 +623,45 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
               >
                 <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
                   <Icon name={typeIcon.icon} size={16} color={typeIcon.color} />
-                  <Text style={{ color: placeholderColor, fontSize: 14, fontFamily: 'Montserrat_400Regular', marginLeft: 8 }}>
+                  <Text style={{ 
+                    color: placeholderColor, 
+                    fontSize: 14, 
+                    fontFamily: 'Montserrat_400Regular', 
+                    marginLeft: 8 
+                  }}>
                     Пара №{lesson.time}
                   </Text>
                 </View>
                 
-                <Text style={{ fontWeight: '600', color: textColor, fontSize: 16, fontFamily: 'Montserrat_500Medium' }}>
+                <Text style={{ 
+                  fontWeight: '600', 
+                  color: textColor, 
+                  fontSize: 16, 
+                  fontFamily: 'Montserrat_500Medium' 
+                }}>
                   {lesson.subject} ({lesson.type_lesson})
                 </Text>
                 
                 <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 8 }}>
                   <Icon name="person-outline" size={14} color={placeholderColor} />
-                  <Text style={{ color: textColor, marginLeft: 8, fontSize: 14, fontFamily: 'Montserrat_400Regular' }}>
+                  <Text style={{ 
+                    color: textColor, 
+                    marginLeft: 8, 
+                    fontSize: 14, 
+                    fontFamily: 'Montserrat_400Regular' 
+                  }}>
                     {lesson.teacher}
                   </Text>
                 </View>
                 
                 <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
                   <Icon name="location-outline" size={14} color={placeholderColor} />
-                  <Text style={{ color: textColor, marginLeft: 8, fontSize: 14, fontFamily: 'Montserrat_400Regular' }}>
+                  <Text style={{ 
+                    color: textColor, 
+                    marginLeft: 8, 
+                    fontSize: 14, 
+                    fontFamily: 'Montserrat_400Regular' 
+                  }}>
                     Аудитория: {lesson.auditory}
                   </Text>
                 </View>
@@ -509,7 +669,13 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
                 {isTeacherMode && lesson.group && Array.isArray(lesson.group) && lesson.group.length > 0 && (
                   <View style={{ flexDirection: 'row', alignItems: 'flex-start', marginTop: 4 }}>
                     <Icon name="people-outline" size={14} color={placeholderColor} style={{ marginTop: 2 }} />
-                    <Text style={{ color: textColor, marginLeft: 8, fontSize: 14, fontFamily: 'Montserrat_400Regular', flex: 1 }}>
+                    <Text style={{ 
+                      color: textColor, 
+                      marginLeft: 8, 
+                      fontSize: 14, 
+                      fontFamily: 'Montserrat_400Regular', 
+                      flex: 1 
+                    }}>
                       Группы: {lesson.group.join(', ')}
                     </Text>
                   </View>
@@ -518,7 +684,12 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
                 {pairTime && (
                   <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
                     <Icon name="time-outline" size={14} color={placeholderColor} />
-                    <Text style={{ color: placeholderColor, marginLeft: 8, fontSize: 14, fontFamily: 'Montserrat_400Regular' }}>
+                    <Text style={{ 
+                      color: placeholderColor, 
+                      marginLeft: 8, 
+                      fontSize: 14, 
+                      fontFamily: 'Montserrat_400Regular' 
+                    }}>
                       {pairTime.time_start} - {pairTime.time_end}
                     </Text>
                   </View>
@@ -527,7 +698,14 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
             );
           })
         ) : (
-          <Text style={{ color: placeholderColor, marginTop: 12, fontFamily: 'Montserrat_400Regular' }}>Занятий нет</Text>
+          <Text style={{ 
+            color: placeholderColor, 
+            marginTop: 12, 
+            fontSize: 14,
+            fontFamily: 'Montserrat_400Regular' 
+          }}>
+            Занятий нет
+          </Text>
         )}
       </View>
     );
@@ -555,10 +733,21 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
           borderColor
         }}
       >
-        <Text style={{ fontSize: 18, fontWeight: 'bold', color: colors.primary, marginBottom: 4, fontFamily: 'Montserrat_600SemiBold' }}>
+        <Text style={{ 
+          fontSize: 18, 
+          fontWeight: '600', 
+          color: colors.primary, 
+          marginBottom: 4, 
+          fontFamily: 'Montserrat_600SemiBold' 
+        }}>
           {weekdays[weekday - 1]}
         </Text>
-        <Text style={{ color: placeholderColor, marginBottom: 12, fontFamily: 'Montserrat_400Regular' }}>
+        <Text style={{ 
+          color: placeholderColor, 
+          marginBottom: 12, 
+          fontSize: 14,
+          fontFamily: 'Montserrat_400Regular' 
+        }}>
           {formatDate(currentDate)}
         </Text>
 
@@ -583,25 +772,45 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
               >
                 <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
                   <Icon name={typeIcon.icon} size={16} color={typeIcon.color} />
-                  <Text style={{ color: placeholderColor, fontSize: 14, fontFamily: 'Montserrat_400Regular', marginLeft: 8 }}>
+                  <Text style={{ 
+                    color: placeholderColor, 
+                    fontSize: 14, 
+                    fontFamily: 'Montserrat_400Regular', 
+                    marginLeft: 8 
+                  }}>
                     Пара №{lesson.time}
                   </Text>
                 </View>
                 
-                <Text style={{ fontWeight: '600', color: textColor, fontSize: 16, fontFamily: 'Montserrat_500Medium' }}>
+                <Text style={{ 
+                  fontWeight: '600', 
+                  color: textColor, 
+                  fontSize: 16, 
+                  fontFamily: 'Montserrat_500Medium' 
+                }}>
                   {lesson.subject} ({lesson.type_lesson})
                 </Text>
                 
                 <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 8 }}>
                   <Icon name="person-outline" size={14} color={placeholderColor} />
-                  <Text style={{ color: textColor, marginLeft: 8, fontSize: 14, fontFamily: 'Montserrat_400Regular' }}>
+                  <Text style={{ 
+                    color: textColor, 
+                    marginLeft: 8, 
+                    fontSize: 14, 
+                    fontFamily: 'Montserrat_400Regular' 
+                  }}>
                     {lesson.teacher}
                   </Text>
                 </View>
                 
                 <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
                   <Icon name="location-outline" size={14} color={placeholderColor} />
-                  <Text style={{ color: textColor, marginLeft: 8, fontSize: 14, fontFamily: 'Montserrat_400Regular' }}>
+                  <Text style={{ 
+                    color: textColor, 
+                    marginLeft: 8, 
+                    fontSize: 14, 
+                    fontFamily: 'Montserrat_400Regular' 
+                  }}>
                     Аудитория: {lesson.auditory}
                   </Text>
                 </View>
@@ -609,7 +818,12 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
                 {pairTime && (
                   <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
                     <Icon name="time-outline" size={14} color={placeholderColor} />
-                    <Text style={{ color: placeholderColor, marginLeft: 8, fontSize: 14, fontFamily: 'Montserrat_400Regular' }}>
+                    <Text style={{ 
+                      color: placeholderColor, 
+                      marginLeft: 8, 
+                      fontSize: 14, 
+                      fontFamily: 'Montserrat_400Regular' 
+                    }}>
                       {pairTime.time_start} - {pairTime.time_end}
                     </Text>
                   </View>
@@ -618,9 +832,149 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
             );
           })
         ) : (
-          <Text style={{ color: placeholderColor, marginTop: 12, fontFamily: 'Montserrat_400Regular' }}>Занятий нет</Text>
+          <Text style={{ 
+            color: placeholderColor, 
+            marginTop: 12, 
+            fontSize: 14,
+            fontFamily: 'Montserrat_400Regular' 
+          }}>
+            Занятий нет
+          </Text>
         )}
       </View>
+    );
+  };
+
+  // Рендер фиксированного заголовка
+  const renderFixedHeader = () => {
+    if (!shouldShowFixedHeader()) return null;
+    
+    const headerTranslateY = headerScrollAnim.interpolate({
+      inputRange: [0, 1],
+      outputRange: [-60, 0],
+    });
+    
+    const headerOpacity = headerScrollAnim.interpolate({
+      inputRange: [0, 1],
+      outputRange: [0, 1],
+    });
+    
+    return (
+      <Animated.View
+        style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          height: 60,
+          backgroundColor: cardBg,
+          borderBottomWidth: 1,
+          borderBottomColor: borderColor,
+          zIndex: 1000,
+          transform: [{ translateY: headerTranslateY }],
+          opacity: headerOpacity,
+          paddingHorizontal: getAdaptivePadding(),
+          justifyContent: 'center',
+        }}
+      >
+        <View style={{ 
+          flexDirection: 'row', 
+          alignItems: 'center', 
+          justifyContent: 'space-between',
+          width: '100%' 
+        }}>
+          <View style={{ flex: 1, marginRight: 8 }}>
+            {isTeacherMode ? (
+              <>
+                <Text 
+                  numberOfLines={1}
+                  ellipsizeMode="tail"
+                  style={{ 
+                    fontSize: 14, 
+                    fontWeight: '600', 
+                    color: textColor, 
+                    fontFamily: 'Montserrat_600SemiBold' 
+                  }}
+                >
+                  Расписание преподавателя
+                </Text>
+                <Text 
+                  numberOfLines={1}
+                  ellipsizeMode="tail"
+                  style={{ 
+                    fontSize: 12, 
+                    color: colors.primary, 
+                    marginTop: 2,
+                    fontFamily: 'Montserrat_500Medium' 
+                  }}
+                >
+                  {teacherName || 'ФИО не указано'}
+                </Text>
+              </>
+            ) : (
+              <>
+                <Text 
+                  numberOfLines={1}
+                  ellipsizeMode="tail"
+                  style={{ 
+                    fontSize: 14, 
+                    fontWeight: '600', 
+                    color: textColor, 
+                    fontFamily: 'Montserrat_600SemiBold' 
+                  }}
+                >
+                  Расписание для {selectedGroup || 'группы не выбрана'}
+                </Text>
+                <Text 
+                  numberOfLines={1}
+                  ellipsizeMode="tail"
+                  style={{ 
+                    fontSize: 12, 
+                    color: placeholderColor, 
+                    marginTop: 2,
+                    fontFamily: 'Montserrat_400Regular' 
+                  }}
+                >
+                  {availableCourses.find(c => c.id === course)?.label || `Курс ${course}`}
+                </Text>
+              </>
+            )}
+          </View>
+          
+          <View style={{ flexDirection: 'row', alignItems: 'center', flexShrink: 0 }}>
+            <TouchableOpacity 
+              onPress={() => changeWeek(-1)} 
+              style={{ padding: 8 }}
+              disabled={isAnimating}
+            >
+              <Icon name="chevron-back" size={getAdaptiveIconSize(24)} color={isAnimating ? placeholderColor : colors.primary} />
+            </TouchableOpacity>
+            
+            <Text 
+              numberOfLines={1}
+              style={{ 
+                color: textColor, 
+                fontWeight: '500', 
+                marginHorizontal: 8, 
+                fontSize: 14,
+                fontFamily: 'Montserrat_500Medium',
+                minWidth: 80,
+                textAlign: 'center'
+              }}
+            >
+              Неделя {currentWeek}
+            </Text>
+            
+            <TouchableOpacity 
+              onPress={() => changeWeek(1)} 
+              style={{ padding: 8 }}
+              disabled={isAnimating}
+            >
+              <Icon name="chevron-forward" size={getAdaptiveIconSize(24)} color={isAnimating ? placeholderColor : colors.primary} />
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Animated.View>
     );
   };
 
@@ -629,10 +983,20 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
     if (isTeacherMode) {
       return (
         <View style={{ alignItems: 'center', marginBottom: 16 }}>
-          <Text style={{ fontSize: 20, fontWeight: 'bold', color: textColor, fontFamily: 'Montserrat_600SemiBold' }}>
+          <Text style={{ 
+            fontSize: 20, 
+            fontWeight: '600', 
+            color: textColor, 
+            fontFamily: 'Montserrat_600SemiBold' 
+          }}>
             Расписание преподавателя
           </Text>
-          <Text style={{ color: colors.primary, marginTop: 4, fontFamily: 'Montserrat_500Medium' }}>
+          <Text style={{ 
+            color: colors.primary, 
+            marginTop: 4, 
+            fontSize: 16,
+            fontFamily: 'Montserrat_500Medium' 
+          }}>
             {teacherName || 'ФИО не указано'}
           </Text>
         </View>
@@ -641,7 +1005,13 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
     
     return (
       <View style={{ marginBottom: 16 }}>
-        <Text style={{ color: textColor, fontWeight: '500', textAlign: 'center', fontFamily: 'Montserrat_500Medium' }}>
+        <Text style={{ 
+          color: textColor, 
+          fontWeight: '500', 
+          textAlign: 'center', 
+          fontSize: 16,
+          fontFamily: 'Montserrat_500Medium' 
+        }}>
           Сегодня: {formatDate(new Date())}
         </Text>
       </View>
@@ -652,8 +1022,24 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
   const renderControls = () => {
     if (isTeacherMode) {
       return (
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-          <Text style={{ color: textColor, fontWeight: '500', fontFamily: 'Montserrat_500Medium' }}>
+        <View style={{ 
+          flexDirection: 'row', 
+          justifyContent: 'space-between', 
+          alignItems: 'center', 
+          marginBottom: 16
+        }}>
+          <Text 
+            numberOfLines={1}
+            ellipsizeMode="tail"
+            style={{ 
+              color: textColor, 
+              fontWeight: '500', 
+              fontSize: 16,
+              fontFamily: 'Montserrat_500Medium',
+              flex: 1,
+              marginRight: 8
+            }}
+          >
             Недельное расписание
           </Text>
           
@@ -663,6 +1049,7 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
               alignItems: 'center',
               transform: [{ translateX: dateSlideAnim }],
               opacity: dateOpacityAnim,
+              flexShrink: 0
             }}
           >
             <TouchableOpacity 
@@ -670,10 +1057,18 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
               style={{ padding: 8 }}
               disabled={isAnimating}
             >
-              <Icon name="chevron-back" size={24} color={isAnimating ? placeholderColor : colors.primary} />
+              <Icon name="chevron-back" size={getAdaptiveIconSize(24)} color={isAnimating ? placeholderColor : colors.primary} />
             </TouchableOpacity>
             
-            <Text style={{ color: textColor, fontWeight: '500', marginHorizontal: 8, fontFamily: 'Montserrat_500Medium' }}>
+            <Text style={{ 
+              color: textColor, 
+              fontWeight: '500', 
+              marginHorizontal: 8, 
+              fontSize: 16,
+              fontFamily: 'Montserrat_500Medium',
+              minWidth: 80,
+              textAlign: 'center'
+            }}>
               Неделя {currentWeek}
             </Text>
             
@@ -682,7 +1077,7 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
               style={{ padding: 8 }}
               disabled={isAnimating}
             >
-              <Icon name="chevron-forward" size={24} color={isAnimating ? placeholderColor : colors.primary} />
+              <Icon name="chevron-forward" size={getAdaptiveIconSize(24)} color={isAnimating ? placeholderColor : colors.primary} />
             </TouchableOpacity>
           </Animated.View>
         </View>
@@ -692,29 +1087,61 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
     // Студенческий режим
     if (selectedGroup || showCourseSelector) {
       return (
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-          <View style={{ flexDirection: 'row', backgroundColor: cardBg, borderRadius: 8, padding: 4 }}>
+        <View style={{ 
+          flexDirection: 'row', 
+          justifyContent: 'space-between', 
+          alignItems: 'center', 
+          marginBottom: 16
+        }}>
+          <View style={{ 
+            flexDirection: 'row', 
+            backgroundColor: cardBg, 
+            borderRadius: 8, 
+            padding: 4,
+            marginRight: 8,
+            flexShrink: 0
+          }}>
             <TouchableOpacity
               onPress={() => setViewMode('day')}
               style={{
                 paddingVertical: 6,
                 paddingHorizontal: 12,
                 borderRadius: 6,
-                backgroundColor: viewMode === 'day' ? colors.primary : 'transparent'
+                backgroundColor: viewMode === 'day' ? colors.primary : 'transparent',
+                justifyContent: 'center'
               }}
             >
-              <Text style={{ color: viewMode === 'day' ? '#ffffff' : textColor, fontFamily: 'Montserrat_500Medium' }}>День</Text>
+              <Text style={{ 
+                color: viewMode === 'day' ? '#ffffff' : textColor, 
+                fontSize: 14,
+                fontFamily: 'Montserrat_500Medium' 
+              }}>
+                День
+              </Text>
             </TouchableOpacity>
             <TouchableOpacity
-              onPress={() => setViewMode('week')}
+              onPress={() => {
+                setViewMode('week');
+                // При переключении на недельный режим, сбрасываем скролл
+                setTimeout(() => {
+                  scrollToCurrentDate();
+                }, 100);
+              }}
               style={{
                 paddingVertical: 6,
                 paddingHorizontal: 12,
                 borderRadius: 6,
-                backgroundColor: viewMode === 'week' ? colors.primary : 'transparent'
+                backgroundColor: viewMode === 'week' ? colors.primary : 'transparent',
+                justifyContent: 'center'
               }}
             >
-              <Text style={{ color: viewMode === 'week' ? '#ffffff' : textColor, fontFamily: 'Montserrat_500Medium' }}>Неделя</Text>
+              <Text style={{ 
+                color: viewMode === 'week' ? '#ffffff' : textColor, 
+                fontSize: 14,
+                fontFamily: 'Montserrat_500Medium' 
+              }}>
+                Неделя
+              </Text>
             </TouchableOpacity>
           </View>
 
@@ -724,6 +1151,7 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
               alignItems: 'center',
               transform: [{ translateX: dateSlideAnim }],
               opacity: dateOpacityAnim,
+              flexShrink: 0
             }}
           >
             <TouchableOpacity
@@ -731,10 +1159,18 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
               style={{ padding: 8 }}
               disabled={isAnimating}
             >
-              <Icon name="chevron-back" size={24} color={isAnimating ? placeholderColor : colors.primary} />
+              <Icon name="chevron-back" size={getAdaptiveIconSize(24)} color={isAnimating ? placeholderColor : colors.primary} />
             </TouchableOpacity>
             
-            <Text style={{ color: textColor, fontWeight: '500', marginHorizontal: 8, fontFamily: 'Montserrat_500Medium' }}>
+            <Text style={{ 
+              color: textColor, 
+              fontWeight: '500', 
+              marginHorizontal: 8, 
+              fontSize: 14,
+              fontFamily: 'Montserrat_500Medium',
+              minWidth: 120,
+              textAlign: 'center'
+            }}>
               {viewMode === 'day' ? formatDate(currentDate) : `Неделя ${currentWeek}`}
             </Text>
             
@@ -743,7 +1179,7 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
               style={{ padding: 8 }}
               disabled={isAnimating}
             >
-              <Icon name="chevron-forward" size={24} color={isAnimating ? placeholderColor : colors.primary} />
+              <Icon name="chevron-forward" size={getAdaptiveIconSize(24)} color={isAnimating ? placeholderColor : colors.primary} />
             </TouchableOpacity>
           </Animated.View>
         </View>
@@ -762,11 +1198,17 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
       return (
         <View>
           {teacherSchedule && teacherSchedule.days ? (
-            teacherSchedule.days.map(day => 
-              day && day.lessons ? renderDaySchedule(day, currentWeek) : null
+            teacherSchedule.days.map((day, index) => 
+              day && day.lessons ? renderDaySchedule(day, currentWeek, index) : null
             )
           ) : (
-            <Text style={{ textAlign: 'center', color: placeholderColor, marginTop: 20, fontFamily: 'Montserrat_400Regular' }}>
+            <Text style={{ 
+              textAlign: 'center', 
+              color: placeholderColor, 
+              marginTop: 20, 
+              fontSize: 16,
+              fontFamily: 'Montserrat_400Regular' 
+            }}>
               {teacherName ? 'Расписание не найдено' : 'Укажите ФИО преподавателя в настройках'}
             </Text>
           )}
@@ -782,21 +1224,36 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
           return (
             <View>
               <View style={{ alignItems: 'center', marginBottom: 16 }}>
-                <Text style={{ fontSize: 20, fontWeight: 'bold', color: textColor, fontFamily: 'Montserrat_600SemiBold' }}>
+                <Text style={{ 
+                  fontSize: 20, 
+                  fontWeight: '600', 
+                  color: textColor, 
+                  fontFamily: 'Montserrat_600SemiBold' 
+                }}>
                   Расписание для {selectedGroup}
                 </Text>
-                <Text style={{ color: placeholderColor, marginTop: 4, fontFamily: 'Montserrat_400Regular' }}>
+                <Text style={{ 
+                  color: placeholderColor, 
+                  marginTop: 4, 
+                  fontSize: 14,
+                  fontFamily: 'Montserrat_400Regular' 
+                }}>
                   {availableCourses.find(c => c.id === course)?.label || `Курс ${course}`}
                 </Text>
                 {scheduleData.dates && (
-                  <Text style={{ color: placeholderColor, marginTop: 4, fontFamily: 'Montserrat_400Regular' }}>
+                  <Text style={{ 
+                    color: placeholderColor, 
+                    marginTop: 4, 
+                    fontSize: 14,
+                    fontFamily: 'Montserrat_400Regular' 
+                  }}>
                     Неделя: {scheduleData.week_number} ({scheduleData.dates.date_start} - {scheduleData.dates.date_end})
                   </Text>
                 )}
               </View>
 
-              {scheduleData.days.map(day => 
-                day && day.lessons ? renderDaySchedule(day) : null
+              {scheduleData.days.map((day, index) => 
+                day && day.lessons ? renderDaySchedule(day, currentWeek, index) : null
               )}
             </View>
           );
@@ -804,10 +1261,20 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
           return (
             <View>
               <View style={{ alignItems: 'center', marginBottom: 16 }}>
-                <Text style={{ fontSize: 20, fontWeight: 'bold', color: textColor, fontFamily: 'Montserrat_600SemiBold' }}>
+                <Text style={{ 
+                  fontSize: 20, 
+                  fontWeight: '600', 
+                  color: textColor, 
+                  fontFamily: 'Montserrat_600SemiBold' 
+                }}>
                   Расписание для {selectedGroup}
                 </Text>
-                <Text style={{ color: placeholderColor, marginTop: 4, fontFamily: 'Montserrat_400Regular' }}>
+                <Text style={{ 
+                  color: placeholderColor, 
+                  marginTop: 4, 
+                  fontSize: 14,
+                  fontFamily: 'Montserrat_400Regular' 
+                }}>
                   {availableCourses.find(c => c.id === course)?.label || `Курс ${course}`}
                 </Text>
               </View>
@@ -819,7 +1286,13 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
       
       if (!selectedGroup && groups.length > 0 && showCourseSelector) {
         return (
-          <Text style={{ textAlign: 'center', color: placeholderColor, marginTop: 20, fontFamily: 'Montserrat_400Regular' }}>
+          <Text style={{ 
+            textAlign: 'center', 
+            color: placeholderColor, 
+            marginTop: 20, 
+            fontSize: 16,
+            fontFamily: 'Montserrat_400Regular' 
+          }}>
             Выберите группу для отображения расписания
           </Text>
         );
@@ -827,7 +1300,13 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
 
       if (scheduleData && !loadingSchedule) {
         return (
-          <Text style={{ textAlign: 'center', color: placeholderColor, marginTop: 20, fontFamily: 'Montserrat_400Regular' }}>
+          <Text style={{ 
+            textAlign: 'center', 
+            color: placeholderColor, 
+            marginTop: 20, 
+            fontSize: 16,
+            fontFamily: 'Montserrat_400Regular' 
+          }}>
             На {viewMode === 'day' ? 'этот день' : 'эту неделю'} занятий нет.
           </Text>
         );
@@ -835,7 +1314,13 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
 
       if (!showCourseSelector && !selectedGroup && externalSettings?.group) {
         return (
-          <Text style={{ textAlign: 'center', color: placeholderColor, marginTop: 20, fontFamily: 'Montserrat_400Regular' }}>
+          <Text style={{ 
+            textAlign: 'center', 
+            color: placeholderColor, 
+            marginTop: 20, 
+            fontSize: 16,
+            fontFamily: 'Montserrat_400Regular' 
+          }}>
             Загрузка расписания для группы {externalSettings.group}...
           </Text>
         );
@@ -875,8 +1360,13 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
         barStyle={theme === 'light' ? 'dark-content' : 'light-content'}
         backgroundColor={bgColor}
       />
+      
+      {/* Фиксированный заголовок */}
+      {renderFixedHeader()}
+      
       <ScrollView 
-        style={{ flex: 1, padding: 16 }}
+        ref={scrollViewRef}
+        style={{ flex: 1, padding: getAdaptivePadding() }}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -885,6 +1375,12 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
             tintColor={colors.primary}
           />
         }
+        onScroll={handleScroll}
+        scrollEventThrottle={16}
+        contentContainerStyle={{ 
+          paddingTop: shouldShowFixedHeader() ? 60 : 0,
+          minHeight: windowDimensions.height
+        }}
       >
         {showCachedData && (
           <View style={{ 
@@ -909,7 +1405,8 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
               marginLeft: 8, 
               fontFamily: 'Montserrat_400Regular', 
               textAlign: 'center',
-              flex: 1
+              flex: 1,
+              fontSize: 14
             }}>
               {cacheInfo?.source === 'stale_cache' ? 'Показаны ранее загруженные данные' : 'Показаны кэшированные данные'}
             </Text>
@@ -987,13 +1484,15 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
                       borderWidth: 1,
                       borderColor: selectedGroup === group ? colors.primary : borderColor,
                       justifyContent: 'center',
-                      alignItems: 'center'
+                      alignItems: 'center',
+                      minWidth: windowDimensions.width < 400 ? 90 : 100
                     }}
                   >
                     <Text style={{ 
                       color: selectedGroup === group ? '#ffffff' : textColor,
                       fontFamily: 'Montserrat_500Medium',
-                      textAlign: 'center'
+                      textAlign: 'center',
+                      fontSize: 14
                     }}>
                       {group}
                     </Text>
@@ -1028,7 +1527,8 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
               marginLeft: 8, 
               fontFamily: 'Montserrat_400Regular', 
               textAlign: 'center',
-              flex: 1
+              flex: 1,
+              fontSize: 14
             }}>
               Показано расписание для группы {selectedGroup}
             </Text>
@@ -1053,7 +1553,8 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
                 color: colors.primary, 
                 textDecorationLine: 'underline', 
                 fontFamily: 'Montserrat_500Medium',
-                textAlign: 'center'
+                textAlign: 'center',
+                fontSize: 14
               }}>
                 Изменить
               </Text>
@@ -1091,7 +1592,8 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
               color: colors.primary, 
               marginTop: 8, 
               textAlign: 'center', 
-              fontFamily: 'Montserrat_400Regular' 
+              fontFamily: 'Montserrat_400Regular',
+              fontSize: 14
             }}>
               Нет подключения к интернету. Показаны ранее загруженные данные.
             </Text>
