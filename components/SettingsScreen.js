@@ -1,16 +1,199 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, Alert, StyleSheet, Animated, StatusBar } from 'react-native';
+import { 
+  View, 
+  Text, 
+  ScrollView, 
+  TouchableOpacity, 
+  Alert, 
+  StyleSheet, 
+  Animated, 
+  StatusBar,
+  Dimensions
+} from 'react-native';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as SecureStore from 'expo-secure-store';
-import * as WebBrowser from 'expo-web-browser';
 import * as Linking from 'expo-linking';
 import AppearanceSettingsSheet from './AppearanceSettingsSheet';
 import AboutModal from './AboutModal';
 import NotificationSettingsModal from './NotificationSettingsModal';
 import ScheduleFormatModal from './ScheduleFormatModal';
 import { ACCENT_COLORS, APP_VERSION, APP_DEVELOPERS, APP_SUPPORTERS, GITHUB_REPO_URL, BUILD_VER, BUILD_DATE } from '../utils/constants';
-import mapCache from '../utils/mapCache';
+
+const { width, height } = Dimensions.get('window');
+
+const ConfettiParticle = ({ particle, theme, colors }) => {
+  const { 
+    id, 
+    emoji, 
+    x, 
+    y, 
+    rotateAnim, 
+    fallAnim, 
+    swingAnim, 
+    opacityAnim, 
+    size, 
+    startDelay 
+  } = particle;
+
+  // Интерполяции для анимаций
+  const rotateInterpolate = rotateAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['0deg', '1080deg']
+  });
+
+  const fallInterpolate = fallAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [y, height + 100]
+  });
+
+  const swingInterpolate = swingAnim.interpolate({
+    inputRange: [0, 0.5, 1],
+    outputRange: [0, x * 0.3, 0]
+  });
+
+  return (
+    <Animated.View
+      key={id}
+      style={{
+        position: 'absolute',
+        left: x,
+        top: y,
+        transform: [
+          { translateY: fallInterpolate },
+          { translateX: swingInterpolate },
+          { rotate: rotateInterpolate }
+        ],
+        opacity: opacityAnim,
+        zIndex: 1000,
+      }}
+    >
+      <Text style={{ 
+        fontSize: size,
+        color: colors.primary,
+        textShadowColor: theme === 'light' ? 'rgba(0,0,0,0.1)' : 'rgba(255,255,255,0.2)',
+        textShadowOffset: { width: 0, height: 1 },
+        textShadowRadius: 2,
+      }}>
+        {emoji}
+      </Text>
+    </Animated.View>
+  );
+};
+
+const Confetti = ({ show, theme, colors }) => {
+  const [particles, setParticles] = useState([]);
+
+  useEffect(() => {
+    if (show) {
+      createConfetti();
+    } else {
+      setParticles([]);
+    }
+  }, [show]);
+
+  const createConfetti = () => {
+    const emojis = ['🎉', '✨', '🌟', '⭐', '🎊', '🥳', '🎁', '🎈', '💫', '🔥', '💥', '🎇', '🎆', '🪅', '🪩'];
+    const newParticles = [];
+    const particleCount = 80; // Увеличим количество частиц
+    
+    for (let i = 0; i < particleCount; i++) {
+      // Случайная позиция по X (по всей ширине экрана)
+      const x = Math.random() * width;
+      // Начальная позиция Y (выше видимой области)
+      const y = -Math.random() * 100 - 50;
+      // Случайный размер
+      const size = Math.random() * 20 + 20; // 20-40px
+      // Случайная задержка
+      const startDelay = Math.random() * 1000;
+      // Случайная эмодзи
+      const emoji = emojis[Math.floor(Math.random() * emojis.length)];
+      
+      const particle = {
+        id: i,
+        emoji,
+        x,
+        y,
+        rotateAnim: new Animated.Value(0),
+        fallAnim: new Animated.Value(0),
+        swingAnim: new Animated.Value(0),
+        opacityAnim: new Animated.Value(1),
+        size,
+        startDelay
+      };
+      
+      newParticles.push(particle);
+      
+      // Запускаем анимации с задержкой
+      setTimeout(() => {
+        // Анимация вращения
+        Animated.timing(particle.rotateAnim, {
+          toValue: 1,
+          duration: Math.random() * 2000 + 3000, // 3-5 секунд
+          useNativeDriver: true,
+        }).start();
+        
+        // Анимация падения
+        Animated.timing(particle.fallAnim, {
+          toValue: 1,
+          duration: Math.random() * 2000 + 3000, // 3-5 секунд
+          useNativeDriver: true,
+          easing: Animated.quad, // Более естественное падение
+        }).start();
+        
+        // Анимация качания (свинга)
+        Animated.sequence([
+          Animated.timing(particle.swingAnim, {
+            toValue: 0.5,
+            duration: Math.random() * 1000 + 1000,
+            useNativeDriver: true,
+            easing: Animated.ease,
+          }),
+          Animated.timing(particle.swingAnim, {
+            toValue: 1,
+            duration: Math.random() * 1000 + 1000,
+            useNativeDriver: true,
+            easing: Animated.ease,
+          })
+        ]).start();
+        
+        // Анимация исчезновения
+        setTimeout(() => {
+          Animated.timing(particle.opacityAnim, {
+            toValue: 0,
+            duration: 500,
+            useNativeDriver: true,
+          }).start();
+        }, Math.random() * 1000 + 2000); // Исчезают через 2-3 секунды
+      }, startDelay);
+    }
+    
+    setParticles(newParticles);
+  };
+
+  if (!show || particles.length === 0) return null;
+
+  return (
+    <View style={{
+      position: 'absolute',
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      zIndex: 999,
+      pointerEvents: 'none',
+    }}>
+      {particles.map(particle => (
+        <ConfettiParticle 
+          key={particle.id} 
+          particle={particle} 
+          theme={theme} 
+          colors={colors} 
+        />
+      ))}
+    </View>
+  );
+};
 
 const SettingsScreen = ({ theme, accentColor, setTheme, setAccentColor, onScheduleSettingsChange, onTabbarSettingsChange }) => {
   const [appearanceSheetVisible, setAppearanceSheetVisible] = useState(false);
@@ -21,6 +204,7 @@ const SettingsScreen = ({ theme, accentColor, setTheme, setAccentColor, onSchedu
   const [versionTapCount, setVersionTapCount] = useState(0);
   const [easterEggActive, setEasterEggActive] = useState(false);
   const [secretMessage, setSecretMessage] = useState('');
+  const [showConfetti, setShowConfetti] = useState(false);
   
   // Анимация появления
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -73,6 +257,14 @@ const SettingsScreen = ({ theme, accentColor, setTheme, setAccentColor, onSchedu
       // Выбираем случайное сообщение
       const randomMessage = easterEggMessages[Math.floor(Math.random() * easterEggMessages.length)];
       setSecretMessage(randomMessage);
+      
+      // Запускаем конфетти
+      setShowConfetti(true);
+      
+      // Автоматически скрываем конфетти через 3.5 секунды
+      setTimeout(() => {
+        setShowConfetti(false);
+      }, 3500);
       
       // Показываем алерт с секретным сообщением
       Alert.alert(
@@ -192,6 +384,10 @@ const SettingsScreen = ({ theme, accentColor, setTheme, setAccentColor, onSchedu
         barStyle={theme === 'light' ? 'dark-content' : 'light-content'}
         backgroundColor={bgColor}
       />
+      
+      {/* Компонент конфетти */}
+      <Confetti show={showConfetti} theme={theme} colors={colors} />
+      
       <ScrollView style={{ padding: 16 }}>
         {/* Формат расписания */}
         <TouchableOpacity 
