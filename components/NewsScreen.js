@@ -257,16 +257,17 @@ const NewsScreen = ({ theme, accentColor, isNewYearMode }) => {
   }
 
   return (
-    <Animated.View style={{ flex: 1, backgroundColor: bgColor, opacity: fadeAnim }}>
-      <StatusBar 
-        barStyle={theme === 'light' ? 'dark-content' : 'light-content'}
-        backgroundColor={bgColor}
-      />
-      
+    <View style={{ flex: 1, backgroundColor: bgColor }}>
       {isNewYearMode && <Snowfall theme={theme} />}
-
-      <ScrollView 
-        contentContainerStyle={{ paddingTop: 16, paddingHorizontal: 16 }}
+      
+      <Animated.View style={{ flex: 1, opacity: fadeAnim }}>
+        <StatusBar 
+          barStyle={theme === 'light' ? 'dark-content' : 'light-content'}
+          backgroundColor={bgColor}
+        />
+        
+        <ScrollView 
+          contentContainerStyle={{ paddingTop: 16, paddingHorizontal: 16 }}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -409,6 +410,7 @@ const NewsScreen = ({ theme, accentColor, isNewYearMode }) => {
         </View>
       )}
     </Animated.View>
+    </View>
   );
 };
 

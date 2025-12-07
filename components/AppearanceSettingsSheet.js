@@ -3,7 +3,7 @@ import { View, Text, Modal, TouchableOpacity, ScrollView, StyleSheet, Switch } f
 import { Ionicons as Icon } from '@expo/vector-icons';
 import { useColorScheme } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
-import { ACCENT_COLORS } from '../utils/constants';
+import { ACCENT_COLORS, isNewYearPeriod } from '../utils/constants';
 
 const AppearanceSettingsSheet = ({ 
   visible, 
@@ -29,26 +29,13 @@ const AppearanceSettingsSheet = ({
   const [showTabbarLabels, setShowTabbarLabels] = useState(true);
   const [tabbarFontSize, setTabbarFontSize] = useState('medium');
   const [newYearMode, setNewYearMode] = useState(isNewYearMode);
-
-  // Функция для проверки новогоднего периода
-  const isNewYearPeriod = () => {
-    const today = new Date();
-    const month = today.getMonth() + 1;
-    const day = today.getDate();
-    
-    if (month === 12 || month === 1) {
-      if (month === 12 && day >= 1) return true;
-      if (month === 1 && day <= 31) return true;
-    }
-    return false;
-  };
-
-  const showNewYearOption = isNewYearPeriod();
+  const [showNewYearOption, setShowNewYearOption] = useState(false);
 
   useEffect(() => {
     if (visible) {
       setSelectedTheme(theme);
       setNewYearMode(isNewYearMode);
+      setShowNewYearOption(isNewYearPeriod());
       loadTabbarSettings();
     }
   }, [visible, theme, isNewYearMode]);
@@ -107,7 +94,7 @@ const AppearanceSettingsSheet = ({
     }
   };
 
-  const handleNewYearModeChange = async (value) => {
+  const handleNewYearModeChange = (value) => {
     setNewYearMode(value);
     if (onNewYearModeChange) {
       onNewYearModeChange(value);

@@ -375,21 +375,24 @@ const FreshmanScreen = ({ theme, accentColor, isNewYearMode }) => {
 
   return (
     <View style={{ flex: 1, backgroundColor: bgColor }}>
-      <StatusBar 
-        barStyle={theme === 'light' ? 'dark-content' : 'light-content'}
-        backgroundColor={bgColor}
-      />
       {isNewYearMode && <Snowfall theme={theme} />}
-      {renderCurrentScreen()}
+      
+      <View style={{ flex: 1 }}>
+        <StatusBar 
+          barStyle={theme === 'light' ? 'dark-content' : 'light-content'}
+          backgroundColor={bgColor}
+        />
+        {renderCurrentScreen()}
 
-      {/* Модальное окно заглушки */}
-      <UnderDevelopmentModal
-        visible={modalVisible}
-        onClose={() => setModalVisible(false)}
-        theme={theme}
-        accentColor={accentColor}
-        featureName="Информация о преподавателях"
-      />
+        {/* Модальное окно заглушки */}
+        <UnderDevelopmentModal
+          visible={modalVisible}
+          onClose={() => setModalVisible(false)}
+          theme={theme}
+          accentColor={accentColor}
+          featureName="Информация о преподавателях"
+        />
+      </View>
     </View>
   );
 };

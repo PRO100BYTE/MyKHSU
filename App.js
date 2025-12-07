@@ -19,7 +19,7 @@ import NotificationSettingsModal from './components/NotificationSettingsModal';
 import FreshmanScreen from './components/FreshmanScreen';
 
 // Импорт утилит
-import { ACCENT_COLORS, SCREENS } from './utils/constants';
+import { ACCENT_COLORS, SCREENS, isNewYearPeriod, getNewYearText } from './utils/constants';
 import * as Sentry from '@sentry/react-native';
 import notificationService from './utils/notificationService';
 import backgroundService from './utils/backgroundService';
@@ -89,32 +89,7 @@ const styles = StyleSheet.create({
   }
 });
 
-// Функция для проверки новогоднего периода
-const isNewYearPeriod = () => {
-  const today = new Date();
-  const month = today.getMonth() + 1; // январь = 1, декабрь = 12
-  const day = today.getDate();
-  
-  // Период с 1 декабря по 31 января
-  if (month === 12 || month === 1) {
-    if (month === 12 && day >= 1) return true;
-    if (month === 1 && day <= 31) return true;
-  }
-  return false;
-};
 
-// Функция для получения текущего года
-const getNewYear = () => {
-  const today = new Date();
-  const year = today.getFullYear();
-  // Если мы в январе, то поздравляем с текущим годом
-  // Если в декабре, то поздравляем со следующим годом
-  if (today.getMonth() === 0) { // январь
-    return year;
-  } else { // декабрь
-    return year + 1;
-  }
-};
 
 export default Sentry.wrap(function App() {
   let [fontsLoaded] = useFonts({
@@ -195,10 +170,10 @@ export default Sentry.wrap(function App() {
       
       // Устанавливаем текст для поздравления
       const today = new Date();
-      if (today.getMonth() === 0 && today.getDate() >= 1) { // Январь
-        setNewYearText(`С новым ${getNewYear()} годом!`);
+      if (today.getMonth() === 0) { // Январь
+        setNewYearText(`С новым ${today.getFullYear()} годом!`);
       } else if (today.getMonth() === 11) { // Декабрь
-        setNewYearText(`С наступающим ${getNewYear()} годом!`);
+        setNewYearText(`С наступающим ${today.getFullYear() + 1} годом!`);
       }
       
     } catch (error) {
@@ -295,6 +270,14 @@ export default Sentry.wrap(function App() {
   const handleNewYearModeChange = async (enabled) => {
     setIsNewYearMode(enabled);
     await SecureStore.setItemAsync('new_year_mode', enabled.toString());
+    
+    // Обновляем текст поздравления
+    const today = new Date();
+    if (today.getMonth() === 0) { // Январь
+      setNewYearText(`С новым ${today.getFullYear()} годом!`);
+    } else if (today.getMonth() === 11) { // Декабрь
+      setNewYearText(`С наступающим ${today.getFullYear() + 1} годом!`);
+    }
   };
 
   // Слушатель изменений системной темы

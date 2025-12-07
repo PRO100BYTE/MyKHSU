@@ -126,6 +126,7 @@ const ConnectionError = ({
   if (loading) {
     return (
       <View style={[styles.container, { backgroundColor: bgColor }]}>
+        {isNewYearMode && <Snowfall theme={theme} intensity={0.5} />}
         <View style={[styles.content, { backgroundColor: cardBg }]}>
           <ActivityIndicator size="large" color={colors.primary} />
           <Text style={[styles.title, { color: textColor, marginTop: 16 }]}>
@@ -140,7 +141,7 @@ const ConnectionError = ({
 
   return (
     <View style={[styles.container, { backgroundColor: bgColor }]}>
-      {isNewYearMode && <Snowfall theme={theme} />}
+      {isNewYearMode && <Snowfall theme={theme} intensity={0.5} />}
       <View style={[styles.content, { backgroundColor: cardBg }]}>
         <Icon name={config.icon} size={64} color={colors.primary} />
         <Text style={[styles.title, { color: textColor, marginTop: 16 }]}>

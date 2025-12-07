@@ -1122,34 +1122,35 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
   }
 
   return (
-    <Animated.View style={{ flex: 1, backgroundColor: bgColor, opacity: fadeAnim }}>
-      <StatusBar 
-        barStyle={theme === 'light' ? 'dark-content' : 'light-content'}
-        backgroundColor={bgColor}
-      />
+    <View style={{ flex: 1, backgroundColor: bgColor }}>
+      {/* Снегопад для новогоднего режима (на заднем плане) */}
+      {isNewYearMode && <Snowfall theme={theme} intensity={0.8} />}
       
-      {/* Снегопад для новогоднего режима */}
-      {isNewYearMode && <Snowfall theme={theme} intensity={0.7} />}
-      
-      {/* Фиксированный заголовок */}
-      {renderFixedHeader()}
-      
-      <ScrollView 
-        ref={scrollViewRef}
-        style={{ flex: 1, padding: 16 }}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={handleRefresh}
-            colors={[colors.primary]}
-            tintColor={colors.primary}
-          />
-        }
-        onScroll={handleScroll}
-        scrollEventThrottle={16}
-        contentContainerStyle={{ minHeight: height }}
-      >
-        {showCachedData && (
+      <Animated.View style={{ flex: 1, opacity: fadeAnim }}>
+        <StatusBar 
+          barStyle={theme === 'light' ? 'dark-content' : 'light-content'}
+          backgroundColor={bgColor}
+        />
+        
+        {/* Фиксированный заголовок */}
+        {renderFixedHeader()}
+        
+        <ScrollView 
+          ref={scrollViewRef}
+          style={{ flex: 1, padding: 16 }}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={handleRefresh}
+              colors={[colors.primary]}
+              tintColor={colors.primary}
+            />
+          }
+          onScroll={handleScroll}
+          scrollEventThrottle={16}
+          contentContainerStyle={{ minHeight: height }}
+        >
+          {showCachedData && (
           <View style={{ 
             backgroundColor: hintBgColor, 
             padding: 12, 
@@ -1362,6 +1363,7 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
         )}
       </ScrollView>
     </Animated.View>
+    </View>
   );
 };
 

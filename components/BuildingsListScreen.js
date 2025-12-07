@@ -253,15 +253,16 @@ const BuildingsListScreen = ({ theme, accentColor, onBuildingSelect, isNewYearMo
   };
 
   return (
-    <Animated.View style={{ flex: 1, backgroundColor: bgColor, opacity: fadeAnim }}>
-      <StatusBar 
-        barStyle={theme === 'light' ? 'dark-content' : 'light-content'}
-        backgroundColor={bgColor}
-      />
-      
+    <View style={{ flex: 1, backgroundColor: bgColor }}>
       {isNewYearMode && <Snowfall theme={theme} />}
+      
+      <Animated.View style={{ flex: 1, opacity: fadeAnim }}>
+        <StatusBar 
+          barStyle={theme === 'light' ? 'dark-content' : 'light-content'}
+          backgroundColor={bgColor}
+        />
 
-      <View style={{ flex: 1, padding: 16 }}>
+        <View style={{ flex: 1, padding: 16 }}>
         <View style={{ marginBottom: 20 }}>
           <Text style={{ 
             color: placeholderColor, 
@@ -372,6 +373,7 @@ const BuildingsListScreen = ({ theme, accentColor, onBuildingSelect, isNewYearMo
         </Animated.View>
       )}
     </Animated.View>
+    </View>
   );
 };
 

@@ -380,15 +380,16 @@ const SettingsScreen = ({ theme, accentColor, setTheme, setAccentColor, onSchedu
   };
 
   return (
-    <Animated.View style={{ flex: 1, backgroundColor: bgColor, opacity: fadeAnim }}>
-      <StatusBar 
-        barStyle={theme === 'light' ? 'dark-content' : 'light-content'}
-        backgroundColor={bgColor}
-      />
-      
+    <View style={{ flex: 1, backgroundColor: bgColor }}>
       {isNewYearMode && <Snowfall theme={theme} />}
+      
+      <Animated.View style={{ flex: 1, opacity: fadeAnim }}>
+        <StatusBar 
+          barStyle={theme === 'light' ? 'dark-content' : 'light-content'}
+          backgroundColor={bgColor}
+        />
 
-      {/* Компонент конфетти */}
+        {/* Компонент конфетти */}
       <Confetti show={showConfetti} theme={theme} colors={colors} />
       
       <ScrollView style={{ padding: 16 }}>
@@ -676,6 +677,7 @@ const SettingsScreen = ({ theme, accentColor, setTheme, setAccentColor, onSchedu
         />
       </ScrollView>
     </Animated.View>
+    </View>
   );
 };
 

@@ -658,16 +658,17 @@ const MapScreen = ({ theme, accentColor, isNewYearMode }) => {
   ] : [];
 
   return (
-    <Animated.View style={[styles.container, { opacity: fadeAnim }]}>
-      <StatusBar 
-        barStyle={theme === 'light' ? 'dark-content' : 'light-content'}
-        backgroundColor={bgColor}
-      />
-      
+    <View style={{ flex: 1, backgroundColor: bgColor }}>
       {/* Снегопад для новогоднего режима */}
       {isNewYearMode && <Snowfall theme={theme} intensity={0.5} />}
       
-      {/* Заголовок с кнопкой фильтров */}
+      <Animated.View style={[styles.container, { opacity: fadeAnim }]}>
+        <StatusBar 
+          barStyle={theme === 'light' ? 'dark-content' : 'light-content'}
+          backgroundColor={bgColor}
+        />
+        
+        {/* Заголовок с кнопкой фильтров */}
       <View style={[styles.header, { backgroundColor: cardBg }]}>
         <View style={styles.headerLeft}>
           <Text style={[styles.headerTitle, { color: textColor }]}>Корпуса ХГУ</Text>
@@ -948,6 +949,7 @@ const MapScreen = ({ theme, accentColor, isNewYearMode }) => {
         </Animated.View>
       )}
     </Animated.View>
+    </View>
   );
 };
 
