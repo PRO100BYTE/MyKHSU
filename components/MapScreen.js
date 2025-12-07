@@ -660,7 +660,7 @@ const MapScreen = ({ theme, accentColor, isNewYearMode }) => {
   return (
     <View style={{ flex: 1, backgroundColor: bgColor }}>
       {/* Снегопад для новогоднего режима */}
-      {isNewYearMode && <Snowfall theme={theme} intensity={0.5} />}
+      {isNewYearMode && <Snowfall theme={theme} intensity={0.8} />}
       
       <Animated.View style={[styles.container, { opacity: fadeAnim }]}>
         <StatusBar 

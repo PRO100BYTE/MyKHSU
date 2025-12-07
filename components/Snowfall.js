@@ -1,27 +1,29 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { View, StyleSheet, Animated, Dimensions } from 'react-native';
 
 const { width, height } = Dimensions.get('window');
 
 const Snowfall = ({ theme, intensity = 1 }) => {
-  const snowflakes = useRef([]);
+  const [snowflakes, setSnowflakes] = useState([]);
 
   // Количество снежинок в зависимости от интенсивности
   const snowflakeCount = Math.floor(80 * intensity);
   
   // Инициализация снежинок
   useEffect(() => {
-    const createSnowflake = (id) => {
-      const size = Math.random() * 6 + 3; // 3-9px
+    const newSnowflakes = [];
+    
+    for (let i = 0; i < snowflakeCount; i++) {
+      const size = Math.random() * 8 + 3; // 3-11px
       const x = Math.random() * width;
       const y = -Math.random() * 100;
-      const duration = Math.random() * 8000 + 12000; // 12-20 секунд
-      const delay = Math.random() * 3000;
-      const sway = Math.random() * 80 - 40;
+      const duration = Math.random() * 10000 + 10000; // 10-20 секунд
+      const delay = Math.random() * 5000;
+      const sway = Math.random() * 100 - 50;
       const opacity = Math.random() * 0.7 + 0.3;
       
-      return {
-        id,
+      const flake = {
+        id: i,
         size,
         x,
         y,
@@ -34,62 +36,63 @@ const Snowfall = ({ theme, intensity = 1 }) => {
         swayAnim: new Animated.Value(0),
         rotateAnim: new Animated.Value(0)
       };
-    };
-
-    // Инициализируем все снежинки
-    snowflakes.current = Array.from({ length: snowflakeCount }, (_, i) => createSnowflake(i));
-
-    // Анимация для каждой снежинки
-    snowflakes.current.forEach((flake) => {
-      // Анимация вращения
-      Animated.loop(
-        Animated.timing(flake.rotateAnim, {
-          toValue: 1,
-          duration: flake.duration * 0.5,
-          useNativeDriver: true,
-        })
-      ).start();
-
-      // Анимация качания
-      const swayAnimation = Animated.loop(
-        Animated.sequence([
-          Animated.timing(flake.swayAnim, {
-            toValue: 1,
-            duration: 3000 + Math.random() * 4000,
-            useNativeDriver: true,
-          }),
-          Animated.timing(flake.swayAnim, {
-            toValue: 0,
-            duration: 3000 + Math.random() * 4000,
-            useNativeDriver: true,
-          })
-        ])
-      );
-      swayAnimation.start();
-
-      // Функция для запуска падения
-      const startFall = () => {
-        Animated.sequence([
-          Animated.delay(flake.delay),
-          Animated.timing(flake.yAnim, {
-            toValue: height + 100,
-            duration: flake.duration,
-            useNativeDriver: true,
-          })
-        ]).start(() => {
-          // Сброс позиции и повтор
-          flake.yAnim.setValue(-100);
-          flake.xAnim.setValue(Math.random() * width);
-          startFall();
-        });
-      };
       
-      startFall();
-    });
+      newSnowflakes.push(flake);
+      
+      // Запуск анимации с задержкой
+      setTimeout(() => {
+        // Анимация вращения
+        Animated.loop(
+          Animated.timing(flake.rotateAnim, {
+            toValue: 1,
+            duration: flake.duration * 0.5,
+            useNativeDriver: true,
+          })
+        ).start();
 
+        // Анимация качания
+        const swayAnimation = Animated.loop(
+          Animated.sequence([
+            Animated.timing(flake.swayAnim, {
+              toValue: 1,
+              duration: 3000 + Math.random() * 4000,
+              useNativeDriver: true,
+            }),
+            Animated.timing(flake.swayAnim, {
+              toValue: 0,
+              duration: 3000 + Math.random() * 4000,
+              useNativeDriver: true,
+            })
+          ])
+        );
+        swayAnimation.start();
+
+        // Функция для падения
+        const startFall = () => {
+          Animated.sequence([
+            Animated.delay(flake.delay),
+            Animated.timing(flake.yAnim, {
+              toValue: height + 100,
+              duration: flake.duration,
+              useNativeDriver: true,
+            })
+          ]).start(() => {
+            // Сброс наверх
+            flake.yAnim.setValue(-100);
+            flake.xAnim.setValue(Math.random() * width);
+            startFall();
+          });
+        };
+        
+        startFall();
+      }, flake.delay);
+    }
+    
+    setSnowflakes(newSnowflakes);
+    
     // Очистка при размонтировании
     return () => {
-      snowflakes.current.forEach(flake => {
+      newSnowflakes.forEach(flake => {
         flake.yAnim.stopAnimation();
         flake.xAnim.stopAnimation();
         flake.swayAnim.stopAnimation();
@@ -98,9 +101,11 @@ const Snowfall = ({ theme, intensity = 1 }) => {
     };
   }, [snowflakeCount]);
 
+  if (snowflakes.length === 0) return null;
+
   return (
-    <View style={[styles.container, { zIndex: -1 }]} pointerEvents="none">
-      {snowflakes.current.map((flake) => {
+    <View style={[styles.container]} pointerEvents="none">
+      {snowflakes.map((flake) => {
         const swayTranslate = flake.swayAnim.interpolate({
           inputRange: [0, 1],
           outputRange: [0, flake.sway]
@@ -146,6 +151,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
+    zIndex: -1,
     overflow: 'hidden',
   },
   snowflake: {

@@ -17,7 +17,7 @@ const ConnectionError = ({
   cacheAvailable = false,
   customCacheButtonText,
   showFreshmanHint = false,
-  isNewYearMode
+  isNewYearMode = false
 }) => {
   const colors = ACCENT_COLORS[accentColor];
   const bgColor = theme === 'light' ? '#f3f4f6' : '#111827';

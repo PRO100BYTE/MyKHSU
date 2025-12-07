@@ -6,11 +6,9 @@ import { ACCENT_COLORS } from '../utils/constants';
 const { width, height } = Dimensions.get('window');
 
 const SplashScreen = ({ accentColor, theme, isNewYearMode, newYearText }) => {
-  // Защита от undefined - если accentColor не передан, используем green по умолчанию
   const safeAccentColor = accentColor || 'green';
   const colors = ACCENT_COLORS[safeAccentColor] || ACCENT_COLORS.green;
   
-  // Защита на случай, если colors все еще undefined
   const safeColors = colors || { primary: '#10b981', light: '#d1fae5' };
   
   const backgroundColor = theme === 'dark' ? '#111827' : '#f3f4f6';
@@ -32,7 +30,7 @@ const SplashScreen = ({ accentColor, theme, isNewYearMode, newYearText }) => {
     { icon: 'snow-outline', x: width * 0.2, y: height * 0.2, size: 35, delay: 0 },
     { icon: 'star-outline', x: width * 0.8, y: height * 0.3, size: 40, delay: 300 },
     { icon: 'gift-outline', x: width * 0.15, y: height * 0.6, size: 38, delay: 600 },
-    { icon: 'sparkles-outline', x: width * 0.85, y: height * 0.5, size: 32, delay: 900 },
+    { icon: 'sparkles', x: width * 0.85, y: height * 0.5, size: 32, delay: 900 },
     { icon: 'happy-outline', x: width * 0.3, y: height * 0.75, size: 36, delay: 1200 },
     { icon: 'wine-outline', x: width * 0.7, y: height * 0.7, size: 34, delay: 1500 },
   ];

@@ -375,7 +375,7 @@ const FreshmanScreen = ({ theme, accentColor, isNewYearMode }) => {
 
   return (
     <View style={{ flex: 1, backgroundColor: bgColor }}>
-      {isNewYearMode && <Snowfall theme={theme} />}
+      {isNewYearMode && <Snowfall theme={theme} intensity={0.8} />}
       
       <View style={{ flex: 1 }}>
         <StatusBar 
