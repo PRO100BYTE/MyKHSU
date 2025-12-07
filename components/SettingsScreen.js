@@ -19,6 +19,7 @@ import AboutModal from './AboutModal';
 import NotificationSettingsModal from './NotificationSettingsModal';
 import ScheduleFormatModal from './ScheduleFormatModal';
 import { ACCENT_COLORS, APP_VERSION, APP_DEVELOPERS, APP_SUPPORTERS, GITHUB_REPO_URL, BUILD_VER, BUILD_DATE } from '../utils/constants';
+import Snowfall from './Snowfall';
 
 const { width, height } = Dimensions.get('window');
 
@@ -195,7 +196,7 @@ const Confetti = ({ show, theme, colors }) => {
   );
 };
 
-const SettingsScreen = ({ theme, accentColor, setTheme, setAccentColor, onScheduleSettingsChange, onTabbarSettingsChange }) => {
+const SettingsScreen = ({ theme, accentColor, setTheme, setAccentColor, onScheduleSettingsChange, onTabbarSettingsChange, isNewYearMode }) => {
   const [appearanceSheetVisible, setAppearanceSheetVisible] = useState(false);
   const [aboutModalVisible, setAboutModalVisible] = useState(false);
   const [notificationModalVisible, setNotificationModalVisible] = useState(false);
@@ -385,6 +386,8 @@ const SettingsScreen = ({ theme, accentColor, setTheme, setAccentColor, onSchedu
         backgroundColor={bgColor}
       />
       
+      {isNewYearMode && <Snowfall theme={theme} />}
+
       {/* Компонент конфетти */}
       <Confetti show={showConfetti} theme={theme} colors={colors} />
       

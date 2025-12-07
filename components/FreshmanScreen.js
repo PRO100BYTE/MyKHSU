@@ -4,8 +4,9 @@ import { Ionicons as Icon } from '@expo/vector-icons';
 import { ACCENT_COLORS } from '../utils/constants';
 import UnderDevelopmentModal from './UnderDevelopmentModal';
 import BuildingsListScreen from './BuildingsListScreen';
+import Snowfall from './Snowfall';
 
-const FreshmanScreen = ({ theme, accentColor }) => {
+const FreshmanScreen = ({ theme, accentColor, isNewYearMode }) => {
   const [modalVisible, setModalVisible] = useState(false);
   const [currentGroupType, setCurrentGroupType] = useState(null);
   const [showBuildingsList, setShowBuildingsList] = useState(false);
@@ -378,6 +379,7 @@ const FreshmanScreen = ({ theme, accentColor }) => {
         barStyle={theme === 'light' ? 'dark-content' : 'light-content'}
         backgroundColor={bgColor}
       />
+      {isNewYearMode && <Snowfall theme={theme} />}
       {renderCurrentScreen()}
 
       {/* Модальное окно заглушки */}

@@ -14,8 +14,9 @@ import {
 import { Ionicons as Icon } from '@expo/vector-icons';
 import { ACCENT_COLORS } from '../utils/constants';
 import { buildings } from '../utils/buildingCoordinates';
+import Snowfall from './Snowfall';
 
-const BuildingsListScreen = ({ theme, accentColor, onBuildingSelect }) => {
+const BuildingsListScreen = ({ theme, accentColor, onBuildingSelect, isNewYearMode }) => {
   const [showRouteOptions, setShowRouteOptions] = useState(false);
   const [selectedBuilding, setSelectedBuilding] = useState(null);
   const [expandedSections, setExpandedSections] = useState({});
@@ -258,6 +259,8 @@ const BuildingsListScreen = ({ theme, accentColor, onBuildingSelect }) => {
         backgroundColor={bgColor}
       />
       
+      {isNewYearMode && <Snowfall theme={theme} />}
+
       <View style={{ flex: 1, padding: 16 }}>
         <View style={{ marginBottom: 20 }}>
           <Text style={{ 

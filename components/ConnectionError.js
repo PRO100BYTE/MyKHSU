@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, Platform, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import { ACCENT_COLORS } from '../utils/constants';
+import Snowfall from './Snowfall';
 
 const ConnectionError = ({ 
   type, 
@@ -15,7 +16,8 @@ const ConnectionError = ({
   showCacheButton = false,
   cacheAvailable = false,
   customCacheButtonText,
-  showFreshmanHint = false
+  showFreshmanHint = false,
+  isNewYearMode
 }) => {
   const colors = ACCENT_COLORS[accentColor];
   const bgColor = theme === 'light' ? '#f3f4f6' : '#111827';
@@ -138,6 +140,7 @@ const ConnectionError = ({
 
   return (
     <View style={[styles.container, { backgroundColor: bgColor }]}>
+      {isNewYearMode && <Snowfall theme={theme} />}
       <View style={[styles.content, { backgroundColor: cardBg }]}>
         <Icon name={config.icon} size={64} color={colors.primary} />
         <Text style={[styles.title, { color: textColor, marginTop: 16 }]}>

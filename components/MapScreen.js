@@ -22,10 +22,11 @@ import ConnectionError from './ConnectionError';
 import { buildings, initialRegion } from '../utils/buildingCoordinates';
 import BuildingsListScreen from './BuildingsListScreen';
 import { WebView } from 'react-native-webview';
+import Snowfall from './Snowfall';
 
 const { width, height } = Dimensions.get('window');
 
-const MapScreen = ({ theme, accentColor }) => {
+const MapScreen = ({ theme, accentColor, isNewYearMode }) => {
   const [isOnline, setIsOnline] = useState(true);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -662,6 +663,9 @@ const MapScreen = ({ theme, accentColor }) => {
         barStyle={theme === 'light' ? 'dark-content' : 'light-content'}
         backgroundColor={bgColor}
       />
+      
+      {/* Снегопад для новогоднего режима */}
+      {isNewYearMode && <Snowfall theme={theme} intensity={0.5} />}
       
       {/* Заголовок с кнопкой фильтров */}
       <View style={[styles.header, { backgroundColor: cardBg }]}>

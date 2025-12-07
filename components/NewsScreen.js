@@ -7,8 +7,9 @@ import NetInfo from '@react-native-community/netinfo';
 import ApiService from '../utils/api';
 import notificationService from '../utils/notificationService';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import Snowfall from './Snowfall';
 
-const NewsScreen = ({ theme, accentColor }) => {
+const NewsScreen = ({ theme, accentColor, isNewYearMode }) => {
   const [news, setNews] = useState([]);
   const [cachedNews, setCachedNews] = useState([]);
   const [from, setFrom] = useState(0);
@@ -262,6 +263,8 @@ const NewsScreen = ({ theme, accentColor }) => {
         backgroundColor={bgColor}
       />
       
+      {isNewYearMode && <Snowfall theme={theme} />}
+
       <ScrollView 
         contentContainerStyle={{ paddingTop: 16, paddingHorizontal: 16 }}
         refreshControl={

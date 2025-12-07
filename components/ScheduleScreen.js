@@ -25,10 +25,11 @@ import {
 } from '../utils/scheduleUtils';
 import * as SecureStore from 'expo-secure-store';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import Snowfall from './Snowfall';
 
 const { width, height } = Dimensions.get('window');
 
-const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings, onSettingsUpdate }) => {
+const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings, onSettingsUpdate, isNewYearMode }) => {
   const [isTeacherMode, setIsTeacherMode] = useState(false);
   const [teacherSchedule, setTeacherSchedule] = useState(null);
   const [loadingTeacher, setLoadingTeacher] = useState(false);
@@ -1113,6 +1114,7 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
             accentColor={accentColor}
             contentType="schedule"
             message={error === 'NO_INTERNET' ? 'Расписание недоступно без подключения к интернету' : 'Не удалось загрузить расписание'}
+            isNewYearMode={isNewYearMode}
           />
         </Animated.View>
       );
@@ -1125,6 +1127,9 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
         barStyle={theme === 'light' ? 'dark-content' : 'light-content'}
         backgroundColor={bgColor}
       />
+      
+      {/* Снегопад для новогоднего режима */}
+      {isNewYearMode && <Snowfall theme={theme} intensity={0.7} />}
       
       {/* Фиксированный заголовок */}
       {renderFixedHeader()}

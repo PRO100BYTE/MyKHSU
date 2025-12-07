@@ -81,3 +81,30 @@ export const STORAGE_KEYS = {
   THEME: 'theme',
   ACCENT_COLOR: 'accentColor'
 };
+
+// Функция для проверки новогоднего периода
+export const isNewYearPeriod = () => {
+  const today = new Date();
+  const month = today.getMonth() + 1; // январь = 1, декабрь = 12
+  const day = today.getDate();
+  
+  // Период с 1 декабря по 31 января
+  if (month === 12 || month === 1) {
+    if (month === 12 && day >= 1) return true;
+    if (month === 1 && day <= 31) return true;
+  }
+  return false;
+};
+
+// Функция для получения новогоднего текста
+export const getNewYearText = () => {
+  const today = new Date();
+  const year = today.getFullYear();
+  
+  if (today.getMonth() === 0) { // январь
+    return `С новым ${year} годом!`;
+  } else if (today.getMonth() === 11) { // декабрь
+    return `С наступающим ${year + 1} годом!`;
+  }
+  return '';
+};

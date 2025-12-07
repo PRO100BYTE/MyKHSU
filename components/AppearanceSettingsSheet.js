@@ -5,7 +5,17 @@ import { useColorScheme } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
 import { ACCENT_COLORS } from '../utils/constants';
 
-const AppearanceSettingsSheet = ({ visible, onClose, theme, accentColor, setTheme, setAccentColor, onTabbarSettingsChange }) => {
+const AppearanceSettingsSheet = ({ 
+  visible, 
+  onClose, 
+  theme, 
+  accentColor, 
+  setTheme, 
+  setAccentColor, 
+  onTabbarSettingsChange,
+  isNewYearMode,
+  onNewYearModeChange
+}) => {
   const systemColorScheme = useColorScheme();
   
   const bgColor = theme === 'light' ? '#ffffff' : '#1f2937';
@@ -18,13 +28,30 @@ const AppearanceSettingsSheet = ({ visible, onClose, theme, accentColor, setThem
   const [selectedTheme, setSelectedTheme] = useState(theme);
   const [showTabbarLabels, setShowTabbarLabels] = useState(true);
   const [tabbarFontSize, setTabbarFontSize] = useState('medium');
+  const [newYearMode, setNewYearMode] = useState(isNewYearMode);
+
+  // Функция для проверки новогоднего периода
+  const isNewYearPeriod = () => {
+    const today = new Date();
+    const month = today.getMonth() + 1;
+    const day = today.getDate();
+    
+    if (month === 12 || month === 1) {
+      if (month === 12 && day >= 1) return true;
+      if (month === 1 && day <= 31) return true;
+    }
+    return false;
+  };
+
+  const showNewYearOption = isNewYearPeriod();
 
   useEffect(() => {
     if (visible) {
       setSelectedTheme(theme);
+      setNewYearMode(isNewYearMode);
       loadTabbarSettings();
     }
-  }, [visible, theme]);
+  }, [visible, theme, isNewYearMode]);
 
   const loadTabbarSettings = async () => {
     try {
@@ -77,6 +104,13 @@ const AppearanceSettingsSheet = ({ visible, onClose, theme, accentColor, setThem
         showLabels: showTabbarLabels,
         fontSize: size
       });
+    }
+  };
+
+  const handleNewYearModeChange = async (value) => {
+    setNewYearMode(value);
+    if (onNewYearModeChange) {
+      onNewYearModeChange(value);
     }
   };
 
@@ -241,6 +275,47 @@ const AppearanceSettingsSheet = ({ visible, onClose, theme, accentColor, setThem
                 </TouchableOpacity>
               </View>
             </View>
+
+            {/* Секция новогоднего настроения */}
+            {showNewYearOption && (
+              <View style={styles.section}>
+                <Text style={[styles.sectionTitle, { color: textColor }]}>Новогоднее настроение</Text>
+                
+                <TouchableOpacity
+                  style={[styles.settingItem, { borderBottomWidth: 1, borderBottomColor: borderColor }]}
+                  onPress={() => handleNewYearModeChange(!newYearMode)}
+                >
+                  <View style={styles.settingInfo}>
+                    <Icon 
+                      name={newYearMode ? "snow" : "snow-outline"} 
+                      size={24} 
+                      color={newYearMode ? colors.primary : placeholderColor} 
+                    />
+                    <View style={styles.textContainer}>
+                      <Text style={[styles.settingLabel, { color: textColor }]}>
+                        Включить новогоднее настроение
+                      </Text>
+                      <Text style={[styles.settingDescription, { color: placeholderColor }]}>
+                        {newYearMode ? 'Снегопад и праздничные эффекты включены' : 'Включить снегопад и праздничные эффекты'}
+                      </Text>
+                    </View>
+                  </View>
+                  <Switch
+                    value={newYearMode}
+                    onValueChange={handleNewYearModeChange}
+                    trackColor={{ false: '#f0f0f0', true: colors.light }}
+                    thumbColor={newYearMode ? colors.primary : '#f4f3f4'}
+                  />
+                </TouchableOpacity>
+                
+                <View style={[styles.infoSection, { backgroundColor: inputBgColor, marginTop: 12 }]}>
+                  <Icon name="information-circle-outline" size={16} color={colors.primary} />
+                  <Text style={[styles.infoText, { color: placeholderColor, marginLeft: 8, flex: 1 }]}>
+                    Новогоднее настроение доступно с 1 декабря по 31 января
+                  </Text>
+                </View>
+              </View>
+            )}
 
             {/* Секция настроек панели навигации */}
             <View style={styles.section}>

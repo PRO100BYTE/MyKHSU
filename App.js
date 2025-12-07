@@ -89,6 +89,33 @@ const styles = StyleSheet.create({
   }
 });
 
+// Функция для проверки новогоднего периода
+const isNewYearPeriod = () => {
+  const today = new Date();
+  const month = today.getMonth() + 1; // январь = 1, декабрь = 12
+  const day = today.getDate();
+  
+  // Период с 1 декабря по 31 января
+  if (month === 12 || month === 1) {
+    if (month === 12 && day >= 1) return true;
+    if (month === 1 && day <= 31) return true;
+  }
+  return false;
+};
+
+// Функция для получения текущего года
+const getNewYear = () => {
+  const today = new Date();
+  const year = today.getFullYear();
+  // Если мы в январе, то поздравляем с текущим годом
+  // Если в декабре, то поздравляем со следующим годом
+  if (today.getMonth() === 0) { // январь
+    return year;
+  } else { // декабрь
+    return year + 1;
+  }
+};
+
 export default Sentry.wrap(function App() {
   let [fontsLoaded] = useFonts({
     Montserrat_400Regular,
@@ -109,6 +136,10 @@ export default Sentry.wrap(function App() {
   // Состояния для настроек таббара
   const [showTabbarLabels, setShowTabbarLabels] = useState(true);
   const [tabbarFontSize, setTabbarFontSize] = useState('medium');
+  
+  // Состояние для новогоднего настроения
+  const [isNewYearMode, setIsNewYearMode] = useState(false);
+  const [newYearText, setNewYearText] = useState('');
 
   useEffect(() => {
     // Настройка обработчиков уведомлений
@@ -147,6 +178,34 @@ export default Sentry.wrap(function App() {
     }
   };
 
+  // Функция для загрузки настроек новогоднего режима
+  const loadNewYearSettings = async () => {
+    try {
+      const newYearEnabled = await SecureStore.getItemAsync('new_year_mode');
+      const isNewYearPeriodActive = isNewYearPeriod();
+      
+      if (newYearEnabled !== null) {
+        // Если пользователь вручную установил настройку
+        setIsNewYearMode(newYearEnabled === 'true' && isNewYearPeriodActive);
+      } else if (isNewYearPeriodActive) {
+        // Если новогодний период и настройка не задана - включаем автоматически
+        setIsNewYearMode(true);
+        await SecureStore.setItemAsync('new_year_mode', 'true');
+      }
+      
+      // Устанавливаем текст для поздравления
+      const today = new Date();
+      if (today.getMonth() === 0 && today.getDate() >= 1) { // Январь
+        setNewYearText(`С новым ${getNewYear()} годом!`);
+      } else if (today.getMonth() === 11) { // Декабрь
+        setNewYearText(`С наступающим ${getNewYear()} годом!`);
+      }
+      
+    } catch (error) {
+      console.error('Error loading new year settings:', error);
+    }
+  };
+
   const initializeApp = async () => {
     try {
       // Запрашиваем разрешения на уведомления
@@ -158,6 +217,7 @@ export default Sentry.wrap(function App() {
       // Загружаем сохраненные настройки
       await loadSettings();
       await loadTabbarSettings();
+      await loadNewYearSettings();
 
       // Регистрируем фоновую задачу (только для Android)
       if (Platform.OS === 'android') {
@@ -230,6 +290,12 @@ export default Sentry.wrap(function App() {
     setShowTabbarLabels(newSettings.showLabels);
     setTabbarFontSize(newSettings.fontSize);
   };
+  
+  // Функция для обновления настроек новогоднего режима
+  const handleNewYearModeChange = async (enabled) => {
+    setIsNewYearMode(enabled);
+    await SecureStore.setItemAsync('new_year_mode', enabled.toString());
+  };
 
   // Слушатель изменений системной темы
   useEffect(() => {
@@ -255,7 +321,12 @@ export default Sentry.wrap(function App() {
   
   // Рендерим SplashScreen пока шрифты не загружены или приложение загружается
   if (!fontsLoaded || isLoading) {
-    return <SplashScreen accentColor={accentColor} theme={getEffectiveTheme()} />;
+    return <SplashScreen 
+      accentColor={accentColor} 
+      theme={getEffectiveTheme()} 
+      isNewYearMode={isNewYearMode}
+      newYearText={newYearText}
+    />;
   }
   
   const bgColor = effectiveTheme === 'light' ? '#f3f4f6' : '#111827';
@@ -291,16 +362,36 @@ export default Sentry.wrap(function App() {
       {/* Контент */}
       <View style={{ flex: 1 }}>
         {activeScreen === SCREENS.SCHEDULE && (
-          <ScheduleScreen theme={effectiveTheme} accentColor={accentColor} key={`schedule-${refreshKey}`} />
+          <ScheduleScreen 
+            theme={effectiveTheme} 
+            accentColor={accentColor} 
+            key={`schedule-${refreshKey}`}
+            isNewYearMode={isNewYearMode}
+          />
         )}
         {activeScreen === SCREENS.MAP && (
-          <MapScreen theme={effectiveTheme} accentColor={accentColor} key={`map-${refreshKey}`} />
+          <MapScreen 
+            theme={effectiveTheme} 
+            accentColor={accentColor} 
+            key={`map-${refreshKey}`}
+            isNewYearMode={isNewYearMode}
+          />
         )}
         {activeScreen === SCREENS.FRESHMAN && (
-          <FreshmanScreen theme={effectiveTheme} accentColor={accentColor} key={`freshman-${refreshKey}`} />
+          <FreshmanScreen 
+            theme={effectiveTheme} 
+            accentColor={accentColor} 
+            key={`freshman-${refreshKey}`}
+            isNewYearMode={isNewYearMode}
+          />
         )}
         {activeScreen === SCREENS.NEWS && (
-          <NewsScreen theme={effectiveTheme} accentColor={accentColor} key={`news-${refreshKey}`} />
+          <NewsScreen 
+            theme={effectiveTheme} 
+            accentColor={accentColor} 
+            key={`news-${refreshKey}`}
+            isNewYearMode={isNewYearMode}
+          />
         )}
         {activeScreen === SCREENS.SETTINGS && (
           <SettingsScreen 
@@ -310,6 +401,8 @@ export default Sentry.wrap(function App() {
             setAccentColor={setAccentColor} 
             key={`settings-${refreshKey}`}
             onTabbarSettingsChange={handleTabbarSettingsChange}
+            isNewYearMode={isNewYearMode}
+            onNewYearModeChange={handleNewYearModeChange}
           />
         )}
       </View>
