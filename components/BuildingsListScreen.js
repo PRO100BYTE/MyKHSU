@@ -253,10 +253,11 @@ const BuildingsListScreen = ({ theme, accentColor, onBuildingSelect, isNewYearMo
   };
 
   return (
-    <View style={{ flex: 1, backgroundColor: bgColor }}>
+    <View style={{ flex: 1 }}>
+      {/* Снегопад для новогоднего режима */}
       {isNewYearMode && <Snowfall theme={theme} intensity={0.8} />}
       
-      <Animated.View style={{ flex: 1, opacity: fadeAnim }}>
+      <Animated.View style={{ flex: 1, backgroundColor: bgColor, opacity: fadeAnim }}>
         <StatusBar 
           barStyle={theme === 'light' ? 'dark-content' : 'light-content'}
           backgroundColor={bgColor}

@@ -367,14 +367,15 @@ const FreshmanScreen = ({ theme, accentColor, isNewYearMode }) => {
     }
 
     return (
-      <Animated.View style={{ flex: 1, opacity: fadeAnim }}>
+      <Animated.View style={{ flex: 1, backgroundColor: bgColor, opacity: fadeAnim }}>
         {content}
       </Animated.View>
     );
   };
 
   return (
-    <View style={{ flex: 1, backgroundColor: bgColor }}>
+    <View style={{ flex: 1 }}>
+      {/* Снегопад для новогоднего режима */}
       {isNewYearMode && <Snowfall theme={theme} intensity={0.8} />}
       
       <View style={{ flex: 1 }}>

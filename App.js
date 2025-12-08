@@ -17,7 +17,7 @@ import MapScreen from './components/MapScreen';
 import FreshmanScreen from './components/FreshmanScreen';
 
 // Импорт утилит
-import { ACCENT_COLORS, SCREENS } from './utils/constants';
+import { ACCENT_COLORS, SCREENS, isNewYearPeriod, getNewYearText } from './utils/constants';
 import * as Sentry from '@sentry/react-native';
 import notificationService from './utils/notificationService';
 import backgroundService from './utils/backgroundService';
@@ -81,32 +81,6 @@ const styles = StyleSheet.create({
   }
 });
 
-// Функция для проверки новогоднего периода
-const isNewYearPeriod = () => {
-  const today = new Date();
-  const month = today.getMonth() + 1; // январь = 1, декабрь = 12
-  const day = today.getDate();
-  
-  // Период с 1 декабря по 31 января
-  if (month === 12 || month === 1) {
-    if (month === 12 && day >= 1) return true;
-    if (month === 1 && day <= 31) return true;
-  }
-  return false;
-};
-
-// Функция для получения текущего года для поздравления
-const getNewYearText = () => {
-  const today = new Date();
-  const year = today.getFullYear();
-  if (today.getMonth() === 0) { // январь
-    return `С новым ${year} годом!`;
-  } else if (today.getMonth() === 11) { // декабрь
-    return `С наступающим ${year + 1} годом!`;
-  }
-  return '';
-};
-
 export default Sentry.wrap(function App() {
   let [fontsLoaded] = useFonts({
     Montserrat_400Regular,
@@ -130,6 +104,7 @@ export default Sentry.wrap(function App() {
   
   // Состояние для новогоднего настроения
   const [isNewYearMode, setIsNewYearMode] = useState(false);
+  const [splashNewYearMode, setSplashNewYearMode] = useState(false);
 
   useEffect(() => {
     // Настройка обработчиков уведомлений
@@ -182,19 +157,24 @@ export default Sentry.wrap(function App() {
       
       if (newYearEnabled !== null) {
         // Если пользователь вручную установил настройку
-        setIsNewYearMode(newYearEnabled === 'true' && isNewYearPeriodActive);
+        const userEnabled = newYearEnabled === 'true';
+        setIsNewYearMode(userEnabled && isNewYearPeriodActive);
+        setSplashNewYearMode(isNewYearPeriodActive); // Для сплэшскрина показываем только если период
       } else if (isNewYearPeriodActive) {
         // Если новогодний период и настройка не задана - включаем автоматически
         setIsNewYearMode(true);
+        setSplashNewYearMode(true);
         await SecureStore.setItemAsync('new_year_mode', 'true');
       } else {
         // Если не новогодний период и настройка не задана - выключаем
         setIsNewYearMode(false);
+        setSplashNewYearMode(false);
       }
       
     } catch (error) {
       console.error('Error loading new year settings:', error);
       setIsNewYearMode(false);
+      setSplashNewYearMode(false);
     }
   };
 
@@ -286,7 +266,8 @@ export default Sentry.wrap(function App() {
   // Функция для обновления настроек новогоднего режима
   const handleNewYearModeChange = async (enabled) => {
     console.log('Changing new year mode to:', enabled);
-    setIsNewYearMode(enabled);
+    const isPeriod = isNewYearPeriod();
+    setIsNewYearMode(enabled && isPeriod);
     await SecureStore.setItemAsync('new_year_mode', enabled.toString());
   };
 
@@ -317,8 +298,8 @@ export default Sentry.wrap(function App() {
     return <SplashScreen 
       accentColor={accentColor} 
       theme={getEffectiveTheme()} 
-      isNewYearMode={isNewYearMode && isNewYearPeriod()}
-      newYearText={isNewYearMode && isNewYearPeriod() ? getNewYearText() : ''}
+      isNewYearMode={splashNewYearMode}
+      newYearText={splashNewYearMode ? getNewYearText() : ''}
     />;
   }
   
@@ -336,7 +317,7 @@ export default Sentry.wrap(function App() {
     }
   };
 
-  const newYearText = isNewYearMode && isNewYearPeriod() ? getNewYearText() : '';
+  const newYearText = isNewYearMode ? getNewYearText() : '';
 
   return (
     <View style={{ flex: 1, backgroundColor: bgColor }}>
@@ -361,7 +342,7 @@ export default Sentry.wrap(function App() {
             theme={effectiveTheme} 
             accentColor={accentColor} 
             key={`schedule-${refreshKey}`}
-            isNewYearMode={isNewYearMode && isNewYearPeriod()}
+            isNewYearMode={isNewYearMode}
           />
         )}
         {activeScreen === SCREENS.MAP && (
@@ -369,7 +350,7 @@ export default Sentry.wrap(function App() {
             theme={effectiveTheme} 
             accentColor={accentColor} 
             key={`map-${refreshKey}`}
-            isNewYearMode={isNewYearMode && isNewYearPeriod()}
+            isNewYearMode={isNewYearMode}
           />
         )}
         {activeScreen === SCREENS.FRESHMAN && (
@@ -377,7 +358,7 @@ export default Sentry.wrap(function App() {
             theme={effectiveTheme} 
             accentColor={accentColor} 
             key={`freshman-${refreshKey}`}
-            isNewYearMode={isNewYearMode && isNewYearPeriod()}
+            isNewYearMode={isNewYearMode}
           />
         )}
         {activeScreen === SCREENS.NEWS && (
@@ -385,7 +366,7 @@ export default Sentry.wrap(function App() {
             theme={effectiveTheme} 
             accentColor={accentColor} 
             key={`news-${refreshKey}`}
-            isNewYearMode={isNewYearMode && isNewYearPeriod()}
+            isNewYearMode={isNewYearMode}
           />
         )}
         {activeScreen === SCREENS.SETTINGS && (
@@ -396,7 +377,7 @@ export default Sentry.wrap(function App() {
             setAccentColor={setAccentColor} 
             key={`settings-${refreshKey}`}
             onTabbarSettingsChange={handleTabbarSettingsChange}
-            isNewYearMode={isNewYearMode && isNewYearPeriod()}
+            isNewYearMode={isNewYearMode}
             onNewYearModeChange={handleNewYearModeChange}
           />
         )}

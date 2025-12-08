@@ -403,22 +403,25 @@ const MapScreen = ({ theme, accentColor, isNewYearMode }) => {
     }
 
     return (
-      <Animated.View style={{ flex: 1, backgroundColor: bgColor, opacity: fadeAnim }}>
-        <StatusBar 
-          barStyle={theme === 'light' ? 'dark-content' : 'light-content'}
-          backgroundColor={bgColor}
-        />
-        <ConnectionError 
-          type={errorType}
-          loading={loading}
-          onRetry={handleRetry}
-          theme={theme}
-          accentColor={accentColor}
-          contentType="map"
-          message={errorMessage}
-          showFreshmanHint={true}
-        />
-      </Animated.View>
+      <View style={{ flex: 1 }}>
+        {isNewYearMode && <Snowfall theme={theme} intensity={0.8} />}
+        <Animated.View style={{ flex: 1, backgroundColor: bgColor, opacity: fadeAnim }}>
+          <StatusBar 
+            barStyle={theme === 'light' ? 'dark-content' : 'light-content'}
+            backgroundColor={bgColor}
+          />
+          <ConnectionError 
+            type={errorType}
+            loading={loading}
+            onRetry={handleRetry}
+            theme={theme}
+            accentColor={accentColor}
+            contentType="map"
+            message={errorMessage}
+            showFreshmanHint={true}
+          />
+        </Animated.View>
+      </View>
     );
   }
 
@@ -658,11 +661,11 @@ const MapScreen = ({ theme, accentColor, isNewYearMode }) => {
   ] : [];
 
   return (
-    <View style={{ flex: 1, backgroundColor: bgColor }}>
+    <View style={{ flex: 1 }}>
       {/* Снегопад для новогоднего режима */}
       {isNewYearMode && <Snowfall theme={theme} intensity={0.8} />}
       
-      <Animated.View style={[styles.container, { opacity: fadeAnim }]}>
+      <Animated.View style={[styles.container, { backgroundColor: bgColor, opacity: fadeAnim }]}>
         <StatusBar 
           barStyle={theme === 'light' ? 'dark-content' : 'light-content'}
           backgroundColor={bgColor}

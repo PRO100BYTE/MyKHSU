@@ -257,10 +257,11 @@ const NewsScreen = ({ theme, accentColor, isNewYearMode }) => {
   }
 
   return (
-    <View style={{ flex: 1, backgroundColor: bgColor }}>
+    <View style={{ flex: 1 }}>
+      {/* Снегопад на заднем плане */}
       {isNewYearMode && <Snowfall theme={theme} intensity={0.8} />}
       
-      <Animated.View style={{ flex: 1, opacity: fadeAnim }}>
+      <Animated.View style={{ flex: 1, backgroundColor: bgColor, opacity: fadeAnim }}>
         <StatusBar 
           barStyle={theme === 'light' ? 'dark-content' : 'light-content'}
           backgroundColor={bgColor}

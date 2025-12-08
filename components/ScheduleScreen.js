@@ -554,17 +554,14 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
           if (ref) dayRefs.current[index] = ref;
         }}
         key={day.weekday} 
-        style={[{ 
+        style={{ 
           backgroundColor: cardBg, 
           borderRadius: 12, 
           padding: 16, 
           marginBottom: 16,
           borderWidth: 1,
           borderColor
-        }, isCurrent ? {
-          borderColor: colors.primary,
-          borderWidth: 2
-        } : {}]}
+        }}
       >
         <Text style={{ fontSize: 18, fontWeight: 'bold', color: colors.primary, marginBottom: 4, fontFamily: 'Montserrat_600SemiBold' }}>
           {weekdays[day.weekday - 1]}
@@ -1102,31 +1099,34 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
       // Не показываем ошибку, продолжаем рендерить контент
     } else {
       return (
-        <Animated.View style={{ flex: 1, backgroundColor: bgColor, opacity: fadeAnim }}>
-          <ConnectionError 
-            type={error}
-            loading={false}
-            onRetry={isTeacherMode ? () => teacherName && fetchTeacherSchedule(teacherName) : handleRetry}
-            onViewCache={handleViewCache}
-            showCacheButton={!!scheduleData || !!teacherSchedule}
-            cacheAvailable={!!scheduleData || !!teacherSchedule}
-            theme={theme}
-            accentColor={accentColor}
-            contentType="schedule"
-            message={error === 'NO_INTERNET' ? 'Расписание недоступно без подключения к интернету' : 'Не удалось загрузить расписание'}
-            isNewYearMode={isNewYearMode}
-          />
-        </Animated.View>
+        <View style={{ flex: 1 }}>
+          {isNewYearMode && <Snowfall theme={theme} intensity={0.8} />}
+          <Animated.View style={{ flex: 1, backgroundColor: bgColor, opacity: fadeAnim }}>
+            <ConnectionError 
+              type={error}
+              loading={false}
+              onRetry={isTeacherMode ? () => teacherName && fetchTeacherSchedule(teacherName) : handleRetry}
+              onViewCache={handleViewCache}
+              showCacheButton={!!scheduleData || !!teacherSchedule}
+              cacheAvailable={!!scheduleData || !!teacherSchedule}
+              theme={theme}
+              accentColor={accentColor}
+              contentType="schedule"
+              message={error === 'NO_INTERNET' ? 'Расписание недоступно без подключения к интернету' : 'Не удалось загрузить расписание'}
+              isNewYearMode={isNewYearMode}
+            />
+          </Animated.View>
+        </View>
       );
     }
   }
 
   return (
-    <View style={{ flex: 1, backgroundColor: bgColor }}>
+    <View style={{ flex: 1 }}>
       {/* Снегопад для новогоднего режима (на заднем плане) */}
       {isNewYearMode && <Snowfall theme={theme} intensity={0.8} />}
       
-      <Animated.View style={{ flex: 1, opacity: fadeAnim }}>
+      <Animated.View style={{ flex: 1, backgroundColor: bgColor, opacity: fadeAnim }}>
         <StatusBar 
           barStyle={theme === 'light' ? 'dark-content' : 'light-content'}
           backgroundColor={bgColor}
