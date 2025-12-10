@@ -1309,7 +1309,7 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
                   onSettingsUpdate(newSettings);
                 }
                 
-                console.log('Селектор групп включен');
+                console.log('Показан селектор для смены группы');
               }}
               style={{ marginLeft: 8 }}
             >
