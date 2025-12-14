@@ -354,7 +354,7 @@ const MapScreen = ({ theme, accentColor, isNewYearMode }) => {
   if (showBuildingsList) {
     return (
       <View style={{ flex: 1, backgroundColor: bgColor }}>
-        {isNewYearMode && <Snowfall theme={theme} intensity={0.8} />}
+        {isNewYearMode && <Snowfall key={`snowfall-${isNewYearMode}`} theme={theme} intensity={0.8} />}
         
         <View style={{ flex: 1, zIndex: 2 }}>
           <StatusBar 
@@ -408,7 +408,7 @@ const MapScreen = ({ theme, accentColor, isNewYearMode }) => {
 
     return (
       <View style={{ flex: 1, backgroundColor: bgColor }}>
-        {isNewYearMode && <Snowfall theme={theme} intensity={0.8} />}
+        {isNewYearMode && <Snowfall key={`snowfall-${isNewYearMode}`} theme={theme} intensity={0.8} />}
         <Animated.View style={{ flex: 1, opacity: fadeAnim, zIndex: 2 }}>
           <StatusBar 
             barStyle={theme === 'light' ? 'dark-content' : 'light-content'}
@@ -667,7 +667,7 @@ const MapScreen = ({ theme, accentColor, isNewYearMode }) => {
   return (
     <View style={{ flex: 1, backgroundColor: bgColor }}>
       {/* Снегопад для новогоднего режима */}
-      {isNewYearMode && <Snowfall theme={theme} intensity={0.8} />}
+      {isNewYearMode && <Snowfall key={`snowfall-${isNewYearMode}`} theme={theme} intensity={0.8} />}
       
       <Animated.View style={[styles.container, { opacity: fadeAnim, zIndex: 2 }]}>
         <StatusBar 

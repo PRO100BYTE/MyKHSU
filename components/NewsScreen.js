@@ -240,7 +240,7 @@ const NewsScreen = ({ theme, accentColor, isNewYearMode }) => {
 if (error && !loading) {
   return (
     <View style={{ flex: 1, backgroundColor: bgColor }}>
-      {isNewYearMode && <Snowfall theme={theme} intensity={0.8} />}
+      {isNewYearMode && <Snowfall key={`snowfall-${isNewYearMode}`} theme={theme} intensity={0.8} />}
       
       <Animated.View style={{ flex: 1, opacity: fadeAnim, zIndex: 2 }}>
         <ConnectionError 
@@ -263,7 +263,7 @@ if (error && !loading) {
 return (
   <View style={{ flex: 1, backgroundColor: bgColor }}>
     {/* Снегопад на заднем плане */}
-    {isNewYearMode && <Snowfall theme={theme} intensity={0.8} />}
+    {isNewYearMode && <Snowfall key={`snowfall-${isNewYearMode}`} theme={theme} intensity={0.8} />}
     
     <Animated.View style={{ flex: 1, opacity: fadeAnim, zIndex: 2 }}>
       <StatusBar 

@@ -1094,7 +1094,7 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
   };
 
   const renderCurrentScreen = () => {
-    
+
 // Обработка ошибок
 if (error && !loadingGroups && !loadingSchedule && !loadingTeacher) {
   if (error === 'NO_INTERNET' && (scheduleData || teacherSchedule)) {
@@ -1103,7 +1103,7 @@ if (error && !loadingGroups && !loadingSchedule && !loadingTeacher) {
     return (
       <View style={{ flex: 1, backgroundColor: bgColor }}>
         {/* Снегопад для новогоднего режима (между фоном и контентом) */}
-        {isNewYearMode && <Snowfall theme={theme} intensity={0.8} />}
+        {isNewYearMode && <Snowfall key={`snowfall-${isNewYearMode}`} theme={theme} intensity={0.8} />}
         
         <Animated.View style={{ flex: 1, opacity: fadeAnim }}>
           <ConnectionError 
@@ -1128,7 +1128,7 @@ if (error && !loadingGroups && !loadingSchedule && !loadingTeacher) {
 return (
   <View style={{ flex: 1, backgroundColor: bgColor }}>
     {/* Снегопад для новогоднего режима (между фоном и контентом) */}
-    {isNewYearMode && <Snowfall theme={theme} intensity={0.8} />}
+    {isNewYearMode && <Snowfall key={`snowfall-${isNewYearMode}`} theme={theme} intensity={0.8} />}
     
     <Animated.View style={{ flex: 1, opacity: fadeAnim, zIndex: 2 }}>
       <StatusBar 

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, Modal, TouchableOpacity, ScrollView, StyleSheet, Switch } from 'react-native';
+import { View, Text, Modal, TouchableOpacity, ScrollView, StyleSheet, Switch, Alert } from 'react-native';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import { useColorScheme } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
@@ -28,23 +28,18 @@ const AppearanceSettingsSheet = ({
   const [selectedTheme, setSelectedTheme] = useState(theme);
   const [showTabbarLabels, setShowTabbarLabels] = useState(true);
   const [tabbarFontSize, setTabbarFontSize] = useState('medium');
-  const [newYearSetting, setNewYearSetting] = useState(false); // Это настройка пользователя (вкл/выкл)
-  const [isNewYearPeriodActive, setIsNewYearPeriodActive] = useState(false);
+  const [newYearSetting, setNewYearSetting] = useState(false);
 
-  // Проверяем новогодний период и загружаем настройки
   useEffect(() => {
     if (visible) {
-      const period = isNewYearPeriod();
-      setIsNewYearPeriodActive(period);
-      
-      setSelectedTheme(theme);
-      loadTabbarSettings();
-      loadNewYearSetting();
+      loadSettings();
     }
-  }, [visible, theme]);
+  }, [visible]);
 
-  const loadTabbarSettings = async () => {
+  const loadSettings = async () => {
     try {
+      setSelectedTheme(theme);
+      
       const labelsEnabled = await SecureStore.getItemAsync('tabbar_labels_enabled');
       const fontSize = await SecureStore.getItemAsync('tabbar_font_size');
       
@@ -55,24 +50,17 @@ const AppearanceSettingsSheet = ({
       if (fontSize) {
         setTabbarFontSize(fontSize);
       }
-    } catch (error) {
-      console.error('Error loading tabbar settings:', error);
-    }
-  };
-
-  const loadNewYearSetting = async () => {
-    try {
+      
       const savedSetting = await SecureStore.getItemAsync('new_year_mode');
       console.log('AppearanceSheet: Loaded new year setting:', savedSetting);
       
       if (savedSetting !== null) {
         setNewYearSetting(savedSetting === 'true');
       } else {
-        // Если настройка не сохранена, показываем true (автовключение)
-        setNewYearSetting(true);
+        setNewYearSetting(isNewYearMode);
       }
     } catch (error) {
-      console.error('Error loading new year setting:', error);
+      console.error('Error loading settings:', error);
       setNewYearSetting(false);
     }
   };
@@ -116,14 +104,26 @@ const AppearanceSettingsSheet = ({
     console.log('AppearanceSheet: Changing new year mode to:', value);
     setNewYearSetting(value);
     
-    // Сохраняем настройку пользователя в SecureStore
     await SecureStore.setItemAsync('new_year_mode', value.toString());
     console.log('AppearanceSheet: Saved to SecureStore');
     
-    // Уведомляем родительский компонент о изменении
     if (onNewYearModeChange) {
       onNewYearModeChange(value);
     }
+    
+    // Показываем уведомление о необходимости перезапуска
+    Alert.alert(
+      'Настройки новогоднего настроения',
+      'Изменены настройки Новогоднего настроения. Если изменения не вступили в силу - перезапустите приложение.',
+      [
+        { 
+          text: 'ОК', 
+          onPress: () => {
+            onClose();
+          }
+        }
+      ]
+    );
   };
 
   const getFontSizeText = (size) => {
@@ -135,8 +135,7 @@ const AppearanceSettingsSheet = ({
     }
   };
 
-  // Показываем опцию только если новогодний период
-  const showNewYearOption = isNewYearPeriodActive;
+  const showNewYearOption = isNewYearPeriod();
 
   if (!visible) return null;
 
@@ -291,7 +290,7 @@ const AppearanceSettingsSheet = ({
               </View>
             </View>
 
-            {/* Секция новогоднего настроения - ТОЛЬКО если новогодний период */}
+            {/* Секция новогоднего настроения */}
             {showNewYearOption && (
               <View style={styles.section}>
                 <Text style={[styles.sectionTitle, { color: textColor }]}>Новогоднее настроение</Text>
@@ -329,16 +328,6 @@ const AppearanceSettingsSheet = ({
                     Новогоднее настроение доступно с 1 декабря по 31 января
                   </Text>
                 </View>
-                
-                {/* Информация о текущем состоянии */}
-                <View style={[styles.infoSection, { backgroundColor: colors.light + '20', marginTop: 8 }]}>
-                  <Icon name="information-circle-outline" size={16} color={colors.primary} />
-                  <Text style={[styles.infoText, { color: colors.primary, marginLeft: 8, flex: 1 }]}>
-                    {newYearSetting 
-                      ? 'Настройка включена - снегопад будет отображаться во всех разделах' 
-                      : 'Настройка выключена - снегопад не будет отображаться'}
-                  </Text>
-                </View>
               </View>
             )}
 
@@ -346,7 +335,6 @@ const AppearanceSettingsSheet = ({
             <View style={styles.section}>
               <Text style={[styles.sectionTitle, { color: textColor }]}>Панель навигации</Text>
               
-              {/* Переключатель подписей иконок */}
               <TouchableOpacity
                 style={[styles.settingItem, { borderBottomWidth: 1, borderBottomColor: borderColor }]}
                 onPress={() => handleShowLabelsChange(!showTabbarLabels)}
@@ -368,7 +356,6 @@ const AppearanceSettingsSheet = ({
                 />
               </TouchableOpacity>
 
-              {/* Выбор размера шрифта подписей */}
               {showTabbarLabels && (
                 <View style={{ marginTop: 16 }}>
                   <Text style={[styles.subSectionTitle, { color: textColor }]}>Размер шрифта подписей</Text>

@@ -145,31 +145,29 @@ export default Sentry.wrap(function App() {
 
 const loadNewYearSettings = async () => {
   try {
-    const newYearEnabled = await SecureStore.getItemAsync('new_year_mode');
+    const savedSetting = await SecureStore.getItemAsync('new_year_mode');
     const today = new Date();
     const month = today.getMonth() + 1;
     const day = today.getDate();
-    
-    // Период с 1 декабря по 31 января
     const isNewYearPeriod = (month === 12 && day >= 1) || (month === 1 && day <= 31);
     
     console.log('Loading new year settings:', { 
-      newYearEnabled, 
+      savedSetting, 
       isNewYearPeriod,
       today: today.toISOString(),
       month,
       day
     });
     
-    if (newYearEnabled !== null) {
-      // Если настройка уже задана - используем ее
-      const userEnabled = newYearEnabled === 'true';
+    if (savedSetting !== null) {
+      // Используем сохраненную настройку пользователя
+      const userEnabled = savedSetting === 'true';
       // Включаем только если это новогодний период И пользователь включил
       const shouldEnable = userEnabled && isNewYearPeriod;
       setIsNewYearMode(shouldEnable);
       setSplashNewYearMode(shouldEnable);
     } else {
-      // Если настройка еще не задана - включаем автоматически в новогодний период
+      // Если настройка не сохранена - включаем автоматически в новогодний период
       if (isNewYearPeriod) {
         setIsNewYearMode(true);
         setSplashNewYearMode(true);
@@ -199,12 +197,15 @@ const handleNewYearModeChange = async (enabled) => {
   // Сохраняем настройку пользователя
   await SecureStore.setItemAsync('new_year_mode', enabled.toString());
   
-  // Применяем настройку только если это новогодний период
+  // Применяем настройку немедленно
   const shouldEnable = enabled && isNewYearPeriod;
   setIsNewYearMode(shouldEnable);
   setSplashNewYearMode(shouldEnable);
   
-  console.log('New year mode updated:', shouldEnable);
+  console.log('New year mode updated immediately:', shouldEnable);
+  
+  // Принудительно обновляем все компоненты для немедленного применения
+  setRefreshKey(prev => prev + 1);
 };
 
   const initializeApp = async () => {
