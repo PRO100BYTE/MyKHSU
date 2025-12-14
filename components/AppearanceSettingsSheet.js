@@ -3,7 +3,7 @@ import { View, Text, Modal, TouchableOpacity, ScrollView, StyleSheet, Switch } f
 import { Ionicons as Icon } from '@expo/vector-icons';
 import { useColorScheme } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
-import { ACCENT_COLORS } from '../utils/constants';
+import { ACCENT_COLORS, isNewYearPeriod } from '../utils/constants';
 
 const AppearanceSettingsSheet = ({ 
   visible, 
@@ -28,27 +28,20 @@ const AppearanceSettingsSheet = ({
   const [selectedTheme, setSelectedTheme] = useState(theme);
   const [showTabbarLabels, setShowTabbarLabels] = useState(true);
   const [tabbarFontSize, setTabbarFontSize] = useState('medium');
-  const [newYearMode, setNewYearMode] = useState(false);
+  const [newYearSetting, setNewYearSetting] = useState(false); // Это настройка пользователя (вкл/выкл)
+  const [isNewYearPeriodActive, setIsNewYearPeriodActive] = useState(false);
 
-  // Функция для проверки новогоднего периода - ДОЛЖНА БЫТЬ ТАКОЙ ЖЕ КАК В App.js
-  const isNewYearPeriod = () => {
-    const today = new Date();
-    const month = today.getMonth() + 1; // январь = 1, декабрь = 12
-    const day = today.getDate();
-    
-    // Период с 1 декабря по 31 января
-    return (month === 12 && day >= 1) || (month === 1 && day <= 31);
-  };
-
-  const showNewYearOption = isNewYearPeriod();
-
+  // Проверяем новогодний период и загружаем настройки
   useEffect(() => {
     if (visible) {
+      const period = isNewYearPeriod();
+      setIsNewYearPeriodActive(period);
+      
       setSelectedTheme(theme);
-      setNewYearMode(isNewYearMode);
       loadTabbarSettings();
+      loadNewYearSetting();
     }
-  }, [visible, theme, isNewYearMode]);
+  }, [visible, theme]);
 
   const loadTabbarSettings = async () => {
     try {
@@ -67,6 +60,23 @@ const AppearanceSettingsSheet = ({
     }
   };
 
+  const loadNewYearSetting = async () => {
+    try {
+      const savedSetting = await SecureStore.getItemAsync('new_year_mode');
+      console.log('AppearanceSheet: Loaded new year setting:', savedSetting);
+      
+      if (savedSetting !== null) {
+        setNewYearSetting(savedSetting === 'true');
+      } else {
+        // Если настройка не сохранена, показываем true (автовключение)
+        setNewYearSetting(true);
+      }
+    } catch (error) {
+      console.error('Error loading new year setting:', error);
+      setNewYearSetting(false);
+    }
+  };
+
   const handleThemeChange = async (newTheme) => {
     setSelectedTheme(newTheme);
     setTheme(newTheme);
@@ -82,7 +92,6 @@ const AppearanceSettingsSheet = ({
     setShowTabbarLabels(value);
     await SecureStore.setItemAsync('tabbar_labels_enabled', value.toString());
     
-    // Уведомляем родительский компонент о изменениях
     if (onTabbarSettingsChange) {
       onTabbarSettingsChange({
         showLabels: value,
@@ -95,7 +104,6 @@ const AppearanceSettingsSheet = ({
     setTabbarFontSize(size);
     await SecureStore.setItemAsync('tabbar_font_size', size);
     
-    // Уведомляем родительский компонент о изменениях
     if (onTabbarSettingsChange) {
       onTabbarSettingsChange({
         showLabels: showTabbarLabels,
@@ -104,9 +112,13 @@ const AppearanceSettingsSheet = ({
     }
   };
 
-  const handleNewYearModeChange = (value) => {
-    console.log('SettingsSheet: Changing new year mode to:', value);
-    setNewYearMode(value);
+  const handleNewYearModeChange = async (value) => {
+    console.log('AppearanceSheet: Changing new year mode to:', value);
+    setNewYearSetting(value);
+    
+    // Сохраняем настройку пользователя в SecureStore
+    await SecureStore.setItemAsync('new_year_mode', value.toString());
+    console.log('AppearanceSheet: Saved to SecureStore');
     
     // Уведомляем родительский компонент о изменении
     if (onNewYearModeChange) {
@@ -122,6 +134,9 @@ const AppearanceSettingsSheet = ({
       default: return 'Средний';
     }
   };
+
+  // Показываем опцию только если новогодний период
+  const showNewYearOption = isNewYearPeriodActive;
 
   if (!visible) return null;
 
@@ -283,28 +298,28 @@ const AppearanceSettingsSheet = ({
                 
                 <TouchableOpacity
                   style={[styles.settingItem, { borderBottomWidth: 1, borderBottomColor: borderColor }]}
-                  onPress={() => handleNewYearModeChange(!newYearMode)}
+                  onPress={() => handleNewYearModeChange(!newYearSetting)}
                 >
                   <View style={styles.settingInfo}>
                     <Icon 
-                      name={newYearMode ? "snow" : "snow-outline"} 
+                      name={newYearSetting ? "snow" : "snow-outline"} 
                       size={24} 
-                      color={newYearMode ? colors.primary : placeholderColor} 
+                      color={newYearSetting ? colors.primary : placeholderColor} 
                     />
                     <View style={styles.textContainer}>
                       <Text style={[styles.settingLabel, { color: textColor }]}>
                         Включить новогоднее настроение
                       </Text>
                       <Text style={[styles.settingDescription, { color: placeholderColor }]}>
-                        {newYearMode ? 'Снегопад и праздничные эффекты включены' : 'Включить снегопад и праздничные эффекты'}
+                        {newYearSetting ? 'Снегопад и праздничные эффекты включены' : 'Включить снегопад и праздничные эффекты'}
                       </Text>
                     </View>
                   </View>
                   <Switch
-                    value={newYearMode}
+                    value={newYearSetting}
                     onValueChange={handleNewYearModeChange}
                     trackColor={{ false: borderColor, true: colors.light }}
-                    thumbColor={newYearMode ? colors.primary : placeholderColor}
+                    thumbColor={newYearSetting ? colors.primary : placeholderColor}
                   />
                 </TouchableOpacity>
                 
@@ -312,6 +327,16 @@ const AppearanceSettingsSheet = ({
                   <Icon name="information-circle-outline" size={16} color={colors.primary} />
                   <Text style={[styles.infoText, { color: placeholderColor, marginLeft: 8, flex: 1 }]}>
                     Новогоднее настроение доступно с 1 декабря по 31 января
+                  </Text>
+                </View>
+                
+                {/* Информация о текущем состоянии */}
+                <View style={[styles.infoSection, { backgroundColor: colors.light + '20', marginTop: 8 }]}>
+                  <Icon name="information-circle-outline" size={16} color={colors.primary} />
+                  <Text style={[styles.infoText, { color: colors.primary, marginLeft: 8, flex: 1 }]}>
+                    {newYearSetting 
+                      ? 'Настройка включена - снегопад будет отображаться во всех разделах' 
+                      : 'Настройка выключена - снегопад не будет отображаться'}
                   </Text>
                 </View>
               </View>
@@ -541,9 +566,9 @@ const styles = StyleSheet.create({
   infoSection: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 16,
+    padding: 12,
     borderRadius: 8,
-    marginTop: 16,
+    marginTop: 8,
   },
   infoText: {
     fontSize: 12,
