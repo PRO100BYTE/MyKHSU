@@ -1,11 +1,21 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, Modal, TouchableOpacity, ScrollView, StyleSheet, Switch } from 'react-native';
+import { View, Text, Modal, TouchableOpacity, ScrollView, StyleSheet, Switch, Alert } from 'react-native';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import { useColorScheme } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
-import { ACCENT_COLORS } from '../utils/constants';
+import { ACCENT_COLORS, isNewYearPeriod } from '../utils/constants';
 
-const AppearanceSettingsSheet = ({ visible, onClose, theme, accentColor, setTheme, setAccentColor, onTabbarSettingsChange }) => {
+const AppearanceSettingsSheet = ({ 
+  visible, 
+  onClose, 
+  theme, 
+  accentColor, 
+  setTheme, 
+  setAccentColor, 
+  onTabbarSettingsChange,
+  isNewYearMode,
+  onNewYearModeChange
+}) => {
   const systemColorScheme = useColorScheme();
   
   const bgColor = theme === 'light' ? '#ffffff' : '#1f2937';
@@ -18,16 +28,18 @@ const AppearanceSettingsSheet = ({ visible, onClose, theme, accentColor, setThem
   const [selectedTheme, setSelectedTheme] = useState(theme);
   const [showTabbarLabels, setShowTabbarLabels] = useState(true);
   const [tabbarFontSize, setTabbarFontSize] = useState('medium');
+  const [newYearSetting, setNewYearSetting] = useState(false);
 
   useEffect(() => {
     if (visible) {
-      setSelectedTheme(theme);
-      loadTabbarSettings();
+      loadSettings();
     }
-  }, [visible, theme]);
+  }, [visible]);
 
-  const loadTabbarSettings = async () => {
+  const loadSettings = async () => {
     try {
+      setSelectedTheme(theme);
+      
       const labelsEnabled = await SecureStore.getItemAsync('tabbar_labels_enabled');
       const fontSize = await SecureStore.getItemAsync('tabbar_font_size');
       
@@ -38,8 +50,18 @@ const AppearanceSettingsSheet = ({ visible, onClose, theme, accentColor, setThem
       if (fontSize) {
         setTabbarFontSize(fontSize);
       }
+      
+      const savedSetting = await SecureStore.getItemAsync('new_year_mode');
+      console.log('AppearanceSheet: Loaded new year setting:', savedSetting);
+      
+      if (savedSetting !== null) {
+        setNewYearSetting(savedSetting === 'true');
+      } else {
+        setNewYearSetting(isNewYearMode);
+      }
     } catch (error) {
-      console.error('Error loading tabbar settings:', error);
+      console.error('Error loading settings:', error);
+      setNewYearSetting(false);
     }
   };
 
@@ -58,7 +80,6 @@ const AppearanceSettingsSheet = ({ visible, onClose, theme, accentColor, setThem
     setShowTabbarLabels(value);
     await SecureStore.setItemAsync('tabbar_labels_enabled', value.toString());
     
-    // Уведомляем родительский компонент о изменениях
     if (onTabbarSettingsChange) {
       onTabbarSettingsChange({
         showLabels: value,
@@ -71,13 +92,38 @@ const AppearanceSettingsSheet = ({ visible, onClose, theme, accentColor, setThem
     setTabbarFontSize(size);
     await SecureStore.setItemAsync('tabbar_font_size', size);
     
-    // Уведомляем родительский компонент о изменениях
     if (onTabbarSettingsChange) {
       onTabbarSettingsChange({
         showLabels: showTabbarLabels,
         fontSize: size
       });
     }
+  };
+
+  const handleNewYearModeChange = async (value) => {
+    console.log('AppearanceSheet: Changing new year mode to:', value);
+    setNewYearSetting(value);
+    
+    await SecureStore.setItemAsync('new_year_mode', value.toString());
+    console.log('AppearanceSheet: Saved to SecureStore');
+    
+    if (onNewYearModeChange) {
+      onNewYearModeChange(value);
+    }
+    
+    // Показываем уведомление о необходимости перезапуска
+    Alert.alert(
+      'Настройки новогоднего настроения',
+      'Изменены настройки Новогоднего настроения. Если изменения не вступили в силу - перезапустите приложение.',
+      [
+        { 
+          text: 'ОК', 
+          onPress: () => {
+            onClose();
+          }
+        }
+      ]
+    );
   };
 
   const getFontSizeText = (size) => {
@@ -88,6 +134,8 @@ const AppearanceSettingsSheet = ({ visible, onClose, theme, accentColor, setThem
       default: return 'Средний';
     }
   };
+
+  const showNewYearOption = isNewYearPeriod();
 
   if (!visible) return null;
 
@@ -242,11 +290,51 @@ const AppearanceSettingsSheet = ({ visible, onClose, theme, accentColor, setThem
               </View>
             </View>
 
+            {/* Секция новогоднего настроения */}
+            {showNewYearOption && (
+              <View style={styles.section}>
+                <Text style={[styles.sectionTitle, { color: textColor }]}>Новогоднее настроение</Text>
+                
+                <TouchableOpacity
+                  style={[styles.settingItem, { borderBottomWidth: 1, borderBottomColor: borderColor }]}
+                  onPress={() => handleNewYearModeChange(!newYearSetting)}
+                >
+                  <View style={styles.settingInfo}>
+                    <Icon 
+                      name={newYearSetting ? "snow" : "snow-outline"} 
+                      size={24} 
+                      color={newYearSetting ? colors.primary : placeholderColor} 
+                    />
+                    <View style={styles.textContainer}>
+                      <Text style={[styles.settingLabel, { color: textColor }]}>
+                        Включить новогоднее настроение
+                      </Text>
+                      <Text style={[styles.settingDescription, { color: placeholderColor }]}>
+                        {newYearSetting ? 'Снегопад и праздничные эффекты включены' : 'Включить снегопад и праздничные эффекты'}
+                      </Text>
+                    </View>
+                  </View>
+                  <Switch
+                    value={newYearSetting}
+                    onValueChange={handleNewYearModeChange}
+                    trackColor={{ false: borderColor, true: colors.light }}
+                    thumbColor={newYearSetting ? colors.primary : placeholderColor}
+                  />
+                </TouchableOpacity>
+                
+                <View style={[styles.infoSection, { backgroundColor: inputBgColor, marginTop: 12 }]}>
+                  <Icon name="information-circle-outline" size={16} color={colors.primary} />
+                  <Text style={[styles.infoText, { color: placeholderColor, marginLeft: 8, flex: 1 }]}>
+                    Новогоднее настроение доступно с 1 декабря по 31 января
+                  </Text>
+                </View>
+              </View>
+            )}
+
             {/* Секция настроек панели навигации */}
             <View style={styles.section}>
               <Text style={[styles.sectionTitle, { color: textColor }]}>Панель навигации</Text>
               
-              {/* Переключатель подписей иконок */}
               <TouchableOpacity
                 style={[styles.settingItem, { borderBottomWidth: 1, borderBottomColor: borderColor }]}
                 onPress={() => handleShowLabelsChange(!showTabbarLabels)}
@@ -263,12 +351,11 @@ const AppearanceSettingsSheet = ({ visible, onClose, theme, accentColor, setThem
                 <Switch
                   value={showTabbarLabels}
                   onValueChange={handleShowLabelsChange}
-                  trackColor={{ false: '#f0f0f0', true: colors.light }}
-                  thumbColor={showTabbarLabels ? colors.primary : '#f4f3f4'}
+                  trackColor={{ false: borderColor, true: colors.light }}
+                  thumbColor={showTabbarLabels ? colors.primary : placeholderColor}
                 />
               </TouchableOpacity>
 
-              {/* Выбор размера шрифта подписей */}
               {showTabbarLabels && (
                 <View style={{ marginTop: 16 }}>
                   <Text style={[styles.subSectionTitle, { color: textColor }]}>Размер шрифта подписей</Text>
@@ -466,9 +553,9 @@ const styles = StyleSheet.create({
   infoSection: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 16,
+    padding: 12,
     borderRadius: 8,
-    marginTop: 16,
+    marginTop: 8,
   },
   infoText: {
     fontSize: 12,

@@ -1,5 +1,16 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, StyleSheet, Dimensions, RefreshControl, Animated, StatusBar } from 'react-native';
+import { 
+  View, 
+  Text, 
+  ScrollView, 
+  TouchableOpacity, 
+  ActivityIndicator, 
+  StyleSheet, 
+  Dimensions, 
+  RefreshControl, 
+  Animated, 
+  StatusBar
+} from 'react-native';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import { getWeekNumber, formatDate, getDateByWeekAndDay } from '../utils/dateUtils';
 import { ACCENT_COLORS, COURSES } from '../utils/constants';
@@ -14,10 +25,11 @@ import {
 } from '../utils/scheduleUtils';
 import * as SecureStore from 'expo-secure-store';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import Snowfall from './Snowfall';
 
-const { width } = Dimensions.get('window');
+const { width, height } = Dimensions.get('window');
 
-const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings, onSettingsUpdate }) => {
+const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings, onSettingsUpdate, isNewYearMode }) => {
   const [isTeacherMode, setIsTeacherMode] = useState(false);
   const [teacherSchedule, setTeacherSchedule] = useState(null);
   const [loadingTeacher, setLoadingTeacher] = useState(false);
@@ -28,6 +40,27 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
   
   // Анимация появления
   const fadeAnim = useRef(new Animated.Value(0)).current;
+  
+  // Анимация для контейнера расписания
+  const scheduleSlideAnim = useRef(new Animated.Value(0)).current;
+  const scheduleOpacityAnim = useRef(new Animated.Value(1)).current;
+  
+  // Анимация для даты/недели
+  const dateSlideAnim = useRef(new Animated.Value(0)).current;
+  const dateOpacityAnim = useRef(new Animated.Value(1)).current;
+  
+  // Анимация для заголовка при скролле
+  const headerScrollAnim = useRef(new Animated.Value(0)).current;
+  
+  // Состояние для анимации
+  const [isAnimating, setIsAnimating] = useState(false);
+  const [animationDirection, setAnimationDirection] = useState('right');
+  
+  // Состояние для скролла
+  const [scrollOffset, setScrollOffset] = useState(0);
+  const [showFixedHeader, setShowFixedHeader] = useState(false);
+  const scrollViewRef = useRef(null);
+  const dayRefs = useRef({});
 
   // Используем хук для логики студенческого режима
   const {
@@ -67,13 +100,185 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
     }).start();
   }, []);
 
+  // Функция для определения, нужно ли показывать фиксированный заголовок
+  const shouldShowFixedHeader = () => {
+    if (isTeacherMode) {
+      return true; // Преподавательский режим - только недельный
+    }
+    if (!isTeacherMode && viewMode === 'week') {
+      return true; // Студенческий недельный режим
+    }
+    return false; // Студенческий дневной режим
+  };
+
+  // Обработчик скролла
+  const handleScroll = (event) => {
+    const offsetY = event.nativeEvent.contentOffset.y;
+    setScrollOffset(offsetY);
+    
+    // Показываем фиксированный заголовок при скролле вниз
+    if (shouldShowFixedHeader()) {
+      const showHeader = offsetY > 100;
+      if (showHeader !== showFixedHeader) {
+        setShowFixedHeader(showHeader);
+        
+        // Анимация появления/скрытия заголовка
+        Animated.timing(headerScrollAnim, {
+          toValue: showHeader ? 1 : 0,
+          duration: 200,
+          useNativeDriver: true,
+        }).start();
+      }
+    }
+  };
+
+  // Функция для скролла к текущей дате
+  const scrollToCurrentDate = () => {
+    if (!shouldShowFixedHeader()) return;
+    
+    const today = new Date();
+    const todayFormatted = formatDate(today);
+    
+    // Проверяем, есть ли текущая дата в отображаемой неделе
+    const daysArray = isTeacherMode && teacherSchedule ? teacherSchedule.days : 
+                     scheduleData && scheduleData.days ? scheduleData.days : [];
+    
+    // Ищем день с текущей датой
+    let currentDayIndex = -1;
+    daysArray.forEach((day, index) => {
+      if (day && day.weekday) {
+        const dayDate = getDateByWeekAndDay(currentWeek, day.weekday);
+        if (formatDate(dayDate) === todayFormatted) {
+          currentDayIndex = index;
+        }
+      }
+    });
+    
+    if (currentDayIndex !== -1 && dayRefs.current[currentDayIndex] && scrollViewRef.current) {
+      // Используем requestAnimationFrame для плавного скролла
+      requestAnimationFrame(() => {
+        dayRefs.current[currentDayIndex].measure((x, y, width, height, pageX, pageY) => {
+          // Прокручиваем с отступом
+          const scrollPosition = Math.max(0, y - 150);
+          
+          if (scrollViewRef.current) {
+            scrollViewRef.current.scrollTo({
+              y: scrollPosition,
+              animated: true,
+            });
+          }
+        });
+      });
+    }
+  };
+
+  // Автоматический скролл при изменении режима или данных
+  useEffect(() => {
+    if (shouldShowFixedHeader() && (scheduleData || teacherSchedule)) {
+      // Небольшая задержка для гарантированной отрисовки компонентов
+      const timer = setTimeout(() => {
+        scrollToCurrentDate();
+      }, 300);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [viewMode, isTeacherMode, scheduleData, teacherSchedule, currentWeek]);
+
+  // Сброс refs при изменении данных
+  useEffect(() => {
+    dayRefs.current = {};
+  }, [scheduleData, teacherSchedule]);
+
   const bgColor = theme === 'light' ? '#f3f4f6' : '#111827';
   const cardBg = theme === 'light' ? '#ffffff' : '#1f2937';
   const textColor = theme === 'light' ? '#111827' : '#ffffff';
   const colors = ACCENT_COLORS[accentColor];
   const borderColor = theme === 'light' ? '#e5e7eb' : '#374151';
   const placeholderColor = theme === 'light' ? '#6b7280' : '#9ca3af';
-  const hintBgColor = theme === 'light' ? '#f9fafb' : '#2d3748'; // Более темный для темной темы
+  const hintBgColor = theme === 'light' ? '#f9fafb' : '#2d3748';
+
+  // Функция анимации переключения
+  const animateSwitch = (direction, action) => {
+    if (isAnimating) return;
+    
+    setIsAnimating(true);
+    setAnimationDirection(direction);
+    
+    const slideDistance = 100;
+    const slideOutValue = direction === 'left' ? -slideDistance : slideDistance;
+    const slideInValue = direction === 'left' ? slideDistance : -slideDistance;
+    
+    // Анимация ухода
+    Animated.parallel([
+      // Анимация контейнера расписания
+      Animated.parallel([
+        Animated.timing(scheduleSlideAnim, {
+          toValue: slideOutValue,
+          duration: 200,
+          useNativeDriver: true,
+        }),
+        Animated.timing(scheduleOpacityAnim, {
+          toValue: 0,
+          duration: 200,
+          useNativeDriver: true,
+        })
+      ]),
+      // Анимация даты/недели
+      Animated.parallel([
+        Animated.timing(dateSlideAnim, {
+          toValue: slideOutValue,
+          duration: 200,
+          useNativeDriver: true,
+        }),
+        Animated.timing(dateOpacityAnim, {
+          toValue: 0,
+          duration: 200,
+          useNativeDriver: true,
+        })
+      ])
+    ]).start(() => {
+      // Выполняем действие (смену дня/недели)
+      action();
+      
+      // Сбрасываем анимацию для входа
+      scheduleSlideAnim.setValue(slideInValue);
+      scheduleOpacityAnim.setValue(0);
+      dateSlideAnim.setValue(slideInValue);
+      dateOpacityAnim.setValue(0);
+      
+      // Анимация входа
+      Animated.parallel([
+        // Анимация контейнера расписания
+        Animated.parallel([
+          Animated.timing(scheduleSlideAnim, {
+            toValue: 0,
+            duration: 200,
+            useNativeDriver: true,
+          }),
+          Animated.timing(scheduleOpacityAnim, {
+            toValue: 1,
+            duration: 200,
+            useNativeDriver: true,
+          })
+        ]),
+        // Анимация даты/недели
+        Animated.parallel([
+          Animated.timing(dateSlideAnim, {
+            toValue: 0,
+            duration: 200,
+            useNativeDriver: true,
+          }),
+          Animated.timing(dateOpacityAnim, {
+            toValue: 1,
+            duration: 200,
+            useNativeDriver: true,
+          })
+        ])
+      ]).start(() => {
+        setIsAnimating(false);
+      });
+    });
+  };
 
   // Функция для получения иконки типа занятия
   const getLessonTypeIcon = (type) => {
@@ -82,19 +287,19 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
     if (typeLower.includes('лек') || typeLower === 'л.' || typeLower === 'лекция') {
       return { icon: 'school-outline', color: colors.primary };
     } else if (typeLower.includes('лаб') || typeLower === 'лаб.' || typeLower === 'лабораторная') {
-      return { icon: 'flask-outline', color: '#8b5cf6' }; // Фиолетовый для лабораторных
+      return { icon: 'flask-outline', color: '#8b5cf6' };
     } else if (typeLower.includes('практ') || typeLower.includes('пр.') || typeLower === 'пр' || typeLower === 'практическая') {
-      return { icon: 'people-outline', color: '#10b981' }; // Зеленый для практических
+      return { icon: 'people-outline', color: '#10b981' };
     } else if (typeLower.includes('конс') || typeLower === 'конс.' || typeLower === 'консультация') {
-      return { icon: 'chatbubble-outline', color: '#f59e0b' }; // Оранжевый для консультаций
+      return { icon: 'chatbubble-outline', color: '#f59e0b' };
     } else if (typeLower.includes('экзамен') || typeLower.includes('экз.')) {
-      return { icon: 'document-text-outline', color: '#ef4444' }; // Красный для экзаменов
-    } else if (typeLower.includes('мероприят') || typeLower.includes('собрание')) {
-      return { icon: 'calendar-outline', color: '#6366f1' }; // Индиго для мероприятий
+      return { icon: 'document-text-outline', color: '#ef4444' };
+    } else if (typeLower.includes('мероприятие') || typeLower.includes('собрание')) {
+      return { icon: 'calendar-outline', color: '#6366f1' };
     } else if (typeLower.includes('зачет') || typeLower.includes('зач.')) {
-      return { icon: 'checkmark-circle-outline', color: '#10b981' }; // Зеленый для зачетов
+      return { icon: 'checkmark-circle-outline', color: '#10b981' };
     } else if (typeLower.includes('самост') || typeLower.includes('сам.')) {
-      return { icon: 'book-outline', color: '#6b7280' }; // Серый для самостоятельных
+      return { icon: 'book-outline', color: '#6b7280' };
     }
     
     return { icon: 'book-outline', color: placeholderColor };
@@ -126,12 +331,10 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
         setAvailableCourses(filteredCourses);
         console.log('Доступные курсы загружены:', filteredCourses);
       } else {
-        // Если API не вернуло курсы, используем все по умолчанию
         setAvailableCourses(COURSES);
       }
     } catch (error) {
       console.error('Error fetching courses:', error);
-      // В случае ошибки используем все курсы по умолчанию
       setAvailableCourses(COURSES);
     } finally {
       setLoadingCourses(false);
@@ -144,7 +347,6 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
       const showSelector = await SecureStore.getItemAsync('show_course_selector');
       const teacher = await SecureStore.getItemAsync('teacher_name') || '';
       
-      // Явно преобразуем строку в boolean
       const shouldShowSelector = showSelector !== 'false';
       
       setIsTeacherMode(format === 'teacher');
@@ -158,7 +360,6 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
         teacher 
       });
       
-      // Если режим преподавателя и есть ФИО, загружаем расписание
       if (format === 'teacher' && teacher) {
         fetchTeacherSchedule(teacher);
       }
@@ -171,13 +372,12 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
     console.log('Применение внешних настроек:', settings);
     
     setIsTeacherMode(settings.format === 'teacher');
-    setShowCourseSelector(settings.showSelector !== false); // Явно проверяем на false
+    setShowCourseSelector(settings.showSelector !== false);
     setTeacherName(settings.teacher || '');
     
     if (settings.format === 'teacher' && settings.teacher) {
       fetchTeacherSchedule(settings.teacher);
     } else if (settings.format === 'student') {
-      // Если в настройках есть группа по умолчанию и селектор скрыт, устанавливаем ее
       if (settings.group && !settings.showSelector) {
         setSelectedGroup(settings.group);
         console.log('Установлена группа из настроек:', settings.group);
@@ -185,17 +385,15 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
     }
   };
 
-  // Обработка выбора группы - сохраняем в настройки
+  // Обработка выбора группы
   const handleGroupSelect = async (group) => {
     setSelectedGroup(group);
     console.log('Выбрана группа:', group, 'курс:', course);
     
-    // Сохраняем выбор группы в настройки
     try {
       await SecureStore.setItemAsync('default_group', group);
       await SecureStore.setItemAsync('default_course', course.toString());
       
-      // Обновляем локальное состояние и уведомляем родительский компонент
       const newSettings = {
         ...externalSettings,
         group: group,
@@ -212,18 +410,17 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
     }
   };
 
-  // Обработка выбора курса - сохраняем в настройки
+  // Обработка выбора курса
   const handleCourseSelect = async (courseId) => {
     setCourse(courseId);
     
-    // Сохраняем выбор курса в настройки
     try {
       await SecureStore.setItemAsync('default_course', courseId.toString());
       
       const newSettings = {
         ...externalSettings,
         course: courseId,
-        group: '' // Сбрасываем группу при смене курса
+        group: ''
       };
       
       if (onSettingsUpdate) {
@@ -262,19 +459,27 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
   };
 
   const changeWeek = (weeks) => {
-    const newWeek = currentWeek + weeks;
-    setCurrentWeek(newWeek);
+    const direction = weeks > 0 ? 'left' : 'right';
     
-    if (isTeacherMode && teacherName) {
-      fetchTeacherSchedule(teacherName, newWeek);
-    }
+    animateSwitch(direction, () => {
+      const newWeek = currentWeek + weeks;
+      setCurrentWeek(newWeek);
+      
+      if (isTeacherMode && teacherName) {
+        fetchTeacherSchedule(teacherName, newWeek);
+      }
+    });
   };
 
   const changeDate = (days) => {
-    navigateDate(days);
+    const direction = days > 0 ? 'left' : 'right';
+    
+    animateSwitch(direction, () => {
+      navigateDate(days);
+    });
   };
 
-  // Очистка кэша расписания
+  // Очистка кэша
   const clearScheduleCache = async () => {
     try {
       const keys = await AsyncStorage.getAllKeys();
@@ -296,7 +501,6 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
     }
   };
 
-  // Очистка кэша расписания преподавателя
   const clearTeacherScheduleCache = async () => {
     try {
       const keys = await AsyncStorage.getAllKeys();
@@ -314,7 +518,6 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
     }
   };
 
-  // Улучшенная функция обновления с очисткой кэша
   const handleRefresh = async () => {
     if (isOnline) {
       if (isTeacherMode) {
@@ -338,8 +541,8 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
 
   const weekdays = ["Понедельник", "Вторник", "Среда", "Четверг", "Пятница", "Суббота", "Воскресенье"];
 
-  // Рендер дня расписания (общий для обоих режимов)
-  const renderDaySchedule = (day, weekNumber = currentWeek) => {
+  // Рендер дня расписания
+  const renderDaySchedule = (day, weekNumber = currentWeek, index) => {
     if (!day || !day.lessons) return null;
     
     const date = getDateByWeekAndDay(weekNumber, day.weekday);
@@ -347,18 +550,18 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
     
     return (
       <View 
+        ref={ref => {
+          if (ref) dayRefs.current[index] = ref;
+        }}
         key={day.weekday} 
-        style={[{ 
+        style={{ 
           backgroundColor: cardBg, 
           borderRadius: 12, 
           padding: 16, 
           marginBottom: 16,
           borderWidth: 1,
           borderColor
-        }, isCurrent ? {
-          borderColor: colors.primary,
-          borderWidth: 2
-        } : {}]}
+        }}
       >
         <Text style={{ fontSize: 18, fontWeight: 'bold', color: colors.primary, marginBottom: 4, fontFamily: 'Montserrat_600SemiBold' }}>
           {weekdays[day.weekday - 1]}
@@ -369,7 +572,7 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
         </Text>
 
         {day.lessons && day.lessons.length > 0 ? (
-          day.lessons.map((lesson, index) => {
+          day.lessons.map((lesson, lessonIndex) => {
             if (!lesson) return null;
             
             const pairTime = getTimeForLesson(lesson.time);
@@ -380,7 +583,7 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
             
             return (
               <View 
-                key={lesson.id || index} 
+                key={lesson.id || lessonIndex} 
                 style={[{ 
                   paddingVertical: 12, 
                   borderTopWidth: 1, 
@@ -413,7 +616,6 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
                   </Text>
                 </View>
 
-                {/* Блок с группами - отображается только в режиме преподавателя */}
                 {isTeacherMode && lesson.group && Array.isArray(lesson.group) && lesson.group.length > 0 && (
                   <View style={{ flexDirection: 'row', alignItems: 'flex-start', marginTop: 4 }}>
                     <Icon name="people-outline" size={14} color={placeholderColor} style={{ marginTop: 2 }} />
@@ -441,7 +643,7 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
     );
   };
 
-  // Рендер дневного расписания (только для студенческого режима)
+  // Рендер дневного расписания
   const renderDailySchedule = () => {
     if (!scheduleData) return null;
     
@@ -532,6 +734,138 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
     );
   };
 
+  // Рендер фиксированного заголовка
+  const renderFixedHeader = () => {
+    if (!shouldShowFixedHeader()) return null;
+    
+    const headerTranslateY = headerScrollAnim.interpolate({
+      inputRange: [0, 1],
+      outputRange: [-60, 0],
+    });
+    
+    const headerOpacity = headerScrollAnim.interpolate({
+      inputRange: [0, 1],
+      outputRange: [0, 1],
+    });
+    
+    return (
+      <Animated.View
+        style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          height: 60,
+          backgroundColor: cardBg,
+          borderBottomWidth: 1,
+          borderBottomColor: borderColor,
+          zIndex: 1000,
+          transform: [{ translateY: headerTranslateY }],
+          opacity: headerOpacity,
+          paddingHorizontal: 16,
+          justifyContent: 'center',
+        }}
+      >
+        <View style={{ 
+          flexDirection: 'row', 
+          alignItems: 'center', 
+          justifyContent: 'space-between',
+          width: '100%' 
+        }}>
+          <View style={{ flex: 1, marginRight: 8 }}>
+            {isTeacherMode ? (
+              <>
+                <Text 
+                  numberOfLines={1}
+                  ellipsizeMode="tail"
+                  style={{ 
+                    fontSize: 16, 
+                    fontWeight: 'bold', 
+                    color: textColor, 
+                    fontFamily: 'Montserrat_600SemiBold' 
+                  }}
+                >
+                  Расписание преподавателя
+                </Text>
+                <Text 
+                  numberOfLines={1}
+                  ellipsizeMode="tail"
+                  style={{ 
+                    fontSize: 14, 
+                    color: colors.primary, 
+                    marginTop: 2,
+                    fontFamily: 'Montserrat_500Medium' 
+                  }}
+                >
+                  {teacherName || 'ФИО не указано'}
+                </Text>
+              </>
+            ) : (
+              <>
+                <Text 
+                  numberOfLines={1}
+                  ellipsizeMode="tail"
+                  style={{ 
+                    fontSize: 16, 
+                    fontWeight: 'bold', 
+                    color: textColor, 
+                    fontFamily: 'Montserrat_600SemiBold' 
+                  }}
+                >
+                  Расписание для {selectedGroup || 'группы не выбрана'}
+                </Text>
+                <Text 
+                  numberOfLines={1}
+                  ellipsizeMode="tail"
+                  style={{ 
+                    fontSize: 14, 
+                    color: placeholderColor, 
+                    marginTop: 2,
+                    fontFamily: 'Montserrat_400Regular' 
+                  }}
+                >
+                  {availableCourses.find(c => c.id === course)?.label || `Курс ${course}`}
+                </Text>
+              </>
+            )}
+          </View>
+          
+          <View style={{ flexDirection: 'row', alignItems: 'center', flexShrink: 0 }}>
+            <TouchableOpacity 
+              onPress={() => changeWeek(-1)} 
+              style={{ padding: 8 }}
+              disabled={isAnimating}
+            >
+              <Icon name="chevron-back" size={24} color={isAnimating ? placeholderColor : colors.primary} />
+            </TouchableOpacity>
+            
+            <Text 
+              numberOfLines={1}
+              style={{ 
+                color: textColor, 
+                fontWeight: '500', 
+                marginHorizontal: 8, 
+                fontFamily: 'Montserrat_500Medium',
+                minWidth: 80,
+                textAlign: 'center'
+              }}
+            >
+              Неделя {currentWeek}
+            </Text>
+            
+            <TouchableOpacity 
+              onPress={() => changeWeek(1)} 
+              style={{ padding: 8 }}
+              disabled={isAnimating}
+            >
+              <Icon name="chevron-forward" size={24} color={isAnimating ? placeholderColor : colors.primary} />
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Animated.View>
+    );
+  };
+
   // Рендер заголовка
   const renderHeader = () => {
     if (isTeacherMode) {
@@ -556,7 +890,7 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
     );
   };
 
-  // Рендер управления
+  // Рендер управления с анимацией
   const renderControls = () => {
     if (isTeacherMode) {
       return (
@@ -565,19 +899,34 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
             Недельное расписание
           </Text>
           
-          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-            <TouchableOpacity onPress={() => changeWeek(-1)} style={{ padding: 8 }}>
-              <Icon name="chevron-back" size={24} color={colors.primary} />
+          <Animated.View
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              transform: [{ translateX: dateSlideAnim }],
+              opacity: dateOpacityAnim,
+            }}
+          >
+            <TouchableOpacity 
+              onPress={() => changeWeek(-1)} 
+              style={{ padding: 8 }}
+              disabled={isAnimating}
+            >
+              <Icon name="chevron-back" size={24} color={isAnimating ? placeholderColor : colors.primary} />
             </TouchableOpacity>
             
             <Text style={{ color: textColor, fontWeight: '500', marginHorizontal: 8, fontFamily: 'Montserrat_500Medium' }}>
               Неделя {currentWeek}
             </Text>
             
-            <TouchableOpacity onPress={() => changeWeek(1)} style={{ padding: 8 }}>
-              <Icon name="chevron-forward" size={24} color={colors.primary} />
+            <TouchableOpacity 
+              onPress={() => changeWeek(1)} 
+              style={{ padding: 8 }}
+              disabled={isAnimating}
+            >
+              <Icon name="chevron-forward" size={24} color={isAnimating ? placeholderColor : colors.primary} />
             </TouchableOpacity>
-          </View>
+          </Animated.View>
         </View>
       );
     }
@@ -599,7 +948,13 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
               <Text style={{ color: viewMode === 'day' ? '#ffffff' : textColor, fontFamily: 'Montserrat_500Medium' }}>День</Text>
             </TouchableOpacity>
             <TouchableOpacity
-              onPress={() => setViewMode('week')}
+              onPress={() => {
+                setViewMode('week');
+                // При переключении на недельный режим, сбрасываем скролл
+                setTimeout(() => {
+                  scrollToCurrentDate();
+                }, 100);
+              }}
               style={{
                 paddingVertical: 6,
                 paddingHorizontal: 12,
@@ -611,12 +966,20 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
             </TouchableOpacity>
           </View>
 
-          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+          <Animated.View
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              transform: [{ translateX: dateSlideAnim }],
+              opacity: dateOpacityAnim,
+            }}
+          >
             <TouchableOpacity
               onPress={() => viewMode === 'day' ? changeDate(-1) : changeWeek(-1)}
               style={{ padding: 8 }}
+              disabled={isAnimating}
             >
-              <Icon name="chevron-back" size={24} color={colors.primary} />
+              <Icon name="chevron-back" size={24} color={isAnimating ? placeholderColor : colors.primary} />
             </TouchableOpacity>
             
             <Text style={{ color: textColor, fontWeight: '500', marginHorizontal: 8, fontFamily: 'Montserrat_500Medium' }}>
@@ -626,10 +989,11 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
             <TouchableOpacity
               onPress={() => viewMode === 'day' ? changeDate(1) : changeWeek(1)}
               style={{ padding: 8 }}
+              disabled={isAnimating}
             >
-              <Icon name="chevron-forward" size={24} color={colors.primary} />
+              <Icon name="chevron-forward" size={24} color={isAnimating ? placeholderColor : colors.primary} />
             </TouchableOpacity>
-          </View>
+          </Animated.View>
         </View>
       );
     }
@@ -646,8 +1010,8 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
       return (
         <View>
           {teacherSchedule && teacherSchedule.days ? (
-            teacherSchedule.days.map(day => 
-              day && day.lessons ? renderDaySchedule(day, currentWeek) : null
+            teacherSchedule.days.map((day, index) => 
+              day && day.lessons ? renderDaySchedule(day, currentWeek, index) : null
             )
           ) : (
             <Text style={{ textAlign: 'center', color: placeholderColor, marginTop: 20, fontFamily: 'Montserrat_400Regular' }}>
@@ -679,8 +1043,8 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
                 )}
               </View>
 
-              {scheduleData.days.map(day => 
-                day && day.lessons ? renderDaySchedule(day) : null
+              {scheduleData.days.map((day, index) => 
+                day && day.lessons ? renderDaySchedule(day, currentWeek, index) : null
               )}
             </View>
           );
@@ -729,14 +1093,19 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
     return null;
   };
 
-  // Обработка ошибок
-  if (error && !loadingGroups && !loadingSchedule && !loadingTeacher) {
-    // Если ошибка сети и есть кэшированные данные, показываем их
-    if (error === 'NO_INTERNET' && (scheduleData || teacherSchedule)) {
-      // Не показываем ошибку, продолжаем рендерить контент
-    } else {
-      return (
-        <Animated.View style={{ flex: 1, backgroundColor: bgColor, opacity: fadeAnim }}>
+  const renderCurrentScreen = () => {
+
+// Обработка ошибок
+if (error && !loadingGroups && !loadingSchedule && !loadingTeacher) {
+  if (error === 'NO_INTERNET' && (scheduleData || teacherSchedule)) {
+    // Не показываем ошибку, продолжаем рендерить контент
+  } else {
+    return (
+      <View style={{ flex: 1, backgroundColor: bgColor }}>
+        {/* Снегопад для новогоднего режима (между фоном и контентом) */}
+        {isNewYearMode && <Snowfall key={`snowfall-${isNewYearMode}`} theme={theme} intensity={0.8} />}
+        
+        <Animated.View style={{ flex: 1, opacity: fadeAnim }}>
           <ConnectionError 
             type={error}
             loading={false}
@@ -748,19 +1117,30 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
             accentColor={accentColor}
             contentType="schedule"
             message={error === 'NO_INTERNET' ? 'Расписание недоступно без подключения к интернету' : 'Не удалось загрузить расписание'}
+            isNewYearMode={isNewYearMode}
           />
         </Animated.View>
-      );
-    }
+      </View>
+    );
   }
+}
 
-  return (
-    <Animated.View style={{ flex: 1, backgroundColor: bgColor, opacity: fadeAnim }}>
+return (
+  <View style={{ flex: 1, backgroundColor: bgColor }}>
+    {/* Снегопад для новогоднего режима (между фоном и контентом) */}
+    {isNewYearMode && <Snowfall key={`snowfall-${isNewYearMode}`} theme={theme} intensity={0.8} />}
+    
+    <Animated.View style={{ flex: 1, opacity: fadeAnim, zIndex: 2 }}>
       <StatusBar 
         barStyle={theme === 'light' ? 'dark-content' : 'light-content'}
         backgroundColor={bgColor}
       />
+      
+      {/* Фиксированный заголовок */}
+      {renderFixedHeader()}
+      
       <ScrollView 
+        ref={scrollViewRef}
         style={{ flex: 1, padding: 16 }}
         refreshControl={
           <RefreshControl
@@ -770,7 +1150,11 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
             tintColor={colors.primary}
           />
         }
+        onScroll={handleScroll}
+        scrollEventThrottle={16}
+        contentContainerStyle={{ minHeight: height }}
       >
+        {/* ВСЕ содержимое расписания */}
         {showCachedData && (
           <View style={{ 
             backgroundColor: hintBgColor, 
@@ -807,7 +1191,7 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
         {/* Управление */}
         {renderControls()}
         
-        {/* Студенческий режим: кнопки курса и групп (только если включен селектор) */}
+        {/* Студенческий режим: кнопки курса и групп */}
         {!isTeacherMode && showCourseSelector && (
           <>
             {/* Кнопки выбора курса */}
@@ -817,7 +1201,7 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
               <View style={{ 
                 flexDirection: 'row', 
                 flexWrap: 'wrap',
-                backgroundColor: bgColor, 
+                backgroundColor: cardBg, 
                 borderRadius: 24, 
                 padding: 4, 
                 marginBottom: 16,
@@ -919,10 +1303,8 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
             </Text>
             <TouchableOpacity 
               onPress={() => {
-                // Включаем отображение селектора
                 setShowCourseSelector(true);
                 
-                // Обновляем настройки
                 const newSettings = { 
                   ...externalSettings, 
                   showSelector: true 
@@ -932,7 +1314,7 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
                   onSettingsUpdate(newSettings);
                 }
                 
-                console.log('Селектор групп включен');
+                console.log('Показан селектор для смены группы');
               }}
               style={{ marginLeft: 8 }}
             >
@@ -948,8 +1330,15 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
           </View>
         )}
 
-        {/* Содержимое расписания */}
-        {renderContent()}
+        {/* Содержимое расписания с анимацией */}
+        <Animated.View
+          style={{
+            transform: [{ translateX: scheduleSlideAnim }],
+            opacity: scheduleOpacityAnim,
+          }}
+        >
+          {renderContent()}
+        </Animated.View>
 
         {!isOnline && !error && !showCachedData && (
           <View style={{ 
@@ -979,11 +1368,12 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
         )}
       </ScrollView>
     </Animated.View>
-  );
-};
+  </View>
+);
+  };
 
-const styles = StyleSheet.create({
+  return renderCurrentScreen();
   // Стили могут быть добавлены при необходимости
-});
+};
 
 export default ScheduleScreen;

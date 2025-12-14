@@ -4,8 +4,9 @@ import { Ionicons as Icon } from '@expo/vector-icons';
 import { ACCENT_COLORS } from '../utils/constants';
 import UnderDevelopmentModal from './UnderDevelopmentModal';
 import BuildingsListScreen from './BuildingsListScreen';
+import Snowfall from './Snowfall';
 
-const FreshmanScreen = ({ theme, accentColor }) => {
+const FreshmanScreen = ({ theme, accentColor, isNewYearMode }) => {
   const [modalVisible, setModalVisible] = useState(false);
   const [currentGroupType, setCurrentGroupType] = useState(null);
   const [showBuildingsList, setShowBuildingsList] = useState(false);
@@ -351,34 +352,35 @@ const FreshmanScreen = ({ theme, accentColor }) => {
 
   // Рендер текущего экрана с анимацией
   const renderCurrentScreen = () => {
-    let content = null;
-    
     if (showBuildingsList) {
-      content = renderBuildingsList();
+      return renderBuildingsList();
     } else if (!currentGroupType) {
-      content = renderMainSections();
+      return renderMainSections();
     } else if (currentGroupType === 'main') {
-      content = renderGroupTypeSelection();
+      return renderGroupTypeSelection();
     } else if (currentGroupType === 'vk') {
-      content = renderVKGroups();
+      return renderVKGroups();
     } else if (currentGroupType === 'telegram') {
-      content = renderTelegramGroups();
+      return renderTelegramGroups();
     }
-
-    return (
-      <Animated.View style={{ flex: 1, opacity: fadeAnim }}>
-        {content}
-      </Animated.View>
-    );
+    return null;
   };
 
-  return (
-    <View style={{ flex: 1, backgroundColor: bgColor }}>
+return (
+  <View style={{ flex: 1, backgroundColor: bgColor }}>
+    {/* Снегопад для новогоднего режима */}
+    {isNewYearMode && <Snowfall key={`snowfall-${isNewYearMode}`} theme={theme} intensity={0.8} />}
+    
+    <View style={{ flex: 1, zIndex: 2 }}>
       <StatusBar 
         barStyle={theme === 'light' ? 'dark-content' : 'light-content'}
         backgroundColor={bgColor}
       />
-      {renderCurrentScreen()}
+      
+      {/* Рендер текущего экрана с анимацией */}
+      <Animated.View style={{ flex: 1, opacity: fadeAnim }}>
+        {renderCurrentScreen()}
+      </Animated.View>
 
       {/* Модальное окно заглушки */}
       <UnderDevelopmentModal
@@ -389,7 +391,8 @@ const FreshmanScreen = ({ theme, accentColor }) => {
         featureName="Информация о преподавателях"
       />
     </View>
-  );
+  </View>
+);
 };
 
 const styles = StyleSheet.create({

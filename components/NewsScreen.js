@@ -7,8 +7,9 @@ import NetInfo from '@react-native-community/netinfo';
 import ApiService from '../utils/api';
 import notificationService from '../utils/notificationService';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import Snowfall from './Snowfall';
 
-const NewsScreen = ({ theme, accentColor }) => {
+const NewsScreen = ({ theme, accentColor, isNewYearMode }) => {
   const [news, setNews] = useState([]);
   const [cachedNews, setCachedNews] = useState([]);
   const [from, setFrom] = useState(0);
@@ -235,10 +236,13 @@ const NewsScreen = ({ theme, accentColor }) => {
     }
   };
 
-  // Если есть ошибка и нет загрузки, показываем соответствующий экран
-  if (error && !loading) {
-    return (
-      <Animated.View style={{ flex: 1, backgroundColor: bgColor, opacity: fadeAnim }}>
+// Если есть ошибка и нет загрузки, показываем соответствующий экран
+if (error && !loading) {
+  return (
+    <View style={{ flex: 1, backgroundColor: bgColor }}>
+      {isNewYearMode && <Snowfall key={`snowfall-${isNewYearMode}`} theme={theme} intensity={0.8} />}
+      
+      <Animated.View style={{ flex: 1, opacity: fadeAnim, zIndex: 2 }}>
         <ConnectionError 
           type={error}
           loading={false}
@@ -252,11 +256,16 @@ const NewsScreen = ({ theme, accentColor }) => {
           message={error === 'NO_INTERNET' ? 'Новости недоступны без подключения к интернету' : 'Не удалось загрузить новости'}
         />
       </Animated.View>
-    );
-  }
+    </View>
+  );
+}
 
-  return (
-    <Animated.View style={{ flex: 1, backgroundColor: bgColor, opacity: fadeAnim }}>
+return (
+  <View style={{ flex: 1, backgroundColor: bgColor }}>
+    {/* Снегопад на заднем плане */}
+    {isNewYearMode && <Snowfall key={`snowfall-${isNewYearMode}`} theme={theme} intensity={0.8} />}
+    
+    <Animated.View style={{ flex: 1, opacity: fadeAnim, zIndex: 2 }}>
       <StatusBar 
         barStyle={theme === 'light' ? 'dark-content' : 'light-content'}
         backgroundColor={bgColor}
@@ -273,6 +282,7 @@ const NewsScreen = ({ theme, accentColor }) => {
           />
         }
       >
+        {/* ВСЕ содержимое новостей */}
         {showCachedData && (
           <View style={{ 
             backgroundColor: hintBgColor, 
@@ -398,7 +408,17 @@ const NewsScreen = ({ theme, accentColor }) => {
       </ScrollView>
       
       {loading && news.length === 0 && (
-        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+        <View style={{ 
+          position: 'absolute', 
+          top: 0, 
+          left: 0, 
+          right: 0, 
+          bottom: 0, 
+          justifyContent: 'center', 
+          alignItems: 'center',
+          backgroundColor: 'rgba(0,0,0,0.1)',
+          zIndex: 3
+        }}>
           <ActivityIndicator size="large" color={colors.primary} />
           <Text style={{ color: textColor, marginTop: 16, fontFamily: 'Montserrat_400Regular' }}>
             Загрузка новостей...
@@ -406,7 +426,8 @@ const NewsScreen = ({ theme, accentColor }) => {
         </View>
       )}
     </Animated.View>
-  );
+  </View>
+);
 };
 
 const styles = StyleSheet.create({

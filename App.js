@@ -10,16 +10,14 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 // Импорт компонентов
 import SplashScreen from './components/SplashScreen';
 import TabButton from './components/TabButton';
-import PlaceholderScreen from './components/PlaceholderScreen';
 import NewsScreen from './components/NewsScreen';
 import ScheduleScreen from './components/ScheduleScreen';
 import SettingsScreen from './components/SettingsScreen';
 import MapScreen from './components/MapScreen';
-import NotificationSettingsModal from './components/NotificationSettingsModal';
 import FreshmanScreen from './components/FreshmanScreen';
 
 // Импорт утилит
-import { ACCENT_COLORS, SCREENS } from './utils/constants';
+import { ACCENT_COLORS, SCREENS, isNewYearPeriod, getNewYearText } from './utils/constants';
 import * as Sentry from '@sentry/react-native';
 import notificationService from './utils/notificationService';
 import backgroundService from './utils/backgroundService';
@@ -80,12 +78,6 @@ const styles = StyleSheet.create({
     elevation: 5,
     paddingHorizontal: 4,
     paddingVertical: 8,
-    // Добавляем отступ для навигационных кнопок Android
-    paddingBottom: Platform.OS === 'android' ? 10 : 8
-  },
-  // Новый стиль для безопасной области
-  safeAreaBottom: {
-    paddingBottom: Platform.OS === 'android' ? 20 : 0
   }
 });
 
@@ -109,6 +101,10 @@ export default Sentry.wrap(function App() {
   // Состояния для настроек таббара
   const [showTabbarLabels, setShowTabbarLabels] = useState(true);
   const [tabbarFontSize, setTabbarFontSize] = useState('medium');
+  
+  // Состояние для новогоднего настроения
+  const [isNewYearMode, setIsNewYearMode] = useState(false);
+  const [splashNewYearMode, setSplashNewYearMode] = useState(false);
 
   useEffect(() => {
     // Настройка обработчиков уведомлений
@@ -147,6 +143,71 @@ export default Sentry.wrap(function App() {
     }
   };
 
+const loadNewYearSettings = async () => {
+  try {
+    const savedSetting = await SecureStore.getItemAsync('new_year_mode');
+    const today = new Date();
+    const month = today.getMonth() + 1;
+    const day = today.getDate();
+    const isNewYearPeriod = (month === 12 && day >= 1) || (month === 1 && day <= 31);
+    
+    console.log('Loading new year settings:', { 
+      savedSetting, 
+      isNewYearPeriod,
+      today: today.toISOString(),
+      month,
+      day
+    });
+    
+    if (savedSetting !== null) {
+      // Используем сохраненную настройку пользователя
+      const userEnabled = savedSetting === 'true';
+      // Включаем только если это новогодний период И пользователь включил
+      const shouldEnable = userEnabled && isNewYearPeriod;
+      setIsNewYearMode(shouldEnable);
+      setSplashNewYearMode(shouldEnable);
+    } else {
+      // Если настройка не сохранена - включаем автоматически в новогодний период
+      if (isNewYearPeriod) {
+        setIsNewYearMode(true);
+        setSplashNewYearMode(true);
+        await SecureStore.setItemAsync('new_year_mode', 'true');
+      } else {
+        setIsNewYearMode(false);
+        setSplashNewYearMode(false);
+      }
+    }
+    
+  } catch (error) {
+    console.error('Error loading new year settings:', error);
+    setIsNewYearMode(false);
+    setSplashNewYearMode(false);
+  }
+};
+
+// Функция для обновления настроек новогоднего режима
+const handleNewYearModeChange = async (enabled) => {
+  console.log('App: Changing new year mode to:', enabled);
+  
+  const today = new Date();
+  const month = today.getMonth() + 1;
+  const day = today.getDate();
+  const isNewYearPeriod = (month === 12 && day >= 1) || (month === 1 && day <= 31);
+  
+  // Сохраняем настройку пользователя
+  await SecureStore.setItemAsync('new_year_mode', enabled.toString());
+  
+  // Применяем настройку немедленно
+  const shouldEnable = enabled && isNewYearPeriod;
+  setIsNewYearMode(shouldEnable);
+  setSplashNewYearMode(shouldEnable);
+  
+  console.log('New year mode updated immediately:', shouldEnable);
+  
+  // Принудительно обновляем все компоненты для немедленного применения
+  setRefreshKey(prev => prev + 1);
+};
+
   const initializeApp = async () => {
     try {
       // Запрашиваем разрешения на уведомления
@@ -155,9 +216,10 @@ export default Sentry.wrap(function App() {
       // Инициализируем сервис уведомлений
       await notificationService.initialize();
 
-      // Загружаем сохраненные настройки
-      await loadSettings();
-      await loadTabbarSettings();
+      // Загружаем сохраненные настройки (В ЭТОМ ПОРЯДКЕ!)
+      await loadSettings(); // тема и цвет
+      await loadTabbarSettings(); // настройки таббара
+      await loadNewYearSettings(); // новогодние настройки
 
       // Регистрируем фоновую задачу (только для Android)
       if (Platform.OS === 'android') {
@@ -255,7 +317,12 @@ export default Sentry.wrap(function App() {
   
   // Рендерим SplashScreen пока шрифты не загружены или приложение загружается
   if (!fontsLoaded || isLoading) {
-    return <SplashScreen accentColor={accentColor} theme={getEffectiveTheme()} />;
+    return <SplashScreen 
+      accentColor={accentColor} 
+      theme={getEffectiveTheme()} 
+      isNewYearMode={splashNewYearMode}
+      newYearText={splashNewYearMode ? getNewYearText() : ''}
+    />;
   }
   
   const bgColor = effectiveTheme === 'light' ? '#f3f4f6' : '#111827';
@@ -272,8 +339,10 @@ export default Sentry.wrap(function App() {
     }
   };
 
+  const newYearText = isNewYearMode ? getNewYearText() : '';
+
   return (
-    <View style={[{ flex: 1, backgroundColor: bgColor }, styles.safeAreaBottom]}>
+    <View style={{ flex: 1, backgroundColor: bgColor }}>
       {/* Статусбар с правильными настройками */}
       <StatusBar 
         barStyle={effectiveTheme === 'light' ? 'dark-content' : 'light-content'}
@@ -291,16 +360,36 @@ export default Sentry.wrap(function App() {
       {/* Контент */}
       <View style={{ flex: 1 }}>
         {activeScreen === SCREENS.SCHEDULE && (
-          <ScheduleScreen theme={effectiveTheme} accentColor={accentColor} key={`schedule-${refreshKey}`} />
+          <ScheduleScreen 
+            theme={effectiveTheme} 
+            accentColor={accentColor} 
+            key={`schedule-${refreshKey}`}
+            isNewYearMode={isNewYearMode}
+          />
         )}
         {activeScreen === SCREENS.MAP && (
-          <MapScreen theme={effectiveTheme} accentColor={accentColor} key={`map-${refreshKey}`} />
+          <MapScreen 
+            theme={effectiveTheme} 
+            accentColor={accentColor} 
+            key={`map-${refreshKey}`}
+            isNewYearMode={isNewYearMode}
+          />
         )}
         {activeScreen === SCREENS.FRESHMAN && (
-          <FreshmanScreen theme={effectiveTheme} accentColor={accentColor} key={`freshman-${refreshKey}`} />
+          <FreshmanScreen 
+            theme={effectiveTheme} 
+            accentColor={accentColor} 
+            key={`freshman-${refreshKey}`}
+            isNewYearMode={isNewYearMode}
+          />
         )}
         {activeScreen === SCREENS.NEWS && (
-          <NewsScreen theme={effectiveTheme} accentColor={accentColor} key={`news-${refreshKey}`} />
+          <NewsScreen 
+            theme={effectiveTheme} 
+            accentColor={accentColor} 
+            key={`news-${refreshKey}`}
+            isNewYearMode={isNewYearMode}
+          />
         )}
         {activeScreen === SCREENS.SETTINGS && (
           <SettingsScreen 
@@ -310,12 +399,17 @@ export default Sentry.wrap(function App() {
             setAccentColor={setAccentColor} 
             key={`settings-${refreshKey}`}
             onTabbarSettingsChange={handleTabbarSettingsChange}
+            isNewYearMode={isNewYearMode}
+            onNewYearModeChange={handleNewYearModeChange}
           />
         )}
       </View>
       
       {/* Навигация */}
-      <View style={[styles.navigation, { backgroundColor: headerBg, paddingBottom: 8 }]}>
+      <View style={[styles.navigation, { 
+        backgroundColor: headerBg, 
+        paddingBottom: Platform.OS === 'android' ? insets.bottom + 8 : 8 
+      }]}>
         <TabButton 
           icon="calendar-outline" 
           label={SCREENS.SCHEDULE} 

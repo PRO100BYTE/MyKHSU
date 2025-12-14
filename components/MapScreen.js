@@ -22,10 +22,11 @@ import ConnectionError from './ConnectionError';
 import { buildings, initialRegion } from '../utils/buildingCoordinates';
 import BuildingsListScreen from './BuildingsListScreen';
 import { WebView } from 'react-native-webview';
+import Snowfall from './Snowfall';
 
 const { width, height } = Dimensions.get('window');
 
-const MapScreen = ({ theme, accentColor }) => {
+const MapScreen = ({ theme, accentColor, isNewYearMode }) => {
   const [isOnline, setIsOnline] = useState(true);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -353,31 +354,35 @@ const MapScreen = ({ theme, accentColor }) => {
   if (showBuildingsList) {
     return (
       <View style={{ flex: 1, backgroundColor: bgColor }}>
-        <StatusBar 
-          barStyle={theme === 'light' ? 'dark-content' : 'light-content'}
-          backgroundColor={bgColor}
-        />
-        <View style={{ flexDirection: 'row', alignItems: 'center', padding: 16, backgroundColor: cardBg }}>
-          <TouchableOpacity 
-            onPress={() => setShowBuildingsList(false)}
-            style={{ padding: 8, marginRight: 12 }}
-          >
-            <Icon name="arrow-back" size={24} color={colors.primary} />
-          </TouchableOpacity>
-          <Text style={{ 
-            color: textColor, 
-            fontSize: 20, 
-            fontWeight: 'bold',
-            fontFamily: 'Montserrat_600SemiBold'
-          }}>
-            Корпуса ХГУ
-          </Text>
+        {isNewYearMode && <Snowfall key={`snowfall-${isNewYearMode}`} theme={theme} intensity={0.8} />}
+        
+        <View style={{ flex: 1, zIndex: 2 }}>
+          <StatusBar 
+            barStyle={theme === 'light' ? 'dark-content' : 'light-content'}
+            backgroundColor={bgColor}
+          />
+          <View style={{ flexDirection: 'row', alignItems: 'center', padding: 16, backgroundColor: cardBg }}>
+            <TouchableOpacity 
+              onPress={() => setShowBuildingsList(false)}
+              style={{ padding: 8, marginRight: 12 }}
+            >
+              <Icon name="arrow-back" size={24} color={colors.primary} />
+            </TouchableOpacity>
+            <Text style={{ 
+              color: textColor, 
+              fontSize: 20, 
+              fontWeight: 'bold',
+              fontFamily: 'Montserrat_600SemiBold'
+            }}>
+              Корпуса ХГУ
+            </Text>
+          </View>
+          <BuildingsListScreen 
+            theme={theme} 
+            accentColor={accentColor} 
+            onBuildingSelect={handleBuildingSelect}
+          />
         </View>
-        <BuildingsListScreen 
-          theme={theme} 
-          accentColor={accentColor} 
-          onBuildingSelect={handleBuildingSelect}
-        />
       </View>
     );
   }
@@ -402,22 +407,25 @@ const MapScreen = ({ theme, accentColor }) => {
     }
 
     return (
-      <Animated.View style={{ flex: 1, backgroundColor: bgColor, opacity: fadeAnim }}>
-        <StatusBar 
-          barStyle={theme === 'light' ? 'dark-content' : 'light-content'}
-          backgroundColor={bgColor}
-        />
-        <ConnectionError 
-          type={errorType}
-          loading={loading}
-          onRetry={handleRetry}
-          theme={theme}
-          accentColor={accentColor}
-          contentType="map"
-          message={errorMessage}
-          showFreshmanHint={true}
-        />
-      </Animated.View>
+      <View style={{ flex: 1, backgroundColor: bgColor }}>
+        {isNewYearMode && <Snowfall key={`snowfall-${isNewYearMode}`} theme={theme} intensity={0.8} />}
+        <Animated.View style={{ flex: 1, opacity: fadeAnim, zIndex: 2 }}>
+          <StatusBar 
+            barStyle={theme === 'light' ? 'dark-content' : 'light-content'}
+            backgroundColor={bgColor}
+          />
+          <ConnectionError 
+            type={errorType}
+            loading={loading}
+            onRetry={handleRetry}
+            theme={theme}
+            accentColor={accentColor}
+            contentType="map"
+            message={errorMessage}
+            showFreshmanHint={true}
+          />
+        </Animated.View>
+      </View>
     );
   }
 
@@ -657,13 +665,17 @@ const MapScreen = ({ theme, accentColor }) => {
   ] : [];
 
   return (
-    <Animated.View style={[styles.container, { opacity: fadeAnim }]}>
-      <StatusBar 
-        barStyle={theme === 'light' ? 'dark-content' : 'light-content'}
-        backgroundColor={bgColor}
-      />
+    <View style={{ flex: 1, backgroundColor: bgColor }}>
+      {/* Снегопад для новогоднего режима */}
+      {isNewYearMode && <Snowfall key={`snowfall-${isNewYearMode}`} theme={theme} intensity={0.8} />}
       
-      {/* Заголовок с кнопкой фильтров */}
+      <Animated.View style={[styles.container, { opacity: fadeAnim, zIndex: 2 }]}>
+        <StatusBar 
+          barStyle={theme === 'light' ? 'dark-content' : 'light-content'}
+          backgroundColor={bgColor}
+        />
+        
+        {/* Заголовок с кнопкой фильтров */}
       <View style={[styles.header, { backgroundColor: cardBg }]}>
         <View style={styles.headerLeft}>
           <Text style={[styles.headerTitle, { color: textColor }]}>Корпуса ХГУ</Text>
@@ -944,6 +956,7 @@ const MapScreen = ({ theme, accentColor }) => {
         </Animated.View>
       )}
     </Animated.View>
+    </View>
   );
 };
 

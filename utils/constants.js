@@ -23,11 +23,11 @@ export const ACCENT_COLORS = {
 };
 
 // Версия приложения
-export const APP_VERSION = '2.2.7';
+export const APP_VERSION = '2.2.9';
 export const APP_DEVELOPERS = 'студентами группы 125-1 в составе команды PRO100BYTE Team';
 export const APP_SUPPORTERS = 'ХГУ им. Н.Ф. Катанова и ООО "Скалк Софт"';
-export const BUILD_VER = 'git-2072b75';
-export const BUILD_DATE = '02.12.2025';
+export const BUILD_VER = 'git-c39e0cd';
+export const BUILD_DATE = '06.12.2025';
 
 // Дни недели
 export const WEEKDAYS = [
@@ -80,4 +80,34 @@ export const ERROR_MESSAGES = {
 export const STORAGE_KEYS = {
   THEME: 'theme',
   ACCENT_COLOR: 'accentColor'
+};
+
+// Функция для получения новогоднего текста
+export const getNewYearText = () => {
+  const today = new Date();
+  const year = today.getFullYear();
+  const month = today.getMonth() + 1;
+  const day = today.getDate();
+  
+  // С 1 января по 31 января показываем "С новым {год} годом!"
+  if (month === 1 && day >= 1 && day <= 31) {
+    return `С новым ${year} годом!`;
+  }
+  
+  // С 1 декабря по 31 декабря показываем "С наступающим {год+1} годом!"
+  if (month === 12 && day >= 1 && day <= 31) {
+    return `С наступающим ${year + 1} годом!`;
+  }
+  
+  return '';
+};
+
+// Функция проверки новогоднего периода (для синхронизации с App.js)
+export const isNewYearPeriod = () => {
+  const today = new Date();
+  const month = today.getMonth() + 1;
+  const day = today.getDate();
+  
+  // Период с 1 декабря по 31 января
+  return (month === 12 && day >= 1) || (month === 1 && day <= 31);
 };

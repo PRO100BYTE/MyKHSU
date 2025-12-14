@@ -14,8 +14,9 @@ import {
 import { Ionicons as Icon } from '@expo/vector-icons';
 import { ACCENT_COLORS } from '../utils/constants';
 import { buildings } from '../utils/buildingCoordinates';
+import Snowfall from './Snowfall';
 
-const BuildingsListScreen = ({ theme, accentColor, onBuildingSelect }) => {
+const BuildingsListScreen = ({ theme, accentColor, onBuildingSelect, isNewYearMode }) => {
   const [showRouteOptions, setShowRouteOptions] = useState(false);
   const [selectedBuilding, setSelectedBuilding] = useState(null);
   const [expandedSections, setExpandedSections] = useState({});
@@ -252,123 +253,128 @@ const BuildingsListScreen = ({ theme, accentColor, onBuildingSelect }) => {
   };
 
   return (
-    <Animated.View style={{ flex: 1, backgroundColor: bgColor, opacity: fadeAnim }}>
-      <StatusBar 
-        barStyle={theme === 'light' ? 'dark-content' : 'light-content'}
-        backgroundColor={bgColor}
-      />
+    <View style={{ flex: 1, backgroundColor: bgColor }}>
+      {/* Снегопад для новогоднего режима */}
+      {isNewYearMode && <Snowfall key={`snowfall-${isNewYearMode}`} theme={theme} intensity={0.8} />}
       
-      <View style={{ flex: 1, padding: 16 }}>
-        <View style={{ marginBottom: 20 }}>
-          <Text style={{ 
-            color: placeholderColor, 
-            fontSize: 16,
-            fontFamily: 'Montserrat_400Regular',
-            lineHeight: 22
-          }}>
-            Все корпуса Хакасского государственного университета.{'\n'}
-            Выберите корпус для построения маршрута.
-          </Text>
-        </View>
+      <Animated.View style={{ flex: 1, opacity: fadeAnim, zIndex: 2 }}>
+        <StatusBar 
+          barStyle={theme === 'light' ? 'dark-content' : 'light-content'}
+          backgroundColor={bgColor}
+        />
 
-        <ScrollView showsVerticalScrollIndicator={false}>
-          {Object.entries(groupedBuildings).map(([category, buildingsList]) => 
-            renderCategorySection(category, buildingsList)
-          )}
-          
-          {/* Информационный блок */}
-          <View style={[styles.infoCard, { backgroundColor: colors.light, marginTop: 16 }]}>
-            <Icon name="information-circle-outline" size={20} color={colors.primary} />
-            <Text style={[styles.infoText, { color: colors.primary, marginLeft: 8, flex: 1 }]}>
-              Для построения маршрута выберите корпус и сервис навигации
+        <View style={{ flex: 1, padding: 16 }}>
+          <View style={{ marginBottom: 20 }}>
+            <Text style={{ 
+              color: placeholderColor, 
+              fontSize: 16,
+              fontFamily: 'Montserrat_400Regular',
+              lineHeight: 22
+            }}>
+              Все корпуса Хакасского государственного университета.{'\n'}
+              Выберите корпус для построения маршрута.
             </Text>
           </View>
-        </ScrollView>
-      </View>
 
-      {/* Модальное окно выбора сервиса для построения маршрута с анимацией */}
-      {showRouteOptions && (
-        <Animated.View 
-          style={[
-            styles.routeModalOverlay,
-            { 
-              opacity: routeModalAnim,
-              backgroundColor: 'rgba(0, 0, 0, 0.5)'
-            }
-          ]}
-        >
+          <ScrollView showsVerticalScrollIndicator={false}>
+            {Object.entries(groupedBuildings).map(([category, buildingsList]) => 
+              renderCategorySection(category, buildingsList)
+            )}
+            
+            {/* Информационный блок */}
+            <View style={[styles.infoCard, { backgroundColor: colors.light, marginTop: 16 }]}>
+              <Icon name="information-circle-outline" size={20} color={colors.primary} />
+              <Text style={[styles.infoText, { color: colors.primary, marginLeft: 8, flex: 1 }]}>
+                Для построения маршрута выберите корпус и сервис навигации
+              </Text>
+            </View>
+          </ScrollView>
+        </View>
+
+        {/* Модальное окно выбора сервиса для построения маршрута с анимацией */}
+        {showRouteOptions && (
           <Animated.View 
             style={[
-              styles.routeModal,
+              styles.routeModalOverlay,
               { 
-                backgroundColor: theme === 'dark' ? '#1f2937' : '#ffffff',
-                transform: [{
-                  translateY: routeModalAnim.interpolate({
-                    inputRange: [0, 1],
-                    outputRange: [300, 0]
-                  })
-                }]
+                opacity: routeModalAnim,
+                backgroundColor: 'rgba(0, 0, 0, 0.5)'
               }
             ]}
           >
-            <Text style={[styles.routeModalTitle, { color: textColor, fontFamily: 'Montserrat_600SemiBold' }]}>
-              Построить маршрут
-            </Text>
-            <Text style={[styles.routeModalSubtitle, { color: textColor, fontFamily: 'Montserrat_500Medium' }]}>
-              {selectedBuilding?.name}
-            </Text>
-            <Text style={[styles.routeModalDescription, { color: placeholderColor, fontFamily: 'Montserrat_400Regular' }]}>
-              {selectedBuilding?.description}
-            </Text>
-            
-            <TouchableOpacity 
-              style={[styles.routeOption, { backgroundColor: colors.light }]}
-              onPress={() => handleRouteServiceSelect('yandex')}
+            <Animated.View 
+              style={[
+                styles.routeModal,
+                { 
+                  backgroundColor: theme === 'dark' ? '#1f2937' : '#ffffff',
+                  transform: [{
+                    translateY: routeModalAnim.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [300, 0]
+                    })
+                  }]
+                }
+              ]}
             >
-              <View style={[styles.routeIcon, { backgroundColor: colors.primary }]}>
-                <Text style={[styles.routeIconText, { fontFamily: 'Montserrat_700Bold' }]}>Я</Text>
-              </View>
-              <View style={styles.routeOptionText}>
-                <Text style={[styles.routeOptionTitle, { color: colors.primary, fontFamily: 'Montserrat_600SemiBold' }]}>
-                  Яндекс.Карты
-                </Text>
-                <Text style={[styles.routeOptionDesc, { color: colors.primary, fontFamily: 'Montserrat_400Regular' }]}>
-                  Открыть в веб-браузере
-                </Text>
-              </View>
-              <Icon name="open-outline" size={20} color={colors.primary} />
-            </TouchableOpacity>
-
-            <TouchableOpacity 
-              style={[styles.routeOption, { backgroundColor: colors.light, marginTop: 12 }]}
-              onPress={() => handleRouteServiceSelect('2gis')}
-            >
-              <View style={[styles.routeIcon, { backgroundColor: colors.primary }]}>
-                <Text style={[styles.routeIconText, { fontFamily: 'Montserrat_700Bold' }]}>2</Text>
-              </View>
-              <View style={styles.routeOptionText}>
-                <Text style={[styles.routeOptionTitle, { color: colors.primary, fontFamily: 'Montserrat_600SemiBold' }]}>
-                  2ГИС
-                </Text>
-                <Text style={[styles.routeOptionDesc, { color: colors.primary, fontFamily: 'Montserrat_400Regular' }]}>
-                  Открыть в веб-браузере
-                </Text>
-              </View>
-              <Icon name="open-outline" size={20} color={colors.primary} />
-            </TouchableOpacity>
-
-            <TouchableOpacity 
-              style={[styles.cancelButton, { marginTop: 16 }]}
-              onPress={handleCloseRouteModal}
-            >
-              <Text style={[styles.cancelButtonText, { color: placeholderColor, fontFamily: 'Montserrat_500Medium' }]}>
-                Отмена
+              <Text style={[styles.routeModalTitle, { color: textColor, fontFamily: 'Montserrat_600SemiBold' }]}>
+                Построить маршрут
               </Text>
-            </TouchableOpacity>
+              <Text style={[styles.routeModalSubtitle, { color: textColor, fontFamily: 'Montserrat_500Medium' }]}>
+                {selectedBuilding?.name}
+              </Text>
+              <Text style={[styles.routeModalDescription, { color: placeholderColor, fontFamily: 'Montserrat_400Regular' }]}>
+                {selectedBuilding?.description}
+              </Text>
+              
+              <TouchableOpacity 
+                style={[styles.routeOption, { backgroundColor: colors.light }]}
+                onPress={() => handleRouteServiceSelect('yandex')}
+              >
+                <View style={[styles.routeIcon, { backgroundColor: colors.primary }]}>
+                  <Text style={[styles.routeIconText, { fontFamily: 'Montserrat_700Bold' }]}>Я</Text>
+                </View>
+                <View style={styles.routeOptionText}>
+                  <Text style={[styles.routeOptionTitle, { color: colors.primary, fontFamily: 'Montserrat_600SemiBold' }]}>
+                    Яндекс.Карты
+                  </Text>
+                  <Text style={[styles.routeOptionDesc, { color: colors.primary, fontFamily: 'Montserrat_400Regular' }]}>
+                    Открыть в веб-браузере
+                  </Text>
+                </View>
+                <Icon name="open-outline" size={20} color={colors.primary} />
+              </TouchableOpacity>
+
+              <TouchableOpacity 
+                style={[styles.routeOption, { backgroundColor: colors.light, marginTop: 12 }]}
+                onPress={() => handleRouteServiceSelect('2gis')}
+              >
+                <View style={[styles.routeIcon, { backgroundColor: colors.primary }]}>
+                  <Text style={[styles.routeIconText, { fontFamily: 'Montserrat_700Bold' }]}>2</Text>
+                </View>
+                <View style={styles.routeOptionText}>
+                  <Text style={[styles.routeOptionTitle, { color: colors.primary, fontFamily: 'Montserrat_600SemiBold' }]}>
+                    2ГИС
+                  </Text>
+                  <Text style={[styles.routeOptionDesc, { color: colors.primary, fontFamily: 'Montserrat_400Regular' }]}>
+                    Открыть в веб-браузере
+                  </Text>
+                </View>
+                <Icon name="open-outline" size={20} color={colors.primary} />
+              </TouchableOpacity>
+
+              <TouchableOpacity 
+                style={[styles.cancelButton, { marginTop: 16 }]}
+                onPress={handleCloseRouteModal}
+              >
+                <Text style={[styles.cancelButtonText, { color: placeholderColor, fontFamily: 'Montserrat_500Medium' }]}>
+                  Отмена
+                </Text>
+              </TouchableOpacity>
+            </Animated.View>
           </Animated.View>
-        </Animated.View>
-      )}
-    </Animated.View>
+        )}
+      </Animated.View>
+    </View>
   );
 };
 
