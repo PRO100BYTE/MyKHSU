@@ -354,31 +354,35 @@ const MapScreen = ({ theme, accentColor, isNewYearMode }) => {
   if (showBuildingsList) {
     return (
       <View style={{ flex: 1, backgroundColor: bgColor }}>
-        <StatusBar 
-          barStyle={theme === 'light' ? 'dark-content' : 'light-content'}
-          backgroundColor={bgColor}
-        />
-        <View style={{ flexDirection: 'row', alignItems: 'center', padding: 16, backgroundColor: cardBg }}>
-          <TouchableOpacity 
-            onPress={() => setShowBuildingsList(false)}
-            style={{ padding: 8, marginRight: 12 }}
-          >
-            <Icon name="arrow-back" size={24} color={colors.primary} />
-          </TouchableOpacity>
-          <Text style={{ 
-            color: textColor, 
-            fontSize: 20, 
-            fontWeight: 'bold',
-            fontFamily: 'Montserrat_600SemiBold'
-          }}>
-            Корпуса ХГУ
-          </Text>
+        {isNewYearMode && <Snowfall theme={theme} intensity={0.8} />}
+        
+        <View style={{ flex: 1, zIndex: 2 }}>
+          <StatusBar 
+            barStyle={theme === 'light' ? 'dark-content' : 'light-content'}
+            backgroundColor={bgColor}
+          />
+          <View style={{ flexDirection: 'row', alignItems: 'center', padding: 16, backgroundColor: cardBg }}>
+            <TouchableOpacity 
+              onPress={() => setShowBuildingsList(false)}
+              style={{ padding: 8, marginRight: 12 }}
+            >
+              <Icon name="arrow-back" size={24} color={colors.primary} />
+            </TouchableOpacity>
+            <Text style={{ 
+              color: textColor, 
+              fontSize: 20, 
+              fontWeight: 'bold',
+              fontFamily: 'Montserrat_600SemiBold'
+            }}>
+              Корпуса ХГУ
+            </Text>
+          </View>
+          <BuildingsListScreen 
+            theme={theme} 
+            accentColor={accentColor} 
+            onBuildingSelect={handleBuildingSelect}
+          />
         </View>
-        <BuildingsListScreen 
-          theme={theme} 
-          accentColor={accentColor} 
-          onBuildingSelect={handleBuildingSelect}
-        />
       </View>
     );
   }
@@ -403,9 +407,9 @@ const MapScreen = ({ theme, accentColor, isNewYearMode }) => {
     }
 
     return (
-      <View style={{ flex: 1 }}>
+      <View style={{ flex: 1, backgroundColor: bgColor }}>
         {isNewYearMode && <Snowfall theme={theme} intensity={0.8} />}
-        <Animated.View style={{ flex: 1, backgroundColor: bgColor, opacity: fadeAnim }}>
+        <Animated.View style={{ flex: 1, opacity: fadeAnim, zIndex: 2 }}>
           <StatusBar 
             barStyle={theme === 'light' ? 'dark-content' : 'light-content'}
             backgroundColor={bgColor}
@@ -661,11 +665,11 @@ const MapScreen = ({ theme, accentColor, isNewYearMode }) => {
   ] : [];
 
   return (
-    <View style={{ flex: 1 }}>
+    <View style={{ flex: 1, backgroundColor: bgColor }}>
       {/* Снегопад для новогоднего режима */}
       {isNewYearMode && <Snowfall theme={theme} intensity={0.8} />}
       
-      <Animated.View style={[styles.container, { backgroundColor: bgColor, opacity: fadeAnim }]}>
+      <Animated.View style={[styles.container, { opacity: fadeAnim, zIndex: 2 }]}>
         <StatusBar 
           barStyle={theme === 'light' ? 'dark-content' : 'light-content'}
           backgroundColor={bgColor}

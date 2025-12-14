@@ -143,40 +143,69 @@ export default Sentry.wrap(function App() {
     }
   };
 
-  // Функция для загрузки настроек новогоднего режима
-  const loadNewYearSettings = async () => {
-    try {
-      const newYearEnabled = await SecureStore.getItemAsync('new_year_mode');
-      const isNewYearPeriodActive = isNewYearPeriod();
-      
-      console.log('Loading new year settings:', { 
-        newYearEnabled, 
-        isNewYearPeriodActive,
-        today: new Date().toISOString()
-      });
-      
-      if (newYearEnabled !== null) {
-        // Если пользователь вручную установил настройку
-        const userEnabled = newYearEnabled === 'true';
-        setIsNewYearMode(userEnabled && isNewYearPeriodActive);
-        setSplashNewYearMode(isNewYearPeriodActive); // Для сплэшскрина показываем только если период
-      } else if (isNewYearPeriodActive) {
-        // Если новогодний период и настройка не задана - включаем автоматически
+const loadNewYearSettings = async () => {
+  try {
+    const newYearEnabled = await SecureStore.getItemAsync('new_year_mode');
+    const today = new Date();
+    const month = today.getMonth() + 1;
+    const day = today.getDate();
+    
+    // Период с 1 декабря по 31 января
+    const isNewYearPeriod = (month === 12 && day >= 1) || (month === 1 && day <= 31);
+    
+    console.log('Loading new year settings:', { 
+      newYearEnabled, 
+      isNewYearPeriod,
+      today: today.toISOString(),
+      month,
+      day
+    });
+    
+    if (newYearEnabled !== null) {
+      // Если настройка уже задана - используем ее
+      const userEnabled = newYearEnabled === 'true';
+      // Включаем только если это новогодний период И пользователь включил
+      const shouldEnable = userEnabled && isNewYearPeriod;
+      setIsNewYearMode(shouldEnable);
+      setSplashNewYearMode(shouldEnable);
+    } else {
+      // Если настройка еще не задана - включаем автоматически в новогодний период
+      if (isNewYearPeriod) {
         setIsNewYearMode(true);
         setSplashNewYearMode(true);
         await SecureStore.setItemAsync('new_year_mode', 'true');
       } else {
-        // Если не новогодний период и настройка не задана - выключаем
         setIsNewYearMode(false);
         setSplashNewYearMode(false);
       }
-      
-    } catch (error) {
-      console.error('Error loading new year settings:', error);
-      setIsNewYearMode(false);
-      setSplashNewYearMode(false);
     }
-  };
+    
+  } catch (error) {
+    console.error('Error loading new year settings:', error);
+    setIsNewYearMode(false);
+    setSplashNewYearMode(false);
+  }
+};
+
+// Функция для обновления настроек новогоднего режима
+const handleNewYearModeChange = async (enabled) => {
+  console.log('App: Changing new year mode to:', enabled);
+  
+  const today = new Date();
+  const month = today.getMonth() + 1;
+  const day = today.getDate();
+  const isNewYearPeriod = (month === 12 && day >= 1) || (month === 1 && day <= 31);
+  
+  // Сохраняем настройку пользователя
+  await SecureStore.setItemAsync('new_year_mode', enabled.toString());
+  
+  // Применяем настройку только если это новогодний период
+  const shouldEnable = enabled && isNewYearPeriod;
+  setIsNewYearMode(shouldEnable);
+  setSplashNewYearMode(shouldEnable);
+  
+  console.log('New year mode updated:', shouldEnable);
+};
 
   const initializeApp = async () => {
     try {
@@ -261,14 +290,6 @@ export default Sentry.wrap(function App() {
   const handleTabbarSettingsChange = (newSettings) => {
     setShowTabbarLabels(newSettings.showLabels);
     setTabbarFontSize(newSettings.fontSize);
-  };
-  
-  // Функция для обновления настроек новогоднего режима
-  const handleNewYearModeChange = async (enabled) => {
-    console.log('Changing new year mode to:', enabled);
-    const isPeriod = isNewYearPeriod();
-    setIsNewYearMode(enabled && isPeriod);
-    await SecureStore.setItemAsync('new_year_mode', enabled.toString());
   };
 
   // Слушатель изменений системной темы

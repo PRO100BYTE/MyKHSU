@@ -380,18 +380,18 @@ const SettingsScreen = ({ theme, accentColor, setTheme, setAccentColor, onSchedu
   };
 
   return (
-    <View style={{ flex: 1 }}>
+    <View style={{ flex: 1, backgroundColor: bgColor }}>
       {/* Снегопад для новогоднего режима */}
       {isNewYearMode && <Snowfall theme={theme} intensity={0.8} />}
       
-      <Animated.View style={{ flex: 1, backgroundColor: bgColor, opacity: fadeAnim }}>
+      <Animated.View style={{ flex: 1, opacity: fadeAnim, zIndex: 2 }}>
         <StatusBar 
           barStyle={theme === 'light' ? 'dark-content' : 'light-content'}
           backgroundColor={bgColor}
         />
 
         {/* Компонент конфетти */}
-      <Confetti show={showConfetti} theme={theme} colors={colors} />
+        <Confetti show={showConfetti} theme={theme} colors={colors} />
       
       <ScrollView style={{ padding: 16 }}>
         {/* Формат расписания */}
@@ -644,41 +644,42 @@ const SettingsScreen = ({ theme, accentColor, setTheme, setAccentColor, onSchedu
           )}
         </TouchableOpacity>
 
-        {/* Модальные окна */}
-        <AppearanceSettingsSheet
-          visible={appearanceSheetVisible}
-          onClose={() => setAppearanceSheetVisible(false)}
-          theme={theme}
-          accentColor={accentColor}
-          setTheme={setTheme}
-          setAccentColor={setAccentColor}
-          onTabbarSettingsChange={handleTabbarSettingsChange}
-        />
-
-        <AboutModal
-          visible={aboutModalVisible}
-          onClose={() => setAboutModalVisible(false)}
-          theme={theme}
-          accentColor={accentColor}
-        />
-
-        <NotificationSettingsModal
-          visible={notificationModalVisible}
-          onClose={() => setNotificationModalVisible(false)}
-          theme={theme}
-          accentColor={accentColor}
-        />
-
-        <ScheduleFormatModal
-          visible={scheduleFormatModalVisible}
-          onClose={() => setScheduleFormatModalVisible(false)}
-          theme={theme}
-          accentColor={accentColor}
-          onSettingsChange={handleScheduleSettingsChange}
-        />
       </ScrollView>
+
+      {/* Модальные окна */}
+      <AppearanceSettingsSheet
+        visible={appearanceSheetVisible}
+        onClose={() => setAppearanceSheetVisible(false)}
+        theme={theme}
+        accentColor={accentColor}
+        setTheme={setTheme}
+        setAccentColor={setAccentColor}
+        onTabbarSettingsChange={handleTabbarSettingsChange}
+      />
+
+      <AboutModal
+        visible={aboutModalVisible}
+        onClose={() => setAboutModalVisible(false)}
+        theme={theme}
+        accentColor={accentColor}
+      />
+
+      <NotificationSettingsModal
+        visible={notificationModalVisible}
+        onClose={() => setNotificationModalVisible(false)}
+        theme={theme}
+        accentColor={accentColor}
+      />
+
+      <ScheduleFormatModal
+        visible={scheduleFormatModalVisible}
+        onClose={() => setScheduleFormatModalVisible(false)}
+        theme={theme}
+        accentColor={accentColor}
+        onSettingsChange={handleScheduleSettingsChange}
+      />
     </Animated.View>
-    </View>
+  </View>
   );
 };
 

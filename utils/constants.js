@@ -82,29 +82,32 @@ export const STORAGE_KEYS = {
   ACCENT_COLOR: 'accentColor'
 };
 
-// Функция для проверки новогоднего периода
-export const isNewYearPeriod = () => {
-  const today = new Date();
-  const month = today.getMonth() + 1; // январь = 1, декабрь = 12
-  const day = today.getDate();
-  
-  // Период с 1 декабря по 31 января
-  if (month === 12 || month === 1) {
-    if (month === 12 && day >= 1) return true;
-    if (month === 1 && day <= 31) return true;
-  }
-  return false;
-};
-
 // Функция для получения новогоднего текста
 export const getNewYearText = () => {
   const today = new Date();
   const year = today.getFullYear();
+  const month = today.getMonth() + 1;
+  const day = today.getDate();
   
-  if (today.getMonth() === 0) { // январь
+  // С 1 января по 31 января показываем "С новым {год} годом!"
+  if (month === 1 && day >= 1 && day <= 31) {
     return `С новым ${year} годом!`;
-  } else if (today.getMonth() === 11) { // декабрь
+  }
+  
+  // С 1 декабря по 31 декабря показываем "С наступающим {следующий год} годом!"
+  if (month === 12 && day >= 1 && day <= 31) {
     return `С наступающим ${year + 1} годом!`;
   }
+  
   return '';
+};
+
+// Функция проверки новогоднего периода (для синхронизации с App.js)
+export const isNewYearPeriod = () => {
+  const today = new Date();
+  const month = today.getMonth() + 1;
+  const day = today.getDate();
+  
+  // Период с 1 декабря по 31 января
+  return (month === 12 && day >= 1) || (month === 1 && day <= 31);
 };

@@ -352,50 +352,47 @@ const FreshmanScreen = ({ theme, accentColor, isNewYearMode }) => {
 
   // Рендер текущего экрана с анимацией
   const renderCurrentScreen = () => {
-    let content = null;
-    
     if (showBuildingsList) {
-      content = renderBuildingsList();
+      return renderBuildingsList();
     } else if (!currentGroupType) {
-      content = renderMainSections();
+      return renderMainSections();
     } else if (currentGroupType === 'main') {
-      content = renderGroupTypeSelection();
+      return renderGroupTypeSelection();
     } else if (currentGroupType === 'vk') {
-      content = renderVKGroups();
+      return renderVKGroups();
     } else if (currentGroupType === 'telegram') {
-      content = renderTelegramGroups();
+      return renderTelegramGroups();
     }
-
-    return (
-      <Animated.View style={{ flex: 1, backgroundColor: bgColor, opacity: fadeAnim }}>
-        {content}
-      </Animated.View>
-    );
+    return null;
   };
 
-  return (
-    <View style={{ flex: 1 }}>
-      {/* Снегопад для новогоднего режима */}
-      {isNewYearMode && <Snowfall theme={theme} intensity={0.8} />}
+return (
+  <View style={{ flex: 1, backgroundColor: bgColor }}>
+    {/* Снегопад для новогоднего режима */}
+    {isNewYearMode && <Snowfall theme={theme} intensity={0.8} />}
+    
+    <View style={{ flex: 1, zIndex: 2 }}>
+      <StatusBar 
+        barStyle={theme === 'light' ? 'dark-content' : 'light-content'}
+        backgroundColor={bgColor}
+      />
       
-      <View style={{ flex: 1 }}>
-        <StatusBar 
-          barStyle={theme === 'light' ? 'dark-content' : 'light-content'}
-          backgroundColor={bgColor}
-        />
+      {/* Рендер текущего экрана с анимацией */}
+      <Animated.View style={{ flex: 1, opacity: fadeAnim }}>
         {renderCurrentScreen()}
+      </Animated.View>
 
-        {/* Модальное окно заглушки */}
-        <UnderDevelopmentModal
-          visible={modalVisible}
-          onClose={() => setModalVisible(false)}
-          theme={theme}
-          accentColor={accentColor}
-          featureName="Информация о преподавателях"
-        />
-      </View>
+      {/* Модальное окно заглушки */}
+      <UnderDevelopmentModal
+        visible={modalVisible}
+        onClose={() => setModalVisible(false)}
+        theme={theme}
+        accentColor={accentColor}
+        featureName="Информация о преподавателях"
+      />
     </View>
-  );
+  </View>
+);
 };
 
 const styles = StyleSheet.create({

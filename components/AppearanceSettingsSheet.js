@@ -28,20 +28,16 @@ const AppearanceSettingsSheet = ({
   const [selectedTheme, setSelectedTheme] = useState(theme);
   const [showTabbarLabels, setShowTabbarLabels] = useState(true);
   const [tabbarFontSize, setTabbarFontSize] = useState('medium');
-  const [newYearMode, setNewYearMode] = useState(isNewYearMode);
+  const [newYearMode, setNewYearMode] = useState(false);
 
-  // Функция для проверки новогоднего периода
+  // Функция для проверки новогоднего периода - ДОЛЖНА БЫТЬ ТАКОЙ ЖЕ КАК В App.js
   const isNewYearPeriod = () => {
     const today = new Date();
     const month = today.getMonth() + 1; // январь = 1, декабрь = 12
     const day = today.getDate();
     
     // Период с 1 декабря по 31 января
-    if (month === 12 || month === 1) {
-      if (month === 12 && day >= 1) return true;
-      if (month === 1 && day <= 31) return true;
-    }
-    return false;
+    return (month === 12 && day >= 1) || (month === 1 && day <= 31);
   };
 
   const showNewYearOption = isNewYearPeriod();
@@ -108,10 +104,10 @@ const AppearanceSettingsSheet = ({
     }
   };
 
-  const handleNewYearModeChange = async (value) => {
+  const handleNewYearModeChange = (value) => {
+    console.log('SettingsSheet: Changing new year mode to:', value);
     setNewYearMode(value);
-    // Сохраняем в SecureStore, как и другие настройки
-    await SecureStore.setItemAsync('new_year_mode', value.toString());
+    
     // Уведомляем родительский компонент о изменении
     if (onNewYearModeChange) {
       onNewYearModeChange(value);
@@ -280,7 +276,7 @@ const AppearanceSettingsSheet = ({
               </View>
             </View>
 
-            {/* Секция новогоднего настроения */}
+            {/* Секция новогоднего настроения - ТОЛЬКО если новогодний период */}
             {showNewYearOption && (
               <View style={styles.section}>
                 <Text style={[styles.sectionTitle, { color: textColor }]}>Новогоднее настроение</Text>
@@ -307,8 +303,8 @@ const AppearanceSettingsSheet = ({
                   <Switch
                     value={newYearMode}
                     onValueChange={handleNewYearModeChange}
-                    trackColor={{ false: '#f0f0f0', true: colors.light }}
-                    thumbColor={newYearMode ? colors.primary : '#f4f3f4'}
+                    trackColor={{ false: borderColor, true: colors.light }}
+                    thumbColor={newYearMode ? colors.primary : placeholderColor}
                   />
                 </TouchableOpacity>
                 
@@ -342,8 +338,8 @@ const AppearanceSettingsSheet = ({
                 <Switch
                   value={showTabbarLabels}
                   onValueChange={handleShowLabelsChange}
-                  trackColor={{ false: '#f0f0f0', true: colors.light }}
-                  thumbColor={showTabbarLabels ? colors.primary : '#f4f3f4'}
+                  trackColor={{ false: borderColor, true: colors.light }}
+                  thumbColor={showTabbarLabels ? colors.primary : placeholderColor}
                 />
               </TouchableOpacity>
 

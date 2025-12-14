@@ -23,17 +23,6 @@ const SplashScreen = ({ accentColor, theme, isNewYearMode, newYearText }) => {
   
   // Анимации для новогодних элементов
   const newYearTextAnim = useRef(new Animated.Value(0)).current;
-  const holidayIconAnim = useRef(new Animated.Value(0)).current;
-
-  // Анимированные иконки для новогоднего режима
-  const holidayIcons = [
-    { icon: 'snow-outline', x: width * 0.2, y: height * 0.2, size: 35, delay: 0 },
-    { icon: 'star-outline', x: width * 0.8, y: height * 0.3, size: 40, delay: 300 },
-    { icon: 'gift-outline', x: width * 0.15, y: height * 0.6, size: 38, delay: 600 },
-    { icon: 'sparkles', x: width * 0.85, y: height * 0.5, size: 32, delay: 900 },
-    { icon: 'happy-outline', x: width * 0.3, y: height * 0.75, size: 36, delay: 1200 },
-    { icon: 'wine-outline', x: width * 0.7, y: height * 0.7, size: 34, delay: 1500 },
-  ];
 
   // Обычные фоновые иконки
   const regularIcons = [
@@ -45,6 +34,16 @@ const SplashScreen = ({ accentColor, theme, isNewYearMode, newYearText }) => {
     { icon: 'information-circle-outline', x: width * 0.8, y: height * 0.8, size: 32, delay: 1000 },
     { icon: 'book-outline', x: width * 0.9, y: height * 0.15, size: 37, delay: 1200 },
     { icon: 'school-outline', x: width * 0.05, y: height * 0.85, size: 42, delay: 1400 },
+  ];
+
+  // Новогодние иконки
+  const holidayIcons = [
+    { icon: 'snow-outline', x: width * 0.2, y: height * 0.2, size: 35, delay: 0 },
+    { icon: 'star-outline', x: width * 0.8, y: height * 0.3, size: 40, delay: 300 },
+    { icon: 'gift-outline', x: width * 0.15, y: height * 0.6, size: 38, delay: 600 },
+    { icon: 'sparkles', x: width * 0.85, y: height * 0.5, size: 32, delay: 900 },
+    { icon: 'happy-outline', x: width * 0.3, y: height * 0.75, size: 36, delay: 1200 },
+    { icon: 'wine-outline', x: width * 0.7, y: height * 0.7, size: 34, delay: 1500 },
   ];
 
   const iconsToShow = isNewYearMode ? holidayIcons : regularIcons;
@@ -85,20 +84,12 @@ const SplashScreen = ({ accentColor, theme, isNewYearMode, newYearText }) => {
     const newYearTextAnimation = isNewYearMode && newYearText ? 
       Animated.sequence([
         Animated.delay(2000),
-        Animated.parallel([
-          Animated.spring(newYearTextAnim, {
-            toValue: 1,
-            tension: 50,
-            friction: 7,
-            useNativeDriver: true,
-          }),
-          Animated.spring(holidayIconAnim, {
-            toValue: 1,
-            tension: 40,
-            friction: 6,
-            useNativeDriver: true,
-          })
-        ])
+        Animated.spring(newYearTextAnim, {
+          toValue: 1,
+          tension: 50,
+          friction: 7,
+          useNativeDriver: true,
+        })
       ]) : Animated.delay(0);
 
     // Анимация основного логотипа
@@ -165,6 +156,22 @@ const SplashScreen = ({ accentColor, theme, isNewYearMode, newYearText }) => {
         );
       })}
       
+      {/* Основной логотип */}
+      <Animated.View style={{
+        transform: [{ scale: logoScale }],
+        opacity: logoOpacity,
+        alignItems: 'center',
+        zIndex: 2,
+      }}>
+        <Icon name="school-outline" size={120} color={iconColor} />
+        <Text style={[styles.title, { color: textColor, marginTop: 20, fontFamily: 'Montserrat_700Bold' }]}>
+          Мой ИТИ ХГУ
+        </Text>
+        <Text style={[styles.subtitle, { color: textColor, opacity: 0.8, fontFamily: 'Montserrat_500Medium' }]}>
+          Твой университет в кармане
+        </Text>
+      </Animated.View>
+      
       {/* Новогодний текст (только в новогоднем режиме и если есть текст) */}
       {isNewYearMode && newYearText && (
         <Animated.View
@@ -180,7 +187,7 @@ const SplashScreen = ({ accentColor, theme, isNewYearMode, newYearText }) => {
                   }) 
                 },
                 {
-                  translateY: holidayIconAnim.interpolate({
+                  translateY: newYearTextAnim.interpolate({
                     inputRange: [0, 1],
                     outputRange: [50, 0]
                   })
@@ -199,21 +206,6 @@ const SplashScreen = ({ accentColor, theme, isNewYearMode, newYearText }) => {
           </View>
         </Animated.View>
       )}
-      
-      {/* Основной логотип */}
-      <Animated.View style={{
-        transform: [{ scale: logoScale }],
-        opacity: logoOpacity,
-        alignItems: 'center'
-      }}>
-        <Icon name="school-outline" size={120} color={iconColor} />
-        <Text style={[styles.title, { color: textColor, marginTop: 20, fontFamily: 'Montserrat_700Bold' }]}>
-          Мой ИТИ ХГУ
-        </Text>
-        <Text style={[styles.subtitle, { color: textColor, opacity: 0.8, fontFamily: 'Montserrat_500Medium' }]}>
-          Твой университет в кармане
-        </Text>
-      </Animated.View>
     </View>
   );
 };
@@ -237,11 +229,13 @@ const styles = StyleSheet.create({
   },
   backgroundIcon: {
     position: 'absolute',
+    zIndex: 1,
   },
   newYearContainer: {
     position: 'absolute',
     top: '15%',
     alignItems: 'center',
+    zIndex: 3,
   },
   newYearText: {
     fontSize: 24,

@@ -78,7 +78,7 @@ const Snowfall = ({ theme, intensity = 1 }) => {
             })
           ]).start(() => {
             // Сброс наверх
-            flake.yAnim.setValue(-100);
+            flake.yAnim.setValue(-150);
             flake.xAnim.setValue(Math.random() * width);
             startFall();
           });
@@ -122,8 +122,6 @@ const Snowfall = ({ theme, intensity = 1 }) => {
             style={[
               styles.snowflake,
               {
-                left: flake.x,
-                top: flake.y,
                 width: flake.size,
                 height: flake.size,
                 borderRadius: flake.size / 2,
@@ -151,7 +149,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    zIndex: -1,
+    zIndex: 1, // Изменено с 0 на 1
     overflow: 'hidden',
   },
   snowflake: {

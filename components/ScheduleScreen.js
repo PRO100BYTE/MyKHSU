@@ -1093,64 +1093,69 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
     return null;
   };
 
-  // Обработка ошибок
-  if (error && !loadingGroups && !loadingSchedule && !loadingTeacher) {
-    if (error === 'NO_INTERNET' && (scheduleData || teacherSchedule)) {
-      // Не показываем ошибку, продолжаем рендерить контент
-    } else {
-      return (
-        <View style={{ flex: 1 }}>
-          {isNewYearMode && <Snowfall theme={theme} intensity={0.8} />}
-          <Animated.View style={{ flex: 1, backgroundColor: bgColor, opacity: fadeAnim }}>
-            <ConnectionError 
-              type={error}
-              loading={false}
-              onRetry={isTeacherMode ? () => teacherName && fetchTeacherSchedule(teacherName) : handleRetry}
-              onViewCache={handleViewCache}
-              showCacheButton={!!scheduleData || !!teacherSchedule}
-              cacheAvailable={!!scheduleData || !!teacherSchedule}
-              theme={theme}
-              accentColor={accentColor}
-              contentType="schedule"
-              message={error === 'NO_INTERNET' ? 'Расписание недоступно без подключения к интернету' : 'Не удалось загрузить расписание'}
-              isNewYearMode={isNewYearMode}
-            />
-          </Animated.View>
-        </View>
-      );
-    }
+  const renderCurrentScreen = () => {
+    
+// Обработка ошибок
+if (error && !loadingGroups && !loadingSchedule && !loadingTeacher) {
+  if (error === 'NO_INTERNET' && (scheduleData || teacherSchedule)) {
+    // Не показываем ошибку, продолжаем рендерить контент
+  } else {
+    return (
+      <View style={{ flex: 1, backgroundColor: bgColor }}>
+        {/* Снегопад для новогоднего режима (между фоном и контентом) */}
+        {isNewYearMode && <Snowfall theme={theme} intensity={0.8} />}
+        
+        <Animated.View style={{ flex: 1, opacity: fadeAnim }}>
+          <ConnectionError 
+            type={error}
+            loading={false}
+            onRetry={isTeacherMode ? () => teacherName && fetchTeacherSchedule(teacherName) : handleRetry}
+            onViewCache={handleViewCache}
+            showCacheButton={!!scheduleData || !!teacherSchedule}
+            cacheAvailable={!!scheduleData || !!teacherSchedule}
+            theme={theme}
+            accentColor={accentColor}
+            contentType="schedule"
+            message={error === 'NO_INTERNET' ? 'Расписание недоступно без подключения к интернету' : 'Не удалось загрузить расписание'}
+            isNewYearMode={isNewYearMode}
+          />
+        </Animated.View>
+      </View>
+    );
   }
+}
 
-  return (
-    <View style={{ flex: 1 }}>
-      {/* Снегопад для новогоднего режима (на заднем плане) */}
-      {isNewYearMode && <Snowfall theme={theme} intensity={0.8} />}
+return (
+  <View style={{ flex: 1, backgroundColor: bgColor }}>
+    {/* Снегопад для новогоднего режима (между фоном и контентом) */}
+    {isNewYearMode && <Snowfall theme={theme} intensity={0.8} />}
+    
+    <Animated.View style={{ flex: 1, opacity: fadeAnim, zIndex: 2 }}>
+      <StatusBar 
+        barStyle={theme === 'light' ? 'dark-content' : 'light-content'}
+        backgroundColor={bgColor}
+      />
       
-      <Animated.View style={{ flex: 1, backgroundColor: bgColor, opacity: fadeAnim }}>
-        <StatusBar 
-          barStyle={theme === 'light' ? 'dark-content' : 'light-content'}
-          backgroundColor={bgColor}
-        />
-        
-        {/* Фиксированный заголовок */}
-        {renderFixedHeader()}
-        
-        <ScrollView 
-          ref={scrollViewRef}
-          style={{ flex: 1, padding: 16 }}
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={handleRefresh}
-              colors={[colors.primary]}
-              tintColor={colors.primary}
-            />
-          }
-          onScroll={handleScroll}
-          scrollEventThrottle={16}
-          contentContainerStyle={{ minHeight: height }}
-        >
-          {showCachedData && (
+      {/* Фиксированный заголовок */}
+      {renderFixedHeader()}
+      
+      <ScrollView 
+        ref={scrollViewRef}
+        style={{ flex: 1, padding: 16 }}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
+            colors={[colors.primary]}
+            tintColor={colors.primary}
+          />
+        }
+        onScroll={handleScroll}
+        scrollEventThrottle={16}
+        contentContainerStyle={{ minHeight: height }}
+      >
+        {/* ВСЕ содержимое расписания */}
+        {showCachedData && (
           <View style={{ 
             backgroundColor: hintBgColor, 
             padding: 12, 
@@ -1363,12 +1368,12 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
         )}
       </ScrollView>
     </Animated.View>
-    </View>
-  );
-};
+  </View>
+);
+  };
 
-const styles = StyleSheet.create({
+  return renderCurrentScreen();
   // Стили могут быть добавлены при необходимости
-});
+};
 
 export default ScheduleScreen;
