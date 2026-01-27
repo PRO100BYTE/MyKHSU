@@ -65,6 +65,111 @@
 - **Language**: [JavaScript (ES6+)](https://developer.mozilla.org/ru/docs/Web/JavaScript)
 - **Navigation**: Expo Router (File-based routing)
 
+## 🗒️ Структура проекта
+
+```mermaid
+flowchart TD
+    A0["Application Core & Global State
+"]
+    A1["API Communication & Caching
+"]
+    A2["User Interface Components
+"]
+    A3["Schedule Management Logic
+"]
+    A4["Notifications & Background Tasks
+"]
+    A5["Theming & Visual Customization
+"]
+    A6["Campus Map & Building Data
+"]
+    A0 -- "Configures styling" --> A5
+    A0 -- "Initializes notifications" --> A4
+    A0 -- "Displays screens" --> A2
+    A1 -- "Accesses app settings" --> A0
+    A2 -- "Updates global settings" --> A0
+    A2 -- "Interacts with logic" --> A3
+    A2 -- "Requests news data" --> A1
+    A3 -- "Fetches schedule data" --> A1
+    A3 -- "Schedules lesson alerts" --> A4
+    A4 -- "Retrieves news updates" --> A1
+    A4 -- "Persists notification settings" --> A0
+    A5 -- "Applies visual themes" --> A2
+    A6 -- "Provides map data" --> A2
+```
+
+## 👀 Как приложение работает с API для отображения расписания и кэширования?
+
+```mermaid
+sequenceDiagram
+    participant UIComponent["UI Component (e.g. ScheduleScreen)"]
+    participant UseHook["useScheduleLogic (Brain)"]
+    participant ApiService["ApiService (Data Retriever)"]
+    participant NetInfo["NetInfo (Network Status)"]
+    participant AsyncStorage["AsyncStorage (Local Cache)"]
+    participant RemoteServer["University API Server"]
+
+    UIComponent->>UseHook: Needs schedule data (group, date)
+    UseHook->>ApiService: Calls getSchedule(group, date)
+    ApiService->>NetInfo: Checks internet connection
+    NetInfo-->>ApiService: Returns isOnline (true/false)
+
+    alt Cached Data Available & Valid
+        ApiService->>AsyncStorage: Checks for schedule data in cache
+        AsyncStorage-->>ApiService: Returns valid cached data
+        ApiService-->>UseHook: Returns cached data
+        UseHook-->>UIComponent: Displays cached schedule
+    else No Valid Cache OR Offline
+        ApiService->>AsyncStorage: Checks for *any* cached data (even stale)
+        AsyncStorage-->>ApiService: Returns stale data (if any) or null
+
+        alt Is Online & No Valid Cache
+            ApiService->>RemoteServer: Requests latest schedule data
+            RemoteServer-->>ApiService: Returns fresh schedule data
+            ApiService->>AsyncStorage: Saves fresh data to cache
+            AsyncStorage-->>ApiService: Confirms save
+            ApiService-->>UseHook: Returns fresh data
+            UseHook-->>UIComponent: Displays fresh schedule
+        else Is Offline & Stale Cache Available
+            ApiService-->>UseHook: Returns stale cached data (with 'offline' note)
+            UseHook-->>UIComponent: Displays stale schedule
+        else Is Offline & No Cache At All
+            ApiService--xUseHook: Throws 'NO_INTERNET' error
+            UseHook--xUIComponent: Shows 'No Internet' message
+        end
+    end
+```
+
+## 🛜 Работа приложения в фоне (для работы службы уведомлений)
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant App["App.js (Setup)"]
+    participant backgroundService["backgroundService.js"]
+    participant notificationService["notificationService.js"]
+    participant ApiService["ApiService (Data)"]
+    participant Cache["Cache (last_notified_news)"]
+
+    App->>notificationService: Initializes permissions
+    App->>backgroundService: Registers BACKGROUND_NEWS_CHECK task
+    Note over App: App goes to background or is closed
+
+    User->>backgroundService: OS triggers BACKGROUND_NEWS_CHECK periodically
+    backgroundService->>notificationService: Calls getNotificationSettings()
+    notificationService-->>backgroundService: Returns news notification enabled (true)
+    backgroundService->>ApiService: Calls getNews()
+    ApiService-->>backgroundService: Returns latest news data
+    backgroundService->>notificationService: Calls checkForNewNews(latestNews)
+    notificationService->>Cache: Gets 'last_notified_news'
+    Cache-->>notificationService: Returns previous news or null
+    notificationService->>notificationService: Compares latestNews with previous news
+    Note over notificationService: Finds truly new news
+    notificationService->>notificationService: Calls showNewsNotification(newNews)
+    notificationService->>User: Sends "Новая новость" notification
+    notificationService->>Cache: Saves latestNews as 'last_notified_news'
+```
+
 ## 🚀 Запуск и разработка
 
 ### Предварительные требования
