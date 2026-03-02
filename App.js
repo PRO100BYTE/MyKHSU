@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { View, Text, Platform, Appearance, StyleSheet, StatusBar, PanResponder } from 'react-native';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import { View, Text, Platform, Appearance, StyleSheet, StatusBar, PanResponder, Animated } from 'react-native';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import * as SecureStore from 'expo-secure-store';
 import { useFonts, Montserrat_400Regular, Montserrat_500Medium, Montserrat_600SemiBold, Montserrat_700Bold } from '@expo-google-fonts/montserrat';
@@ -19,7 +19,7 @@ import FreshmanScreen from './components/FreshmanScreen';
 
 // Импорт утилит
 import { ACCENT_COLORS, SCREENS, LIQUID_GLASS, isNewYearPeriod, getNewYearText } from './utils/constants';
-import { getGlassTabBarStyle, getBlurConfig } from './utils/liquidGlass';
+import { getBlurConfig } from './utils/liquidGlass';
 import * as Sentry from '@sentry/react-native';
 import notificationService from './utils/notificationService';
 import backgroundService from './utils/backgroundService';
@@ -95,6 +95,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     paddingHorizontal: 8,
     paddingVertical: 6,
+    position: 'relative',
+  },
+  // Анимированный индикатор активной вкладки
+  tabIndicator: {
+    position: 'absolute',
+    top: 6,
+    bottom: 6,
+    borderRadius: 12,
+    borderWidth: StyleSheet.hairlineWidth,
+    zIndex: 1,
   },
   // Fallback стиль для Android
   tabBarAndroid: {
@@ -103,6 +113,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 6,
     elevation: 8,
+    position: 'relative',
   },
 });
 
@@ -124,38 +135,118 @@ export default Sentry.wrap(function App() {
   const [refresh, setRefresh] = useState(0);
   const [refreshKey, setRefreshKey] = useState(0);
   const insets = useSafeAreaInsets();
-  const activeScreenRef = useRef(activeScreen);
 
-  useEffect(() => {
-    activeScreenRef.current = activeScreen;
+  // Анимация индикатора активной вкладки (Liquid Glass iOS 26)
+  const indicatorAnim = useRef(new Animated.Value(0)).current;
+  const tabLayouts = useRef({});   // { index: { x, width } }
+  const isDragging = useRef(false);
+  const prevTabIndex = useRef(0);
+
+  // Сохраняем позицию вкладки при её layout
+  const handleTabLayout = useCallback((index, event) => {
+    const { x, width } = event.nativeEvent.layout;
+    tabLayouts.current[index] = { x, width };
+    // Инициализируем позицию индикатора для начальной вкладки
+    if (index === TAB_ORDER.indexOf(activeScreen) && !isDragging.current) {
+      indicatorAnim.setValue(x);
+    }
   }, [activeScreen]);
 
-  // PanResponder для свайпа по таббару (переключение вкладок, как в iOS 26)
-  const tabBarPanResponder = useMemo(() => PanResponder.create({
-    onStartShouldSetPanResponder: () => false,
+  // Анимация скольжения при переключении таба
+  const animateIndicatorTo = useCallback((tabIndex) => {
+    const layout = tabLayouts.current[tabIndex];
+    if (layout) {
+      Animated.spring(indicatorAnim, {
+        toValue: layout.x,
+        useNativeDriver: true,
+        tension: 68,
+        friction: 12,
+      }).start();
+    }
+  }, [indicatorAnim]);
+
+  // PanResponder для перетаскивания индикатора при зажатии активной вкладки
+  const indicatorPanResponder = useMemo(() => PanResponder.create({
+    onStartShouldSetPanResponder: () => true,
     onStartShouldSetPanResponderCapture: () => false,
     onMoveShouldSetPanResponder: (_, gesture) => {
-      // Захватываем только явные горизонтальные свайпы
-      return Math.abs(gesture.dx) > 30 && Math.abs(gesture.dy) < 20;
+      return Math.abs(gesture.dx) > 8 && Math.abs(gesture.dy) < 20;
     },
-    onMoveShouldSetPanResponderCapture: () => false,
-    onPanResponderGrant: () => {},
-    onPanResponderMove: () => {},
-    onPanResponderRelease: (_, gesture) => {
-      const SWIPE_THRESHOLD = 50;
-      if (Math.abs(gesture.dx) > SWIPE_THRESHOLD) {
-        const currentIndex = TAB_ORDER.indexOf(activeScreenRef.current);
-        if (gesture.dx < 0 && currentIndex < TAB_ORDER.length - 1) {
-          setActiveScreen(TAB_ORDER[currentIndex + 1]);
-        } else if (gesture.dx > 0 && currentIndex > 0) {
-          setActiveScreen(TAB_ORDER[currentIndex - 1]);
+    onMoveShouldSetPanResponderCapture: (_, gesture) => {
+      return Math.abs(gesture.dx) > 8 && Math.abs(gesture.dy) < 20;
+    },
+    onPanResponderGrant: () => {
+      isDragging.current = true;
+      indicatorAnim.stopAnimation();
+    },
+    onPanResponderMove: (_, gesture) => {
+      const activeIndex = TAB_ORDER.indexOf(activeScreenRef.current);
+      const startLayout = tabLayouts.current[activeIndex];
+      if (startLayout) {
+        const newX = startLayout.x + gesture.dx;
+        // Ограничиваем в пределах таббара
+        const firstTab = tabLayouts.current[0];
+        const lastTab = tabLayouts.current[TAB_ORDER.length - 1];
+        if (firstTab && lastTab) {
+          const min = firstTab.x;
+          const max = lastTab.x;
+          indicatorAnim.setValue(Math.max(min, Math.min(max, newX)));
         }
       }
     },
-    onPanResponderTerminate: () => {},
-    onPanResponderTerminationRequest: () => true,
+    onPanResponderRelease: (_, gesture) => {
+      isDragging.current = false;
+      // Определяем ближайшую вкладку к текущей позиции индикатора
+      const activeIndex = TAB_ORDER.indexOf(activeScreenRef.current);
+      const startLayout = tabLayouts.current[activeIndex];
+      if (!startLayout) return;
+      
+      const currentX = startLayout.x + gesture.dx;
+      let closestIndex = 0;
+      let closestDist = Infinity;
+      
+      for (let i = 0; i < TAB_ORDER.length; i++) {
+        const layout = tabLayouts.current[i];
+        if (layout) {
+          const center = layout.x + layout.width / 2;
+          const dist = Math.abs(currentX + (startLayout.width / 2) - center);
+          if (dist < closestDist) {
+            closestDist = dist;
+            closestIndex = i;
+          }
+        }
+      }
+      
+      // Переключить вкладку и анимировать к ней
+      const newScreen = TAB_ORDER[closestIndex];
+      if (newScreen !== activeScreenRef.current) {
+        setActiveScreen(newScreen);
+      }
+      animateIndicatorTo(closestIndex);
+    },
+    onPanResponderTerminate: () => {
+      isDragging.current = false;
+      const activeIndex = TAB_ORDER.indexOf(activeScreenRef.current);
+      animateIndicatorTo(activeIndex);
+    },
+    onPanResponderTerminationRequest: () => false,
     onShouldBlockNativeResponder: () => false,
-  }), []);
+  }), [indicatorAnim, animateIndicatorTo]);
+
+  // Ref для отслеживания текущего экрана в PanResponder
+  const activeScreenRef = useRef(activeScreen);
+
+  useEffect(() => {
+    const newIndex = TAB_ORDER.indexOf(activeScreen);
+    const oldIndex = prevTabIndex.current;
+    activeScreenRef.current = activeScreen;
+    
+    // Анимируем индикатор при переключении (если не перетаскиваем)
+    if (!isDragging.current && newIndex !== oldIndex) {
+      animateIndicatorTo(newIndex);
+    }
+    prevTabIndex.current = newIndex;
+  }, [activeScreen, animateIndicatorTo]);
 
   // Состояния для настроек таббара
   const [showTabbarLabels, setShowTabbarLabels] = useState(true);
@@ -394,7 +485,6 @@ const handleNewYearModeChange = async (enabled) => {
     intensity: glass.tabBarBlurIntensity || blurConfig.intensity,
     tint: glass.tabBarBlurTint || blurConfig.tint,
   };
-  const tabBarStyles = getGlassTabBarStyle(effectiveTheme);
   
   const handleTabPress = (screen) => {
     if (activeScreen === screen) {
@@ -436,64 +526,46 @@ const handleNewYearModeChange = async (enabled) => {
     return headerContent;
   };
 
-  // Рендер tab bar с glass-эффектом
-  const renderTabBar = () => {
-    const tabButtons = (
-      <>
-        <TabButton 
-          icon="calendar-outline" 
-          label={SCREENS.SCHEDULE} 
-          isActive={activeScreen === SCREENS.SCHEDULE} 
-          onPress={() => handleTabPress(SCREENS.SCHEDULE)}
-          theme={effectiveTheme}
-          accentColor={accentColor}
-          showLabels={showTabbarLabels}
-          fontSize={tabbarFontSize}
-        />
-        <TabButton 
-          icon="map-outline" 
-          label={SCREENS.MAP} 
-          isActive={activeScreen === SCREENS.MAP} 
-          onPress={() => handleTabPress(SCREENS.MAP)}
-          theme={effectiveTheme}
-          accentColor={accentColor}
-          showLabels={showTabbarLabels}
-          fontSize={tabbarFontSize}
-        />
-        <TabButton 
-          icon="book-outline" 
-          label={SCREENS.FRESHMAN} 
-          isActive={activeScreen === SCREENS.FRESHMAN} 
-          onPress={() => handleTabPress(SCREENS.FRESHMAN)}
-          theme={effectiveTheme}
-          accentColor={accentColor}
-          showLabels={showTabbarLabels}
-          fontSize={tabbarFontSize}
-        />
-        <TabButton 
-          icon="newspaper-outline" 
-          label={SCREENS.NEWS} 
-          isActive={activeScreen === SCREENS.NEWS} 
-          onPress={() => handleTabPress(SCREENS.NEWS)}
-          theme={effectiveTheme}
-          accentColor={accentColor}
-          showLabels={showTabbarLabels}
-          fontSize={tabbarFontSize}
-        />
-        <TabButton 
-          icon="settings-outline" 
-          label={SCREENS.SETTINGS} 
-          isActive={activeScreen === SCREENS.SETTINGS} 
-          onPress={() => handleTabPress(SCREENS.SETTINGS)}
-          theme={effectiveTheme}
-          accentColor={accentColor}
-          showLabels={showTabbarLabels}
-          fontSize={tabbarFontSize}
-        />
-      </>
-    );
+  // Рендер tab bar с glass-эффектом и анимированным индикатором
+  const TAB_ICONS = ['calendar-outline', 'map-outline', 'book-outline', 'newspaper-outline', 'settings-outline'];
 
-    // Плавающий glass tab bar на iOS с поддержкой свайпа
+  const renderTabBar = () => {
+    const activeIndex = TAB_ORDER.indexOf(activeScreen);
+    const activeLayout = tabLayouts.current[activeIndex];
+    const indicatorWidth = activeLayout ? activeLayout.width : 0;
+
+    // Анимированный индикатор (glass pill) — перетаскиваемый
+    const indicator = indicatorWidth > 0 ? (
+      <Animated.View
+        style={[
+          styles.tabIndicator,
+          {
+            width: indicatorWidth,
+            backgroundColor: colors.glass,
+            borderColor: colors.glassBorder,
+            transform: [{ translateX: indicatorAnim }],
+          },
+        ]}
+        {...indicatorPanResponder.panHandlers}
+      />
+    ) : null;
+
+    const tabButtons = TAB_ORDER.map((screen, index) => (
+      <TabButton
+        key={screen}
+        icon={TAB_ICONS[index]}
+        label={screen}
+        isActive={activeScreen === screen}
+        onPress={() => handleTabPress(screen)}
+        theme={effectiveTheme}
+        accentColor={accentColor}
+        showLabels={showTabbarLabels}
+        fontSize={tabbarFontSize}
+        onLayout={(e) => handleTabLayout(index, e)}
+      />
+    ));
+
+    // iOS — плавающий glass tab bar
     if (Platform.OS === 'ios') {
       return (
         <View style={styles.tabBarFloating}>
@@ -508,7 +580,8 @@ const handleNewYearModeChange = async (enabled) => {
               },
             ]}
           >
-            <View style={styles.tabBarInner} {...tabBarPanResponder.panHandlers}>
+            <View style={styles.tabBarInner}>
+              {indicator}
               {tabButtons}
             </View>
           </BlurView>
@@ -516,7 +589,7 @@ const handleNewYearModeChange = async (enabled) => {
       );
     }
 
-    // Android fallback со свайпом
+    // Android
     return (
       <View 
         style={[
@@ -528,7 +601,8 @@ const handleNewYearModeChange = async (enabled) => {
           }
         ]}
       >
-        <View style={{ flex: 1, flexDirection: 'row' }} {...tabBarPanResponder.panHandlers}>
+        <View style={{ flex: 1, flexDirection: 'row' }}>
+          {indicator}
           {tabButtons}
         </View>
       </View>

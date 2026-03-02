@@ -1,22 +1,19 @@
 import React from 'react';
-import { TouchableOpacity, Text, StyleSheet, Platform } from 'react-native';
+import { TouchableOpacity, View, Text, StyleSheet, Platform } from 'react-native';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import { ACCENT_COLORS } from '../utils/constants';
-import { getGlassSegmentStyle } from '../utils/liquidGlass';
 
-const TabButton = ({ icon, label, isActive, onPress, theme, accentColor, showLabels = true, fontSize = 'medium' }) => {
+const TabButton = ({ icon, label, isActive, onPress, theme, accentColor, showLabels = true, fontSize = 'medium', onLayout }) => {
   const colors = ACCENT_COLORS[accentColor];
-  const glassSegment = getGlassSegmentStyle(theme, accentColor, isActive);
   
   const iconColor = isActive ? 
     colors.primary : 
-    (theme === 'light' ? '#8e8e93' : '#8e8e93');
+    '#8e8e93';
   
   const textColor = isActive ? 
     colors.primary : 
-    (theme === 'light' ? '#8e8e93' : '#8e8e93');
+    '#8e8e93';
 
-  // Определяем размер шрифта
   const getFontSize = () => {
     switch (fontSize) {
       case 'small': return 8;
@@ -29,8 +26,9 @@ const TabButton = ({ icon, label, isActive, onPress, theme, accentColor, showLab
   return (
     <TouchableOpacity 
       onPress={onPress}
-      style={[styles.tabButton, glassSegment]}
+      style={styles.tabButton}
       activeOpacity={0.7}
+      onLayout={onLayout}
     >
       <Icon name={icon} size={22} color={iconColor} />
       {showLabels && (
@@ -55,6 +53,7 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     marginHorizontal: 2,
     minHeight: Platform.OS === 'android' ? 56 : 48,
+    zIndex: 2,
   },
   tabText: {
     fontSize: 10,
