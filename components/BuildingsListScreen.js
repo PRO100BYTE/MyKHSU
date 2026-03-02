@@ -4,6 +4,7 @@ import {
   Text, 
   ScrollView, 
   TouchableOpacity, 
+  TouchableWithoutFeedback,
   Linking, 
   StyleSheet, 
   Animated, 
@@ -283,9 +284,9 @@ const BuildingsListScreen = ({ theme, accentColor, onBuildingSelect, isNewYearMo
             )}
             
             {/* Информационный блок */}
-            <View style={[styles.infoCard, { backgroundColor: colors.light, marginTop: 16 }]}>
+            <View style={[styles.infoCard, { backgroundColor: colors.glass, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.glassBorder, marginTop: 16 }]}>
               <Icon name="information-circle-outline" size={20} color={colors.primary} />
-              <Text style={[styles.infoText, { color: colors.primary, marginLeft: 8, flex: 1 }]}>
+              <Text style={[styles.infoText, { color: placeholderColor, marginLeft: 8, flex: 1 }]}>
                 Для построения маршрута выберите корпус и сервис навигации
               </Text>
             </View>
@@ -303,11 +304,16 @@ const BuildingsListScreen = ({ theme, accentColor, onBuildingSelect, isNewYearMo
               }
             ]}
           >
+            <TouchableWithoutFeedback onPress={handleCloseRouteModal}>
+              <View style={{ flex: 1 }} />
+            </TouchableWithoutFeedback>
             <Animated.View 
               style={[
                 styles.routeModal,
                 { 
-                  backgroundColor: theme === 'dark' ? '#1f2937' : '#ffffff',
+                  backgroundColor: glass.surfaceCard,
+                  borderColor: glass.border,
+                  borderWidth: StyleSheet.hairlineWidth,
                   transform: [{
                     translateY: routeModalAnim.interpolate({
                       inputRange: [0, 1],
@@ -328,39 +334,39 @@ const BuildingsListScreen = ({ theme, accentColor, onBuildingSelect, isNewYearMo
               </Text>
               
               <TouchableOpacity 
-                style={[styles.routeOption, { backgroundColor: colors.light }]}
+                style={[styles.routeOption, { backgroundColor: colors.glass, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.glassBorder }]}
                 onPress={() => handleRouteServiceSelect('yandex')}
               >
                 <View style={[styles.routeIcon, { backgroundColor: colors.primary }]}>
                   <Text style={[styles.routeIconText, { fontFamily: 'Montserrat_700Bold' }]}>Я</Text>
                 </View>
                 <View style={styles.routeOptionText}>
-                  <Text style={[styles.routeOptionTitle, { color: colors.primary, fontFamily: 'Montserrat_600SemiBold' }]}>
+                  <Text style={[styles.routeOptionTitle, { color: textColor, fontFamily: 'Montserrat_600SemiBold' }]}>
                     Яндекс.Карты
                   </Text>
-                  <Text style={[styles.routeOptionDesc, { color: colors.primary, fontFamily: 'Montserrat_400Regular' }]}>
+                  <Text style={[styles.routeOptionDesc, { color: placeholderColor, fontFamily: 'Montserrat_400Regular' }]}>
                     Открыть в веб-браузере
                   </Text>
                 </View>
-                <Icon name="open-outline" size={20} color={colors.primary} />
+                <Icon name="open-outline" size={20} color={placeholderColor} />
               </TouchableOpacity>
 
               <TouchableOpacity 
-                style={[styles.routeOption, { backgroundColor: colors.light, marginTop: 12 }]}
+                style={[styles.routeOption, { backgroundColor: colors.glass, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.glassBorder, marginTop: 12 }]}
                 onPress={() => handleRouteServiceSelect('2gis')}
               >
                 <View style={[styles.routeIcon, { backgroundColor: colors.primary }]}>
                   <Text style={[styles.routeIconText, { fontFamily: 'Montserrat_700Bold' }]}>2</Text>
                 </View>
                 <View style={styles.routeOptionText}>
-                  <Text style={[styles.routeOptionTitle, { color: colors.primary, fontFamily: 'Montserrat_600SemiBold' }]}>
+                  <Text style={[styles.routeOptionTitle, { color: textColor, fontFamily: 'Montserrat_600SemiBold' }]}>
                     2ГИС
                   </Text>
-                  <Text style={[styles.routeOptionDesc, { color: colors.primary, fontFamily: 'Montserrat_400Regular' }]}>
+                  <Text style={[styles.routeOptionDesc, { color: placeholderColor, fontFamily: 'Montserrat_400Regular' }]}>
                     Открыть в веб-браузере
                   </Text>
                 </View>
-                <Icon name="open-outline" size={20} color={colors.primary} />
+                <Icon name="open-outline" size={20} color={placeholderColor} />
               </TouchableOpacity>
 
               <TouchableOpacity 
@@ -384,7 +390,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     padding: 16,
-    borderRadius: 8,
+    borderRadius: 16,
   },
   infoText: {
     fontSize: 14,
@@ -400,15 +406,15 @@ const styles = StyleSheet.create({
     zIndex: 1001,
   },
   routeModal: {
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
-    padding: 20,
-    paddingBottom: Platform.OS === 'ios' ? 34 : 20,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: 24,
+    paddingBottom: Platform.OS === 'ios' ? 100 : 40,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: -2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 8,
-    elevation: 5,
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 8,
   },
   routeModalTitle: {
     fontSize: 18,
@@ -426,7 +432,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     padding: 16,
-    borderRadius: 12,
+    borderRadius: 16,
   },
   routeIcon: {
     width: 32,

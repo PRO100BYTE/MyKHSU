@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useImperativeHandle, forwardRef } from 'react';
 import { 
   View, 
   Text, 
@@ -8,6 +8,7 @@ import {
   Platform,
   Dimensions, 
   TouchableOpacity, 
+  TouchableWithoutFeedback,
   Animated, 
   StatusBar, 
   ActivityIndicator,
@@ -26,7 +27,7 @@ import Snowfall from './Snowfall';
 
 const { width, height } = Dimensions.get('window');
 
-const MapScreen = ({ theme, accentColor, isNewYearMode }) => {
+const MapScreen = forwardRef(({ theme, accentColor, isNewYearMode, onFilterCountChange, onNavigationChange }, ref) => {
   const [isOnline, setIsOnline] = useState(true);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -56,6 +57,22 @@ const MapScreen = ({ theme, accentColor, isNewYearMode }) => {
   const filtersModalAnim = useRef(new Animated.Value(0)).current;
   const mapRef = useRef(null);
   const webViewRef = useRef(null);
+
+  // Expose methods to parent via ref
+  useImperativeHandle(ref, () => ({
+    openFilters: () => setShowFiltersModal(true),
+    goBack: () => setShowBuildingsList(false),
+  }));
+
+  // Notify parent about filter count changes
+  useEffect(() => {
+    if (onFilterCountChange) onFilterCountChange(selectedFilters.length);
+  }, [selectedFilters]);
+
+  // Notify parent about navigation state changes
+  useEffect(() => {
+    if (onNavigationChange) onNavigationChange(showBuildingsList ? 'Корпуса ХГУ' : null);
+  }, [showBuildingsList]);
 
   // Категории фильтров
   const filterCategories = [
@@ -362,22 +379,6 @@ const MapScreen = ({ theme, accentColor, isNewYearMode }) => {
             barStyle={theme === 'light' ? 'dark-content' : 'light-content'}
             backgroundColor={bgColor}
           />
-          <View style={{ flexDirection: 'row', alignItems: 'center', padding: 16, backgroundColor: cardBg }}>
-            <TouchableOpacity 
-              onPress={() => setShowBuildingsList(false)}
-              style={{ padding: 8, marginRight: 12 }}
-            >
-              <Icon name="arrow-back" size={24} color={colors.primary} />
-            </TouchableOpacity>
-            <Text style={{ 
-              color: textColor, 
-              fontSize: 20, 
-              fontWeight: 'bold',
-              fontFamily: 'Montserrat_600SemiBold'
-            }}>
-              Корпуса ХГУ
-            </Text>
-          </View>
           <BuildingsListScreen 
             theme={theme} 
             accentColor={accentColor} 
@@ -676,24 +677,7 @@ const MapScreen = ({ theme, accentColor, isNewYearMode }) => {
           backgroundColor={bgColor}
         />
         
-        {/* Заголовок с кнопкой фильтров */}
-      <View style={[styles.header, { backgroundColor: cardBg }]}>
-        <View style={styles.headerLeft}>
-          <Text style={[styles.headerTitle, { color: textColor }]}>Корпуса ХГУ</Text>
-          {selectedFilters.length > 0 && (
-            <View style={[styles.activeFiltersBadge, { backgroundColor: colors.primary }]}>
-              <Text style={styles.activeFiltersText}>{selectedFilters.length}</Text>
-            </View>
-          )}
-        </View>
-        <TouchableOpacity 
-          style={[styles.filtersButton, { backgroundColor: colors.light }]}
-          onPress={() => setShowFiltersModal(true)}
-        >
-          <Icon name="filter-outline" size={20} color={colors.primary} />
-          <Text style={[styles.filtersButtonText, { color: colors.primary }]}>Фильтры</Text>
-        </TouchableOpacity>
-      </View>
+        {/* Заголовок с кнопкой фильтров перенесён в хедер приложения (App.js) */}
       
       {/* ============================================ */}
       {/* КОД КАРТЫ ДЛЯ ANDROID (ЗАКОММЕНТИРОВАН ДЛЯ ВОЗМОЖНОГО ВОССТАНОВЛЕНИЯ) */}
@@ -802,6 +786,9 @@ const MapScreen = ({ theme, accentColor, isNewYearMode }) => {
             }
           ]}
         >
+          <TouchableWithoutFeedback onPress={handleCloseFiltersModal}>
+            <View style={{ flex: 1 }} />
+          </TouchableWithoutFeedback>
           <Animated.View 
             style={[
               styles.filtersModal,
@@ -890,6 +877,9 @@ const MapScreen = ({ theme, accentColor, isNewYearMode }) => {
             }
           ]}
         >
+          <TouchableWithoutFeedback onPress={handleCloseRouteModal}>
+            <View style={{ flex: 1 }} />
+          </TouchableWithoutFeedback>
           <Animated.View 
             style={[
               styles.routeModal,
@@ -959,56 +949,11 @@ const MapScreen = ({ theme, accentColor, isNewYearMode }) => {
     </Animated.View>
     </View>
   );
-};
+});
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
-    elevation: 3,
-  },
-  headerLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontFamily: 'Montserrat_600SemiBold',
-  },
-  activeFiltersBadge: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginLeft: 8,
-  },
-  activeFiltersText: {
-    color: '#ffffff',
-    fontSize: 12,
-    fontFamily: 'Montserrat_600SemiBold',
-  },
-  filtersButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 8,
-    gap: 6,
-  },
-  filtersButtonText: {
-    fontSize: 14,
-    fontFamily: 'Montserrat_500Medium',
   },
   mapContainer: {
     flex: 1,

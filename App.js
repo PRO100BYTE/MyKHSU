@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import { View, Text, Platform, Appearance, StyleSheet, StatusBar, PanResponder, Animated } from 'react-native';
+import { View, Text, Platform, Appearance, StyleSheet, StatusBar, PanResponder, Animated, TouchableOpacity } from 'react-native';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import * as SecureStore from 'expo-secure-store';
 import { useFonts, Montserrat_400Regular, Montserrat_500Medium, Montserrat_600SemiBold, Montserrat_700Bold } from '@expo-google-fonts/montserrat';
@@ -159,6 +159,15 @@ export default Sentry.wrap(function App() {
   const [refresh, setRefresh] = useState(0);
   const [refreshKey, setRefreshKey] = useState(0);
   const insets = useSafeAreaInsets();
+
+  // Refs для дочерних экранов (для управления из хедера)
+  const mapScreenRef = useRef(null);
+  const freshmanScreenRef = useRef(null);
+
+  // Состояния для контекстных кнопок в хедере
+  const [mapFilterCount, setMapFilterCount] = useState(0);
+  const [mapSubScreen, setMapSubScreen] = useState(null);
+  const [freshmanSubScreen, setFreshmanSubScreen] = useState(null);
 
   // Анимация индикатора активной вкладки (Liquid Glass iOS 26)
   const indicatorAnim = useRef(new Animated.Value(0)).current;
@@ -534,12 +543,40 @@ const handleNewYearModeChange = async (enabled) => {
 
   // Рендер header с glass-эффектом (плавающая капсула)
   const renderHeader = () => {
-    const headerIcon = SCREEN_ICONS[activeScreen] || 'apps-outline';
+    // Определяем, нужна ли кнопка назад
+    const showBackButton = (activeScreen === SCREENS.MAP && mapSubScreen) ||
+                           (activeScreen === SCREENS.FRESHMAN && freshmanSubScreen);
+    
+    // Определяем заголовок
+    let headerTitle = activeScreen;
+    if (activeScreen === SCREENS.MAP && mapSubScreen) {
+      headerTitle = mapSubScreen;
+    } else if (activeScreen === SCREENS.FRESHMAN && freshmanSubScreen) {
+      headerTitle = freshmanSubScreen;
+    }
+
+    // Определяем иконку
+    const headerIcon = showBackButton ? null : (SCREEN_ICONS[activeScreen] || 'apps-outline');
+
+    // Показываем кнопку фильтров для экрана карты (основной вид)
+    const showFilterButton = activeScreen === SCREENS.MAP && !mapSubScreen;
+
+    const handleBackPress = () => {
+      if (activeScreen === SCREENS.MAP) {
+        mapScreenRef.current?.goBack();
+      } else if (activeScreen === SCREENS.FRESHMAN) {
+        freshmanScreenRef.current?.goBack();
+      }
+    };
+
+    const handleFilterPress = () => {
+      mapScreenRef.current?.openFilters();
+    };
 
     // iOS — плавающая glass-капсула с blur
     if (Platform.OS === 'ios') {
       return (
-        <View style={styles.headerFloating} pointerEvents="none">
+        <View style={styles.headerFloating} pointerEvents="box-none">
           <BlurView
             intensity={tabBarBlurConfig.intensity}
             tint={tabBarBlurConfig.tint}
@@ -552,10 +589,39 @@ const handleNewYearModeChange = async (enabled) => {
             ]}
           >
             <View style={styles.headerInner}>
-              <Icon name={headerIcon} size={20} color={colors.primary} style={styles.headerIcon} />
-              <Text style={[styles.headerText, { color: textColor }]}>
-                {activeScreen}
+              {showBackButton ? (
+                <TouchableOpacity onPress={handleBackPress} style={{ marginRight: 10 }}>
+                  <Icon name="arrow-back" size={20} color={colors.primary} />
+                </TouchableOpacity>
+              ) : (
+                <Icon name={headerIcon} size={20} color={colors.primary} style={styles.headerIcon} />
+              )}
+              <Text style={[styles.headerText, { color: textColor, flex: 1 }]}>
+                {headerTitle}
               </Text>
+              {showFilterButton && (
+                <TouchableOpacity 
+                  onPress={handleFilterPress}
+                  style={{ flexDirection: 'row', alignItems: 'center', marginLeft: 8 }}
+                >
+                  <Icon name="filter-outline" size={20} color={colors.primary} />
+                  {mapFilterCount > 0 && (
+                    <View style={{ 
+                      backgroundColor: colors.primary, 
+                      borderRadius: 8, 
+                      minWidth: 16, 
+                      height: 16, 
+                      justifyContent: 'center', 
+                      alignItems: 'center',
+                      marginLeft: 4,
+                    }}>
+                      <Text style={{ color: '#ffffff', fontSize: 10, fontFamily: 'Montserrat_600SemiBold' }}>
+                        {mapFilterCount}
+                      </Text>
+                    </View>
+                  )}
+                </TouchableOpacity>
+              )}
             </View>
           </BlurView>
         </View>
@@ -571,10 +637,39 @@ const handleNewYearModeChange = async (enabled) => {
           borderBottomColor: glass.border,
         }
       ]}>
-        <Icon name={headerIcon} size={20} color={colors.primary} style={styles.headerIcon} />
-        <Text style={[styles.headerText, { color: textColor }]}>
-          {activeScreen}
+        {showBackButton ? (
+          <TouchableOpacity onPress={handleBackPress} style={{ marginRight: 10 }}>
+            <Icon name="arrow-back" size={20} color={colors.primary} />
+          </TouchableOpacity>
+        ) : (
+          <Icon name={headerIcon} size={20} color={colors.primary} style={styles.headerIcon} />
+        )}
+        <Text style={[styles.headerText, { color: textColor, flex: 1 }]}>
+          {headerTitle}
         </Text>
+        {showFilterButton && (
+          <TouchableOpacity 
+            onPress={handleFilterPress}
+            style={{ flexDirection: 'row', alignItems: 'center', marginLeft: 8 }}
+          >
+            <Icon name="filter-outline" size={20} color={colors.primary} />
+            {mapFilterCount > 0 && (
+              <View style={{ 
+                backgroundColor: colors.primary, 
+                borderRadius: 8, 
+                minWidth: 16, 
+                height: 16, 
+                justifyContent: 'center', 
+                alignItems: 'center',
+                marginLeft: 4,
+              }}>
+                <Text style={{ color: '#ffffff', fontSize: 10, fontFamily: 'Montserrat_600SemiBold' }}>
+                  {mapFilterCount}
+                </Text>
+              </View>
+            )}
+          </TouchableOpacity>
+        )}
       </View>
     );
   };
@@ -686,18 +781,23 @@ const handleNewYearModeChange = async (enabled) => {
         )}
         {activeScreen === SCREENS.MAP && (
           <MapScreen 
+            ref={mapScreenRef}
             theme={effectiveTheme} 
             accentColor={accentColor} 
             key={`map-${refreshKey}`}
             isNewYearMode={isNewYearMode}
+            onFilterCountChange={setMapFilterCount}
+            onNavigationChange={setMapSubScreen}
           />
         )}
         {activeScreen === SCREENS.FRESHMAN && (
           <FreshmanScreen 
+            ref={freshmanScreenRef}
             theme={effectiveTheme} 
             accentColor={accentColor} 
             key={`freshman-${refreshKey}`}
             isNewYearMode={isNewYearMode}
+            onNavigationChange={setFreshmanSubScreen}
           />
         )}
         {activeScreen === SCREENS.NEWS && (

@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, Modal, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, Modal, TouchableOpacity, TouchableWithoutFeedback, StyleSheet } from 'react-native';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import { ACCENT_COLORS, LIQUID_GLASS } from '../utils/constants';
 
@@ -19,8 +19,10 @@ const UnderDevelopmentModal = ({ visible, onClose, theme, accentColor, featureNa
       transparent={true}
       onRequestClose={onClose}
     >
-      <View style={[styles.modalContainer, { backgroundColor: 'rgba(0, 0, 0, 0.5)' }]}>
-        <View style={[styles.modalContent, { backgroundColor: bgColor }]}>
+      <TouchableWithoutFeedback onPress={onClose}>
+        <View style={[styles.modalContainer, { backgroundColor: 'rgba(0, 0, 0, 0.5)' }]}>
+          <TouchableWithoutFeedback onPress={() => {}}>
+            <View style={[styles.modalContent, { backgroundColor: bgColor }]}>
           <View style={[styles.iconContainer, { backgroundColor: colors.light }]}>
             <Icon name="construct-outline" size={48} color={colors.primary} />
           </View>
@@ -43,8 +45,10 @@ const UnderDevelopmentModal = ({ visible, onClose, theme, accentColor, featureNa
           >
             <Text style={styles.closeButtonText}>Понятно</Text>
           </TouchableOpacity>
+            </View>
+          </TouchableWithoutFeedback>
         </View>
-      </View>
+      </TouchableWithoutFeedback>
     </Modal>
   );
 };

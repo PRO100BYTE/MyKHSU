@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useImperativeHandle, forwardRef } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, Linking, StyleSheet, Platform, Animated, StatusBar } from 'react-native';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import { ACCENT_COLORS, LIQUID_GLASS } from '../utils/constants';
@@ -6,7 +6,7 @@ import UnderDevelopmentModal from './UnderDevelopmentModal';
 import BuildingsListScreen from './BuildingsListScreen';
 import Snowfall from './Snowfall';
 
-const FreshmanScreen = ({ theme, accentColor, isNewYearMode }) => {
+const FreshmanScreen = forwardRef(({ theme, accentColor, isNewYearMode, onNavigationChange }, ref) => {
   const [modalVisible, setModalVisible] = useState(false);
   const [currentGroupType, setCurrentGroupType] = useState(null);
   const [showBuildingsList, setShowBuildingsList] = useState(false);
@@ -19,6 +19,34 @@ const FreshmanScreen = ({ theme, accentColor, isNewYearMode }) => {
   const textColor = glass.text;
   const placeholderColor = glass.textSecondary;
   const colors = ACCENT_COLORS[accentColor];
+
+  // Expose methods to parent via ref
+  useImperativeHandle(ref, () => ({
+    goBack: () => {
+      if (showBuildingsList) {
+        setShowBuildingsList(false);
+      } else if (currentGroupType === 'vk' || currentGroupType === 'telegram') {
+        setCurrentGroupType('main');
+      } else if (currentGroupType === 'main') {
+        setCurrentGroupType(null);
+      }
+    },
+  }));
+
+  // Notify parent about navigation state changes
+  useEffect(() => {
+    let title = null;
+    if (showBuildingsList) {
+      title = 'Корпуса ХГУ';
+    } else if (currentGroupType === 'vk') {
+      title = 'Группы ВКонтакте';
+    } else if (currentGroupType === 'telegram') {
+      title = 'Группы Telegram';
+    } else if (currentGroupType === 'main') {
+      title = 'Полезные группы';
+    }
+    if (onNavigationChange) onNavigationChange(title);
+  }, [showBuildingsList, currentGroupType]);
 
   // Простая анимация fade при смене экрана
   useEffect(() => {
@@ -222,23 +250,6 @@ const FreshmanScreen = ({ theme, accentColor, isNewYearMode }) => {
   // Экран групп ВКонтакте
   const renderVKGroups = () => (
     <View style={{ flex: 1, padding: 16 }}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 20 }}>
-        <TouchableOpacity 
-          onPress={() => setCurrentGroupType(null)}
-          style={{ padding: 8, marginRight: 12 }}
-        >
-          <Icon name="arrow-back" size={24} color={colors.primary} />
-        </TouchableOpacity>
-        <Text style={{ 
-          color: textColor, 
-          fontSize: 20, 
-          fontWeight: 'bold',
-          fontFamily: 'Montserrat_600SemiBold'
-        }}>
-          Группы ВКонтакте
-        </Text>
-      </View>
-
       <ScrollView>
         {vkGroups.map((group, index) => 
           renderGroupCard(group, index === vkGroups.length - 1)
@@ -250,23 +261,6 @@ const FreshmanScreen = ({ theme, accentColor, isNewYearMode }) => {
   // Экран групп Telegram
   const renderTelegramGroups = () => (
     <View style={{ flex: 1, padding: 16 }}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 20 }}>
-        <TouchableOpacity 
-          onPress={() => setCurrentGroupType(null)}
-          style={{ padding: 8, marginRight: 12 }}
-        >
-          <Icon name="arrow-back" size={24} color={colors.primary} />
-        </TouchableOpacity>
-        <Text style={{ 
-          color: textColor, 
-          fontSize: 20, 
-          fontWeight: 'bold',
-          fontFamily: 'Montserrat_600SemiBold'
-        }}>
-          Группы Telegram
-        </Text>
-      </View>
-
       <View style={{ 
         backgroundColor: cardBg, 
         borderRadius: 20, 
@@ -293,23 +287,6 @@ const FreshmanScreen = ({ theme, accentColor, isNewYearMode }) => {
   // Экран выбора типа групп
   const renderGroupTypeSelection = () => (
     <View style={{ flex: 1, padding: 16 }}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 20 }}>
-        <TouchableOpacity 
-          onPress={() => setCurrentGroupType(null)}
-          style={{ padding: 8, marginRight: 12 }}
-        >
-          <Icon name="arrow-back" size={24} color={colors.primary} />
-        </TouchableOpacity>
-        <Text style={{ 
-          color: textColor, 
-          fontSize: 20, 
-          fontWeight: 'bold',
-          fontFamily: 'Montserrat_600SemiBold'
-        }}>
-          Полезные группы
-        </Text>
-      </View>
-
       <Text style={{ 
         color: placeholderColor, 
         fontSize: 14, 
@@ -339,22 +316,6 @@ const FreshmanScreen = ({ theme, accentColor, isNewYearMode }) => {
   // Рендер списка корпусов
   const renderBuildingsList = () => (
     <View style={{ flex: 1 }}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', padding: 16, backgroundColor: cardBg }}>
-        <TouchableOpacity 
-          onPress={() => setShowBuildingsList(false)}
-          style={{ padding: 8, marginRight: 12 }}
-        >
-          <Icon name="arrow-back" size={24} color={colors.primary} />
-        </TouchableOpacity>
-        <Text style={{ 
-          color: textColor, 
-          fontSize: 20, 
-          fontWeight: 'bold',
-          fontFamily: 'Montserrat_600SemiBold'
-        }}>
-          Корпуса ХГУ
-        </Text>
-      </View>
       <BuildingsListScreen 
         theme={theme} 
         accentColor={accentColor} 
@@ -405,7 +366,7 @@ return (
     </View>
   </View>
 );
-};
+});
 
 const styles = StyleSheet.create({
   // Стили могут быть добавлены при необходимости

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, Modal, TouchableOpacity, TextInput, ScrollView, StyleSheet, Alert, ActivityIndicator, Switch } from 'react-native';
+import { View, Text, Modal, TouchableOpacity, TouchableWithoutFeedback, TextInput, ScrollView, StyleSheet, Alert, ActivityIndicator, Switch } from 'react-native';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import * as SecureStore from 'expo-secure-store';
 import { ACCENT_COLORS, COURSES, LIQUID_GLASS } from '../utils/constants';
@@ -187,8 +187,10 @@ const ScheduleFormatModal = ({ visible, onClose, theme, accentColor, onSettingsC
       transparent={true}
       onRequestClose={onClose}
     >
-      <View style={[styles.modalContainer, { backgroundColor: 'rgba(0, 0, 0, 0.5)' }]}>
-        <View style={[styles.modalContent, { backgroundColor: bgColor }]}>
+      <TouchableWithoutFeedback onPress={onClose}>
+        <View style={[styles.modalContainer, { backgroundColor: 'rgba(0, 0, 0, 0.5)' }]}>
+          <TouchableWithoutFeedback onPress={() => {}}>
+            <View style={[styles.modalContent, { backgroundColor: bgColor }]}>
           <Text style={[styles.title, { color: textColor }]}>Формат расписания</Text>
           
           <ScrollView style={styles.scrollView}>
@@ -478,8 +480,10 @@ const ScheduleFormatModal = ({ visible, onClose, theme, accentColor, onSettingsC
               <Text style={[styles.buttonText, { color: '#ffffff' }]}>Сохранить</Text>
             </TouchableOpacity>
           </View>
+            </View>
+          </TouchableWithoutFeedback>
         </View>
-      </View>
+      </TouchableWithoutFeedback>
     </Modal>
   );
 };

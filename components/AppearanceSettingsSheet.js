@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, Modal, TouchableOpacity, ScrollView, StyleSheet, Switch, Alert } from 'react-native';
+import { View, Text, Modal, TouchableOpacity, TouchableWithoutFeedback, ScrollView, StyleSheet, Switch, Alert } from 'react-native';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import { useColorScheme } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
@@ -147,8 +147,10 @@ const AppearanceSettingsSheet = ({
       transparent={true}
       onRequestClose={onClose}
     >
-      <View style={[styles.modalContainer, { backgroundColor: 'rgba(0, 0, 0, 0.5)' }]}>
-        <View style={[styles.modalContent, { backgroundColor: bgColor }]}>
+      <TouchableWithoutFeedback onPress={onClose}>
+        <View style={[styles.modalContainer, { backgroundColor: 'rgba(0, 0, 0, 0.5)' }]}>
+          <TouchableWithoutFeedback onPress={() => {}}>
+            <View style={[styles.modalContent, { backgroundColor: bgColor }]}>
           <Text style={[styles.title, { color: textColor }]}>Внешний вид приложения</Text>
           
           <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
@@ -413,8 +415,10 @@ const AppearanceSettingsSheet = ({
               <Text style={[styles.buttonText, { color: textColor }]}>Закрыть</Text>
             </TouchableOpacity>
           </View>
+            </View>
+          </TouchableWithoutFeedback>
         </View>
-      </View>
+      </TouchableWithoutFeedback>
     </Modal>
   );
 };
