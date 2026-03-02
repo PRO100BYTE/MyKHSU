@@ -177,3 +177,78 @@ export const isNewYearPeriod = () => {
   // Период с 1 декабря по 31 января
   return (month === 12 && day >= 1) || (month === 1 && day <= 31);
 };
+
+// Информация о текущем празднике (для сплэш-скрина и поздравлений)
+export const getHolidayInfo = () => {
+  const today = new Date();
+  const year = today.getFullYear();
+  const month = today.getMonth() + 1;
+  const day = today.getDate();
+
+  // 25 января — День студента (Татьянин день)
+  if (month === 1 && day === 25) {
+    return { text: 'С Днём студента!', icon: 'school', type: 'student-day' };
+  }
+
+  // Новый год: 1–14 января
+  if (month === 1 && day >= 1 && day <= 14) {
+    return { text: `С новым ${year} годом!`, icon: 'sparkles', type: 'new-year' };
+  }
+
+  // 14 февраля — День святого Валентина
+  if (month === 2 && day === 14) {
+    return { text: 'С Днём святого Валентина!', icon: 'heart', type: 'valentines-day' };
+  }
+
+  // 23 февраля — День защитника Отечества
+  if (month === 2 && day === 23) {
+    return { text: 'С Днём защитника Отечества!', icon: 'shield', type: 'defender-day' };
+  }
+
+  // 8 марта — Международный женский день
+  if (month === 3 && day === 8) {
+    return { text: 'С 8 Марта!', icon: 'flower', type: 'womens-day' };
+  }
+
+  // 1 сентября — День знаний
+  if (month === 9 && day === 1) {
+    return { text: 'С Днём знаний!', icon: 'book', type: 'knowledge-day' };
+  }
+
+  // День программиста — 256-й день года (13 или 12 сентября)
+  const startOfYear = new Date(year, 0, 0);
+  const diff = today - startOfYear;
+  const dayOfYear = Math.floor(diff / (1000 * 60 * 60 * 24));
+  if (dayOfYear === 256) {
+    return { text: 'С Днём программиста!', icon: 'code-slash', type: 'programmer-day' };
+  }
+
+  // День системного администратора — последняя пятница июля
+  if (month === 7) {
+    const lastDay = new Date(year, 7, 0);
+    const lastFriday = new Date(lastDay);
+    while (lastFriday.getDay() !== 5) {
+      lastFriday.setDate(lastFriday.getDate() - 1);
+    }
+    if (day === lastFriday.getDate()) {
+      return { text: 'С Днём сисадмина!', icon: 'server', type: 'sysadmin-day' };
+    }
+  }
+
+  // 5 октября — День преподавателя
+  if (month === 10 && day === 5) {
+    return { text: 'С Днём преподавателя!', icon: 'easel', type: 'teacher-day' };
+  }
+
+  // 17 ноября — Международный день студента
+  if (month === 11 && day === 17) {
+    return { text: 'С Международным днём студента!', icon: 'people', type: 'intl-student-day' };
+  }
+
+  // С наступающим Новым годом: 20–31 декабря
+  if (month === 12 && day >= 20) {
+    return { text: `С наступающим ${year + 1} годом!`, icon: 'sparkles', type: 'new-year' };
+  }
+
+  return null;
+};

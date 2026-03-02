@@ -18,7 +18,7 @@ import MapScreen from './components/MapScreen';
 import FreshmanScreen from './components/FreshmanScreen';
 
 // Импорт утилит
-import { ACCENT_COLORS, SCREENS, LIQUID_GLASS, isNewYearPeriod, getNewYearText } from './utils/constants';
+import { ACCENT_COLORS, SCREENS, LIQUID_GLASS, isNewYearPeriod, getNewYearText, getHolidayInfo } from './utils/constants';
 import { getBlurConfig } from './utils/liquidGlass';
 import * as Sentry from '@sentry/react-native';
 import notificationService from './utils/notificationService';
@@ -493,11 +493,12 @@ const handleNewYearModeChange = async (enabled) => {
   
   // Рендерим SplashScreen пока шрифты не загружены или приложение загружается
   if (!fontsLoaded || isLoading) {
+    const holiday = getHolidayInfo();
+    const holidayInfo = holiday && (holiday.type !== 'new-year' || splashNewYearMode) ? holiday : null;
     return <SplashScreen 
       accentColor={accentColor} 
       theme={getEffectiveTheme()} 
-      isNewYearMode={splashNewYearMode}
-      newYearText={splashNewYearMode ? getNewYearText() : ''}
+      holidayInfo={holidayInfo}
     />;
   }
   

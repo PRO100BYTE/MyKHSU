@@ -209,7 +209,7 @@ class NotificationService {
             sound: true,
             ...(channelId && { channelId }),
           },
-          trigger: { date: beforeStartTime }
+          trigger: { type: 'date', date: beforeStartTime }
         });
       }
     }
@@ -224,7 +224,7 @@ class NotificationService {
           sound: true,
           ...(channelId && { channelId }),
         },
-        trigger: { date: startTime }
+        trigger: { type: 'date', date: startTime }
       });
     }
 
@@ -240,7 +240,7 @@ class NotificationService {
             sound: true,
             ...(channelId && { channelId }),
           },
-          trigger: { date: beforeEndTime }
+          trigger: { type: 'date', date: beforeEndTime }
         });
       }
     }
@@ -255,7 +255,7 @@ class NotificationService {
           sound: true,
           ...(channelId && { channelId }),
         },
-        trigger: { date: endTime }
+        trigger: { type: 'date', date: endTime }
       });
     }
 
