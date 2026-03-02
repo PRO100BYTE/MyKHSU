@@ -331,6 +331,12 @@ class ApiService {
     return this.makeRequest(url, {}, true, 'available_courses', 24 * 60 * 60 * 1000); // кэш на 1 день
   }
 
+  // Метод для получения номеров недель
+  async getWeekNumbers() {
+    const url = `${API_BASE_URL}/weeknumbers`;
+    return this.makeRequest(url, {}, true, 'week_numbers', 6 * 60 * 60 * 1000); // кэш на 6 часов
+  }
+
   // Вспомогательный метод для форматирования даты
   formatDate(date) {
     return date.toLocaleDateString('ru-RU', {

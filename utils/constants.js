@@ -23,11 +23,11 @@ export const ACCENT_COLORS = {
 };
 
 // Версия приложения
-export const APP_VERSION = '2.2.9';
+export const APP_VERSION = '2.3.0';
 export const APP_DEVELOPERS = 'студентами группы 125-1 в составе команды PRO100BYTE Team';
 export const APP_SUPPORTERS = 'ХГУ им. Н.Ф. Катанова и ООО "Скалк Софт"';
-export const BUILD_VER = 'git-c39e0cd';
-export const BUILD_DATE = '06.12.2025';
+export const BUILD_VER = 'git-8693746';
+export const BUILD_DATE = '02.03.2026';
 
 // Дни недели
 export const WEEKDAYS = [

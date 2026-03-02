@@ -459,16 +459,16 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
   };
 
   const changeWeek = (weeks) => {
-    const direction = weeks > 0 ? 'left' : 'right';
-    
-    animateSwitch(direction, () => {
-      const newWeek = currentWeek + weeks;
-      setCurrentWeek(newWeek);
-      
-      if (isTeacherMode && teacherName) {
-        fetchTeacherSchedule(teacherName, newWeek);
-      }
-    });
+    const newWeek = currentWeek + weeks;
+    if (newWeek >= 1) {
+      const direction = weeks > 0 ? 'left' : 'right';
+      animateSwitch(direction, () => {
+        setCurrentWeek(newWeek);
+        if (isTeacherMode && teacherName) {
+          fetchTeacherSchedule(teacherName, newWeek);
+        }
+      });
+    }
   };
 
   const changeDate = (days) => {
@@ -519,6 +519,8 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
   };
 
   const handleRefresh = async () => {
+    setRefreshing(true);
+    await fetchWeekNumbers(); // Обновляем номер недели
     if (isOnline) {
       if (isTeacherMode) {
         await clearTeacherScheduleCache();
@@ -528,10 +530,11 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
     }
     
     if (isTeacherMode && teacherName) {
-      fetchTeacherSchedule(teacherName);
+      fetchTeacherSchedule(teacherName, viewMode === 'week' ? currentWeek : null);
     } else {
       onRefresh();
     }
+    setRefreshing(false);
   };
 
   const getTimeForLesson = (timeNumber) => {
@@ -555,12 +558,12 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
         }}
         key={day.weekday} 
         style={{ 
-          backgroundColor: cardBg, 
+          backgroundColor: isCurrent ? (colors.primary + '10') : cardBg, 
           borderRadius: 12, 
           padding: 16, 
           marginBottom: 16,
-          borderWidth: 1,
-          borderColor
+          borderWidth: isCurrent ? 2 : 1,
+          borderColor: isCurrent ? colors.primary : borderColor
         }}
       >
         <Text style={{ fontSize: 18, fontWeight: 'bold', color: colors.primary, marginBottom: 4, fontFamily: 'Montserrat_600SemiBold' }}>

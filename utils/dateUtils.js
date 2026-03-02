@@ -2,12 +2,20 @@
 
 import { WEEKDAYS } from './constants';
 
-// Определение номера недели
+// Номер недели от сервера (якорь для расчёта дат)
+let _serverWeekNumber = null;
+
+export const setServerWeekNumber = (weekNumber) => {
+  _serverWeekNumber = weekNumber;
+};
+
+// Определение номера недели (ISO 8601, используется как fallback)
 export const getWeekNumber = (d) => {
   d = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
   d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7));
-  const yearStart = new Date(Date.UTC(d.getFullYear(), 8, 1)); // 1 сентября текущего года
-  return Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
+  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+  const weekNo = Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
+  return weekNo;
 };
 
 // Форматирование даты
@@ -20,20 +28,24 @@ export const formatDate = (date) => {
 };
 
 // Получение даты по номеру недели и дню недели
+// Использует якорный расчёт: сверяет номер недели от сервера с текущей датой на устройстве
 export const getDateByWeekAndDay = (weekNumber, dayOfWeek) => {
-  const yearStart = new Date(new Date().getFullYear(), 8, 1); // 1 сентября текущего года
-  const firstMonday = new Date(yearStart);
-  firstMonday.setDate(firstMonday.getDate() + (1 - firstMonday.getDay() + 7) % 7);
+  const today = new Date();
+  const todayDayOfWeek = today.getDay() || 7; // 1 (пн) - 7 (вс)
   
-  const targetDate = new Date(firstMonday);
-  targetDate.setDate(firstMonday.getDate() + (weekNumber - 1) * 7 + (dayOfWeek - 1));
+  // Понедельник текущей недели
+  const currentMonday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  currentMonday.setDate(currentMonday.getDate() - (todayDayOfWeek - 1));
+  
+  // Номер текущей недели (от сервера или локальный расчёт)
+  const refWeek = _serverWeekNumber || getWeekNumber(today);
+  
+  // Смещение от текущей недели
+  const weekDiff = weekNumber - refWeek;
+  const targetDate = new Date(currentMonday);
+  targetDate.setDate(currentMonday.getDate() + weekDiff * 7 + (dayOfWeek - 1));
   
   return targetDate;
-};
-
-// Получение названия дня недели по номеру
-export const getWeekdayName = (dayNumber) => {
-  return WEEKDAYS[dayNumber - 1] || 'Неизвестный день';
 };
 
 // Проверка, является ли дата сегодняшним днем
