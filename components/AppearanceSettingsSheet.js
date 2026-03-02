@@ -149,7 +149,12 @@ const AppearanceSettingsSheet = ({
     >
       <View style={[styles.modalContainer, { backgroundColor: 'rgba(0, 0, 0, 0.5)' }]}>
             <View style={[styles.modalContent, { backgroundColor: bgColor }]}>
-          <Text style={[styles.title, { color: textColor }]}>Внешний вид приложения</Text>
+          <View style={styles.headerRow}>
+            <Text style={[styles.title, { color: textColor }]}>Внешний вид приложения</Text>
+            <TouchableOpacity onPress={onClose} style={styles.closeIcon}>
+              <Icon name="close" size={22} color={placeholderColor} />
+            </TouchableOpacity>
+          </View>
           
           <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
             {/* Секция темы */}
@@ -161,7 +166,7 @@ const AppearanceSettingsSheet = ({
                   style={[
                     styles.option,
                     { 
-                      backgroundColor: selectedTheme === 'light' ? colors.light + '40' : 'transparent',
+                      backgroundColor: selectedTheme === 'light' ? colors.glass : 'transparent',
                       borderColor: selectedTheme === 'light' ? colors.primary : borderColor
                     }
                   ]}
@@ -189,7 +194,7 @@ const AppearanceSettingsSheet = ({
                   style={[
                     styles.option,
                     { 
-                      backgroundColor: selectedTheme === 'dark' ? colors.light + '40' : 'transparent',
+                      backgroundColor: selectedTheme === 'dark' ? colors.glass : 'transparent',
                       borderColor: selectedTheme === 'dark' ? colors.primary : borderColor
                     }
                   ]}
@@ -217,7 +222,7 @@ const AppearanceSettingsSheet = ({
                   style={[
                     styles.option,
                     { 
-                      backgroundColor: selectedTheme === 'auto' ? colors.light + '40' : 'transparent',
+                      backgroundColor: selectedTheme === 'auto' ? colors.glass : 'transparent',
                       borderColor: selectedTheme === 'auto' ? colors.primary : borderColor
                     }
                   ]}
@@ -297,7 +302,7 @@ const AppearanceSettingsSheet = ({
                 <Text style={[styles.sectionTitle, { color: textColor }]}>Новогоднее настроение</Text>
                 
                 <TouchableOpacity
-                  style={[styles.settingItem, { borderBottomWidth: 1, borderBottomColor: borderColor }]}
+                  style={[styles.settingItem, { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: borderColor }]}
                   onPress={() => handleNewYearModeChange(!newYearSetting)}
                 >
                   <View style={styles.settingInfo}>
@@ -337,7 +342,7 @@ const AppearanceSettingsSheet = ({
               <Text style={[styles.sectionTitle, { color: textColor }]}>Панель навигации</Text>
               
               <TouchableOpacity
-                style={[styles.settingItem, { borderBottomWidth: 1, borderBottomColor: borderColor }]}
+                style={[styles.settingItem, { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: borderColor }]}
                 onPress={() => handleShowLabelsChange(!showTabbarLabels)}
               >
                 <View style={styles.settingInfo}>
@@ -410,7 +415,7 @@ const AppearanceSettingsSheet = ({
               style={[styles.button, styles.cancelButton, { backgroundColor: inputBgColor, borderColor }]}
               onPress={onClose}
             >
-              <Text style={[styles.buttonText, { color: textColor }]}>Закрыть</Text>
+              <Text style={[styles.buttonText, { color: textColor }]}>Готово</Text>
             </TouchableOpacity>
           </View>
             </View>
@@ -440,9 +445,24 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 20,
     fontWeight: 'bold',
-    marginBottom: 20,
-    textAlign: 'center',
     fontFamily: 'Montserrat_600SemiBold',
+    flex: 1,
+  },
+  dragHandle: {
+    width: 36,
+    height: 4,
+    borderRadius: 2,
+    alignSelf: 'center',
+    marginBottom: 16,
+  },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 20,
+  },
+  closeIcon: {
+    padding: 4,
   },
   scrollView: {
     maxHeight: 500,

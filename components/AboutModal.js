@@ -24,210 +24,125 @@ const AboutModal = ({ visible, onClose, theme, accentColor }) => {
     >
       <View style={[styles.modalContainer, { backgroundColor: 'rgba(0, 0, 0, 0.5)' }]}>
             <View style={[styles.modalContent, { backgroundColor: bgColor }]}>
-          <Text style={[styles.title, { color: textColor }]}>О приложении</Text>
+          <View style={styles.headerRow}>
+            <Text style={[styles.title, { color: textColor }]}>О приложении</Text>
+            <TouchableOpacity onPress={onClose} style={styles.closeIcon}>
+              <Icon name="close" size={22} color={placeholderColor} />
+            </TouchableOpacity>
+          </View>
           
           <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
-            {/* Основная информация */}
-            <View style={styles.section}>
-              <Text style={[styles.sectionTitle, { color: textColor }]}>Описание</Text>
-              <Text style={[styles.sectionDescription, { color: placeholderColor }]}>
-                Мой ИТИ ХГУ - мобильное приложение для студентов и преподавателей Инженерно-технологического института Хакасского государственного университета.
+            {/* Идентификация приложения */}
+            <View style={[styles.appIdentity, { backgroundColor: colors.glass, borderColor: colors.glassBorder }]}>
+              <View style={[styles.appIconCircle, { backgroundColor: colors.primary }]}>
+                <Icon name="school" size={32} color="#ffffff" />
+              </View>
+              <Text style={[styles.appName, { color: textColor }]}>Мой ИТИ ХГУ</Text>
+              <Text style={[styles.appVersion, { color: placeholderColor }]}>
+                Версия {APP_VERSION} • Сборка {BUILD_VER}
+              </Text>
+              <Text style={[styles.appDescription, { color: placeholderColor }]}>
+                Мобильное приложение для студентов и преподавателей Инженерно-технологического института ХГУ
               </Text>
             </View>
 
             {/* Основные возможности */}
-            <View style={styles.section}>
-              <Text style={[styles.sectionTitle, { color: textColor }]}>Основные возможности</Text>
-              
-              <View style={styles.featureItem}>
-                <Icon name="checkmark-circle" size={16} color={colors.primary} style={styles.featureIcon} />
-                <Text style={[styles.featureText, { color: textColor }]}>
-                  Просмотр расписания занятий для студентов и преподавателей
-                </Text>
-              </View>
-              
-              <View style={styles.featureItem}>
-                <Icon name="checkmark-circle" size={16} color={colors.primary} style={styles.featureIcon} />
-                <Text style={[styles.featureText, { color: textColor }]}>
-                  Два формата отображения: для студентов (по группам) и преподавателей (по ФИО)
-                </Text>
-              </View>
-              
-              <View style={styles.featureItem}>
-                <Icon name="checkmark-circle" size={16} color={colors.primary} style={styles.featureIcon} />
-                <Text style={[styles.featureText, { color: textColor }]}>
-                  Режимы просмотра: на день и на неделю
-                </Text>
-              </View>
-              
-              <View style={styles.featureItem}>
-                <Icon name="checkmark-circle" size={16} color={colors.primary} style={styles.featureIcon} />
-                <Text style={[styles.featureText, { color: textColor }]}>
-                  Чтение новостей университета с поддержкой офлайн-доступа
-                </Text>
-              </View>
-              
-              <View style={styles.featureItem}>
-                <Icon name="checkmark-circle" size={16} color={colors.primary} style={styles.featureIcon} />
-                <Text style={[styles.featureText, { color: textColor }]}>
-                  Интерактивная карта расположения учебных корпусов
-                </Text>
-              </View>
-              
-              <View style={styles.featureItem}>
-                <Icon name="checkmark-circle" size={16} color={colors.primary} style={styles.featureIcon} />
-                <Text style={[styles.featureText, { color: textColor }]}>
-                  Раздел "Первокурснику" с полезной информацией для новых студентов
-                </Text>
-              </View>
-              
-              <View style={styles.featureItem}>
-                <Icon name="checkmark-circle" size={16} color={colors.primary} style={styles.featureIcon} />
-                <Text style={[styles.featureText, { color: textColor }]}>
-                  Настройка внешнего вида приложения (темы и цветовые схемы)
-                </Text>
-              </View>
-              
-              <View style={styles.featureItem}>
-                <Icon name="checkmark-circle" size={16} color={colors.primary} style={styles.featureIcon} />
-                <Text style={[styles.featureText, { color: textColor }]}>
-                  Уведомления о новостях и изменениях в расписании
-                </Text>
-              </View>
-              
-              <View style={styles.featureItem}>
-                <Icon name="checkmark-circle" size={16} color={colors.primary} style={styles.featureIcon} />
-                <Text style={[styles.featureText, { color: textColor }]}>
-                  Полная офлайн-работа с кэшированием данных
-                </Text>
-              </View>
-            </View>
-
-            {/* Раздел "Первокурснику" */}
-            <View style={styles.section}>
-              <Text style={[styles.sectionTitle, { color: textColor }]}>Раздел "Первокурснику"</Text>
-              
-              <View style={styles.featureItem}>
-                <Icon name="link-outline" size={16} color={colors.primary} style={styles.featureIcon} />
-                <Text style={[styles.featureText, { color: textColor }]}>
-                  Ссылки на официальные сайты ИТИ ХГУ и образовательные порталы
-                </Text>
-              </View>
-              
-              <View style={styles.featureItem}>
-                <Icon name="people-outline" size={16} color={colors.primary} style={styles.featureIcon} />
-                <Text style={[styles.featureText, { color: textColor }]}>
-                  Полезные группы и сообщества ВКонтакте
-                </Text>
-              </View>
-              
-              <View style={styles.featureItem}>
-                <Icon name="rocket-outline" size={16} color={colors.primary} style={styles.featureIcon} />
-                <Text style={[styles.featureText, { color: textColor }]}>
-                  Быстрый доступ к основным ресурсам университета
-                </Text>
-              </View>
-            </View>
-
-            {/* Для преподавателей */}
-            <View style={styles.section}>
-              <Text style={[styles.sectionTitle, { color: textColor }]}>Для преподавателей</Text>
-              
-              <View style={styles.featureItem}>
-                <Icon name="person-outline" size={16} color={colors.primary} style={styles.featureIcon} />
-                <Text style={[styles.featureText, { color: textColor }]}>
-                  Просмотр расписания по ФИО преподавателя
-                </Text>
-              </View>
-              
-              <View style={styles.featureItem}>
-                <Icon name="people-outline" size={16} color={colors.primary} style={styles.featureIcon} />
-                <Text style={[styles.featureText, { color: textColor }]}>
-                  Отображение групп для каждой пары
-                </Text>
+            <View style={[styles.sectionCard, { backgroundColor: inputBgColor, borderColor }]}>
+              <View style={styles.sectionHeader}>
+                <Icon name="sparkles-outline" size={18} color={colors.primary} />
+                <Text style={[styles.sectionTitle, { color: textColor }]}>Возможности</Text>
               </View>
               
               <View style={styles.featureItem}>
                 <Icon name="calendar-outline" size={16} color={colors.primary} style={styles.featureIcon} />
                 <Text style={[styles.featureText, { color: textColor }]}>
-                  Недельное расписание с возможностью навигации
+                  Расписание занятий для студентов и преподавателей
                 </Text>
               </View>
-            </View>
-
-            {/* Техническая информация */}
-            <View style={styles.section}>
-              <Text style={[styles.sectionTitle, { color: textColor }]}>Техническая информация</Text>
-              
               <View style={styles.featureItem}>
-                <Icon name="phone-portrait-outline" size={16} color={colors.primary} style={styles.featureIcon} />
+                <Icon name="newspaper-outline" size={16} color={colors.primary} style={styles.featureIcon} />
                 <Text style={[styles.featureText, { color: textColor }]}>
-                  Поддержка светлой и тёмной тем
+                  Новости университета с офлайн-доступом
                 </Text>
               </View>
-              
+              <View style={styles.featureItem}>
+                <Icon name="map-outline" size={16} color={colors.primary} style={styles.featureIcon} />
+                <Text style={[styles.featureText, { color: textColor }]}>
+                  Интерактивная карта учебных корпусов
+                </Text>
+              </View>
+              <View style={styles.featureItem}>
+                <Icon name="school-outline" size={16} color={colors.primary} style={styles.featureIcon} />
+                <Text style={[styles.featureText, { color: textColor }]}>
+                  Раздел «Первокурснику» с полезной информацией
+                </Text>
+              </View>
+              <View style={styles.featureItem}>
+                <Icon name="notifications-outline" size={16} color={colors.primary} style={styles.featureIcon} />
+                <Text style={[styles.featureText, { color: textColor }]}>
+                  Уведомления о новостях и расписании
+                </Text>
+              </View>
               <View style={styles.featureItem}>
                 <Icon name="color-palette-outline" size={16} color={colors.primary} style={styles.featureIcon} />
                 <Text style={[styles.featureText, { color: textColor }]}>
-                  Несколько акцентных цветовых схем
+                  Темы оформления и цветовые схемы
                 </Text>
               </View>
-              
               <View style={styles.featureItem}>
-                <Icon name="expand-outline" size={16} color={colors.primary} style={styles.featureIcon} />
+                <Icon name="cloud-offline-outline" size={16} color={colors.primary} style={styles.featureIcon} />
                 <Text style={[styles.featureText, { color: textColor }]}>
-                  Адаптивный интерфейс для разных размеров экранов
-                </Text>
-              </View>
-              
-              <View style={styles.featureItem}>
-                <Icon name="wifi-outline" size={16} color={colors.primary} style={styles.featureIcon} />
-                <Text style={[styles.featureText, { color: textColor }]}>
-                  Оптимизированная работа при слабом интернет-соединении
-                </Text>
-              </View>
-              
-              <View style={styles.featureItem}>
-                <Icon name="refresh-outline" size={16} color={colors.primary} style={styles.featureIcon} />
-                <Text style={[styles.featureText, { color: textColor }]}>
-                  Регулярные автоматические обновления данных
+                  Полная офлайн-работа с кэшированием
                 </Text>
               </View>
             </View>
 
-            {/* Информация о Sentry */}
-            <View style={styles.section}>
-              <Text style={[styles.sectionTitle, { color: textColor }]}>Отслеживание ошибок</Text>
+            {/* Для преподавателей */}
+            <View style={[styles.sectionCard, { backgroundColor: inputBgColor, borderColor }]}>
+              <View style={styles.sectionHeader}>
+                <Icon name="person-outline" size={18} color={colors.primary} />
+                <Text style={[styles.sectionTitle, { color: textColor }]}>Для преподавателей</Text>
+              </View>
+              
+              <View style={styles.featureItem}>
+                <Icon name="search-outline" size={16} color={placeholderColor} style={styles.featureIcon} />
+                <Text style={[styles.featureText, { color: textColor }]}>
+                  Расписание по ФИО с отображением групп
+                </Text>
+              </View>
+              <View style={styles.featureItem}>
+                <Icon name="calendar-outline" size={16} color={placeholderColor} style={styles.featureIcon} />
+                <Text style={[styles.featureText, { color: textColor }]}>
+                  Недельное расписание с навигацией
+                </Text>
+              </View>
+            </View>
+
+            {/* Отслеживание ошибок */}
+            <View style={[styles.sectionCard, { backgroundColor: inputBgColor, borderColor }]}>
+              <View style={styles.sectionHeader}>
+                <Icon name="bug-outline" size={18} color={colors.primary} />
+                <Text style={[styles.sectionTitle, { color: textColor }]}>Отслеживание ошибок</Text>
+              </View>
               <Text style={[styles.sectionDescription, { color: placeholderColor }]}>
-                Приложение использует Self-hosted сервис Sentry, предоставляемый ООО "Скалк Софт" (Sculk Ltd.) для отслеживания ошибок, возникших в процессе использования приложения. Данные, собираемые Sentry, включают техническую информацию об устройстве и контекст ошибки, но не содержат персональных данных пользователей.
+                Приложение использует Self-hosted сервис Sentry (ООО «Скалк Софт» / Sculk Ltd.) для отслеживания ошибок. Собираемые данные включают техническую информацию об устройстве и контекст ошибки, но не содержат персональных данных.
               </Text>
             </View>
 
             {/* Информация о версии */}
-            <View style={[styles.infoSection, { backgroundColor: inputBgColor, borderColor: borderColor }]}>
-              <Text style={[styles.infoTitle, { color: textColor }]}>Информация о версии</Text>
-              
+            <View style={[styles.infoSection, { backgroundColor: inputBgColor, borderColor }]}>
               <View style={styles.infoItem}>
-                <Icon name="phone-portrait-outline" size={14} color={colors.primary} />
+                <Icon name="calendar-outline" size={14} color={colors.primary} />
                 <Text style={[styles.infoText, { color: placeholderColor }]}>
-                  Версия приложения: {APP_VERSION}
+                  Дата сборки: {BUILD_DATE}
                 </Text>
               </View>
-              
               <View style={styles.infoItem}>
-                <Icon name="build-outline" size={14} color={colors.primary} />
-                <Text style={[styles.infoText, { color: placeholderColor }]}>
-                  Сборка {BUILD_VER} от {BUILD_DATE}
-                </Text>
-              </View>
-              
-              <View style={styles.infoItem}>
-                <Icon name="people-outline" size={14} color={colors.primary} />
+                <Icon name="code-slash-outline" size={14} color={colors.primary} />
                 <Text style={[styles.infoText, { color: placeholderColor }]}>
                   Разработано {APP_DEVELOPERS}
                 </Text>
               </View>
-              
               <View style={styles.infoItem}>
                 <Icon name="heart-outline" size={14} color={colors.primary} />
                 <Text style={[styles.infoText, { color: placeholderColor }]}>
@@ -237,15 +152,13 @@ const AboutModal = ({ visible, onClose, theme, accentColor }) => {
             </View>
           </ScrollView>
 
-          {/* Кнопки */}
-          <View style={styles.buttonsContainer}>
-            <TouchableOpacity
-              style={[styles.button, styles.cancelButton, { backgroundColor: inputBgColor, borderColor: borderColor }]}
-              onPress={onClose}
-            >
-              <Text style={[styles.buttonText, { color: textColor }]}>Закрыть</Text>
-            </TouchableOpacity>
-          </View>
+          {/* Кнопка */}
+          <TouchableOpacity
+            style={[styles.closeButton, { backgroundColor: colors.primary }]}
+            onPress={onClose}
+          >
+            <Text style={styles.closeButtonText}>Закрыть</Text>
+          </TouchableOpacity>
             </View>
       </View>
     </Modal>
@@ -262,70 +175,121 @@ const styles = StyleSheet.create({
   modalContent: {
     width: '100%',
     borderRadius: 24,
-    padding: 20,
+    padding: 24,
     maxHeight: '90%',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
+    shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.15,
-    shadowRadius: 32,
-    elevation: 10,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  dragHandle: {
+    width: 36,
+    height: 4,
+    borderRadius: 2,
+    alignSelf: 'center',
+    marginBottom: 16,
+  },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 20,
   },
   title: {
     fontSize: 20,
     fontWeight: 'bold',
-    marginBottom: 20,
-    textAlign: 'center',
     fontFamily: 'Montserrat_600SemiBold',
+    flex: 1,
+  },
+  closeIcon: {
+    padding: 4,
   },
   scrollView: {
     maxHeight: 500,
   },
-  section: {
-    marginBottom: 24,
+  // App identity
+  appIdentity: {
+    alignItems: 'center',
+    padding: 20,
+    borderRadius: 20,
+    borderWidth: StyleSheet.hairlineWidth,
+    marginBottom: 20,
+  },
+  appIconCircle: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  appName: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    fontFamily: 'Montserrat_600SemiBold',
+    marginBottom: 4,
+  },
+  appVersion: {
+    fontSize: 13,
+    fontFamily: 'Montserrat_500Medium',
+    marginBottom: 8,
+  },
+  appDescription: {
+    fontSize: 13,
+    fontFamily: 'Montserrat_400Regular',
+    textAlign: 'center',
+    lineHeight: 18,
+  },
+  // Section cards
+  sectionCard: {
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: StyleSheet.hairlineWidth,
+    marginBottom: 12,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
   },
   sectionTitle: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '600',
-    marginBottom: 12,
     fontFamily: 'Montserrat_600SemiBold',
+    marginLeft: 8,
   },
   sectionDescription: {
-    fontSize: 14,
-    lineHeight: 20,
-    marginBottom: 8,
+    fontSize: 13,
+    lineHeight: 18,
     fontFamily: 'Montserrat_400Regular',
   },
   featureItem: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    marginBottom: 10,
+    marginBottom: 8,
   },
   featureIcon: {
     marginTop: 2,
     marginRight: 10,
   },
   featureText: {
-    fontSize: 14,
-    lineHeight: 20,
+    fontSize: 13,
+    lineHeight: 18,
     flex: 1,
     fontFamily: 'Montserrat_400Regular',
   },
+  // Info section
   infoSection: {
-    marginTop: 16,
     padding: 16,
     borderRadius: 16,
     borderWidth: StyleSheet.hairlineWidth,
-  },
-  infoTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    marginBottom: 12,
-    fontFamily: 'Montserrat_600SemiBold',
+    marginBottom: 8,
   },
   infoItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: 6,
   },
   infoText: {
     fontSize: 12,
@@ -333,22 +297,15 @@ const styles = StyleSheet.create({
     flex: 1,
     fontFamily: 'Montserrat_400Regular',
   },
-  buttonsContainer: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    marginTop: 20,
-  },
-  button: {
-    flex: 1,
-    borderRadius: 14,
+  // Close button
+  closeButton: {
+    borderRadius: 16,
     padding: 16,
     alignItems: 'center',
-    borderWidth: StyleSheet.hairlineWidth,
+    marginTop: 20,
   },
-  cancelButton: {
-    maxWidth: 200,
-  },
-  buttonText: {
+  closeButtonText: {
+    color: '#ffffff',
     fontSize: 16,
     fontWeight: '600',
     fontFamily: 'Montserrat_600SemiBold',

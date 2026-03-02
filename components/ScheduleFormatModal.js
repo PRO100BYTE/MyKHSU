@@ -189,9 +189,14 @@ const ScheduleFormatModal = ({ visible, onClose, theme, accentColor, onSettingsC
     >
       <View style={[styles.modalContainer, { backgroundColor: 'rgba(0, 0, 0, 0.5)' }]}>
             <View style={[styles.modalContent, { backgroundColor: bgColor }]}>
-          <Text style={[styles.title, { color: textColor }]}>Формат расписания</Text>
+          <View style={styles.headerRow}>
+            <Text style={[styles.title, { color: textColor }]}>Формат расписания</Text>
+            <TouchableOpacity onPress={onClose} style={styles.closeIcon}>
+              <Icon name="close" size={22} color={placeholderColor} />
+            </TouchableOpacity>
+          </View>
           
-          <ScrollView style={styles.scrollView}>
+          <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
             {/* Выбор формата */}
             <View style={styles.section}>
               <Text style={[styles.sectionTitle, { color: textColor }]}>Режим отображения</Text>
@@ -200,7 +205,7 @@ const ScheduleFormatModal = ({ visible, onClose, theme, accentColor, onSettingsC
                 style={[
                   styles.formatOption,
                   { 
-                    backgroundColor: scheduleFormat === 'student' ? colors.light : 'transparent',
+                    backgroundColor: scheduleFormat === 'student' ? colors.glass : 'transparent',
                     borderColor: scheduleFormat === 'student' ? colors.primary : borderColor
                   }
                 ]}
@@ -231,7 +236,7 @@ const ScheduleFormatModal = ({ visible, onClose, theme, accentColor, onSettingsC
                 style={[
                   styles.formatOption,
                   { 
-                    backgroundColor: scheduleFormat === 'teacher' ? colors.light : 'transparent',
+                    backgroundColor: scheduleFormat === 'teacher' ? colors.glass : 'transparent',
                     borderColor: scheduleFormat === 'teacher' ? colors.primary : borderColor
                   }
                 ]}
@@ -348,7 +353,7 @@ const ScheduleFormatModal = ({ visible, onClose, theme, accentColor, onSettingsC
                   )}
                   
                   {defaultGroup && (
-                    <View style={[styles.selectedInfo, { backgroundColor: colors.light }]}>
+                    <View style={[styles.selectedInfo, { backgroundColor: colors.glass, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.glassBorder }]}>
                       <Icon name="checkmark-circle" size={16} color={colors.primary} />
                       <Text style={[styles.selectedInfoText, { color: colors.primary }]}>
                         Выбрана группа: {defaultGroup} ({availableCourses.find(c => c.id === selectedCourse)?.label || `Курс ${selectedCourse}`})
@@ -385,8 +390,8 @@ const ScheduleFormatModal = ({ visible, onClose, theme, accentColor, onSettingsC
                     <Switch
                       value={showCourseSelector}
                       onValueChange={setShowCourseSelector}
-                      trackColor={{ false: '#f0f0f0', true: colors.light }}
-                      thumbColor={showCourseSelector ? colors.primary : '#f4f3f4'}
+                      trackColor={{ false: borderColor, true: colors.light }}
+                      thumbColor={showCourseSelector ? colors.primary : placeholderColor}
                     />
                   </TouchableOpacity>
 
@@ -465,7 +470,7 @@ const ScheduleFormatModal = ({ visible, onClose, theme, accentColor, onSettingsC
 
           <View style={styles.buttonsContainer}>
             <TouchableOpacity
-              style={[styles.button, styles.cancelButton, { backgroundColor: inputBgColor }]}
+              style={[styles.button, styles.cancelButton, { backgroundColor: inputBgColor, borderColor }]}
               onPress={onClose}
             >
               <Text style={[styles.buttonText, { color: textColor }]}>Отмена</Text>
@@ -505,9 +510,24 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 20,
     fontWeight: 'bold',
-    marginBottom: 20,
-    textAlign: 'center',
     fontFamily: 'Montserrat_600SemiBold',
+    flex: 1,
+  },
+  dragHandle: {
+    width: 36,
+    height: 4,
+    borderRadius: 2,
+    alignSelf: 'center',
+    marginBottom: 16,
+  },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 20,
+  },
+  closeIcon: {
+    padding: 4,
   },
   scrollView: {
     maxHeight: 500,
@@ -569,7 +589,7 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: 20,
     marginRight: 8,
-    borderWidth: 1,
+    borderWidth: StyleSheet.hairlineWidth,
   },
   courseOptionText: {
     fontSize: 14,
@@ -584,7 +604,7 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: 20,
     marginRight: 8,
-    borderWidth: 1,
+    borderWidth: StyleSheet.hairlineWidth,
     marginBottom: 8,
   },
   groupOptionText: {

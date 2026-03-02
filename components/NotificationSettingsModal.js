@@ -74,10 +74,16 @@ const NotificationSettingsModal = ({ visible, onClose, theme, accentColor }) => 
     >
       <View style={[styles.modalContainer, { backgroundColor: 'rgba(0, 0, 0, 0.5)' }]}>
             <View style={[styles.modalContent, { backgroundColor: bgColor }]}>
-          <Text style={[styles.title, { color: textColor }]}>Настройки уведомлений</Text>
+          <View style={styles.headerRow}>
+            <Text style={[styles.title, { color: textColor }]}>Настройки уведомлений</Text>
+            <TouchableOpacity onPress={onClose} style={styles.closeIcon}>
+              <Icon name="close" size={22} color={placeholderColor} />
+            </TouchableOpacity>
+          </View>
           
-          <ScrollView style={styles.scrollView}>
-            {/* Основной переключатель */}
+          <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+            {/* Основные настройки */}
+            <View style={[styles.sectionCard, { backgroundColor: inputBgColor, borderColor }]}>
             <View style={[styles.settingItem, { borderBottomColor: borderColor }]}>
               <View style={styles.settingInfo}>
                 <Icon name="notifications-outline" size={24} color={colors.primary} />
@@ -135,10 +141,11 @@ const NotificationSettingsModal = ({ visible, onClose, theme, accentColor }) => 
                 disabled={!settings.enabled}
               />
             </View>
+            </View>
 
             {settings.schedule && settings.enabled && (
-              <>
-                <Text style={[styles.sectionTitle, { color: textColor, marginTop: 16, marginBottom: 8 }]}>
+              <View style={[styles.sectionCard, { backgroundColor: inputBgColor, borderColor, marginTop: 16 }]}>
+                <Text style={[styles.sectionTitle, { color: textColor, marginBottom: 8 }]}>
                   Уведомления о начале пары
                 </Text>
                 
@@ -178,7 +185,7 @@ const NotificationSettingsModal = ({ visible, onClose, theme, accentColor }) => 
                   />
                 </View>
 
-                <Text style={[styles.sectionTitle, { color: textColor, marginTop: 16, marginBottom: 8 }]}>
+                <Text style={[styles.sectionTitle, { color: textColor, marginTop: 8, marginBottom: 8 }]}>
                   Уведомления о конце пары
                 </Text>
 
@@ -217,15 +224,23 @@ const NotificationSettingsModal = ({ visible, onClose, theme, accentColor }) => 
                     thumbColor={settings.lessonEnd ? colors.primary : placeholderColor}
                   />
                 </View>
-              </>
+              </View>
             )}
+
+            {/* Информация */}
+            <View style={[styles.infoSection, { backgroundColor: inputBgColor, borderColor }]}>
+              <Icon name="information-circle-outline" size={16} color={colors.primary} />
+              <Text style={[styles.infoText, { color: placeholderColor, marginLeft: 8, flex: 1 }]}>
+                Настройки уведомлений применяются автоматически
+              </Text>
+            </View>
           </ScrollView>
 
           <TouchableOpacity 
             style={[styles.closeButton, { backgroundColor: colors.primary }]}
             onPress={onClose}
           >
-            <Text style={styles.closeButtonText}>Закрыть</Text>
+            <Text style={styles.closeButtonText}>Готово</Text>
           </TouchableOpacity>
             </View>
       </View>
@@ -254,18 +269,40 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 20,
     fontWeight: 'bold',
-    marginBottom: 20,
-    textAlign: 'center',
     fontFamily: 'Montserrat_600SemiBold',
+    flex: 1,
+  },
+  dragHandle: {
+    width: 36,
+    height: 4,
+    borderRadius: 2,
+    alignSelf: 'center',
+    marginBottom: 16,
+  },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 20,
+  },
+  closeIcon: {
+    padding: 4,
   },
   scrollView: {
     maxHeight: 400,
+  },
+  sectionCard: {
+    borderRadius: 16,
+    padding: 4,
+    paddingHorizontal: 12,
+    borderWidth: StyleSheet.hairlineWidth,
+    marginBottom: 8,
   },
   sectionTitle: {
     fontSize: 16,
     fontWeight: '600',
     fontFamily: 'Montserrat_600SemiBold',
-    marginLeft: 36,
+    marginLeft: 12,
   },
   settingItem: {
     flexDirection: 'row',
@@ -304,6 +341,19 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     fontFamily: 'Montserrat_600SemiBold',
+  },
+  infoSection: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    borderRadius: 12,
+    borderWidth: StyleSheet.hairlineWidth,
+    marginTop: 16,
+    marginBottom: 8,
+  },
+  infoText: {
+    fontSize: 12,
+    fontFamily: 'Montserrat_400Regular',
   },
 });
 
