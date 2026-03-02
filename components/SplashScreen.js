@@ -5,7 +5,7 @@ import { ACCENT_COLORS, LIQUID_GLASS, APP_VERSION } from '../utils/constants';
 
 const { width, height } = Dimensions.get('window');
 
-const SplashScreen = ({ accentColor, theme, isNewYearMode, newYearText }) => {
+const SplashScreen = ({ accentColor, theme, holidayInfo }) => {
   const safeAccentColor = accentColor || 'green';
   const colors = ACCENT_COLORS[safeAccentColor] || ACCENT_COLORS.green;
   const safeColors = colors || { primary: '#10b981', light: '#d1fae5' };
@@ -15,6 +15,53 @@ const SplashScreen = ({ accentColor, theme, isNewYearMode, newYearText }) => {
   const iconColor = theme === 'dark' ? safeColors.light : safeColors.primary;
   const textColor = theme === 'dark' ? '#ffffff' : '#1c1c1e';
   const subtextColor = theme === 'dark' ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.4)';
+
+  // Цвета праздников
+  const getHolidayColors = (type) => {
+    const isDark = theme === 'dark';
+    const holidayColorMap = {
+      'new-year':         { text: isDark ? '#FFD700' : '#D32F2F', icons: ['#FFD700', '#FF5722', '#2196F3'] },
+      'student-day':      { text: isDark ? '#64B5F6' : '#1565C0', icons: ['#1565C0', '#FFD700', '#1565C0'] },
+      'valentines-day':   { text: isDark ? '#F48FB1' : '#C62828', icons: ['#E91E63', '#FF5252', '#E91E63'] },
+      'defender-day':     { text: isDark ? '#81C784' : '#2E7D32', icons: ['#2E7D32', '#FF8F00', '#2E7D32'] },
+      'womens-day':       { text: isDark ? '#F48FB1' : '#AD1457', icons: ['#E91E63', '#FF80AB', '#E91E63'] },
+      'cosmonautics-day': { text: isDark ? '#90CAF9' : '#1A237E', icons: ['#1A237E', '#FFD700', '#1A237E'] },
+      'may-day':          { text: isDark ? '#A5D6A7' : '#2E7D32', icons: ['#FFD700', '#2E7D32', '#FFD700'] },
+      'victory-day':      { text: isDark ? '#FFCC80' : '#BF360C', icons: ['#FF6F00', '#212121', '#FF6F00'] },
+      'children-day':     { text: isDark ? '#FFF176' : '#F57F17', icons: ['#FF5722', '#4CAF50', '#2196F3'] },
+      'knowledge-day':    { text: isDark ? '#90CAF9' : '#1565C0', icons: ['#FF6F00', '#1565C0', '#FF6F00'] },
+      'september-3':      { text: isDark ? '#FFCC80' : '#BF360C', icons: ['#FF8F00', '#D84315', '#FF8F00'] },
+      'programmer-day':   { text: isDark ? '#A5D6A7' : '#1B5E20', icons: ['#4CAF50', '#00E676', '#4CAF50'] },
+      'sysadmin-day':     { text: isDark ? '#90CAF9' : '#0D47A1', icons: ['#0D47A1', '#2196F3', '#0D47A1'] },
+      'teacher-day':      { text: isDark ? '#FFF176' : '#E65100', icons: ['#FF6F00', '#FFD700', '#FF6F00'] },
+      'unity-day':        { text: isDark ? '#EF9A9A' : '#B71C1C', icons: ['#FFFFFF', '#1565C0', '#D32F2F'] },
+      'intl-student-day': { text: isDark ? '#90CAF9' : '#1565C0', icons: ['#1565C0', '#FFD700', '#1565C0'] },
+    };
+    return holidayColorMap[type] || { text: isDark ? '#FFD700' : '#D32F2F', icons: ['#FFD700', '#FF5722', '#2196F3'] };
+  };
+
+  // Декоративные иконки для праздников
+  const getHolidayDecorIcons = (type) => {
+    const decorMap = {
+      'new-year':         [{ name: 'sparkles', size: 18 }, { name: 'sparkles', size: 14 }, { name: 'sparkles', size: 16 }],
+      'student-day':      [{ name: 'school', size: 16 }, { name: 'star', size: 14 }, { name: 'school', size: 16 }],
+      'valentines-day':   [{ name: 'heart', size: 16 }, { name: 'heart', size: 12 }, { name: 'heart', size: 16 }],
+      'defender-day':     [{ name: 'shield', size: 16 }, { name: 'star', size: 14 }, { name: 'shield', size: 16 }],
+      'womens-day':       [{ name: 'flower', size: 16 }, { name: 'heart', size: 14 }, { name: 'flower', size: 16 }],
+      'cosmonautics-day': [{ name: 'rocket', size: 16 }, { name: 'star', size: 14 }, { name: 'planet', size: 16 }],
+      'may-day':          [{ name: 'sunny', size: 16 }, { name: 'flower', size: 14 }, { name: 'sunny', size: 16 }],
+      'victory-day':      [{ name: 'star', size: 16 }, { name: 'ribbon', size: 14 }, { name: 'star', size: 16 }],
+      'children-day':     [{ name: 'balloon', size: 16 }, { name: 'happy', size: 14 }, { name: 'balloon', size: 16 }],
+      'knowledge-day':    [{ name: 'book', size: 16 }, { name: 'pencil', size: 14 }, { name: 'book', size: 16 }],
+      'september-3':      [{ name: 'musical-notes', size: 16 }, { name: 'calendar', size: 14, rotate: true }, { name: 'musical-notes', size: 16 }],
+      'programmer-day':   [{ name: 'code-slash', size: 16 }, { name: 'terminal', size: 14 }, { name: 'code-slash', size: 16 }],
+      'sysadmin-day':     [{ name: 'server', size: 16 }, { name: 'construct', size: 14 }, { name: 'server', size: 16 }],
+      'teacher-day':      [{ name: 'easel', size: 16 }, { name: 'book', size: 14 }, { name: 'easel', size: 16 }],
+      'unity-day':        [{ name: 'people', size: 16 }, { name: 'flag', size: 14 }, { name: 'people', size: 16 }],
+      'intl-student-day': [{ name: 'earth', size: 16 }, { name: 'school', size: 14 }, { name: 'earth', size: 16 }],
+    };
+    return decorMap[type] || [{ name: 'sparkles', size: 18 }, { name: 'sparkles', size: 14 }, { name: 'sparkles', size: 16 }];
+  };
 
   // Анимации для плавающих блобов
   const blobAnims = useRef(
@@ -38,8 +85,8 @@ const SplashScreen = ({ accentColor, theme, isNewYearMode, newYearText }) => {
   const loaderOpacity = useRef(new Animated.Value(0)).current;
   const versionOpacity = useRef(new Animated.Value(0)).current;
 
-  // Новогодний текст
-  const newYearAnim = useRef(new Animated.Value(0)).current;
+  // Анимация праздничного текста
+  const holidayAnim = useRef(new Animated.Value(0)).current;
 
   // Параметры блобов
   const blobs = [
@@ -172,11 +219,11 @@ const SplashScreen = ({ accentColor, theme, isNewYearMode, newYearText }) => {
       useNativeDriver: true,
     });
 
-    // Новогодний текст
-    const newYearAnimation = isNewYearMode && newYearText
+    // Праздничный текст
+    const holidayAnimation = holidayInfo
       ? Animated.sequence([
           Animated.delay(600),
-          Animated.spring(newYearAnim, {
+          Animated.spring(holidayAnim, {
             toValue: 1,
             tension: 50,
             friction: 7,
@@ -192,9 +239,9 @@ const SplashScreen = ({ accentColor, theme, isNewYearMode, newYearText }) => {
       subtitleAnimation,
       loaderAnimation,
       versionAnimation,
-      newYearAnimation,
+      holidayAnimation,
     ]).start();
-  }, [isNewYearMode]);
+  }, [holidayInfo]);
 
   return (
     <View style={[styles.container, { backgroundColor }]}>
@@ -227,21 +274,21 @@ const SplashScreen = ({ accentColor, theme, isNewYearMode, newYearText }) => {
 
       {/* Центральный контент */}
       <View style={styles.contentContainer}>
-        {/* Новогодний текст (над логотипом) */}
-        {isNewYearMode && newYearText && (
+        {/* Праздничный текст (над логотипом) */}
+        {holidayInfo && (
           <Animated.View
             style={{
               marginBottom: 24,
-              opacity: newYearAnim,
+              opacity: holidayAnim,
               transform: [
                 {
-                  scale: newYearAnim.interpolate({
+                  scale: holidayAnim.interpolate({
                     inputRange: [0, 1],
                     outputRange: [0.5, 1],
                   }),
                 },
                 {
-                  translateY: newYearAnim.interpolate({
+                  translateY: holidayAnim.interpolate({
                     inputRange: [0, 1],
                     outputRange: [30, 0],
                   }),
@@ -254,19 +301,28 @@ const SplashScreen = ({ accentColor, theme, isNewYearMode, newYearText }) => {
                 fontSize: 22,
                 fontWeight: 'bold',
                 fontFamily: 'Montserrat_700Bold',
-                color: theme === 'dark' ? '#FFD700' : '#D32F2F',
+                color: getHolidayColors(holidayInfo.type).text,
                 textAlign: 'center',
                 textShadowColor: 'rgba(0, 0, 0, 0.15)',
                 textShadowOffset: { width: 0, height: 1 },
                 textShadowRadius: 4,
               }}
             >
-              {newYearText}
+              {holidayInfo.text}
             </Text>
             <View style={{ flexDirection: 'row', justifyContent: 'center', marginTop: 8 }}>
-              <Icon name="sparkles" size={18} color="#FFD700" style={{ marginHorizontal: 4 }} />
-              <Icon name="sparkles" size={14} color="#FF5722" style={{ marginHorizontal: 4 }} />
-              <Icon name="sparkles" size={16} color="#2196F3" style={{ marginHorizontal: 4 }} />
+              {getHolidayDecorIcons(holidayInfo.type).map((icon, idx) => (
+                <Icon
+                  key={idx}
+                  name={icon.name}
+                  size={icon.size}
+                  color={getHolidayColors(holidayInfo.type).icons[idx]}
+                  style={{
+                    marginHorizontal: 4,
+                    ...(icon.rotate ? { transform: [{ rotate: '180deg' }] } : {}),
+                  }}
+                />
+              ))}
             </View>
           </Animated.View>
         )}

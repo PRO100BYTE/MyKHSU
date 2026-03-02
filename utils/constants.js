@@ -210,9 +210,34 @@ export const getHolidayInfo = () => {
     return { text: 'С 8 Марта!', icon: 'flower', type: 'womens-day' };
   }
 
+  // 12 апреля — День космонавтики
+  if (month === 4 && day === 12) {
+    return { text: 'С Днём космонавтики!', icon: 'rocket', type: 'cosmonautics-day' };
+  }
+
+  // 1 мая — Праздник Весны и Труда
+  if (month === 5 && day === 1) {
+    return { text: 'С Праздником Весны и Труда!', icon: 'sunny', type: 'may-day' };
+  }
+
+  // 9 мая — День Победы
+  if (month === 5 && day === 9) {
+    return { text: 'С Днём Победы!', icon: 'star', type: 'victory-day' };
+  }
+
+  // 1 июня — День защиты детей
+  if (month === 6 && day === 1) {
+    return { text: 'С Днём защиты детей!', icon: 'happy', type: 'children-day' };
+  }
+
   // 1 сентября — День знаний
   if (month === 9 && day === 1) {
     return { text: 'С Днём знаний!', icon: 'book', type: 'knowledge-day' };
+  }
+
+  // 3 сентября — Я календарь переверну 🎵
+  if (month === 9 && day === 3) {
+    return { text: 'Я календарь переверну...', icon: 'calendar', type: 'september-3' };
   }
 
   // День программиста — 256-й день года (13 или 12 сентября)
@@ -238,6 +263,11 @@ export const getHolidayInfo = () => {
   // 5 октября — День преподавателя
   if (month === 10 && day === 5) {
     return { text: 'С Днём преподавателя!', icon: 'easel', type: 'teacher-day' };
+  }
+
+  // 4 ноября — День народного единства
+  if (month === 11 && day === 4) {
+    return { text: 'С Днём народного единства!', icon: 'people', type: 'unity-day' };
   }
 
   // 17 ноября — Международный день студента
