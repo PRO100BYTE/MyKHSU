@@ -1,263 +1,420 @@
 import React, { useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, StatusBar, Animated, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, StatusBar, Animated, Dimensions, ActivityIndicator } from 'react-native';
 import { Ionicons as Icon } from '@expo/vector-icons';
-import { ACCENT_COLORS, LIQUID_GLASS } from '../utils/constants';
+import { ACCENT_COLORS, LIQUID_GLASS, APP_VERSION } from '../utils/constants';
 
 const { width, height } = Dimensions.get('window');
 
 const SplashScreen = ({ accentColor, theme, isNewYearMode, newYearText }) => {
   const safeAccentColor = accentColor || 'green';
   const colors = ACCENT_COLORS[safeAccentColor] || ACCENT_COLORS.green;
-  
   const safeColors = colors || { primary: '#10b981', light: '#d1fae5' };
   
   const glass = LIQUID_GLASS[theme] || LIQUID_GLASS.light;
   const backgroundColor = glass.background;
   const iconColor = theme === 'dark' ? safeColors.light : safeColors.primary;
-  const textColor = theme === 'dark' ? '#ffffff' : safeColors.primary;
-  const bgIconColor = theme === 'dark' ? safeColors.light + '40' : safeColors.primary + '40';
-  const newYearTextColor = theme === 'dark' ? '#FFD700' : '#D32F2F';
-  
-  // Анимации для основного логотипа
-  const logoScale = useRef(new Animated.Value(0.8)).current;
+  const textColor = theme === 'dark' ? '#ffffff' : '#1c1c1e';
+  const subtextColor = theme === 'dark' ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.4)';
+
+  // Анимации для плавающих блобов
+  const blobAnims = useRef(
+    Array.from({ length: 6 }, () => ({
+      translateX: new Animated.Value(0),
+      translateY: new Animated.Value(0),
+      scale: new Animated.Value(0),
+    }))
+  ).current;
+
+  // Анимации логотипа
+  const logoScale = useRef(new Animated.Value(0.3)).current;
   const logoOpacity = useRef(new Animated.Value(0)).current;
-  
-  // Анимации для новогодних элементов
-  const newYearTextAnim = useRef(new Animated.Value(0)).current;
+  const glowOpacity = useRef(new Animated.Value(0.3)).current;
 
-  // Обычные фоновые иконки
-  const regularIcons = [
-    { icon: 'calendar-outline', x: width * 0.15, y: height * 0.1, size: 40, delay: 0 },
-    { icon: 'newspaper-outline', x: width * 0.85, y: height * 0.25, size: 35, delay: 200 },
-    { icon: 'map-outline', x: width * 0.1, y: height * 0.4, size: 38, delay: 400 },
-    { icon: 'person-outline', x: width * 0.9, y: height * 0.55, size: 36, delay: 600 },
-    { icon: 'settings-outline', x: width * 0.2, y: height * 0.7, size: 34, delay: 800 },
-    { icon: 'information-circle-outline', x: width * 0.8, y: height * 0.8, size: 32, delay: 1000 },
-    { icon: 'book-outline', x: width * 0.9, y: height * 0.15, size: 37, delay: 1200 },
-    { icon: 'school-outline', x: width * 0.05, y: height * 0.85, size: 42, delay: 1400 },
+  // Анимации текста
+  const titleTranslateY = useRef(new Animated.Value(30)).current;
+  const titleOpacity = useRef(new Animated.Value(0)).current;
+  const subtitleTranslateY = useRef(new Animated.Value(20)).current;
+  const subtitleOpacity = useRef(new Animated.Value(0)).current;
+  const loaderOpacity = useRef(new Animated.Value(0)).current;
+  const versionOpacity = useRef(new Animated.Value(0)).current;
+
+  // Новогодний текст
+  const newYearAnim = useRef(new Animated.Value(0)).current;
+
+  // Параметры блобов
+  const blobs = [
+    { x: width * 0.12, y: height * 0.12, size: 130, opacity: 0.07 },
+    { x: width * 0.75, y: height * 0.08, size: 170, opacity: 0.05 },
+    { x: width * 0.88, y: height * 0.42, size: 110, opacity: 0.07 },
+    { x: width * 0.05, y: height * 0.58, size: 150, opacity: 0.04 },
+    { x: width * 0.65, y: height * 0.78, size: 190, opacity: 0.06 },
+    { x: width * 0.18, y: height * 0.88, size: 120, opacity: 0.05 },
   ];
-
-  // Новогодние иконки
-  const holidayIcons = [
-    { icon: 'snow-outline', x: width * 0.2, y: height * 0.2, size: 35, delay: 0 },
-    { icon: 'star-outline', x: width * 0.8, y: height * 0.3, size: 40, delay: 300 },
-    { icon: 'gift-outline', x: width * 0.15, y: height * 0.6, size: 38, delay: 600 },
-    { icon: 'sparkles', x: width * 0.85, y: height * 0.5, size: 32, delay: 900 },
-    { icon: 'happy-outline', x: width * 0.3, y: height * 0.75, size: 36, delay: 1200 },
-    { icon: 'wine-outline', x: width * 0.7, y: height * 0.7, size: 34, delay: 1500 },
-  ];
-
-  const iconsToShow = isNewYearMode ? holidayIcons : regularIcons;
-  const iconAnimations = useRef(iconsToShow.map(() => ({
-    scale: new Animated.Value(0),
-    opacity: new Animated.Value(0),
-    rotate: new Animated.Value(0)
-  }))).current;
 
   useEffect(() => {
-    // Анимация фоновых иконок
-    const iconAnimationsArray = iconsToShow.map((icon, index) => {
-      const anim = iconAnimations[index];
-      return Animated.sequence([
-        Animated.delay(icon.delay),
-        Animated.parallel([
-          Animated.spring(anim.scale, {
+    // Запускаем плавающие анимации блобов
+    blobAnims.forEach((blob, index) => {
+      const duration = 3000 + Math.random() * 4000;
+      const amplitude = 15 + Math.random() * 25;
+
+      // Появление блоба
+      Animated.timing(blob.scale, {
+        toValue: 1,
+        duration: 800 + index * 150,
+        useNativeDriver: true,
+      }).start();
+
+      // Плавное дрейфование по Y
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(blob.translateY, {
+            toValue: -amplitude,
+            duration,
+            useNativeDriver: true,
+          }),
+          Animated.timing(blob.translateY, {
+            toValue: amplitude,
+            duration,
+            useNativeDriver: true,
+          }),
+        ])
+      ).start();
+
+      // Плавное дрейфование по X
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(blob.translateX, {
+            toValue: amplitude * 0.6,
+            duration: duration * 1.2,
+            useNativeDriver: true,
+          }),
+          Animated.timing(blob.translateX, {
+            toValue: -amplitude * 0.6,
+            duration: duration * 1.2,
+            useNativeDriver: true,
+          }),
+        ])
+      ).start();
+    });
+
+    // Пульсирующее свечение
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(glowOpacity, {
+          toValue: 1,
+          duration: 1800,
+          useNativeDriver: true,
+        }),
+        Animated.timing(glowOpacity, {
+          toValue: 0.4,
+          duration: 1800,
+          useNativeDriver: true,
+        }),
+      ])
+    ).start();
+
+    // Появление логотипа
+    const logoAnimation = Animated.parallel([
+      Animated.spring(logoScale, {
+        toValue: 1,
+        tension: 18,
+        friction: 5,
+        useNativeDriver: true,
+      }),
+      Animated.timing(logoOpacity, {
+        toValue: 1,
+        duration: 600,
+        useNativeDriver: true,
+      }),
+    ]);
+
+    // Появление заголовка
+    const titleAnimation = Animated.parallel([
+      Animated.spring(titleTranslateY, {
+        toValue: 0,
+        tension: 40,
+        friction: 8,
+        useNativeDriver: true,
+      }),
+      Animated.timing(titleOpacity, {
+        toValue: 1,
+        duration: 500,
+        useNativeDriver: true,
+      }),
+    ]);
+
+    // Появление подзаголовка
+    const subtitleAnimation = Animated.parallel([
+      Animated.spring(subtitleTranslateY, {
+        toValue: 0,
+        tension: 40,
+        friction: 8,
+        useNativeDriver: true,
+      }),
+      Animated.timing(subtitleOpacity, {
+        toValue: 1,
+        duration: 500,
+        useNativeDriver: true,
+      }),
+    ]);
+
+    // Loader
+    const loaderAnimation = Animated.timing(loaderOpacity, {
+      toValue: 1,
+      duration: 600,
+      useNativeDriver: true,
+    });
+
+    // Версия
+    const versionAnimation = Animated.timing(versionOpacity, {
+      toValue: 0.4,
+      duration: 800,
+      useNativeDriver: true,
+    });
+
+    // Новогодний текст
+    const newYearAnimation = isNewYearMode && newYearText
+      ? Animated.sequence([
+          Animated.delay(600),
+          Animated.spring(newYearAnim, {
             toValue: 1,
             tension: 50,
             friction: 7,
             useNativeDriver: true,
           }),
-          Animated.timing(anim.opacity, {
-            toValue: 0.6,
-            duration: 500,
-            useNativeDriver: true,
-          }),
-          Animated.timing(anim.rotate, {
-            toValue: 1,
-            duration: 2000 + Math.random() * 2000,
-            useNativeDriver: true,
-          })
         ])
-      ]);
-    });
+      : Animated.delay(0);
 
-    // Анимация новогоднего текста (если есть)
-    const newYearTextAnimation = isNewYearMode && newYearText ? 
-      Animated.sequence([
-        Animated.delay(2000),
-        Animated.spring(newYearTextAnim, {
-          toValue: 1,
-          tension: 50,
-          friction: 7,
-          useNativeDriver: true,
-        })
-      ]) : Animated.delay(0);
-
-    // Анимация основного логотипа
-    const logoAnimation = Animated.parallel([
-      Animated.spring(logoScale, {
-        toValue: 1,
-        tension: 10,
-        friction: 3,
-        useNativeDriver: true,
-      }),
-      Animated.timing(logoOpacity, {
-        toValue: 1,
-        duration: 800,
-        useNativeDriver: true,
-      })
-    ]);
-
-    // Запускаем все анимации
-    Animated.stagger(100, [
-      ...iconAnimationsArray,
-      newYearTextAnimation,
-      Animated.delay(500),
-      logoAnimation
+    // Последовательный запуск анимаций
+    Animated.stagger(180, [
+      logoAnimation,
+      titleAnimation,
+      subtitleAnimation,
+      loaderAnimation,
+      versionAnimation,
+      newYearAnimation,
     ]).start();
   }, [isNewYearMode]);
 
   return (
-    <View style={[styles.flexCenter, { backgroundColor }]}>
-      <StatusBar 
+    <View style={[styles.container, { backgroundColor }]}>
+      <StatusBar
         barStyle={theme === 'light' ? 'dark-content' : 'light-content'}
         backgroundColor={backgroundColor}
       />
-      
-      {/* Фоновые иконки */}
-      {iconsToShow.map((icon, index) => {
-        const anim = iconAnimations[index];
-        const rotate = anim.rotate.interpolate({
-          inputRange: [0, 1],
-          outputRange: ['0deg', '360deg']
-        });
-        
-        return (
-          <Animated.View
-            key={`icon-${index}`}
-            style={[
-              styles.backgroundIcon,
-              {
-                left: icon.x,
-                top: icon.y,
-                transform: [
-                  { scale: anim.scale },
-                  { rotate }
-                ],
-                opacity: anim.opacity
-              }
-            ]}
-          >
-            <Icon 
-              name={icon.icon} 
-              size={icon.size} 
-              color={bgIconColor} 
-            />
-          </Animated.View>
-        );
-      })}
-      
-      {/* Основной логотип */}
-      <Animated.View style={{
-        transform: [{ scale: logoScale }],
-        opacity: logoOpacity,
-        alignItems: 'center',
-        zIndex: 2,
-      }}>
-        <Icon name="school-outline" size={120} color={iconColor} />
-        <Text style={[styles.title, { color: textColor, marginTop: 20, fontFamily: 'Montserrat_700Bold' }]}>
-          Мой ИТИ ХГУ
-        </Text>
-        <Text style={[styles.subtitle, { color: textColor, opacity: 0.8, fontFamily: 'Montserrat_500Medium' }]}>
-          Твой университет в кармане
-        </Text>
-      </Animated.View>
-      
-      {/* Новогодний текст (только в новогоднем режиме и если есть текст) */}
-      {isNewYearMode && newYearText && (
+
+      {/* Плавающие блобы */}
+      {blobs.map((blob, index) => (
         <Animated.View
-          style={[
-            styles.newYearContainer,
-            {
-              opacity: newYearTextAnim,
+          key={`blob-${index}`}
+          style={{
+            position: 'absolute',
+            left: blob.x - blob.size / 2,
+            top: blob.y - blob.size / 2,
+            width: blob.size,
+            height: blob.size,
+            borderRadius: blob.size / 2,
+            backgroundColor: safeColors.primary,
+            opacity: blob.opacity,
+            transform: [
+              { translateX: blobAnims[index].translateX },
+              { translateY: blobAnims[index].translateY },
+              { scale: blobAnims[index].scale },
+            ],
+          }}
+        />
+      ))}
+
+      {/* Центральный контент */}
+      <View style={styles.contentContainer}>
+        {/* Новогодний текст (над логотипом) */}
+        {isNewYearMode && newYearText && (
+          <Animated.View
+            style={{
+              marginBottom: 24,
+              opacity: newYearAnim,
               transform: [
-                { 
-                  scale: newYearTextAnim.interpolate({
+                {
+                  scale: newYearAnim.interpolate({
                     inputRange: [0, 1],
-                    outputRange: [0.5, 1]
-                  }) 
+                    outputRange: [0.5, 1],
+                  }),
                 },
                 {
-                  translateY: newYearTextAnim.interpolate({
+                  translateY: newYearAnim.interpolate({
                     inputRange: [0, 1],
-                    outputRange: [50, 0]
-                  })
-                }
-              ]
-            }
-          ]}
+                    outputRange: [30, 0],
+                  }),
+                },
+              ],
+            }}
+          >
+            <Text
+              style={{
+                fontSize: 22,
+                fontWeight: 'bold',
+                fontFamily: 'Montserrat_700Bold',
+                color: theme === 'dark' ? '#FFD700' : '#D32F2F',
+                textAlign: 'center',
+                textShadowColor: 'rgba(0, 0, 0, 0.15)',
+                textShadowOffset: { width: 0, height: 1 },
+                textShadowRadius: 4,
+              }}
+            >
+              {newYearText}
+            </Text>
+            <View style={{ flexDirection: 'row', justifyContent: 'center', marginTop: 8 }}>
+              <Icon name="sparkles" size={18} color="#FFD700" style={{ marginHorizontal: 4 }} />
+              <Icon name="sparkles" size={14} color="#FF5722" style={{ marginHorizontal: 4 }} />
+              <Icon name="sparkles" size={16} color="#2196F3" style={{ marginHorizontal: 4 }} />
+            </View>
+          </Animated.View>
+        )}
+
+        {/* Логотип с кольцом свечения */}
+        <Animated.View
+          style={{
+            alignItems: 'center',
+            justifyContent: 'center',
+            transform: [{ scale: logoScale }],
+            opacity: logoOpacity,
+          }}
         >
-          <Text style={[styles.newYearText, { color: newYearTextColor }]}>
-            {newYearText}
-          </Text>
-          <View style={styles.fireworks}>
-            <Icon name="sparkles" size={24} color="#FFD700" style={styles.firework1} />
-            <Icon name="sparkles" size={20} color="#FF5722" style={styles.firework2} />
-            <Icon name="sparkles" size={18} color="#2196F3" style={styles.firework3} />
-          </View>
+          {/* Внешнее кольцо свечения */}
+          <Animated.View
+            style={{
+              width: 160,
+              height: 160,
+              borderRadius: 42,
+              backgroundColor: safeColors.primary + '0A',
+              borderWidth: 1,
+              borderColor: safeColors.primary + '15',
+              justifyContent: 'center',
+              alignItems: 'center',
+              opacity: glowOpacity,
+            }}
+          >
+            {/* Внутренняя стеклянная карточка */}
+            <View
+              style={{
+                width: 120,
+                height: 120,
+                borderRadius: 32,
+                backgroundColor: theme === 'dark'
+                  ? 'rgba(255,255,255,0.06)'
+                  : 'rgba(255,255,255,0.7)',
+                borderWidth: 1,
+                borderColor: theme === 'dark'
+                  ? 'rgba(255,255,255,0.12)'
+                  : safeColors.primary + '20',
+                justifyContent: 'center',
+                alignItems: 'center',
+                shadowColor: safeColors.primary,
+                shadowOffset: { width: 0, height: 4 },
+                shadowOpacity: 0.15,
+                shadowRadius: 20,
+                elevation: 8,
+              }}
+            >
+              <Icon name="school" size={56} color={iconColor} />
+            </View>
+          </Animated.View>
         </Animated.View>
-      )}
+
+        {/* Заголовок */}
+        <Animated.View
+          style={{
+            marginTop: 28,
+            opacity: titleOpacity,
+            transform: [{ translateY: titleTranslateY }],
+          }}
+        >
+          <Text
+            style={[
+              styles.title,
+              {
+                color: textColor,
+                fontFamily: 'Montserrat_700Bold',
+              },
+            ]}
+          >
+            Мой ИТИ ХГУ
+          </Text>
+        </Animated.View>
+
+        {/* Подзаголовок */}
+        <Animated.View
+          style={{
+            marginTop: 6,
+            opacity: subtitleOpacity,
+            transform: [{ translateY: subtitleTranslateY }],
+          }}
+        >
+          <Text
+            style={[
+              styles.subtitle,
+              {
+                color: subtextColor,
+                fontFamily: 'Montserrat_500Medium',
+              },
+            ]}
+          >
+            Твой университет в кармане
+          </Text>
+        </Animated.View>
+
+        {/* Индикатор загрузки */}
+        <Animated.View style={{ marginTop: 40, opacity: loaderOpacity }}>
+          <ActivityIndicator size="small" color={safeColors.primary} />
+        </Animated.View>
+      </View>
+
+      {/* Версия внизу */}
+      <Animated.View
+        style={{
+          position: 'absolute',
+          bottom: 50,
+          alignSelf: 'center',
+          opacity: versionOpacity,
+        }}
+      >
+        <Text
+          style={{
+            color: subtextColor,
+            fontSize: 12,
+            fontFamily: 'Montserrat_400Regular',
+            letterSpacing: 0.5,
+          }}
+        >
+          v{APP_VERSION}
+        </Text>
+      </Animated.View>
     </View>
   );
 };
 
 const styles = StyleSheet.create({
-  flexCenter: {
+  container: {
+    flex: 1,
+    overflow: 'hidden',
+  },
+  contentContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    overflow: 'hidden',
+    zIndex: 2,
+    paddingBottom: 40,
   },
   title: {
-    fontSize: 30,
+    fontSize: 32,
     fontWeight: 'bold',
-    letterSpacing: 0.5,
+    letterSpacing: 0.3,
+    textAlign: 'center',
   },
   subtitle: {
-    fontSize: 14,
-    marginTop: 8,
+    fontSize: 15,
     letterSpacing: 0.3,
-  },
-  backgroundIcon: {
-    position: 'absolute',
-    zIndex: 1,
-  },
-  newYearContainer: {
-    position: 'absolute',
-    top: '15%',
-    alignItems: 'center',
-    zIndex: 3,
-  },
-  newYearText: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    fontFamily: 'Montserrat_700Bold',
-    textShadowColor: 'rgba(0, 0, 0, 0.3)',
-    textShadowOffset: { width: 1, height: 1 },
-    textShadowRadius: 3,
-  },
-  fireworks: {
-    flexDirection: 'row',
-    marginTop: 10,
-  },
-  firework1: {
-    marginHorizontal: 5,
-  },
-  firework2: {
-    marginHorizontal: 5,
-  },
-  firework3: {
-    marginHorizontal: 5,
+    textAlign: 'center',
   },
 });
 

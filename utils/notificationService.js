@@ -3,6 +3,7 @@ import * as Device from 'expo-device';
 import { Platform } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
 import { getWithExpiry, setWithExpiry } from './cache';
+import { getDateByWeekAndDay } from './dateUtils';
 
 // Конфигурация уведомлений
 Notifications.setNotificationHandler({
@@ -45,11 +46,18 @@ class NotificationService {
 
   async requestPermissions() {
     if (Platform.OS === 'android') {
-      await Notifications.setNotificationChannelAsync('default', {
-        name: 'default',
-        importance: Notifications.AndroidImportance.MAX,
+      await Notifications.setNotificationChannelAsync('schedule', {
+        name: 'Расписание',
+        description: 'Уведомления о парах',
+        importance: Notifications.AndroidImportance.HIGH,
         vibrationPattern: [0, 250, 250, 250],
-        lightColor: '#FF231F7C',
+        lightColor: '#10B981',
+      });
+
+      await Notifications.setNotificationChannelAsync('news', {
+        name: 'Новости',
+        description: 'Уведомления о новостях',
+        importance: Notifications.AndroidImportance.DEFAULT,
       });
     }
 
@@ -75,7 +83,7 @@ class NotificationService {
 
   async scheduleLessonNotifications(scheduleData, pairsTime) {
     try {
-      if (!scheduleData || !pairsTime) {
+      if (!scheduleData || !pairsTime || pairsTime.length === 0) {
         return;
       }
 
@@ -84,61 +92,122 @@ class NotificationService {
         return;
       }
 
-      // Отменяем предыдущие уведомления
+      // Запрашиваем разрешения если не настроены
+      if (!this.isConfigured) {
+        const granted = await this.requestPermissions();
+        if (!granted) {
+          console.log('Notification permissions not granted');
+          return;
+        }
+      }
+
+      // Отменяем предыдущие уведомления о парах
       await Notifications.cancelAllScheduledNotificationsAsync();
 
       const notifications = [];
+      const now = new Date();
 
-      if (scheduleData.lessons && scheduleData.lessons.length > 0) {
+      // Недельный режим: scheduleData.days — массив { weekday, lessons }
+      if (scheduleData.days && Array.isArray(scheduleData.days)) {
+        const weekNumber = scheduleData.week_number;
+        
+        for (const day of scheduleData.days) {
+          if (!day || !day.lessons || !day.weekday) continue;
+
+          // Вычисляем реальную дату для этого дня недели
+          let dayDate;
+          if (weekNumber) {
+            dayDate = getDateByWeekAndDay(weekNumber, day.weekday);
+          } else {
+            continue;
+          }
+
+          for (const lesson of day.lessons) {
+            if (!lesson) continue;
+            const pairTime = pairsTime.find(p => 
+              p.time === String(lesson.time) || p.time === lesson.time
+            );
+            if (!pairTime) continue;
+
+            const lessonNotifications = this.createLessonNotificationsForDate(
+              lesson, pairTime, settings, dayDate, now
+            );
+            notifications.push(...lessonNotifications);
+          }
+        }
+      }
+
+      // Дневной режим: scheduleData.lessons — прямой массив уроков
+      if (scheduleData.lessons && Array.isArray(scheduleData.lessons)) {
+        const dayDate = scheduleData.currentDate || new Date();
+
         for (const lesson of scheduleData.lessons) {
-          const pairTime = pairsTime.find(p => p.time === lesson.time.toString());
+          if (!lesson) continue;
+          const pairTime = pairsTime.find(p => 
+            p.time === String(lesson.time) || p.time === lesson.time
+          );
           if (!pairTime) continue;
 
-          const lessonNotifications = this.createLessonNotifications(lesson, pairTime, settings);
+          const lessonNotifications = this.createLessonNotificationsForDate(
+            lesson, pairTime, settings, dayDate, now
+          );
           notifications.push(...lessonNotifications);
         }
       }
 
+      // Планируем все уведомления
+      let scheduled = 0;
       for (const notification of notifications) {
-        await Notifications.scheduleNotificationAsync(notification);
+        try {
+          await Notifications.scheduleNotificationAsync(notification);
+          scheduled++;
+        } catch (e) {
+          console.error('Error scheduling notification:', e);
+        }
       }
 
+      console.log(`Запланировано ${scheduled} уведомлений о парах`);
     } catch (error) {
       console.error('Error scheduling lesson notifications:', error);
     }
   }
 
-  createLessonNotifications(lesson, pairTime, settings) {
+  createLessonNotificationsForDate(lesson, pairTime, settings, lessonDate, now) {
     const notifications = [];
-    const today = new Date();
-    
+
     const startTimeStr = pairTime.time_start || pairTime.start;
     const endTimeStr = pairTime.time_end || pairTime.end;
-    
+
     if (!startTimeStr || !endTimeStr) return notifications;
 
     const [startHours, startMinutes] = startTimeStr.split(':').map(Number);
     const [endHours, endMinutes] = endTimeStr.split(':').map(Number);
-    
-    const startTime = new Date(today);
+
+    // Используем реальную дату урока
+    const startTime = new Date(lessonDate);
     startTime.setHours(startHours, startMinutes, 0, 0);
-    
-    const endTime = new Date(today);
+
+    const endTime = new Date(lessonDate);
     endTime.setHours(endHours, endMinutes, 0, 0);
 
-    // Пропускаем уведомления, если время уже прошло
-    if (startTime < today) return notifications;
+    const subjectName = lesson.subject || 'Пара';
+    const auditory = lesson.auditory || '';
+    const channelId = Platform.OS === 'android' ? 'schedule' : undefined;
+
+    // Пропускаем полностью прошедшие пары
+    if (endTime <= now) return notifications;
 
     // Уведомление за 5 минут до начала
     if (settings.beforeLesson) {
       const beforeStartTime = new Date(startTime.getTime() - 5 * 60 * 1000);
-      if (beforeStartTime > today) {
+      if (beforeStartTime > now) {
         notifications.push({
           content: {
-            title: 'Скоро пара',
-            body: `Через 5 минут: ${lesson.subject} (${lesson.auditory})`,
-            data: { type: 'lesson_reminder', lessonId: lesson.id },
+            title: '⏰ Скоро пара',
+            body: `Через 5 минут: ${subjectName}${auditory ? ` (${auditory})` : ''}`,
+            data: { type: 'lesson_reminder' },
             sound: true,
+            ...(channelId && { channelId }),
           },
           trigger: { date: beforeStartTime }
         });
@@ -146,13 +215,14 @@ class NotificationService {
     }
 
     // Уведомление в начале пары
-    if (settings.lessonStart) {
+    if (settings.lessonStart && startTime > now) {
       notifications.push({
         content: {
-          title: 'Началась пара',
-          body: `${lesson.subject} в ${lesson.auditory}`,
-          data: { type: 'lesson_start', lessonId: lesson.id },
+          title: '📚 Началась пара',
+          body: `${subjectName}${auditory ? ` в ${auditory}` : ''}`,
+          data: { type: 'lesson_start' },
           sound: true,
+          ...(channelId && { channelId }),
         },
         trigger: { date: startTime }
       });
@@ -161,13 +231,14 @@ class NotificationService {
     // Уведомление за 5 минут до конца
     if (settings.beforeLessonEnd) {
       const beforeEndTime = new Date(endTime.getTime() - 5 * 60 * 1000);
-      if (beforeEndTime > today) {
+      if (beforeEndTime > now) {
         notifications.push({
           content: {
-            title: 'Скоро конец пары',
-            body: `Через 5 минут закончится: ${lesson.subject}`,
-            data: { type: 'lesson_end_reminder', lessonId: lesson.id },
+            title: '⏳ Скоро конец пары',
+            body: `Через 5 минут закончится: ${subjectName}`,
+            data: { type: 'lesson_end_reminder' },
             sound: true,
+            ...(channelId && { channelId }),
           },
           trigger: { date: beforeEndTime }
         });
@@ -175,13 +246,14 @@ class NotificationService {
     }
 
     // Уведомление в конце пары
-    if (settings.lessonEnd) {
+    if (settings.lessonEnd && endTime > now) {
       notifications.push({
         content: {
-          title: 'Пара закончилась',
-          body: `${lesson.subject} завершена`,
-          data: { type: 'lesson_end', lessonId: lesson.id },
+          title: '✅ Пара закончилась',
+          body: `${subjectName} завершена`,
+          data: { type: 'lesson_end' },
           sound: true,
+          ...(channelId && { channelId }),
         },
         trigger: { date: endTime }
       });
@@ -259,13 +331,18 @@ class NotificationService {
 
   async showNewsNotification(newNews) {
     try {
-      // Ограничиваем 3 уведомлениями
+      if (!this.isConfigured) {
+        const granted = await this.requestPermissions();
+        if (!granted) return;
+      }
+
       const newsToNotify = newNews.slice(0, 3);
+      const channelId = Platform.OS === 'android' ? 'news' : undefined;
       
       for (const news of newsToNotify) {
         await Notifications.scheduleNotificationAsync({
           content: {
-            title: 'Новая новость',
+            title: '📰 Новая новость',
             body: this.formatNewsContent(news.content),
             data: { 
               type: 'new_news', 
@@ -273,8 +350,9 @@ class NotificationService {
               newsDate: news.date
             },
             sound: true,
+            ...(channelId && { channelId }),
           },
-          trigger: null, // Немедленно
+          trigger: null,
         });
       }
     } catch (error) {

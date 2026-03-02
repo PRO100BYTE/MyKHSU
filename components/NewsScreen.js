@@ -286,23 +286,34 @@ return (
         {/* ВСЕ содержимое новостей */}
         {showCachedData && (
           <View style={{ 
-            backgroundColor: hintBgColor, 
-            padding: 12, 
-            borderRadius: 8,
+            backgroundColor: colors.glass || (colors.primary + '10'),
+            borderWidth: StyleSheet.hairlineWidth,
+            borderColor: colors.glassBorder || (colors.primary + '25'),
+            borderRadius: 16,
+            paddingVertical: 10,
+            paddingHorizontal: 14,
             flexDirection: 'row',
             alignItems: 'center',
-            justifyContent: 'center',
-            marginBottom: 16,
-            borderWidth: 1,
-            borderColor: borderColor,
-            shadowColor: '#000',
-            shadowOffset: { width: 0, height: 1 },
-            shadowOpacity: theme === 'light' ? 0.05 : 0.2,
-            shadowRadius: 2,
-            elevation: 2
+            marginBottom: 12,
           }}>
-            <Icon name="time-outline" size={16} color={colors.primary} />
-            <Text style={{ color: colors.primary, marginLeft: 8, fontFamily: 'Montserrat_400Regular' }}>
+            <View style={{
+              width: 30,
+              height: 30,
+              borderRadius: 15,
+              backgroundColor: colors.primary + '18',
+              justifyContent: 'center',
+              alignItems: 'center',
+              marginRight: 10,
+            }}>
+              <Icon name="cloud-offline-outline" size={16} color={colors.primary} />
+            </View>
+            <Text style={{ 
+              color: textColor, 
+              fontFamily: 'Montserrat_400Regular',
+              fontSize: 13,
+              flex: 1,
+              opacity: 0.85,
+            }}>
               {cacheInfo?.source === 'stale_cache' ? 'Показаны ранее загруженные новости' : 'Показаны кэшированные новости'}
             </Text>
           </View>
@@ -378,23 +389,34 @@ return (
         
         {!isOnline && news.length > 0 && (
           <View style={{ 
-            backgroundColor: hintBgColor, 
-            padding: 16, 
-            borderRadius: 8, 
+            backgroundColor: colors.glass || (colors.primary + '10'),
+            borderWidth: StyleSheet.hairlineWidth,
+            borderColor: colors.glassBorder || (colors.primary + '25'),
+            borderRadius: 16,
+            paddingVertical: 12,
+            paddingHorizontal: 14,
+            flexDirection: 'row',
             alignItems: 'center',
             marginTop: 16,
-            flexDirection: 'row',
-            justifyContent: 'center',
-            borderWidth: 1,
-            borderColor: borderColor,
-            shadowColor: '#000',
-            shadowOffset: { width: 0, height: 1 },
-            shadowOpacity: theme === 'light' ? 0.05 : 0.2,
-            shadowRadius: 2,
-            elevation: 2
           }}>
-            <Icon name="cloud-offline-outline" size={20} color={colors.primary} />
-            <Text style={{ color: colors.primary, marginLeft: 8, textAlign: 'center', fontFamily: 'Montserrat_400Regular' }}>
+            <View style={{
+              width: 30,
+              height: 30,
+              borderRadius: 15,
+              backgroundColor: colors.primary + '18',
+              justifyContent: 'center',
+              alignItems: 'center',
+              marginRight: 10,
+            }}>
+              <Icon name="cloud-offline-outline" size={16} color={colors.primary} />
+            </View>
+            <Text style={{ 
+              color: textColor, 
+              fontFamily: 'Montserrat_400Regular',
+              fontSize: 13,
+              flex: 1,
+              opacity: 0.85,
+            }}>
               Нет подключения к интернету. {showCachedData ? 'Показаны ранее загруженные новости.' : 'Невозможно загрузить новые данные.'}
             </Text>
           </View>

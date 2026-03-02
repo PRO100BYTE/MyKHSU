@@ -88,7 +88,9 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
     handleViewCache,
     onRefresh,
     navigateDate,
-    setError
+    setError,
+    setRefreshing,
+    fetchWeekNumbers
   } = useScheduleLogic();
 
   // Запуск анимации при монтировании
@@ -521,21 +523,26 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
 
   const handleRefresh = async () => {
     setRefreshing(true);
-    await fetchWeekNumbers(); // Обновляем номер недели
-    if (isOnline) {
-      if (isTeacherMode) {
-        await clearTeacherScheduleCache();
-      } else {
-        await clearScheduleCache();
+    try {
+      await fetchWeekNumbers();
+      if (isOnline) {
+        if (isTeacherMode) {
+          await clearTeacherScheduleCache();
+        } else {
+          await clearScheduleCache();
+        }
       }
+      
+      if (isTeacherMode && teacherName) {
+        await fetchTeacherSchedule(teacherName, viewMode === 'week' ? currentWeek : null);
+      } else {
+        await onRefresh();
+      }
+    } catch (e) {
+      console.error('Ошибка при обновлении:', e);
+    } finally {
+      setRefreshing(false);
     }
-    
-    if (isTeacherMode && teacherName) {
-      fetchTeacherSchedule(teacherName, viewMode === 'week' ? currentWeek : null);
-    } else {
-      onRefresh();
-    }
-    setRefreshing(false);
   };
 
   const getTimeForLesson = (timeNumber) => {
@@ -1172,28 +1179,33 @@ return (
         {/* ВСЕ содержимое расписания */}
         {showCachedData && (
           <View style={{ 
-            backgroundColor: hintBgColor, 
-            padding: 12, 
-            borderRadius: 8,
+            backgroundColor: colors.glass || (colors.primary + '10'),
+            borderWidth: StyleSheet.hairlineWidth,
+            borderColor: colors.glassBorder || (colors.primary + '25'),
+            borderRadius: 16,
+            paddingVertical: 10,
+            paddingHorizontal: 14,
             flexDirection: 'row',
             alignItems: 'center',
-            justifyContent: 'center',
-            marginBottom: 16,
-            borderWidth: 1,
-            borderColor: borderColor,
-            shadowColor: '#000',
-            shadowOffset: { width: 0, height: 1 },
-            shadowOpacity: theme === 'light' ? 0.05 : 0.2,
-            shadowRadius: 2,
-            elevation: 2
+            marginBottom: 12,
           }}>
-            <Icon name="time-outline" size={16} color={colors.primary} />
+            <View style={{
+              width: 30,
+              height: 30,
+              borderRadius: 15,
+              backgroundColor: colors.primary + '18',
+              justifyContent: 'center',
+              alignItems: 'center',
+              marginRight: 10,
+            }}>
+              <Icon name="cloud-offline-outline" size={16} color={colors.primary} />
+            </View>
             <Text style={{ 
-              color: colors.primary, 
-              marginLeft: 8, 
+              color: textColor, 
               fontFamily: 'Montserrat_400Regular', 
-              textAlign: 'center',
-              flex: 1
+              fontSize: 13,
+              flex: 1,
+              opacity: 0.85,
             }}>
               {cacheInfo?.source === 'stale_cache' ? 'Показаны ранее загруженные данные' : 'Показаны кэшированные данные'}
             </Text>
@@ -1291,30 +1303,35 @@ return (
         {/* Информация о скрытом селекторе */}
         {!isTeacherMode && !showCourseSelector && selectedGroup && (
           <View style={{ 
-            backgroundColor: hintBgColor, 
-            padding: 12, 
-            borderRadius: 8,
+            backgroundColor: colors.glass || (colors.primary + '10'),
+            borderWidth: StyleSheet.hairlineWidth,
+            borderColor: colors.glassBorder || (colors.primary + '25'),
+            borderRadius: 16,
+            paddingVertical: 10,
+            paddingHorizontal: 14,
             flexDirection: 'row',
             alignItems: 'center',
-            justifyContent: 'center',
-            marginBottom: 16,
-            borderWidth: 1,
-            borderColor: borderColor,
-            shadowColor: '#000',
-            shadowOffset: { width: 0, height: 1 },
-            shadowOpacity: theme === 'light' ? 0.05 : 0.2,
-            shadowRadius: 2,
-            elevation: 2
+            marginBottom: 12,
           }}>
-            <Icon name="information-circle-outline" size={16} color={colors.primary} />
-            <Text style={{ 
-              color: colors.primary, 
-              marginLeft: 8, 
-              fontFamily: 'Montserrat_400Regular', 
-              textAlign: 'center',
-              flex: 1
+            <View style={{
+              width: 30,
+              height: 30,
+              borderRadius: 15,
+              backgroundColor: colors.primary + '18',
+              justifyContent: 'center',
+              alignItems: 'center',
+              marginRight: 10,
             }}>
-              Показано расписание для группы {selectedGroup}
+              <Icon name="people" size={16} color={colors.primary} />
+            </View>
+            <Text style={{ 
+              color: textColor, 
+              fontFamily: 'Montserrat_400Regular', 
+              fontSize: 13,
+              flex: 1,
+              opacity: 0.85,
+            }}>
+              Группа {selectedGroup}
             </Text>
             <TouchableOpacity 
               onPress={() => {
@@ -1331,13 +1348,17 @@ return (
                 
                 console.log('Показан селектор для смены группы');
               }}
-              style={{ marginLeft: 8 }}
+              style={{
+                paddingVertical: 4,
+                paddingHorizontal: 12,
+                borderRadius: 12,
+                backgroundColor: colors.primary + '15',
+              }}
             >
               <Text style={{ 
                 color: colors.primary, 
-                textDecorationLine: 'underline', 
                 fontFamily: 'Montserrat_500Medium',
-                textAlign: 'center'
+                fontSize: 12,
               }}>
                 Изменить
               </Text>
@@ -1357,25 +1378,33 @@ return (
 
         {!isOnline && !error && !showCachedData && (
           <View style={{ 
-            backgroundColor: hintBgColor, 
-            padding: 16, 
-            borderRadius: 8, 
+            backgroundColor: colors.glass || (colors.primary + '10'),
+            borderWidth: StyleSheet.hairlineWidth,
+            borderColor: colors.glassBorder || (colors.primary + '25'),
+            borderRadius: 16,
+            paddingVertical: 12,
+            paddingHorizontal: 14,
+            flexDirection: 'row',
             alignItems: 'center',
             marginTop: 16,
-            borderWidth: 1,
-            borderColor: borderColor,
-            shadowColor: '#000',
-            shadowOffset: { width: 0, height: 1 },
-            shadowOpacity: theme === 'light' ? 0.05 : 0.2,
-            shadowRadius: 2,
-            elevation: 2
           }}>
-            <Icon name="cloud-offline-outline" size={20} color={colors.primary} />
+            <View style={{
+              width: 30,
+              height: 30,
+              borderRadius: 15,
+              backgroundColor: colors.primary + '18',
+              justifyContent: 'center',
+              alignItems: 'center',
+              marginRight: 10,
+            }}>
+              <Icon name="cloud-offline-outline" size={16} color={colors.primary} />
+            </View>
             <Text style={{ 
-              color: colors.primary, 
-              marginTop: 8, 
-              textAlign: 'center', 
-              fontFamily: 'Montserrat_400Regular' 
+              color: textColor, 
+              fontFamily: 'Montserrat_400Regular',
+              fontSize: 13,
+              flex: 1,
+              opacity: 0.85,
             }}>
               Нет подключения к интернету. Показаны ранее загруженные данные.
             </Text>

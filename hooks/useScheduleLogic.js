@@ -285,9 +285,9 @@ export const useScheduleLogic = () => {
   const onRefresh = () => {
     setRefreshing(true);
     if (selectedGroup) {
-      fetchScheduleData(selectedGroup);
+      return fetchScheduleData(selectedGroup);
     } else {
-      fetchGroupsForCourse(course);
+      return fetchGroupsForCourse(course);
     }
   };
 
@@ -326,6 +326,7 @@ export const useScheduleLogic = () => {
     setSelectedGroup,
     setViewMode,
     setCurrentWeek,
+    setRefreshing,
     
     // Functions
     handleRetry,
