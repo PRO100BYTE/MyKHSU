@@ -24,8 +24,7 @@ const AboutModal = ({ visible, onClose, theme, accentColor }) => {
     >
       <TouchableWithoutFeedback onPress={onClose}>
         <View style={[styles.modalContainer, { backgroundColor: 'rgba(0, 0, 0, 0.5)' }]}>
-          <TouchableWithoutFeedback onPress={() => {}}>
-            <View style={[styles.modalContent, { backgroundColor: bgColor }]}>
+            <View style={[styles.modalContent, { backgroundColor: bgColor }]} onStartShouldSetResponder={() => true}>
           <Text style={[styles.title, { color: textColor }]}>О приложении</Text>
           
           <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
@@ -249,7 +248,6 @@ const AboutModal = ({ visible, onClose, theme, accentColor }) => {
             </TouchableOpacity>
           </View>
             </View>
-          </TouchableWithoutFeedback>
         </View>
       </TouchableWithoutFeedback>
     </Modal>

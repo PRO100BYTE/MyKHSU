@@ -149,8 +149,7 @@ const AppearanceSettingsSheet = ({
     >
       <TouchableWithoutFeedback onPress={onClose}>
         <View style={[styles.modalContainer, { backgroundColor: 'rgba(0, 0, 0, 0.5)' }]}>
-          <TouchableWithoutFeedback onPress={() => {}}>
-            <View style={[styles.modalContent, { backgroundColor: bgColor }]}>
+            <View style={[styles.modalContent, { backgroundColor: bgColor }]} onStartShouldSetResponder={() => true}>
           <Text style={[styles.title, { color: textColor }]}>Внешний вид приложения</Text>
           
           <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
@@ -416,7 +415,6 @@ const AppearanceSettingsSheet = ({
             </TouchableOpacity>
           </View>
             </View>
-          </TouchableWithoutFeedback>
         </View>
       </TouchableWithoutFeedback>
     </Modal>

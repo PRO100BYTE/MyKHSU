@@ -189,8 +189,7 @@ const ScheduleFormatModal = ({ visible, onClose, theme, accentColor, onSettingsC
     >
       <TouchableWithoutFeedback onPress={onClose}>
         <View style={[styles.modalContainer, { backgroundColor: 'rgba(0, 0, 0, 0.5)' }]}>
-          <TouchableWithoutFeedback onPress={() => {}}>
-            <View style={[styles.modalContent, { backgroundColor: bgColor }]}>
+            <View style={[styles.modalContent, { backgroundColor: bgColor }]} onStartShouldSetResponder={() => true}>
           <Text style={[styles.title, { color: textColor }]}>Формат расписания</Text>
           
           <ScrollView style={styles.scrollView}>
@@ -481,7 +480,6 @@ const ScheduleFormatModal = ({ visible, onClose, theme, accentColor, onSettingsC
             </TouchableOpacity>
           </View>
             </View>
-          </TouchableWithoutFeedback>
         </View>
       </TouchableWithoutFeedback>
     </Modal>

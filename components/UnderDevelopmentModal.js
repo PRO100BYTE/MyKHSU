@@ -21,8 +21,7 @@ const UnderDevelopmentModal = ({ visible, onClose, theme, accentColor, featureNa
     >
       <TouchableWithoutFeedback onPress={onClose}>
         <View style={[styles.modalContainer, { backgroundColor: 'rgba(0, 0, 0, 0.5)' }]}>
-          <TouchableWithoutFeedback onPress={() => {}}>
-            <View style={[styles.modalContent, { backgroundColor: bgColor }]}>
+            <View style={[styles.modalContent, { backgroundColor: bgColor }]} onStartShouldSetResponder={() => true}>
           <View style={[styles.iconContainer, { backgroundColor: colors.light }]}>
             <Icon name="construct-outline" size={48} color={colors.primary} />
           </View>
@@ -46,7 +45,6 @@ const UnderDevelopmentModal = ({ visible, onClose, theme, accentColor, featureNa
             <Text style={styles.closeButtonText}>Понятно</Text>
           </TouchableOpacity>
             </View>
-          </TouchableWithoutFeedback>
         </View>
       </TouchableWithoutFeedback>
     </Modal>

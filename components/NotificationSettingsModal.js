@@ -72,8 +72,7 @@ const NotificationSettingsModal = ({ visible, onClose, theme, accentColor }) => 
     >
       <TouchableWithoutFeedback onPress={onClose}>
         <View style={[styles.modalContainer, { backgroundColor: 'rgba(0, 0, 0, 0.5)' }]}>
-          <TouchableWithoutFeedback onPress={() => {}}>
-            <View style={[styles.modalContent, { backgroundColor: bgColor }]}>
+            <View style={[styles.modalContent, { backgroundColor: bgColor }]} onStartShouldSetResponder={() => true}>
           <Text style={[styles.title, { color: textColor }]}>Настройки уведомлений</Text>
           
           <ScrollView style={styles.scrollView}>
@@ -228,7 +227,6 @@ const NotificationSettingsModal = ({ visible, onClose, theme, accentColor }) => 
             <Text style={styles.closeButtonText}>Закрыть</Text>
           </TouchableOpacity>
             </View>
-          </TouchableWithoutFeedback>
         </View>
       </TouchableWithoutFeedback>
     </Modal>

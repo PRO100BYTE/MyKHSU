@@ -278,7 +278,7 @@ const BuildingsListScreen = ({ theme, accentColor, onBuildingSelect, isNewYearMo
             </Text>
           </View>
 
-          <ScrollView showsVerticalScrollIndicator={false}>
+          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 100 }}>
             {Object.entries(groupedBuildings).map(([category, buildingsList]) => 
               renderCategorySection(category, buildingsList)
             )}
