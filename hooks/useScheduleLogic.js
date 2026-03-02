@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import NetInfo from '@react-native-community/netinfo';
 import ApiService from '../utils/api';
 import notificationService from '../utils/notificationService';
-import { getWeekNumber } from '../utils/dateUtils';
+import { getWeekNumber, setServerWeekNumber } from '../utils/dateUtils';
 import * as SecureStore from 'expo-secure-store';
 
 export const useScheduleLogic = () => {
@@ -20,6 +20,7 @@ export const useScheduleLogic = () => {
   const [viewMode, setViewMode] = useState('day');
   const [currentDate, setCurrentDate] = useState(new Date());
   const [currentWeek, setCurrentWeek] = useState(getWeekNumber(new Date()));
+  const [availableWeeks, setAvailableWeeks] = useState([]);
   const [error, setError] = useState(null);
   const [isOnline, setIsOnline] = useState(true);
   const [showCachedData, setShowCachedData] = useState(false);
@@ -50,6 +51,7 @@ export const useScheduleLogic = () => {
   // Загрузка начальных настроек при монтировании
   useEffect(() => {
     loadInitialSettings();
+    fetchWeekNumbers();
   }, []);
 
   // Загрузка групп при изменении курса
@@ -68,6 +70,26 @@ export const useScheduleLogic = () => {
       fetchScheduleData(selectedGroup);
     }
   }, [viewMode, currentDate, currentWeek, selectedGroup]);
+
+  const fetchWeekNumbers = async () => {
+    try {
+      const result = await ApiService.getWeekNumbers();
+      if (result && result.data && result.data.current_week_number) {
+        setServerWeekNumber(result.data.current_week_number);
+        setCurrentWeek(result.data.current_week_number);
+        if (result.data.week_numbers) {
+          setAvailableWeeks(result.data.week_numbers);
+        }
+      } else {
+        // Fallback to local calculation
+        setCurrentWeek(getWeekNumber(new Date()));
+      }
+    } catch (error) {
+      console.error('Error fetching week numbers:', error);
+      // Fallback to local calculation
+      setCurrentWeek(getWeekNumber(new Date()));
+    }
+  };
 
   const loadInitialSettings = async () => {
     try {
@@ -297,6 +319,7 @@ export const useScheduleLogic = () => {
     viewMode,
     currentDate,
     currentWeek,
+    availableWeeks,
     
     // Setters
     setCourse,
@@ -309,6 +332,7 @@ export const useScheduleLogic = () => {
     handleViewCache,
     onRefresh,
     navigateDate,
-    setError
+    setError,
+    fetchWeekNumbers
   };
 };
