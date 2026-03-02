@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, Modal, TouchableOpacity, TouchableWithoutFeedback, TextInput, ScrollView, StyleSheet, Alert, ActivityIndicator, Switch } from 'react-native';
+import { View, Text, Modal, TouchableOpacity, TextInput, ScrollView, StyleSheet, Alert, ActivityIndicator, Switch } from 'react-native';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import * as SecureStore from 'expo-secure-store';
 import { ACCENT_COLORS, COURSES, LIQUID_GLASS } from '../utils/constants';
@@ -187,9 +187,8 @@ const ScheduleFormatModal = ({ visible, onClose, theme, accentColor, onSettingsC
       transparent={true}
       onRequestClose={onClose}
     >
-      <TouchableWithoutFeedback onPress={onClose}>
-        <View style={[styles.modalContainer, { backgroundColor: 'rgba(0, 0, 0, 0.5)' }]}>
-            <View style={[styles.modalContent, { backgroundColor: bgColor }]} onStartShouldSetResponder={() => true}>
+      <View style={[styles.modalContainer, { backgroundColor: 'rgba(0, 0, 0, 0.5)' }]}>
+            <View style={[styles.modalContent, { backgroundColor: bgColor }]}>
           <Text style={[styles.title, { color: textColor }]}>Формат расписания</Text>
           
           <ScrollView style={styles.scrollView}>
@@ -363,7 +362,7 @@ const ScheduleFormatModal = ({ visible, onClose, theme, accentColor, onSettingsC
                   <Text style={[styles.sectionTitle, { color: textColor }]}>Отображение селектора</Text>
                   
                   <TouchableOpacity
-                    style={styles.selectorOption}
+                    style={[styles.selectorOption, { borderColor }]}
                     onPress={() => setShowCourseSelector(!showCourseSelector)}
                   >
                     <View style={styles.selectorOptionHeader}>
@@ -445,7 +444,7 @@ const ScheduleFormatModal = ({ visible, onClose, theme, accentColor, onSettingsC
             )}
 
             {/* Информация о режимах */}
-            <View style={styles.infoSection}>
+            <View style={[styles.infoSection, { backgroundColor: inputBgColor }]}>
               <Text style={[styles.infoTitle, { color: textColor }]}>Информация о режимах</Text>
               
               <View style={styles.infoItem}>
@@ -480,8 +479,7 @@ const ScheduleFormatModal = ({ visible, onClose, theme, accentColor, onSettingsC
             </TouchableOpacity>
           </View>
             </View>
-        </View>
-      </TouchableWithoutFeedback>
+      </View>
     </Modal>
   );
 };
@@ -495,9 +493,14 @@ const styles = StyleSheet.create({
   },
   modalContent: {
     width: '100%',
-    borderRadius: 16,
-    padding: 20,
+    borderRadius: 24,
+    padding: 24,
     maxHeight: '90%',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 8,
   },
   title: {
     fontSize: 20,
@@ -531,8 +534,8 @@ const styles = StyleSheet.create({
     fontFamily: 'Montserrat_400Regular',
   },
   formatOption: {
-    borderWidth: 2,
-    borderRadius: 12,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: 16,
     padding: 16,
     marginBottom: 12,
     position: 'relative',
@@ -599,7 +602,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     padding: 12,
-    borderRadius: 8,
+    borderRadius: 12,
     marginTop: 12,
   },
   selectedInfoText: {
@@ -608,8 +611,8 @@ const styles = StyleSheet.create({
     fontFamily: 'Montserrat_500Medium',
   },
   textInput: {
-    borderWidth: 1,
-    borderRadius: 8,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: 12,
     padding: 12,
     fontSize: 16,
     fontFamily: 'Montserrat_400Regular',
@@ -625,9 +628,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     padding: 12,
-    borderWidth: 1,
-    borderColor: '#e5e7eb',
-    borderRadius: 8,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: 12,
   },
   selectorOptionHeader: {
     flexDirection: 'row',
@@ -663,8 +665,7 @@ const styles = StyleSheet.create({
   infoSection: {
     marginTop: 16,
     padding: 12,
-    borderRadius: 8,
-    backgroundColor: 'rgba(0, 0, 0, 0.05)',
+    borderRadius: 16,
   },
   infoTitle: {
     fontSize: 14,
@@ -690,14 +691,13 @@ const styles = StyleSheet.create({
   },
   button: {
     flex: 1,
-    borderRadius: 12,
+    borderRadius: 16,
     padding: 16,
     alignItems: 'center',
     marginHorizontal: 4,
   },
   cancelButton: {
-    borderWidth: 1,
-    borderColor: '#d1d5db',
+    borderWidth: StyleSheet.hairlineWidth,
   },
   saveButton: {
     marginLeft: 8,

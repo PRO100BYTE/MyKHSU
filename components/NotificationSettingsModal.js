@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, Modal, TouchableOpacity, TouchableWithoutFeedback, Switch, ScrollView, StyleSheet } from 'react-native';
+import { View, Text, Modal, TouchableOpacity, Switch, ScrollView, StyleSheet } from 'react-native';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import * as SecureStore from 'expo-secure-store';
 import { ACCENT_COLORS, LIQUID_GLASS } from '../utils/constants';
@@ -20,6 +20,8 @@ const NotificationSettingsModal = ({ visible, onClose, theme, accentColor }) => 
   const bgColor = glass.backgroundElevated;
   const textColor = glass.text;
   const placeholderColor = glass.textSecondary;
+  const borderColor = glass.border;
+  const inputBgColor = glass.surfaceTertiary;
 
   useEffect(() => {
     if (visible) {
@@ -70,14 +72,13 @@ const NotificationSettingsModal = ({ visible, onClose, theme, accentColor }) => 
       transparent={true}
       onRequestClose={onClose}
     >
-      <TouchableWithoutFeedback onPress={onClose}>
-        <View style={[styles.modalContainer, { backgroundColor: 'rgba(0, 0, 0, 0.5)' }]}>
-            <View style={[styles.modalContent, { backgroundColor: bgColor }]} onStartShouldSetResponder={() => true}>
+      <View style={[styles.modalContainer, { backgroundColor: 'rgba(0, 0, 0, 0.5)' }]}>
+            <View style={[styles.modalContent, { backgroundColor: bgColor }]}>
           <Text style={[styles.title, { color: textColor }]}>Настройки уведомлений</Text>
           
           <ScrollView style={styles.scrollView}>
             {/* Основной переключатель */}
-            <View style={styles.settingItem}>
+            <View style={[styles.settingItem, { borderBottomColor: borderColor }]}>
               <View style={styles.settingInfo}>
                 <Icon name="notifications-outline" size={24} color={colors.primary} />
                 <View style={styles.textContainer}>
@@ -90,13 +91,13 @@ const NotificationSettingsModal = ({ visible, onClose, theme, accentColor }) => 
               <Switch
                 value={settings.enabled}
                 onValueChange={() => toggleSetting('enabled')}
-                trackColor={{ false: '#f0f0f0', true: colors.light }}
-                thumbColor={settings.enabled ? colors.primary : '#f4f3f4'}
+                trackColor={{ false: borderColor, true: colors.light }}
+                thumbColor={settings.enabled ? colors.primary : placeholderColor}
               />
             </View>
 
             {/* Новости */}
-            <View style={styles.settingItem}>
+            <View style={[styles.settingItem, { borderBottomColor: borderColor }]}>
               <View style={styles.settingInfo}>
                 <Icon name="newspaper-outline" size={24} color={placeholderColor} />
                 <View style={styles.textContainer}>
@@ -109,14 +110,14 @@ const NotificationSettingsModal = ({ visible, onClose, theme, accentColor }) => 
               <Switch
                 value={settings.news && settings.enabled}
                 onValueChange={() => toggleSetting('news')}
-                trackColor={{ false: '#f0f0f0', true: colors.light }}
-                thumbColor={settings.news && settings.enabled ? colors.primary : '#f4f3f4'}
+                trackColor={{ false: borderColor, true: colors.light }}
+                thumbColor={settings.news && settings.enabled ? colors.primary : placeholderColor}
                 disabled={!settings.enabled}
               />
             </View>
 
             {/* Расписание */}
-            <View style={styles.settingItem}>
+            <View style={[styles.settingItem, { borderBottomColor: borderColor }]}>
               <View style={styles.settingInfo}>
                 <Icon name="calendar-outline" size={24} color={placeholderColor} />
                 <View style={styles.textContainer}>
@@ -129,8 +130,8 @@ const NotificationSettingsModal = ({ visible, onClose, theme, accentColor }) => 
               <Switch
                 value={settings.schedule && settings.enabled}
                 onValueChange={() => toggleSetting('schedule')}
-                trackColor={{ false: '#f0f0f0', true: colors.light }}
-                thumbColor={settings.schedule && settings.enabled ? colors.primary : '#f4f3f4'}
+                trackColor={{ false: borderColor, true: colors.light }}
+                thumbColor={settings.schedule && settings.enabled ? colors.primary : placeholderColor}
                 disabled={!settings.enabled}
               />
             </View>
@@ -141,7 +142,7 @@ const NotificationSettingsModal = ({ visible, onClose, theme, accentColor }) => 
                   Уведомления о начале пары
                 </Text>
                 
-                <View style={styles.settingItem}>
+                <View style={[styles.settingItem, { borderBottomColor: borderColor }]}>
                   <View style={styles.settingInfo}>
                     <Icon name="alarm-outline" size={20} color={placeholderColor} />
                     <View style={styles.textContainer}>
@@ -154,12 +155,12 @@ const NotificationSettingsModal = ({ visible, onClose, theme, accentColor }) => 
                   <Switch
                     value={settings.beforeLesson}
                     onValueChange={() => toggleSetting('beforeLesson')}
-                    trackColor={{ false: '#f0f0f0', true: colors.light }}
-                    thumbColor={settings.beforeLesson ? colors.primary : '#f4f3f4'}
+                    trackColor={{ false: borderColor, true: colors.light }}
+                    thumbColor={settings.beforeLesson ? colors.primary : placeholderColor}
                   />
                 </View>
 
-                <View style={styles.settingItem}>
+                <View style={[styles.settingItem, { borderBottomColor: borderColor }]}>
                   <View style={styles.settingInfo}>
                     <Icon name="play-outline" size={20} color={placeholderColor} />
                     <View style={styles.textContainer}>
@@ -172,8 +173,8 @@ const NotificationSettingsModal = ({ visible, onClose, theme, accentColor }) => 
                   <Switch
                     value={settings.lessonStart}
                     onValueChange={() => toggleSetting('lessonStart')}
-                    trackColor={{ false: '#f0f0f0', true: colors.light }}
-                    thumbColor={settings.lessonStart ? colors.primary : '#f4f3f4'}
+                    trackColor={{ false: borderColor, true: colors.light }}
+                    thumbColor={settings.lessonStart ? colors.primary : placeholderColor}
                   />
                 </View>
 
@@ -181,7 +182,7 @@ const NotificationSettingsModal = ({ visible, onClose, theme, accentColor }) => 
                   Уведомления о конце пары
                 </Text>
 
-                <View style={styles.settingItem}>
+                <View style={[styles.settingItem, { borderBottomColor: borderColor }]}>
                   <View style={styles.settingInfo}>
                     <Icon name="alarm-outline" size={20} color={placeholderColor} />
                     <View style={styles.textContainer}>
@@ -194,12 +195,12 @@ const NotificationSettingsModal = ({ visible, onClose, theme, accentColor }) => 
                   <Switch
                     value={settings.beforeLessonEnd}
                     onValueChange={() => toggleSetting('beforeLessonEnd')}
-                    trackColor={{ false: '#f0f0f0', true: colors.light }}
-                    thumbColor={settings.beforeLessonEnd ? colors.primary : '#f4f3f4'}
+                    trackColor={{ false: borderColor, true: colors.light }}
+                    thumbColor={settings.beforeLessonEnd ? colors.primary : placeholderColor}
                   />
                 </View>
 
-                <View style={styles.settingItem}>
+                <View style={[styles.settingItem, { borderBottomColor: borderColor }]}>
                   <View style={styles.settingInfo}>
                     <Icon name="stop-outline" size={20} color={placeholderColor} />
                     <View style={styles.textContainer}>
@@ -212,8 +213,8 @@ const NotificationSettingsModal = ({ visible, onClose, theme, accentColor }) => 
                   <Switch
                     value={settings.lessonEnd}
                     onValueChange={() => toggleSetting('lessonEnd')}
-                    trackColor={{ false: '#f0f0f0', true: colors.light }}
-                    thumbColor={settings.lessonEnd ? colors.primary : '#f4f3f4'}
+                    trackColor={{ false: borderColor, true: colors.light }}
+                    thumbColor={settings.lessonEnd ? colors.primary : placeholderColor}
                   />
                 </View>
               </>
@@ -227,8 +228,7 @@ const NotificationSettingsModal = ({ visible, onClose, theme, accentColor }) => 
             <Text style={styles.closeButtonText}>Закрыть</Text>
           </TouchableOpacity>
             </View>
-        </View>
-      </TouchableWithoutFeedback>
+      </View>
     </Modal>
   );
 };
@@ -242,9 +242,14 @@ const styles = StyleSheet.create({
   },
   modalContent: {
     width: '100%',
-    borderRadius: 16,
-    padding: 20,
+    borderRadius: 24,
+    padding: 24,
     maxHeight: '80%',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 8,
   },
   title: {
     fontSize: 20,
@@ -267,8 +272,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: 'transparent',
   },
   settingInfo: {
     flexDirection: 'row',
@@ -289,7 +294,7 @@ const styles = StyleSheet.create({
     fontFamily: 'Montserrat_400Regular',
   },
   closeButton: {
-    borderRadius: 12,
+    borderRadius: 16,
     padding: 16,
     alignItems: 'center',
     marginTop: 20,

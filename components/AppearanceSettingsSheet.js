@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, Modal, TouchableOpacity, TouchableWithoutFeedback, ScrollView, StyleSheet, Switch, Alert } from 'react-native';
+import { View, Text, Modal, TouchableOpacity, ScrollView, StyleSheet, Switch, Alert } from 'react-native';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import { useColorScheme } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
@@ -147,9 +147,8 @@ const AppearanceSettingsSheet = ({
       transparent={true}
       onRequestClose={onClose}
     >
-      <TouchableWithoutFeedback onPress={onClose}>
-        <View style={[styles.modalContainer, { backgroundColor: 'rgba(0, 0, 0, 0.5)' }]}>
-            <View style={[styles.modalContent, { backgroundColor: bgColor }]} onStartShouldSetResponder={() => true}>
+      <View style={[styles.modalContainer, { backgroundColor: 'rgba(0, 0, 0, 0.5)' }]}>
+            <View style={[styles.modalContent, { backgroundColor: bgColor }]}>
           <Text style={[styles.title, { color: textColor }]}>Внешний вид приложения</Text>
           
           <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
@@ -408,15 +407,14 @@ const AppearanceSettingsSheet = ({
 
           <View style={styles.buttonsContainer}>
             <TouchableOpacity
-              style={[styles.button, styles.cancelButton, { backgroundColor: inputBgColor }]}
+              style={[styles.button, styles.cancelButton, { backgroundColor: inputBgColor, borderColor }]}
               onPress={onClose}
             >
               <Text style={[styles.buttonText, { color: textColor }]}>Закрыть</Text>
             </TouchableOpacity>
           </View>
             </View>
-        </View>
-      </TouchableWithoutFeedback>
+      </View>
     </Modal>
   );
 };
@@ -430,14 +428,14 @@ const styles = StyleSheet.create({
   },
   modalContent: {
     width: '100%',
-    borderRadius: 16,
-    padding: 20,
+    borderRadius: 24,
+    padding: 24,
     maxHeight: '90%',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 8,
-    elevation: 5,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 8,
   },
   title: {
     fontSize: 20,
@@ -477,8 +475,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     padding: 16,
-    borderRadius: 12,
-    borderWidth: 1,
+    borderRadius: 16,
+    borderWidth: StyleSheet.hairlineWidth,
   },
   optionHeader: {
     flexDirection: 'row',
@@ -547,8 +545,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingVertical: 12,
     paddingHorizontal: 8,
-    borderRadius: 8,
-    borderWidth: 1,
+    borderRadius: 12,
+    borderWidth: StyleSheet.hairlineWidth,
   },
   fontSizeOptionText: {
     fontFamily: 'Montserrat_500Medium',
@@ -557,7 +555,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     padding: 12,
-    borderRadius: 8,
+    borderRadius: 12,
     marginTop: 8,
   },
   infoText: {
@@ -570,13 +568,12 @@ const styles = StyleSheet.create({
   },
   button: {
     flex: 1,
-    borderRadius: 12,
+    borderRadius: 16,
     padding: 16,
     alignItems: 'center',
   },
   cancelButton: {
-    borderWidth: 1,
-    borderColor: '#d1d5db',
+    borderWidth: StyleSheet.hairlineWidth,
   },
   buttonText: {
     fontSize: 16,

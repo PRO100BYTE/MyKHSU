@@ -1,6 +1,6 @@
 // components/AboutModal.js
 import React from 'react';
-import { View, Text, Modal, TouchableOpacity, TouchableWithoutFeedback, ScrollView, StyleSheet } from 'react-native';
+import { View, Text, Modal, TouchableOpacity, ScrollView, StyleSheet } from 'react-native';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import { ACCENT_COLORS, APP_VERSION, APP_DEVELOPERS, APP_SUPPORTERS, BUILD_VER, BUILD_DATE, LIQUID_GLASS } from '../utils/constants';
 
@@ -22,9 +22,8 @@ const AboutModal = ({ visible, onClose, theme, accentColor }) => {
       transparent={true}
       onRequestClose={onClose}
     >
-      <TouchableWithoutFeedback onPress={onClose}>
-        <View style={[styles.modalContainer, { backgroundColor: 'rgba(0, 0, 0, 0.5)' }]}>
-            <View style={[styles.modalContent, { backgroundColor: bgColor }]} onStartShouldSetResponder={() => true}>
+      <View style={[styles.modalContainer, { backgroundColor: 'rgba(0, 0, 0, 0.5)' }]}>
+            <View style={[styles.modalContent, { backgroundColor: bgColor }]}>
           <Text style={[styles.title, { color: textColor }]}>О приложении</Text>
           
           <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
@@ -248,8 +247,7 @@ const AboutModal = ({ visible, onClose, theme, accentColor }) => {
             </TouchableOpacity>
           </View>
             </View>
-        </View>
-      </TouchableWithoutFeedback>
+      </View>
     </Modal>
   );
 };
