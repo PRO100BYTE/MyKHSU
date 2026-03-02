@@ -1,6 +1,6 @@
 {
   "name": "mykhsu",
-  "version": "2.2.9",
+  "version": "2.3.0",
   "license": "LGPL-3.0",
   "main": "index.js",
   "scripts": {
