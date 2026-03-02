@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, StyleSheet, RefreshControl, Animated, StatusBar } from 'react-native';
 import { Ionicons as Icon } from '@expo/vector-icons';
-import { ACCENT_COLORS } from '../utils/constants';
+import { ACCENT_COLORS, LIQUID_GLASS } from '../utils/constants';
 import ConnectionError from './ConnectionError';
 import NetInfo from '@react-native-community/netinfo';
 import ApiService from '../utils/api';
@@ -26,13 +26,14 @@ const NewsScreen = ({ theme, accentColor, isNewYearMode }) => {
   // Анимация появления
   const fadeAnim = useRef(new Animated.Value(0)).current;
 
-  const bgColor = theme === 'light' ? '#f3f4f6' : '#111827';
-  const cardBg = theme === 'light' ? '#ffffff' : '#1f2937';
-  const textColor = theme === 'light' ? '#111827' : '#ffffff';
-  const placeholderColor = theme === 'light' ? '#6b7280' : '#9ca3af';
-  const borderColor = theme === 'light' ? '#e5e7eb' : '#374151';
+  const glass = LIQUID_GLASS[theme] || LIQUID_GLASS.light;
+  const bgColor = glass.background;
+  const cardBg = glass.surfaceCard;
+  const textColor = glass.text;
+  const placeholderColor = glass.textSecondary;
+  const borderColor = glass.border;
   const colors = ACCENT_COLORS[accentColor];
-  const hintBgColor = theme === 'light' ? '#f9fafb' : '#2d3748'; // Более темный для темной темы
+  const hintBgColor = glass.surfaceTertiary;
 
   // Запуск анимации при монтировании
   useEffect(() => {
@@ -312,11 +313,16 @@ return (
             key={item.id} 
             style={{ 
               backgroundColor: cardBg, 
-              borderRadius: 12, 
+              borderRadius: 20, 
               padding: 16, 
               marginBottom: 12, 
-              borderWidth: 1, 
-              borderColor 
+              borderWidth: StyleSheet.hairlineWidth, 
+              borderColor,
+              shadowColor: glass.shadowColor,
+              shadowOffset: { width: 0, height: 1 },
+              shadowOpacity: 1,
+              shadowRadius: 8,
+              elevation: 2,
             }}
           >
             <Text style={{ color: textColor, fontSize: 16, fontFamily: 'Montserrat_400Regular' }}>

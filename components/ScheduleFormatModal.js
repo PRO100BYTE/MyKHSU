@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, Modal, TouchableOpacity, TextInput, ScrollView, StyleSheet, Alert, ActivityIndicator, Switch } from 'react-native';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import * as SecureStore from 'expo-secure-store';
-import { ACCENT_COLORS, COURSES } from '../utils/constants';
+import { ACCENT_COLORS, COURSES, LIQUID_GLASS } from '../utils/constants';
 import ApiService from '../utils/api';
 
 const ScheduleFormatModal = ({ visible, onClose, theme, accentColor, onSettingsChange }) => {
@@ -18,11 +18,12 @@ const ScheduleFormatModal = ({ visible, onClose, theme, accentColor, onSettingsC
   const [loadingCourses, setLoadingCourses] = useState(false);
 
   const colors = ACCENT_COLORS[accentColor];
-  const bgColor = theme === 'light' ? '#ffffff' : '#1f2937';
-  const textColor = theme === 'light' ? '#111827' : '#ffffff';
-  const placeholderColor = theme === 'light' ? '#6b7280' : '#9ca3af';
-  const inputBgColor = theme === 'light' ? '#f9fafb' : '#374151';
-  const borderColor = theme === 'light' ? '#e5e7eb' : '#4b5563';
+  const glass = LIQUID_GLASS[theme] || LIQUID_GLASS.light;
+  const bgColor = glass.backgroundElevated;
+  const textColor = glass.text;
+  const placeholderColor = glass.textSecondary;
+  const inputBgColor = glass.surfaceTertiary;
+  const borderColor = glass.border;
 
   useEffect(() => {
     if (visible) {

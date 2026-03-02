@@ -18,7 +18,8 @@ import AppearanceSettingsSheet from './AppearanceSettingsSheet';
 import AboutModal from './AboutModal';
 import NotificationSettingsModal from './NotificationSettingsModal';
 import ScheduleFormatModal from './ScheduleFormatModal';
-import { ACCENT_COLORS, APP_VERSION, APP_DEVELOPERS, APP_SUPPORTERS, GITHUB_REPO_URL, BUILD_VER, BUILD_DATE } from '../utils/constants';
+import { ACCENT_COLORS, APP_VERSION, APP_DEVELOPERS, APP_SUPPORTERS, GITHUB_REPO_URL, BUILD_VER, BUILD_DATE, LIQUID_GLASS } from '../utils/constants';
+import { getGlassSettingsCardStyle, getGlassIconBadgeStyle } from '../utils/liquidGlass';
 import Snowfall from './Snowfall';
 
 const { width, height } = Dimensions.get('window');
@@ -210,13 +211,16 @@ const SettingsScreen = ({ theme, accentColor, setTheme, setAccentColor, onSchedu
   // Анимация появления
   const fadeAnim = useRef(new Animated.Value(0)).current;
 
-  const bgColor = theme === 'light' ? '#f3f4f6' : '#111827';
-  const cardBg = theme === 'light' ? '#ffffff' : '#1f2937';
-  const textColor = theme === 'light' ? '#111827' : '#ffffff';
-  const placeholderColor = theme === 'light' ? '#6b7280' : '#9ca3af';
+  const glass = LIQUID_GLASS[theme] || LIQUID_GLASS.light;
+  const bgColor = glass.background;
+  const cardBg = glass.surfaceCard;
+  const textColor = glass.text;
+  const placeholderColor = glass.textSecondary;
   const colors = ACCENT_COLORS[accentColor];
-  const borderColor = theme === 'light' ? '#e5e7eb' : '#374151';
-  const hintBgColor = theme === 'light' ? '#f9fafb' : '#2d3748';
+  const borderColor = glass.border;
+  const hintBgColor = glass.surfaceTertiary;
+  const glassCardStyle = getGlassSettingsCardStyle(theme);
+  const glassIconBadge = getGlassIconBadgeStyle(theme, accentColor);
 
   // Сообщения для пасхалки
   const easterEggMessages = [
@@ -396,17 +400,10 @@ const SettingsScreen = ({ theme, accentColor, setTheme, setAccentColor, onSchedu
       <ScrollView style={{ padding: 16 }}>
         {/* Формат расписания */}
         <TouchableOpacity 
-          style={{ 
-            backgroundColor: cardBg, 
-            borderRadius: 12, 
-            padding: 16, 
-            marginBottom: 16,
-            flexDirection: 'row',
-            alignItems: 'center'
-          }}
+          style={glassCardStyle}
           onPress={() => setScheduleFormatModalVisible(true)}
         >
-          <View style={{ backgroundColor: colors.light, borderRadius: 8, padding: 8, marginRight: 12 }}>
+          <View style={glassIconBadge}>
             <Icon name="calendar-outline" size={24} color={colors.primary} />
           </View>
           <View style={{ flex: 1 }}>
@@ -422,17 +419,10 @@ const SettingsScreen = ({ theme, accentColor, setTheme, setAccentColor, onSchedu
 
         {/* Настройки уведомлений */}
         <TouchableOpacity 
-          style={{ 
-            backgroundColor: cardBg, 
-            borderRadius: 12, 
-            padding: 16, 
-            marginBottom: 16,
-            flexDirection: 'row',
-            alignItems: 'center'
-          }}
+          style={glassCardStyle}
           onPress={() => setNotificationModalVisible(true)}
         >
-          <View style={{ backgroundColor: colors.light, borderRadius: 8, padding: 8, marginRight: 12 }}>
+          <View style={glassIconBadge}>
             <Icon name="notifications-outline" size={24} color={colors.primary} />
           </View>
           <View style={{ flex: 1 }}>
@@ -446,17 +436,10 @@ const SettingsScreen = ({ theme, accentColor, setTheme, setAccentColor, onSchedu
 
         {/* Настройки внешнего вида */}
         <TouchableOpacity 
-          style={{ 
-            backgroundColor: cardBg, 
-            borderRadius: 12, 
-            padding: 16, 
-            marginBottom: 16,
-            flexDirection: 'row',
-            alignItems: 'center'
-          }}
+          style={glassCardStyle}
           onPress={() => setAppearanceSheetVisible(true)}
         >
-          <View style={{ backgroundColor: colors.light, borderRadius: 8, padding: 8, marginRight: 12 }}>
+          <View style={glassIconBadge}>
             <Icon name="color-palette-outline" size={24} color={colors.primary} />
           </View>
           <View style={{ flex: 1 }}>
@@ -470,17 +453,10 @@ const SettingsScreen = ({ theme, accentColor, setTheme, setAccentColor, onSchedu
 
         {/* О приложении */}
         <TouchableOpacity 
-          style={{ 
-            backgroundColor: cardBg, 
-            borderRadius: 12, 
-            padding: 16, 
-            marginBottom: 16,
-            flexDirection: 'row',
-            alignItems: 'center'
-          }}
+          style={glassCardStyle}
           onPress={() => setAboutModalVisible(true)}
         >
-          <View style={{ backgroundColor: colors.light, borderRadius: 8, padding: 8, marginRight: 12 }}>
+          <View style={glassIconBadge}>
             <Icon name="information-circle-outline" size={24} color={colors.primary} />
           </View>
           <View style={{ flex: 1 }}>
@@ -494,17 +470,10 @@ const SettingsScreen = ({ theme, accentColor, setTheme, setAccentColor, onSchedu
 
         {/* GitHub репозиторий */}
         <TouchableOpacity 
-          style={{ 
-            backgroundColor: cardBg, 
-            borderRadius: 12, 
-            padding: 16, 
-            marginBottom: 16,
-            flexDirection: 'row',
-            alignItems: 'center'
-          }}
+          style={glassCardStyle}
           onPress={openGitHub}
         >
-          <View style={{ backgroundColor: colors.light, borderRadius: 8, padding: 8, marginRight: 12 }}>
+          <View style={glassIconBadge}>
             <Icon name="logo-github" size={24} color={colors.primary} />
           </View>
           <View style={{ flex: 1 }}>
@@ -518,17 +487,10 @@ const SettingsScreen = ({ theme, accentColor, setTheme, setAccentColor, onSchedu
 
         {/* Очистка кэша приложения */}
         <TouchableOpacity 
-          style={{ 
-            backgroundColor: cardBg, 
-            borderRadius: 12, 
-            padding: 16, 
-            marginBottom: 16,
-            flexDirection: 'row',
-            alignItems: 'center'
-          }}
+          style={glassCardStyle}
           onPress={clearAppCache}
         >
-          <View style={{ backgroundColor: colors.light, borderRadius: 8, padding: 8, marginRight: 12 }}>
+          <View style={glassIconBadge}>
             <Icon name="trash-outline" size={24} color={colors.primary} />
           </View>
           <View style={{ flex: 1 }}>
@@ -542,17 +504,10 @@ const SettingsScreen = ({ theme, accentColor, setTheme, setAccentColor, onSchedu
 
         {/* Очистка кэша карты */}
         <TouchableOpacity 
-          style={{ 
-            backgroundColor: cardBg, 
-            borderRadius: 12, 
-            padding: 16, 
-            marginBottom: 16,
-            flexDirection: 'row',
-            alignItems: 'center'
-          }}
+          style={glassCardStyle}
           onPress={clearMapCacheHandler}
         >
-          <View style={{ backgroundColor: colors.light, borderRadius: 8, padding: 8, marginRight: 12 }}>
+          <View style={glassIconBadge}>
             <Icon name="map-outline" size={24} color={colors.primary} />
           </View>
           <View style={{ flex: 1 }}>
@@ -566,19 +521,15 @@ const SettingsScreen = ({ theme, accentColor, setTheme, setAccentColor, onSchedu
 
         {/* Информация о версии (пасхалка) */}
         <TouchableOpacity 
-          style={{ 
-            backgroundColor: cardBg, 
-            borderRadius: 12, 
-            padding: 16, 
-            marginBottom: 16,
+          style={[glassCardStyle, { 
+            flexDirection: 'column',
             alignItems: 'center',
-            borderWidth: easterEggActive ? 2 : 0,
-            borderColor: easterEggActive ? colors.primary : 'transparent',
-            shadowColor: easterEggActive ? colors.primary : 'transparent',
-            shadowOffset: { width: 0, height: 0 },
-            shadowOpacity: easterEggActive ? 0.5 : 0,
-            shadowRadius: 10,
-          }}
+            borderWidth: easterEggActive ? 1.5 : glassCardStyle.borderWidth,
+            borderColor: easterEggActive ? colors.primary : glassCardStyle.borderColor,
+            shadowColor: easterEggActive ? colors.primary : glassCardStyle.shadowColor,
+            shadowOpacity: easterEggActive ? 0.4 : 1,
+            shadowRadius: easterEggActive ? 12 : 8,
+          }]}
           onPress={handleVersionPress}
           activeOpacity={0.7}
         >
@@ -601,7 +552,7 @@ const SettingsScreen = ({ theme, accentColor, setTheme, setAccentColor, onSchedu
               marginTop: 12, 
               padding: 12, 
               backgroundColor: hintBgColor, 
-              borderRadius: 8,
+              borderRadius: 12,
               flexDirection: 'row',
               alignItems: 'center',
               justifyContent: 'center',

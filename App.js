@@ -6,6 +6,7 @@ import { useFonts, Montserrat_400Regular, Montserrat_500Medium, Montserrat_600Se
 import * as Notifications from 'expo-notifications';
 import * as TaskManager from 'expo-task-manager';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { BlurView } from 'expo-blur';
 
 // Импорт компонентов
 import SplashScreen from './components/SplashScreen';
@@ -17,7 +18,8 @@ import MapScreen from './components/MapScreen';
 import FreshmanScreen from './components/FreshmanScreen';
 
 // Импорт утилит
-import { ACCENT_COLORS, SCREENS, isNewYearPeriod, getNewYearText } from './utils/constants';
+import { ACCENT_COLORS, SCREENS, LIQUID_GLASS, isNewYearPeriod, getNewYearText } from './utils/constants';
+import { getGlassTabBarStyle, getBlurConfig } from './utils/liquidGlass';
 import * as Sentry from '@sentry/react-native';
 import notificationService from './utils/notificationService';
 import backgroundService from './utils/backgroundService';
@@ -55,30 +57,52 @@ TaskManager.defineTask(BACKGROUND_NEWS_CHECK, async () => {
 const styles = StyleSheet.create({
   header: {
     padding: 16, 
-    paddingTop: Platform.OS === 'ios' ? 50 : StatusBar.currentHeight + 10, 
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3.84,
-    elevation: 5,
+    paddingTop: Platform.OS === 'ios' ? 54 : StatusBar.currentHeight + 12, 
+    paddingBottom: 14,
     justifyContent: 'center',
-    alignItems: 'center'
+    alignItems: 'center',
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  headerBlur: {
+    // BlurView-обёртка для iOS glass header
+    overflow: 'hidden',
   },
   headerText: {
-    fontSize: 24, 
-    fontWeight: 'bold', 
-    fontFamily: 'Montserrat_600SemiBold'
+    fontSize: 22, 
+    fontWeight: '700', 
+    fontFamily: 'Montserrat_700Bold',
+    letterSpacing: 0.3,
   },
-  navigation: {
+  // Контейнер для плавающего tab bar (iOS Liquid Glass)
+  tabBarFloating: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+  },
+  tabBarFloatingIOS: {
+    marginHorizontal: 12,
+    marginBottom: 28,
+    borderRadius: 24,
+    overflow: 'hidden',
+    borderWidth: StyleSheet.hairlineWidth,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 1,
+    shadowRadius: 20,
+  },
+  tabBarInner: {
+    flexDirection: 'row',
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+  },
+  // Fallback стиль для Android
+  tabBarAndroid: {
     flexDirection: 'row', 
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: -2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3.84,
-    elevation: 5,
-    paddingHorizontal: 4,
-    paddingVertical: 8,
-  }
+    borderTopWidth: StyleSheet.hairlineWidth,
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    elevation: 8,
+  },
 });
 
 export default Sentry.wrap(function App() {
@@ -325,10 +349,13 @@ const handleNewYearModeChange = async (enabled) => {
     />;
   }
   
-  const bgColor = effectiveTheme === 'light' ? '#f3f4f6' : '#111827';
-  const headerBg = effectiveTheme === 'light' ? '#ffffff' : '#1f2937';
-  const textColor = effectiveTheme === 'light' ? '#111827' : '#ffffff';
+  const glass = LIQUID_GLASS[effectiveTheme] || LIQUID_GLASS.light;
+  const bgColor = glass.background;
+  const headerBg = Platform.OS === 'ios' ? 'transparent' : glass.headerGlass;
+  const textColor = glass.text;
   const colors = ACCENT_COLORS[accentColor];
+  const blurConfig = getBlurConfig(effectiveTheme);
+  const tabBarStyles = getGlassTabBarStyle(effectiveTheme);
   
   const handleTabPress = (screen) => {
     if (activeScreen === screen) {
@@ -341,24 +368,144 @@ const handleNewYearModeChange = async (enabled) => {
 
   const newYearText = isNewYearMode ? getNewYearText() : '';
 
-  return (
-    <View style={{ flex: 1, backgroundColor: bgColor }}>
-      {/* Статусбар с правильными настройками */}
-      <StatusBar 
-        barStyle={effectiveTheme === 'light' ? 'dark-content' : 'light-content'}
-        backgroundColor={headerBg}
-        translucent={false}
-      />
-      
-      {/* Заголовок */}
-      <View style={[styles.header, { backgroundColor: headerBg }]}>
+  // Рендер header с glass-эффектом
+  const renderHeader = () => {
+    const headerContent = (
+      <View style={[styles.header, { 
+        backgroundColor: headerBg,
+        borderBottomColor: glass.border,
+      }]}>
         <Text style={[styles.headerText, { color: textColor }]}>
           {activeScreen}
         </Text>
       </View>
+    );
+
+    // На iOS оборачиваем в BlurView для glass-эффекта
+    if (Platform.OS === 'ios') {
+      return (
+        <BlurView 
+          intensity={blurConfig.intensity} 
+          tint={blurConfig.tint}
+          style={styles.headerBlur}
+        >
+          {headerContent}
+        </BlurView>
+      );
+    }
+
+    return headerContent;
+  };
+
+  // Рендер tab bar с glass-эффектом
+  const renderTabBar = () => {
+    const tabButtons = (
+      <>
+        <TabButton 
+          icon="calendar-outline" 
+          label={SCREENS.SCHEDULE} 
+          isActive={activeScreen === SCREENS.SCHEDULE} 
+          onPress={() => handleTabPress(SCREENS.SCHEDULE)}
+          theme={effectiveTheme}
+          accentColor={accentColor}
+          showLabels={showTabbarLabels}
+          fontSize={tabbarFontSize}
+        />
+        <TabButton 
+          icon="map-outline" 
+          label={SCREENS.MAP} 
+          isActive={activeScreen === SCREENS.MAP} 
+          onPress={() => handleTabPress(SCREENS.MAP)}
+          theme={effectiveTheme}
+          accentColor={accentColor}
+          showLabels={showTabbarLabels}
+          fontSize={tabbarFontSize}
+        />
+        <TabButton 
+          icon="book-outline" 
+          label={SCREENS.FRESHMAN} 
+          isActive={activeScreen === SCREENS.FRESHMAN} 
+          onPress={() => handleTabPress(SCREENS.FRESHMAN)}
+          theme={effectiveTheme}
+          accentColor={accentColor}
+          showLabels={showTabbarLabels}
+          fontSize={tabbarFontSize}
+        />
+        <TabButton 
+          icon="newspaper-outline" 
+          label={SCREENS.NEWS} 
+          isActive={activeScreen === SCREENS.NEWS} 
+          onPress={() => handleTabPress(SCREENS.NEWS)}
+          theme={effectiveTheme}
+          accentColor={accentColor}
+          showLabels={showTabbarLabels}
+          fontSize={tabbarFontSize}
+        />
+        <TabButton 
+          icon="settings-outline" 
+          label={SCREENS.SETTINGS} 
+          isActive={activeScreen === SCREENS.SETTINGS} 
+          onPress={() => handleTabPress(SCREENS.SETTINGS)}
+          theme={effectiveTheme}
+          accentColor={accentColor}
+          showLabels={showTabbarLabels}
+          fontSize={tabbarFontSize}
+        />
+      </>
+    );
+
+    // Плавающий glass tab bar на iOS
+    if (Platform.OS === 'ios') {
+      return (
+        <View style={styles.tabBarFloating}>
+          <BlurView
+            intensity={blurConfig.intensity}
+            tint={blurConfig.tint}
+            style={[
+              styles.tabBarFloatingIOS,
+              {
+                borderColor: glass.borderStrong,
+                shadowColor: glass.shadowStrong,
+              },
+            ]}
+          >
+            <View style={styles.tabBarInner}>
+              {tabButtons}
+            </View>
+          </BlurView>
+        </View>
+      );
+    }
+
+    // Android fallback
+    return (
+      <View style={[
+        styles.tabBarAndroid, 
+        { 
+          backgroundColor: glass.tabBarGlass,
+          borderTopColor: glass.border,
+          paddingBottom: insets.bottom + 8,
+        }
+      ]}>
+        {tabButtons}
+      </View>
+    );
+  };
+
+  return (
+    <View style={{ flex: 1, backgroundColor: bgColor }}>
+      {/* Статусбар */}
+      <StatusBar 
+        barStyle={effectiveTheme === 'light' ? 'dark-content' : 'light-content'}
+        backgroundColor={Platform.OS === 'android' ? glass.headerGlass : 'transparent'}
+        translucent={Platform.OS === 'ios'}
+      />
       
-      {/* Контент */}
-      <View style={{ flex: 1 }}>
+      {/* Заголовок с Glass-эффектом */}
+      {renderHeader()}
+      
+      {/* Контент — с paddingBottom для плавающего tab bar на iOS */}
+      <View style={{ flex: 1, paddingBottom: Platform.OS === 'ios' ? 90 : 0 }}>
         {activeScreen === SCREENS.SCHEDULE && (
           <ScheduleScreen 
             theme={effectiveTheme} 
@@ -405,66 +552,8 @@ const handleNewYearModeChange = async (enabled) => {
         )}
       </View>
       
-      {/* Навигация */}
-      <View style={[styles.navigation, { 
-        backgroundColor: headerBg, 
-        paddingBottom: Platform.OS === 'android' ? insets.bottom + 8 : 8 
-      }]}>
-        <TabButton 
-          icon="calendar-outline" 
-          label={SCREENS.SCHEDULE} 
-          isActive={activeScreen === SCREENS.SCHEDULE} 
-          onPress={() => handleTabPress(SCREENS.SCHEDULE)}
-          theme={effectiveTheme}
-          accentColor={accentColor}
-          showLabels={showTabbarLabels}
-          fontSize={tabbarFontSize}
-        />
-        
-        <TabButton 
-          icon="map-outline" 
-          label={SCREENS.MAP} 
-          isActive={activeScreen === SCREENS.MAP} 
-          onPress={() => handleTabPress(SCREENS.MAP)}
-          theme={effectiveTheme}
-          accentColor={accentColor}
-          showLabels={showTabbarLabels}
-          fontSize={tabbarFontSize}
-        />
-        
-        <TabButton 
-          icon="book-outline" 
-          label={SCREENS.FRESHMAN} 
-          isActive={activeScreen === SCREENS.FRESHMAN} 
-          onPress={() => handleTabPress(SCREENS.FRESHMAN)}
-          theme={effectiveTheme}
-          accentColor={accentColor}
-          showLabels={showTabbarLabels}
-          fontSize={tabbarFontSize}
-        />
-        
-        <TabButton 
-          icon="newspaper-outline" 
-          label={SCREENS.NEWS} 
-          isActive={activeScreen === SCREENS.NEWS} 
-          onPress={() => handleTabPress(SCREENS.NEWS)}
-          theme={effectiveTheme}
-          accentColor={accentColor}
-          showLabels={showTabbarLabels}
-          fontSize={tabbarFontSize}
-        />
-        
-        <TabButton 
-          icon="settings-outline" 
-          label={SCREENS.SETTINGS} 
-          isActive={activeScreen === SCREENS.SETTINGS} 
-          onPress={() => handleTabPress(SCREENS.SETTINGS)}
-          theme={effectiveTheme}
-          accentColor={accentColor}
-          showLabels={showTabbarLabels}
-          fontSize={tabbarFontSize}
-        />
-      </View>
+      {/* Навигация — Liquid Glass tab bar */}
+      {renderTabBar()}
     </View>
   );
 });

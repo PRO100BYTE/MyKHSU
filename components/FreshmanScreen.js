@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, Linking, StyleSheet, Platform, Animated, StatusBar } from 'react-native';
 import { Ionicons as Icon } from '@expo/vector-icons';
-import { ACCENT_COLORS } from '../utils/constants';
+import { ACCENT_COLORS, LIQUID_GLASS } from '../utils/constants';
 import UnderDevelopmentModal from './UnderDevelopmentModal';
 import BuildingsListScreen from './BuildingsListScreen';
 import Snowfall from './Snowfall';
@@ -13,10 +13,11 @@ const FreshmanScreen = ({ theme, accentColor, isNewYearMode }) => {
   
   const fadeAnim = useRef(new Animated.Value(1)).current;
 
-  const bgColor = theme === 'light' ? '#f3f4f6' : '#111827';
-  const cardBg = theme === 'light' ? '#ffffff' : '#1f2937';
-  const textColor = theme === 'light' ? '#111827' : '#ffffff';
-  const placeholderColor = theme === 'light' ? '#6b7280' : '#9ca3af';
+  const glass = LIQUID_GLASS[theme] || LIQUID_GLASS.light;
+  const bgColor = glass.background;
+  const cardBg = glass.surfaceCard;
+  const textColor = glass.text;
+  const placeholderColor = glass.textSecondary;
   const colors = ACCENT_COLORS[accentColor];
 
   // Простая анимация fade при смене экрана
@@ -112,15 +113,22 @@ const FreshmanScreen = ({ theme, accentColor, isNewYearMode }) => {
     <TouchableOpacity 
       style={{ 
         backgroundColor: cardBg, 
-        borderRadius: 12, 
+        borderRadius: 20, 
         padding: 16, 
-        marginBottom: isLast ? 0 : 16,
+        marginBottom: isLast ? 0 : 12,
         flexDirection: 'row',
-        alignItems: 'center'
+        alignItems: 'center',
+        borderWidth: StyleSheet.hairlineWidth,
+        borderColor: glass.border,
+        shadowColor: glass.shadowColor,
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 1,
+        shadowRadius: 8,
+        elevation: 2,
       }}
       onPress={onPress}
     >
-      <View style={{ backgroundColor: colors.light, borderRadius: 8, padding: 8, marginRight: 12 }}>
+      <View style={{ backgroundColor: colors.glass, borderRadius: 12, padding: 10, marginRight: 14, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.glassBorder }}>
         <Icon name={icon} size={24} color={colors.primary} />
       </View>
       <View style={{ flex: 1 }}>
@@ -141,15 +149,17 @@ const FreshmanScreen = ({ theme, accentColor, isNewYearMode }) => {
       key={group.id}
       style={{ 
         backgroundColor: cardBg, 
-        borderRadius: 12, 
+        borderRadius: 16, 
         padding: 16, 
-        marginBottom: isLast ? 0 : 12,
+        marginBottom: isLast ? 0 : 10,
         flexDirection: 'row',
-        alignItems: 'center'
+        alignItems: 'center',
+        borderWidth: StyleSheet.hairlineWidth,
+        borderColor: glass.border,
       }}
       onPress={() => openLink(group.url)}
     >
-      <View style={{ backgroundColor: colors.light, borderRadius: 8, padding: 8, marginRight: 12 }}>
+      <View style={{ backgroundColor: colors.glass, borderRadius: 10, padding: 8, marginRight: 12, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.glassBorder }}>
         <Icon name={group.icon} size={20} color={colors.primary} />
       </View>
       <View style={{ flex: 1 }}>
@@ -259,10 +269,12 @@ const FreshmanScreen = ({ theme, accentColor, isNewYearMode }) => {
 
       <View style={{ 
         backgroundColor: cardBg, 
-        borderRadius: 12, 
+        borderRadius: 20, 
         padding: 24, 
         alignItems: 'center',
-        marginTop: 40
+        marginTop: 40,
+        borderWidth: StyleSheet.hairlineWidth,
+        borderColor: glass.border,
       }}>
         <Icon name="paper-plane-outline" size={48} color="#0088cc" />
         <Text style={{ 

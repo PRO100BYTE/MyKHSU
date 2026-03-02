@@ -8,17 +8,79 @@ export const ACCENT_COLORS = {
   green: {
     primary: '#10B981',
     light: '#ECFDF5',
-    dark: '#047857'
+    dark: '#047857',
+    glass: 'rgba(16, 185, 129, 0.12)',
+    glassBorder: 'rgba(16, 185, 129, 0.25)',
   },
   blue: {
     primary: '#3B82F6',
     light: '#DBEAFE',
-    dark: '#1D4ED8'
+    dark: '#1D4ED8',
+    glass: 'rgba(59, 130, 246, 0.12)',
+    glassBorder: 'rgba(59, 130, 246, 0.25)',
   },
   purple: {
     primary: '#8B5CF6',
     light: '#EDE9FE',
-    dark: '#5B21B6'
+    dark: '#5B21B6',
+    glass: 'rgba(139, 92, 246, 0.12)',
+    glassBorder: 'rgba(139, 92, 246, 0.25)',
+  }
+};
+
+// Liquid Glass тема (iOS 26)
+export const LIQUID_GLASS = {
+  light: {
+    // Поверхности
+    surfacePrimary: 'rgba(255, 255, 255, 0.72)',
+    surfaceSecondary: 'rgba(255, 255, 255, 0.56)',
+    surfaceTertiary: 'rgba(255, 255, 255, 0.40)',
+    surfaceCard: 'rgba(255, 255, 255, 0.65)',
+    // Фон
+    background: '#f2f2f7',
+    backgroundElevated: '#ffffff',
+    // Границы
+    border: 'rgba(0, 0, 0, 0.06)',
+    borderStrong: 'rgba(0, 0, 0, 0.12)',
+    // Текст
+    text: '#1c1c1e',
+    textSecondary: '#8e8e93',
+    textTertiary: '#aeaeb2',
+    // Навигация (glass)
+    headerGlass: 'rgba(255, 255, 255, 0.78)',
+    tabBarGlass: 'rgba(255, 255, 255, 0.72)',
+    // Тени
+    shadowColor: 'rgba(0, 0, 0, 0.08)',
+    shadowStrong: 'rgba(0, 0, 0, 0.15)',
+    // Blur интенсивность
+    blurIntensity: 60,
+    blurTint: 'systemChromeMaterialLight',
+  },
+  dark: {
+    // Поверхности
+    surfacePrimary: 'rgba(44, 44, 46, 0.72)',
+    surfaceSecondary: 'rgba(44, 44, 46, 0.56)',
+    surfaceTertiary: 'rgba(44, 44, 46, 0.40)',
+    surfaceCard: 'rgba(44, 44, 46, 0.65)',
+    // Фон
+    background: '#000000',
+    backgroundElevated: '#1c1c1e',
+    // Границы
+    border: 'rgba(255, 255, 255, 0.08)',
+    borderStrong: 'rgba(255, 255, 255, 0.16)',
+    // Текст
+    text: '#ffffff',
+    textSecondary: '#8e8e93',
+    textTertiary: '#636366',
+    // Навигация (glass)
+    headerGlass: 'rgba(30, 30, 30, 0.72)',
+    tabBarGlass: 'rgba(30, 30, 30, 0.68)',
+    // Тени
+    shadowColor: 'rgba(0, 0, 0, 0.3)',
+    shadowStrong: 'rgba(0, 0, 0, 0.5)',
+    // Blur интенсивность
+    blurIntensity: 80,
+    blurTint: 'systemChromeMaterialDark',
   }
 };
 

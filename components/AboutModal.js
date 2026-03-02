@@ -2,15 +2,16 @@
 import React from 'react';
 import { View, Text, Modal, TouchableOpacity, ScrollView, StyleSheet } from 'react-native';
 import { Ionicons as Icon } from '@expo/vector-icons';
-import { ACCENT_COLORS, APP_VERSION, APP_DEVELOPERS, APP_SUPPORTERS, BUILD_VER, BUILD_DATE } from '../utils/constants';
+import { ACCENT_COLORS, APP_VERSION, APP_DEVELOPERS, APP_SUPPORTERS, BUILD_VER, BUILD_DATE, LIQUID_GLASS } from '../utils/constants';
 
 const AboutModal = ({ visible, onClose, theme, accentColor }) => {
   const colors = ACCENT_COLORS[accentColor];
-  const bgColor = theme === 'light' ? '#ffffff' : '#1f2937';
-  const textColor = theme === 'light' ? '#111827' : '#ffffff';
-  const placeholderColor = theme === 'light' ? '#6b7280' : '#9ca3af';
-  const inputBgColor = theme === 'light' ? '#f9fafb' : '#374151';
-  const borderColor = theme === 'light' ? '#e5e7eb' : '#4b5563';
+  const glass = LIQUID_GLASS[theme] || LIQUID_GLASS.light;
+  const bgColor = glass.backgroundElevated;
+  const textColor = glass.text;
+  const placeholderColor = glass.textSecondary;
+  const inputBgColor = glass.surfaceTertiary;
+  const borderColor = glass.border;
 
   if (!visible) return null;
 
@@ -260,14 +261,14 @@ const styles = StyleSheet.create({
   },
   modalContent: {
     width: '100%',
-    borderRadius: 16,
+    borderRadius: 24,
     padding: 20,
     maxHeight: '90%',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 8,
-    elevation: 5,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.15,
+    shadowRadius: 32,
+    elevation: 10,
   },
   title: {
     fontSize: 20,
@@ -312,8 +313,8 @@ const styles = StyleSheet.create({
   infoSection: {
     marginTop: 16,
     padding: 16,
-    borderRadius: 8,
-    borderWidth: 1,
+    borderRadius: 16,
+    borderWidth: StyleSheet.hairlineWidth,
   },
   infoTitle: {
     fontSize: 14,
@@ -339,10 +340,10 @@ const styles = StyleSheet.create({
   },
   button: {
     flex: 1,
-    borderRadius: 12,
+    borderRadius: 14,
     padding: 16,
     alignItems: 'center',
-    borderWidth: 1,
+    borderWidth: StyleSheet.hairlineWidth,
   },
   cancelButton: {
     maxWidth: 200,

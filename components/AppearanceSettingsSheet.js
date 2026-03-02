@@ -3,7 +3,7 @@ import { View, Text, Modal, TouchableOpacity, ScrollView, StyleSheet, Switch, Al
 import { Ionicons as Icon } from '@expo/vector-icons';
 import { useColorScheme } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
-import { ACCENT_COLORS, isNewYearPeriod } from '../utils/constants';
+import { ACCENT_COLORS, isNewYearPeriod, LIQUID_GLASS } from '../utils/constants';
 
 const AppearanceSettingsSheet = ({ 
   visible, 
@@ -18,11 +18,12 @@ const AppearanceSettingsSheet = ({
 }) => {
   const systemColorScheme = useColorScheme();
   
-  const bgColor = theme === 'light' ? '#ffffff' : '#1f2937';
-  const textColor = theme === 'light' ? '#111827' : '#ffffff';
-  const placeholderColor = theme === 'light' ? '#6b7280' : '#9ca3af';
-  const inputBgColor = theme === 'light' ? '#f9fafb' : '#374151';
-  const borderColor = theme === 'light' ? '#e5e7eb' : '#4b5563';
+  const glass = LIQUID_GLASS[theme] || LIQUID_GLASS.light;
+  const bgColor = glass.backgroundElevated;
+  const textColor = glass.text;
+  const placeholderColor = glass.textSecondary;
+  const inputBgColor = glass.surfaceTertiary;
+  const borderColor = glass.border;
   const colors = ACCENT_COLORS[accentColor];
 
   const [selectedTheme, setSelectedTheme] = useState(theme);

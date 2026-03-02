@@ -1,13 +1,14 @@
 import React from 'react';
 import { View, Text, Modal, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons as Icon } from '@expo/vector-icons';
-import { ACCENT_COLORS } from '../utils/constants';
+import { ACCENT_COLORS, LIQUID_GLASS } from '../utils/constants';
 
 const UnderDevelopmentModal = ({ visible, onClose, theme, accentColor, featureName }) => {
   const colors = ACCENT_COLORS[accentColor];
-  const bgColor = theme === 'light' ? '#ffffff' : '#1f2937';
-  const textColor = theme === 'light' ? '#111827' : '#ffffff';
-  const placeholderColor = theme === 'light' ? '#6b7280' : '#9ca3af';
+  const glass = LIQUID_GLASS[theme] || LIQUID_GLASS.light;
+  const bgColor = glass.backgroundElevated;
+  const textColor = glass.text;
+  const placeholderColor = glass.textSecondary;
 
   if (!visible) return null;
 

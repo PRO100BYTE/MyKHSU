@@ -17,7 +17,7 @@ import MapView, { Marker, PROVIDER_DEFAULT, UrlTile } from 'react-native-maps';
 import NetInfo from '@react-native-community/netinfo';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import Constants from 'expo-constants';
-import { ACCENT_COLORS } from '../utils/constants';
+import { ACCENT_COLORS, LIQUID_GLASS } from '../utils/constants';
 import ConnectionError from './ConnectionError';
 import { buildings, initialRegion } from '../utils/buildingCoordinates';
 import BuildingsListScreen from './BuildingsListScreen';
@@ -40,10 +40,11 @@ const MapScreen = ({ theme, accentColor, isNewYearMode }) => {
   const [mapError, setMapError] = useState(false);
   
   const colors = ACCENT_COLORS[accentColor];
-  const bgColor = theme === 'light' ? '#f3f4f6' : '#111827';
-  const textColor = theme === 'light' ? '#111827' : '#ffffff';
-  const placeholderColor = theme === 'light' ? '#6b7280' : '#9ca3af';
-  const cardBg = theme === 'light' ? '#ffffff' : '#1f2937';
+  const glass = LIQUID_GLASS[theme] || LIQUID_GLASS.light;
+  const bgColor = glass.background;
+  const textColor = glass.text;
+  const placeholderColor = glass.textSecondary;
+  const cardBg = glass.surfaceCard;
   
   // Получаем API ключи
   const dgApiKey = Constants.expoConfig?.extra?.dgApiKey || Constants.manifest?.extra?.dgApiKey;

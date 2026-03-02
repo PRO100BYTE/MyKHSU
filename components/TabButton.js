@@ -2,16 +2,19 @@ import React from 'react';
 import { TouchableOpacity, Text, StyleSheet, Platform } from 'react-native';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import { ACCENT_COLORS } from '../utils/constants';
+import { getGlassSegmentStyle } from '../utils/liquidGlass';
 
 const TabButton = ({ icon, label, isActive, onPress, theme, accentColor, showLabels = true, fontSize = 'medium' }) => {
   const colors = ACCENT_COLORS[accentColor];
+  const glassSegment = getGlassSegmentStyle(theme, accentColor, isActive);
+  
   const iconColor = isActive ? 
-    (theme === 'light' ? colors.primary : colors.dark) : 
-    (theme === 'light' ? '#6b7280' : '#9ca3af');
+    colors.primary : 
+    (theme === 'light' ? '#8e8e93' : '#8e8e93');
   
   const textColor = isActive ? 
-    (theme === 'light' ? colors.primary : colors.dark) : 
-    (theme === 'light' ? '#6b7280' : '#9ca3af');
+    colors.primary : 
+    (theme === 'light' ? '#8e8e93' : '#8e8e93');
 
   // Определяем размер шрифта
   const getFontSize = () => {
@@ -26,17 +29,16 @@ const TabButton = ({ icon, label, isActive, onPress, theme, accentColor, showLab
   return (
     <TouchableOpacity 
       onPress={onPress}
-      style={[styles.tabButton, { 
-        backgroundColor: isActive ? (theme === 'light' ? colors.light : 'rgba(96, 165, 250, 0.1)') : 'transparent'
-      }]}
+      style={[styles.tabButton, glassSegment]}
+      activeOpacity={0.7}
     >
-      <Icon name={icon} size={24} color={iconColor} />
+      <Icon name={icon} size={22} color={iconColor} />
       {showLabels && (
         <Text style={[styles.tabText, { 
           color: textColor, 
-          fontFamily: 'Montserrat_500Medium',
+          fontFamily: isActive ? 'Montserrat_600SemiBold' : 'Montserrat_500Medium',
           fontSize: getFontSize(),
-          marginTop: 4
+          marginTop: 3,
         }]}>
           {label}
         </Text>
@@ -50,13 +52,13 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingVertical: 8,
-    borderRadius: 8,
-    minHeight: Platform.OS === 'android' ? 60 : 50
+    paddingVertical: 6,
+    marginHorizontal: 2,
+    minHeight: Platform.OS === 'android' ? 56 : 48,
   },
   tabText: {
     fontSize: 10,
-    marginTop: 4
+    marginTop: 3,
   }
 });
 

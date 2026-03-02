@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, Modal, TouchableOpacity, Switch, ScrollView, StyleSheet } from 'react-native';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import * as SecureStore from 'expo-secure-store';
-import { ACCENT_COLORS } from '../utils/constants';
+import { ACCENT_COLORS, LIQUID_GLASS } from '../utils/constants';
 
 const NotificationSettingsModal = ({ visible, onClose, theme, accentColor }) => {
   const [settings, setSettings] = useState({
@@ -16,9 +16,10 @@ const NotificationSettingsModal = ({ visible, onClose, theme, accentColor }) => 
   });
 
   const colors = ACCENT_COLORS[accentColor];
-  const bgColor = theme === 'light' ? '#ffffff' : '#1f2937';
-  const textColor = theme === 'light' ? '#111827' : '#ffffff';
-  const placeholderColor = theme === 'light' ? '#6b7280' : '#9ca3af';
+  const glass = LIQUID_GLASS[theme] || LIQUID_GLASS.light;
+  const bgColor = glass.backgroundElevated;
+  const textColor = glass.text;
+  const placeholderColor = glass.textSecondary;
 
   useEffect(() => {
     if (visible) {

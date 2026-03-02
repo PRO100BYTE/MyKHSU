@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import { getWeekNumber, formatDate, getDateByWeekAndDay } from '../utils/dateUtils';
-import { ACCENT_COLORS, COURSES } from '../utils/constants';
+import { ACCENT_COLORS, COURSES, LIQUID_GLASS } from '../utils/constants';
 import ConnectionError from './ConnectionError';
 import ApiService from '../utils/api';
 import { useScheduleLogic } from '../hooks/useScheduleLogic';
@@ -189,13 +189,14 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
     dayRefs.current = {};
   }, [scheduleData, teacherSchedule]);
 
-  const bgColor = theme === 'light' ? '#f3f4f6' : '#111827';
-  const cardBg = theme === 'light' ? '#ffffff' : '#1f2937';
-  const textColor = theme === 'light' ? '#111827' : '#ffffff';
+  const glass = LIQUID_GLASS[theme] || LIQUID_GLASS.light;
+  const bgColor = glass.background;
+  const cardBg = glass.surfaceCard;
+  const textColor = glass.text;
   const colors = ACCENT_COLORS[accentColor];
-  const borderColor = theme === 'light' ? '#e5e7eb' : '#374151';
-  const placeholderColor = theme === 'light' ? '#6b7280' : '#9ca3af';
-  const hintBgColor = theme === 'light' ? '#f9fafb' : '#2d3748';
+  const borderColor = glass.border;
+  const placeholderColor = glass.textSecondary;
+  const hintBgColor = glass.surfaceTertiary;
 
   // Функция анимации переключения
   const animateSwitch = (direction, action) => {
@@ -558,12 +559,17 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
         }}
         key={day.weekday} 
         style={{ 
-          backgroundColor: isCurrent ? (colors.primary + '10') : cardBg, 
-          borderRadius: 12, 
+          backgroundColor: isCurrent ? (colors.glass || colors.primary + '10') : cardBg, 
+          borderRadius: 20, 
           padding: 16, 
           marginBottom: 16,
-          borderWidth: isCurrent ? 2 : 1,
-          borderColor: isCurrent ? colors.primary : borderColor
+          borderWidth: isCurrent ? 1.5 : StyleSheet.hairlineWidth,
+          borderColor: isCurrent ? (colors.glassBorder || colors.primary) : borderColor,
+          shadowColor: glass.shadowColor,
+          shadowOffset: { width: 0, height: 2 },
+          shadowOpacity: 1,
+          shadowRadius: 12,
+          elevation: 3,
         }}
       >
         <Text style={{ fontSize: 18, fontWeight: 'bold', color: colors.primary, marginBottom: 4, fontFamily: 'Montserrat_600SemiBold' }}>
@@ -661,11 +667,16 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
       <View 
         style={{ 
           backgroundColor: cardBg, 
-          borderRadius: 12, 
+          borderRadius: 20, 
           padding: 16, 
           marginBottom: 16,
-          borderWidth: 1,
-          borderColor
+          borderWidth: StyleSheet.hairlineWidth,
+          borderColor,
+          shadowColor: glass.shadowColor,
+          shadowOffset: { width: 0, height: 2 },
+          shadowOpacity: 1,
+          shadowRadius: 12,
+          elevation: 3,
         }}
       >
         <Text style={{ fontSize: 18, fontWeight: 'bold', color: colors.primary, marginBottom: 4, fontFamily: 'Montserrat_600SemiBold' }}>

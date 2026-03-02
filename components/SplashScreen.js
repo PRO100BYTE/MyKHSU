@@ -1,7 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, StatusBar, Animated, Dimensions } from 'react-native';
 import { Ionicons as Icon } from '@expo/vector-icons';
-import { ACCENT_COLORS } from '../utils/constants';
+import { ACCENT_COLORS, LIQUID_GLASS } from '../utils/constants';
 
 const { width, height } = Dimensions.get('window');
 
@@ -11,7 +11,8 @@ const SplashScreen = ({ accentColor, theme, isNewYearMode, newYearText }) => {
   
   const safeColors = colors || { primary: '#10b981', light: '#d1fae5' };
   
-  const backgroundColor = theme === 'dark' ? '#111827' : '#f3f4f6';
+  const glass = LIQUID_GLASS[theme] || LIQUID_GLASS.light;
+  const backgroundColor = glass.background;
   const iconColor = theme === 'dark' ? safeColors.light : safeColors.primary;
   const textColor = theme === 'dark' ? '#ffffff' : safeColors.primary;
   const bgIconColor = theme === 'dark' ? safeColors.light + '40' : safeColors.primary + '40';

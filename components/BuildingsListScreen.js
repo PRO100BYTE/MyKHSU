@@ -12,7 +12,7 @@ import {
   Platform 
 } from 'react-native';
 import { Ionicons as Icon } from '@expo/vector-icons';
-import { ACCENT_COLORS } from '../utils/constants';
+import { ACCENT_COLORS, LIQUID_GLASS } from '../utils/constants';
 import { buildings } from '../utils/buildingCoordinates';
 import Snowfall from './Snowfall';
 
@@ -24,10 +24,11 @@ const BuildingsListScreen = ({ theme, accentColor, onBuildingSelect, isNewYearMo
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const routeModalAnim = useRef(new Animated.Value(0)).current;
 
-  const bgColor = theme === 'light' ? '#f3f4f6' : '#111827';
-  const cardBg = theme === 'light' ? '#ffffff' : '#1f2937';
-  const textColor = theme === 'light' ? '#111827' : '#ffffff';
-  const placeholderColor = theme === 'light' ? '#6b7280' : '#9ca3af';
+  const glass = LIQUID_GLASS[theme] || LIQUID_GLASS.light;
+  const bgColor = glass.background;
+  const cardBg = glass.surfaceCard;
+  const textColor = glass.text;
+  const placeholderColor = glass.textSecondary;
   const colors = ACCENT_COLORS[accentColor];
 
   useEffect(() => {
