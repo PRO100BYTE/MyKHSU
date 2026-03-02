@@ -1166,7 +1166,7 @@ return (
         }
         onScroll={handleScroll}
         scrollEventThrottle={16}
-        contentContainerStyle={{ minHeight: height }}
+        contentContainerStyle={{ minHeight: height, paddingBottom: 100 }}
       >
         {/* ВСЕ содержимое расписания */}
         {showCachedData && (

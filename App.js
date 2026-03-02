@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, Platform, Appearance, StyleSheet, StatusBar } from 'react-native';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { View, Text, Platform, Appearance, StyleSheet, StatusBar, PanResponder } from 'react-native';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import * as SecureStore from 'expo-secure-store';
 import { useFonts, Montserrat_400Regular, Montserrat_500Medium, Montserrat_600SemiBold, Montserrat_700Bold } from '@expo-google-fonts/montserrat';
@@ -79,6 +79,7 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
+    zIndex: 10,
   },
   tabBarFloatingIOS: {
     marginHorizontal: 12,
@@ -105,6 +106,8 @@ const styles = StyleSheet.create({
   },
 });
 
+const TAB_ORDER = [SCREENS.SCHEDULE, SCREENS.MAP, SCREENS.FRESHMAN, SCREENS.NEWS, SCREENS.SETTINGS];
+
 export default Sentry.wrap(function App() {
   let [fontsLoaded] = useFonts({
     Montserrat_400Regular,
@@ -121,6 +124,38 @@ export default Sentry.wrap(function App() {
   const [refresh, setRefresh] = useState(0);
   const [refreshKey, setRefreshKey] = useState(0);
   const insets = useSafeAreaInsets();
+  const activeScreenRef = useRef(activeScreen);
+
+  useEffect(() => {
+    activeScreenRef.current = activeScreen;
+  }, [activeScreen]);
+
+  // PanResponder для свайпа по таббару (переключение вкладок, как в iOS 26)
+  const tabBarPanResponder = useMemo(() => PanResponder.create({
+    onStartShouldSetPanResponder: () => false,
+    onStartShouldSetPanResponderCapture: () => false,
+    onMoveShouldSetPanResponder: (_, gesture) => {
+      // Захватываем только явные горизонтальные свайпы
+      return Math.abs(gesture.dx) > 30 && Math.abs(gesture.dy) < 20;
+    },
+    onMoveShouldSetPanResponderCapture: () => false,
+    onPanResponderGrant: () => {},
+    onPanResponderMove: () => {},
+    onPanResponderRelease: (_, gesture) => {
+      const SWIPE_THRESHOLD = 50;
+      if (Math.abs(gesture.dx) > SWIPE_THRESHOLD) {
+        const currentIndex = TAB_ORDER.indexOf(activeScreenRef.current);
+        if (gesture.dx < 0 && currentIndex < TAB_ORDER.length - 1) {
+          setActiveScreen(TAB_ORDER[currentIndex + 1]);
+        } else if (gesture.dx > 0 && currentIndex > 0) {
+          setActiveScreen(TAB_ORDER[currentIndex - 1]);
+        }
+      }
+    },
+    onPanResponderTerminate: () => {},
+    onPanResponderTerminationRequest: () => true,
+    onShouldBlockNativeResponder: () => false,
+  }), []);
 
   // Состояния для настроек таббара
   const [showTabbarLabels, setShowTabbarLabels] = useState(true);
@@ -355,6 +390,10 @@ const handleNewYearModeChange = async (enabled) => {
   const textColor = glass.text;
   const colors = ACCENT_COLORS[accentColor];
   const blurConfig = getBlurConfig(effectiveTheme);
+  const tabBarBlurConfig = {
+    intensity: glass.tabBarBlurIntensity || blurConfig.intensity,
+    tint: glass.tabBarBlurTint || blurConfig.tint,
+  };
   const tabBarStyles = getGlassTabBarStyle(effectiveTheme);
   
   const handleTabPress = (screen) => {
@@ -454,13 +493,13 @@ const handleNewYearModeChange = async (enabled) => {
       </>
     );
 
-    // Плавающий glass tab bar на iOS
+    // Плавающий glass tab bar на iOS с поддержкой свайпа
     if (Platform.OS === 'ios') {
       return (
         <View style={styles.tabBarFloating}>
           <BlurView
-            intensity={blurConfig.intensity}
-            tint={blurConfig.tint}
+            intensity={tabBarBlurConfig.intensity}
+            tint={tabBarBlurConfig.tint}
             style={[
               styles.tabBarFloatingIOS,
               {
@@ -469,7 +508,7 @@ const handleNewYearModeChange = async (enabled) => {
               },
             ]}
           >
-            <View style={styles.tabBarInner}>
+            <View style={styles.tabBarInner} {...tabBarPanResponder.panHandlers}>
               {tabButtons}
             </View>
           </BlurView>
@@ -477,17 +516,21 @@ const handleNewYearModeChange = async (enabled) => {
       );
     }
 
-    // Android fallback
+    // Android fallback со свайпом
     return (
-      <View style={[
-        styles.tabBarAndroid, 
-        { 
-          backgroundColor: glass.tabBarGlass,
-          borderTopColor: glass.border,
-          paddingBottom: insets.bottom + 8,
-        }
-      ]}>
-        {tabButtons}
+      <View 
+        style={[
+          styles.tabBarAndroid, 
+          { 
+            backgroundColor: glass.tabBarGlass,
+            borderTopColor: glass.border,
+            paddingBottom: insets.bottom + 8,
+          }
+        ]}
+      >
+        <View style={{ flex: 1, flexDirection: 'row' }} {...tabBarPanResponder.panHandlers}>
+          {tabButtons}
+        </View>
       </View>
     );
   };
@@ -504,8 +547,8 @@ const handleNewYearModeChange = async (enabled) => {
       {/* Заголовок с Glass-эффектом */}
       {renderHeader()}
       
-      {/* Контент — с paddingBottom для плавающего tab bar на iOS */}
-      <View style={{ flex: 1, paddingBottom: Platform.OS === 'ios' ? 90 : 0 }}>
+      {/* Контент — без paddingBottom, содержимое проходит за tab bar для Liquid Glass-эффекта */}
+      <View style={{ flex: 1 }}>
         {activeScreen === SCREENS.SCHEDULE && (
           <ScheduleScreen 
             theme={effectiveTheme} 

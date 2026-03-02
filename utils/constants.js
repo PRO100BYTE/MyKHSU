@@ -48,7 +48,9 @@ export const LIQUID_GLASS = {
     textTertiary: '#aeaeb2',
     // Навигация (glass)
     headerGlass: 'rgba(255, 255, 255, 0.78)',
-    tabBarGlass: 'rgba(255, 255, 255, 0.72)',
+    tabBarGlass: 'rgba(255, 255, 255, 0.45)',
+    tabBarBlurIntensity: 40,
+    tabBarBlurTint: 'systemThinMaterialLight',
     // Тени
     shadowColor: 'rgba(0, 0, 0, 0.08)',
     shadowStrong: 'rgba(0, 0, 0, 0.15)',
@@ -74,7 +76,9 @@ export const LIQUID_GLASS = {
     textTertiary: '#636366',
     // Навигация (glass)
     headerGlass: 'rgba(30, 30, 30, 0.72)',
-    tabBarGlass: 'rgba(30, 30, 30, 0.68)',
+    tabBarGlass: 'rgba(30, 30, 30, 0.40)',
+    tabBarBlurIntensity: 50,
+    tabBarBlurTint: 'systemThinMaterialDark',
     // Тени
     shadowColor: 'rgba(0, 0, 0, 0.3)',
     shadowStrong: 'rgba(0, 0, 0, 0.5)',

@@ -173,7 +173,7 @@ const FreshmanScreen = ({ theme, accentColor, isNewYearMode }) => {
 
   // Главный экран разделов
   const renderMainSections = () => (
-    <ScrollView style={{ flex: 1, padding: 16 }}>
+    <ScrollView style={{ flex: 1, padding: 16 }} contentContainerStyle={{ paddingBottom: 100 }}>
       {renderSectionCard(
         'people-outline',
         'Преподаватели',

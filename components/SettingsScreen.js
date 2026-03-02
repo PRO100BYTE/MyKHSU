@@ -397,7 +397,7 @@ const SettingsScreen = ({ theme, accentColor, setTheme, setAccentColor, onSchedu
         {/* Компонент конфетти */}
         <Confetti show={showConfetti} theme={theme} colors={colors} />
       
-      <ScrollView style={{ padding: 16 }}>
+      <ScrollView style={{ padding: 16 }} contentContainerStyle={{ paddingBottom: 100 }}>
         {/* Формат расписания */}
         <TouchableOpacity 
           style={glassCardStyle}

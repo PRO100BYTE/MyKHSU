@@ -273,7 +273,7 @@ return (
       />
       
       <ScrollView 
-        contentContainerStyle={{ paddingTop: 16, paddingHorizontal: 16 }}
+        contentContainerStyle={{ paddingTop: 16, paddingHorizontal: 16, paddingBottom: 100 }}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
