@@ -1156,6 +1156,7 @@ return (
       <ScrollView 
         ref={scrollViewRef}
         style={{ flex: 1, padding: 16 }}
+        contentInset={{ top: 0 }}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}

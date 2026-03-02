@@ -55,23 +55,47 @@ TaskManager.defineTask(BACKGROUND_NEWS_CHECK, async () => {
 });
 
 const styles = StyleSheet.create({
-  header: {
-    padding: 16, 
-    paddingTop: Platform.OS === 'ios' ? 54 : StatusBar.currentHeight + 12, 
-    paddingBottom: 14,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderBottomWidth: StyleSheet.hairlineWidth,
+  // Плавающий glass header (iOS Liquid Glass)
+  headerFloating: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 10,
   },
   headerBlur: {
-    // BlurView-обёртка для iOS glass header
     overflow: 'hidden',
+    marginHorizontal: 8,
+    marginTop: Platform.OS === 'ios' ? 54 : (StatusBar.currentHeight || 0) + 6,
+    borderRadius: 20,
+    borderWidth: StyleSheet.hairlineWidth,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 1,
+    shadowRadius: 12,
+  },
+  headerInner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
+  headerIcon: {
+    marginRight: 10,
   },
   headerText: {
-    fontSize: 22, 
+    fontSize: 18, 
     fontWeight: '700', 
     fontFamily: 'Montserrat_700Bold',
-    letterSpacing: 0.3,
+    letterSpacing: 0.2,
+  },
+  // Android header (без blur, но glass-стиль)
+  headerAndroid: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    paddingTop: (StatusBar.currentHeight || 0) + 12,
+    borderBottomWidth: StyleSheet.hairlineWidth,
   },
   // Контейнер для плавающего tab bar (iOS Liquid Glass)
   tabBarFloating: {
@@ -141,6 +165,7 @@ export default Sentry.wrap(function App() {
   const tabLayouts = useRef({});   // { index: { x, width } }
   const isDragging = useRef(false);
   const prevTabIndex = useRef(0);
+  const [indicatorReady, setIndicatorReady] = useState(false);
 
   // Сохраняем позицию вкладки при её layout
   const handleTabLayout = useCallback((index, event) => {
@@ -149,8 +174,9 @@ export default Sentry.wrap(function App() {
     // Инициализируем позицию индикатора для начальной вкладки
     if (index === TAB_ORDER.indexOf(activeScreen) && !isDragging.current) {
       indicatorAnim.setValue(x);
+      if (!indicatorReady) setIndicatorReady(true);
     }
-  }, [activeScreen]);
+  }, [activeScreen, indicatorReady]);
 
   // Анимация скольжения при переключении таба
   const animateIndicatorTo = useCallback((tabIndex) => {
@@ -477,7 +503,6 @@ const handleNewYearModeChange = async (enabled) => {
   
   const glass = LIQUID_GLASS[effectiveTheme] || LIQUID_GLASS.light;
   const bgColor = glass.background;
-  const headerBg = Platform.OS === 'ios' ? 'transparent' : glass.headerGlass;
   const textColor = glass.text;
   const colors = ACCENT_COLORS[accentColor];
   const blurConfig = getBlurConfig(effectiveTheme);
@@ -497,33 +522,60 @@ const handleNewYearModeChange = async (enabled) => {
 
   const newYearText = isNewYearMode ? getNewYearText() : '';
 
-  // Рендер header с glass-эффектом
+  // Иконка для текущего экрана в хедере
+  const SCREEN_ICONS = {
+    [SCREENS.SCHEDULE]: 'calendar-outline',
+    [SCREENS.MAP]: 'map-outline',
+    [SCREENS.FRESHMAN]: 'book-outline',
+    [SCREENS.NEWS]: 'newspaper-outline',
+    [SCREENS.SETTINGS]: 'settings-outline',
+  };
+
+  // Рендер header с glass-эффектом (плавающая капсула)
   const renderHeader = () => {
-    const headerContent = (
-      <View style={[styles.header, { 
-        backgroundColor: headerBg,
-        borderBottomColor: glass.border,
-      }]}>
+    const headerIcon = SCREEN_ICONS[activeScreen] || 'apps-outline';
+
+    // iOS — плавающая glass-капсула с blur
+    if (Platform.OS === 'ios') {
+      return (
+        <View style={styles.headerFloating} pointerEvents="none">
+          <BlurView
+            intensity={tabBarBlurConfig.intensity}
+            tint={tabBarBlurConfig.tint}
+            style={[
+              styles.headerBlur,
+              {
+                borderColor: glass.borderStrong,
+                shadowColor: glass.shadowColor,
+              },
+            ]}
+          >
+            <View style={styles.headerInner}>
+              <Icon name={headerIcon} size={20} color={colors.primary} style={styles.headerIcon} />
+              <Text style={[styles.headerText, { color: textColor }]}>
+                {activeScreen}
+              </Text>
+            </View>
+          </BlurView>
+        </View>
+      );
+    }
+
+    // Android — glass фон без blur
+    return (
+      <View style={[
+        styles.headerAndroid,
+        {
+          backgroundColor: glass.headerGlass,
+          borderBottomColor: glass.border,
+        }
+      ]}>
+        <Icon name={headerIcon} size={20} color={colors.primary} style={styles.headerIcon} />
         <Text style={[styles.headerText, { color: textColor }]}>
           {activeScreen}
         </Text>
       </View>
     );
-
-    // На iOS оборачиваем в BlurView для glass-эффекта
-    if (Platform.OS === 'ios') {
-      return (
-        <BlurView 
-          intensity={blurConfig.intensity} 
-          tint={blurConfig.tint}
-          style={styles.headerBlur}
-        >
-          {headerContent}
-        </BlurView>
-      );
-    }
-
-    return headerContent;
   };
 
   // Рендер tab bar с glass-эффектом и анимированным индикатором
@@ -618,11 +670,11 @@ const handleNewYearModeChange = async (enabled) => {
         translucent={Platform.OS === 'ios'}
       />
       
-      {/* Заголовок с Glass-эффектом */}
+      {/* Заголовок с Glass-эффектом (плавающий поверх контента на iOS) */}
       {renderHeader()}
       
-      {/* Контент — без paddingBottom, содержимое проходит за tab bar для Liquid Glass-эффекта */}
-      <View style={{ flex: 1 }}>
+      {/* Контент — содержимое проходит за header и tab bar для Liquid Glass-эффекта */}
+      <View style={{ flex: 1, paddingTop: Platform.OS === 'ios' ? 104 : 0 }}>
         {activeScreen === SCREENS.SCHEDULE && (
           <ScheduleScreen 
             theme={effectiveTheme} 
