@@ -526,6 +526,54 @@ const FreshmanScreen = forwardRef(({ theme, accentColor, isNewYearMode, onNaviga
           Telegram-каналы и чаты будут добавлены в ближайшее время
         </Text>
       </View>
+
+      {/* Секция MAX */}
+      <View style={{
+        backgroundColor: colors.glass,
+        borderRadius: 16,
+        padding: 14,
+        marginTop: 24,
+        marginBottom: 16,
+        flexDirection: 'row',
+        alignItems: 'center',
+        borderWidth: StyleSheet.hairlineWidth,
+        borderColor: colors.glassBorder,
+      }}>
+        <View style={{
+          width: 40, height: 40, borderRadius: 12,
+          backgroundColor: '#5B6DEF18',
+          justifyContent: 'center', alignItems: 'center', marginRight: 12,
+        }}>
+          <Icon name="chatbubble-ellipses-outline" size={22} color="#5B6DEF" />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={{ color: textColor, fontSize: 15, fontFamily: 'Montserrat_600SemiBold' }}>
+            MAX
+          </Text>
+          <Text style={{ color: placeholderColor, fontSize: 12, fontFamily: 'Montserrat_400Regular', marginTop: 2 }}>
+            Каналы в мессенджере
+          </Text>
+        </View>
+      </View>
+
+      <View style={{ 
+        backgroundColor: glass.surfaceSecondary, 
+        borderRadius: 14, 
+        padding: 20, 
+        alignItems: 'center',
+        borderWidth: StyleSheet.hairlineWidth,
+        borderColor: glass.border,
+      }}>
+        <Text style={{ 
+          color: placeholderColor, 
+          fontSize: 14, 
+          fontFamily: 'Montserrat_400Regular',
+          textAlign: 'center',
+          lineHeight: 20,
+        }}>
+          Каналы MAX будут добавлены в ближайшее время
+        </Text>
+      </View>
     </ScrollView>
   );
 
