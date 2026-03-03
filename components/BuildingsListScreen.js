@@ -363,9 +363,10 @@ const BuildingsListScreen = ({ theme, accentColor, onBuildingSelect, isNewYearMo
               style={[
                 styles.routeModal,
                 { 
-                  backgroundColor: glass.surfaceCard,
+                  backgroundColor: glass.backgroundElevated,
                   borderColor: glass.border,
                   borderWidth: StyleSheet.hairlineWidth,
+                  borderBottomWidth: 0,
                   transform: [{
                     translateY: routeModalAnim.interpolate({
                       inputRange: [0, 1],
@@ -375,14 +376,29 @@ const BuildingsListScreen = ({ theme, accentColor, onBuildingSelect, isNewYearMo
                 }
               ]}
             >
-              <Text style={[styles.routeModalTitle, { color: textColor, fontFamily: 'Montserrat_600SemiBold' }]}>
-                Построить маршрут
-              </Text>
-              <Text style={[styles.routeModalSubtitle, { color: textColor, fontFamily: 'Montserrat_500Medium' }]}>
-                {selectedBuilding?.name}
-              </Text>
-              <Text style={[styles.routeModalDescription, { color: placeholderColor, fontFamily: 'Montserrat_400Regular' }]}>
-                {selectedBuilding?.description}
+              {/* Header with close button */}
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 16 }}>
+                <View style={{ width: 44, height: 44, borderRadius: 14, backgroundColor: colors.glass, justifyContent: 'center', alignItems: 'center', marginRight: 12, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.glassBorder }}>
+                  <Icon name="navigate-outline" size={22} color={colors.primary} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.routeModalTitle, { color: textColor, fontFamily: 'Montserrat_600SemiBold' }]}>
+                    {selectedBuilding?.name}
+                  </Text>
+                  <Text style={{ color: placeholderColor, fontSize: 13, fontFamily: 'Montserrat_400Regular', marginTop: 2 }}>
+                    {selectedBuilding?.description}
+                  </Text>
+                </View>
+                <TouchableOpacity 
+                  onPress={handleCloseRouteModal}
+                  style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: glass.surfaceTertiary, justifyContent: 'center', alignItems: 'center' }}
+                >
+                  <Icon name="close" size={18} color={placeholderColor} />
+                </TouchableOpacity>
+              </View>
+              
+              <Text style={{ color: placeholderColor, fontSize: 13, fontFamily: 'Montserrat_500Medium', marginBottom: 12 }}>
+                Выберите сервис навигации
               </Text>
               
               <TouchableOpacity 
@@ -397,14 +413,14 @@ const BuildingsListScreen = ({ theme, accentColor, onBuildingSelect, isNewYearMo
                     Яндекс.Карты
                   </Text>
                   <Text style={[styles.routeOptionDesc, { color: placeholderColor, fontFamily: 'Montserrat_400Regular' }]}>
-                    Открыть в веб-браузере
+                    Откроется в браузере
                   </Text>
                 </View>
-                <Icon name="open-outline" size={20} color={placeholderColor} />
+                <Icon name="open-outline" size={18} color={placeholderColor} />
               </TouchableOpacity>
 
               <TouchableOpacity 
-                style={[styles.routeOption, { backgroundColor: colors.glass, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.glassBorder, marginTop: 12 }]}
+                style={[styles.routeOption, { backgroundColor: colors.glass, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.glassBorder, marginTop: 10 }]}
                 onPress={() => handleRouteServiceSelect('2gis')}
               >
                 <View style={[styles.routeIcon, { backgroundColor: colors.primary }]}>
@@ -415,19 +431,10 @@ const BuildingsListScreen = ({ theme, accentColor, onBuildingSelect, isNewYearMo
                     2ГИС
                   </Text>
                   <Text style={[styles.routeOptionDesc, { color: placeholderColor, fontFamily: 'Montserrat_400Regular' }]}>
-                    Открыть в веб-браузере
+                    Откроется в браузере
                   </Text>
                 </View>
-                <Icon name="open-outline" size={20} color={placeholderColor} />
-              </TouchableOpacity>
-
-              <TouchableOpacity 
-                style={[styles.cancelButton, { marginTop: 16 }]}
-                onPress={handleCloseRouteModal}
-              >
-                <Text style={[styles.cancelButtonText, { color: placeholderColor, fontFamily: 'Montserrat_500Medium' }]}>
-                  Отмена
-                </Text>
+                <Icon name="open-outline" size={18} color={placeholderColor} />
               </TouchableOpacity>
             </Animated.View>
           </Animated.View>
@@ -460,31 +467,23 @@ const styles = StyleSheet.create({
   routeModal: {
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
-    padding: 24,
+    padding: 20,
     paddingBottom: Platform.OS === 'ios' ? 100 : 40,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: -4 },
     shadowOpacity: 0.15,
-    shadowRadius: 12,
+    shadowRadius: 16,
     elevation: 8,
   },
   routeModalTitle: {
-    fontSize: 18,
-    marginBottom: 4,
-  },
-  routeModalSubtitle: {
     fontSize: 16,
     marginBottom: 2,
-  },
-  routeModalDescription: {
-    fontSize: 14,
-    marginBottom: 16,
   },
   routeOption: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 16,
-    borderRadius: 16,
+    padding: 14,
+    borderRadius: 14,
   },
   routeIcon: {
     width: 32,

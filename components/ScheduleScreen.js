@@ -1139,34 +1139,56 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
     if (selectedGroup || showCourseSelector) {
       return (
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-          <View style={{ flexDirection: 'row', backgroundColor: cardBg, borderRadius: 8, padding: 4 }}>
+          <View style={{ 
+            flexDirection: 'row', 
+            backgroundColor: glass.surfaceSecondary, 
+            borderRadius: 14, 
+            padding: 3,
+            borderWidth: StyleSheet.hairlineWidth,
+            borderColor: glass.border,
+          }}>
             <TouchableOpacity
               onPress={() => setViewMode('day')}
               style={{
-                paddingVertical: 6,
-                paddingHorizontal: 12,
-                borderRadius: 6,
-                backgroundColor: viewMode === 'day' ? colors.primary : 'transparent'
+                flexDirection: 'row',
+                alignItems: 'center',
+                paddingVertical: 8,
+                paddingHorizontal: 14,
+                borderRadius: 12,
+                backgroundColor: viewMode === 'day' ? colors.primary : 'transparent',
+                shadowColor: viewMode === 'day' ? colors.primary : 'transparent',
+                shadowOffset: { width: 0, height: 2 },
+                shadowOpacity: viewMode === 'day' ? 0.3 : 0,
+                shadowRadius: 4,
+                elevation: viewMode === 'day' ? 3 : 0,
               }}
             >
-              <Text style={{ color: viewMode === 'day' ? '#ffffff' : textColor, fontFamily: 'Montserrat_500Medium' }}>День</Text>
+              <Icon name="today-outline" size={15} color={viewMode === 'day' ? '#ffffff' : placeholderColor} style={{ marginRight: 5 }} />
+              <Text style={{ color: viewMode === 'day' ? '#ffffff' : textColor, fontSize: 13, fontFamily: 'Montserrat_600SemiBold' }}>День</Text>
             </TouchableOpacity>
             <TouchableOpacity
               onPress={() => {
                 setViewMode('week');
-                // При переключении на недельный режим, сбрасываем скролл
                 setTimeout(() => {
                   scrollToCurrentDate();
                 }, 100);
               }}
               style={{
-                paddingVertical: 6,
-                paddingHorizontal: 12,
-                borderRadius: 6,
-                backgroundColor: viewMode === 'week' ? colors.primary : 'transparent'
+                flexDirection: 'row',
+                alignItems: 'center',
+                paddingVertical: 8,
+                paddingHorizontal: 14,
+                borderRadius: 12,
+                backgroundColor: viewMode === 'week' ? colors.primary : 'transparent',
+                shadowColor: viewMode === 'week' ? colors.primary : 'transparent',
+                shadowOffset: { width: 0, height: 2 },
+                shadowOpacity: viewMode === 'week' ? 0.3 : 0,
+                shadowRadius: 4,
+                elevation: viewMode === 'week' ? 3 : 0,
               }}
             >
-              <Text style={{ color: viewMode === 'week' ? '#ffffff' : textColor, fontFamily: 'Montserrat_500Medium' }}>Неделя</Text>
+              <Icon name="calendar-outline" size={15} color={viewMode === 'week' ? '#ffffff' : placeholderColor} style={{ marginRight: 5 }} />
+              <Text style={{ color: viewMode === 'week' ? '#ffffff' : textColor, fontSize: 13, fontFamily: 'Montserrat_600SemiBold' }}>Неделя</Text>
             </TouchableOpacity>
           </View>
 
@@ -1174,28 +1196,34 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
             style={{
               flexDirection: 'row',
               alignItems: 'center',
+              backgroundColor: glass.surfaceSecondary,
+              borderRadius: 14,
+              borderWidth: StyleSheet.hairlineWidth,
+              borderColor: glass.border,
+              paddingVertical: 4,
+              paddingHorizontal: 4,
               transform: [{ translateX: dateSlideAnim }],
               opacity: dateOpacityAnim,
             }}
           >
             <TouchableOpacity
               onPress={() => viewMode === 'day' ? changeDate(-1) : changeWeek(-1)}
-              style={{ padding: 8 }}
+              style={{ padding: 6, borderRadius: 10, backgroundColor: isAnimating ? 'transparent' : colors.glass }}
               disabled={isAnimating}
             >
-              <Icon name="chevron-back" size={24} color={isAnimating ? placeholderColor : colors.primary} />
+              <Icon name="chevron-back" size={18} color={isAnimating ? placeholderColor : colors.primary} />
             </TouchableOpacity>
             
-            <Text style={{ color: textColor, fontWeight: '500', marginHorizontal: 8, fontFamily: 'Montserrat_500Medium' }}>
-              {viewMode === 'day' ? formatDate(currentDate) : `Неделя ${currentWeek}`}
+            <Text style={{ color: textColor, fontSize: 13, marginHorizontal: 8, fontFamily: 'Montserrat_600SemiBold' }}>
+              {viewMode === 'day' ? formatDate(currentDate) : `Нед. ${currentWeek}`}
             </Text>
             
             <TouchableOpacity
               onPress={() => viewMode === 'day' ? changeDate(1) : changeWeek(1)}
-              style={{ padding: 8 }}
+              style={{ padding: 6, borderRadius: 10, backgroundColor: isAnimating ? 'transparent' : colors.glass }}
               disabled={isAnimating}
             >
-              <Icon name="chevron-forward" size={24} color={isAnimating ? placeholderColor : colors.primary} />
+              <Icon name="chevron-forward" size={18} color={isAnimating ? placeholderColor : colors.primary} />
             </TouchableOpacity>
           </Animated.View>
         </View>
