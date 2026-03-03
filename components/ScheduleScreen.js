@@ -1288,6 +1288,7 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
           <Text style={{ color: colors.primary, marginTop: 4, fontFamily: 'Montserrat_500Medium' }}>
             {teacherName || 'ФИО не указано'}
           </Text>
+          {renderExportButton()}
         </View>
       );
     }
@@ -1301,6 +1302,7 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
           <Text style={{ color: colors.primary, marginTop: 4, fontFamily: 'Montserrat_500Medium' }}>
             {auditoryName || 'Аудитория не указана'}
           </Text>
+          {renderExportButton()}
         </View>
       );
     }
@@ -1308,29 +1310,43 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
     return null;
   };
 
-  // Рендер управления с анимацией
-  const renderControls = () => {
-    // Кнопка экспорта в календарь
+  // Кнопка экспорта в календарь
+  const renderExportButton = () => {
     const hasScheduleData = isTeacherMode ? !!teacherSchedule : isAuditoryMode ? !!auditorySchedule : !!scheduleData;
-    const renderExportButton = () => (
+    return (
       <TouchableOpacity
         onPress={handleExportCalendar}
         disabled={exporting || !hasScheduleData}
         style={{
-          padding: 8,
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'center',
+          paddingVertical: 8,
+          paddingHorizontal: 14,
           borderRadius: 12,
           backgroundColor: exporting || !hasScheduleData ? glass.surfaceTertiary : colors.glass,
-          marginLeft: 8,
+          marginTop: 10,
         }}
       >
         {exporting ? (
-          <ActivityIndicator size={16} color={colors.primary} />
+          <ActivityIndicator size={14} color={colors.primary} />
         ) : (
-          <Icon name="share-outline" size={18} color={!hasScheduleData ? placeholderColor : colors.primary} />
+          <Icon name="share-outline" size={15} color={!hasScheduleData ? placeholderColor : colors.primary} />
         )}
+        <Text style={{
+          fontSize: 13,
+          color: !hasScheduleData ? placeholderColor : colors.primary,
+          fontFamily: 'Montserrat_500Medium',
+          marginLeft: 6,
+        }}>
+          Экспорт в календарь
+        </Text>
       </TouchableOpacity>
     );
+  };
 
+  // Рендер управления с анимацией
+  const renderControls = () => {
     if (isTeacherMode || isAuditoryMode) {
       return (
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
@@ -1382,8 +1398,6 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
               <Icon name="chevron-forward" size={18} color={isAnimating ? placeholderColor : colors.primary} />
             </TouchableOpacity>
           </Animated.View>
-          
-          {renderExportButton()}
         </View>
       );
     }
@@ -1479,8 +1493,6 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
               <Icon name="chevron-forward" size={18} color={isAnimating ? placeholderColor : colors.primary} />
             </TouchableOpacity>
           </Animated.View>
-          
-          {renderExportButton()}
         </View>
       );
     }
@@ -1548,6 +1560,7 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
                     Неделя: {scheduleData.week_number} ({scheduleData.dates.date_start} - {scheduleData.dates.date_end})
                   </Text>
                 )}
+                {renderExportButton()}
               </View>
 
               {scheduleData.days.map((day, index) => 
@@ -1565,6 +1578,7 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
                 <Text style={{ color: placeholderColor, marginTop: 4, fontFamily: 'Montserrat_400Regular' }}>
                   {availableCourses.find(c => c.id === course)?.label || `Курс ${course}`}
                 </Text>
+                {renderExportButton()}
               </View>
               {renderDailySchedule()}
             </View>

@@ -12,6 +12,7 @@ import NetInfo from '@react-native-community/netinfo';
 import ApiService from '../utils/api';
 import notificationService from '../utils/notificationService';
 import backgroundService from '../utils/backgroundService';
+import { exportScheduleToCalendar } from '../utils/calendarExport';
 
 const DeveloperMenuScreen = ({ theme, accentColor, onResetDeveloperMode }) => {
   const [customApiUrl, setCustomApiUrl] = useState('');
@@ -507,6 +508,91 @@ const DeveloperMenuScreen = ({ theme, accentColor, onResetDeveloperMode }) => {
             <Icon name="notifications-off-outline" size={20} color={colors.primary} />
             <Text style={[styles.actionButtonText, { color: textColor }]}>
               Отменить все запланированные уведомления
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Экспорт */}
+        <View style={styles.section}>
+          <Text style={[styles.sectionTitle, { color: textColor }]}>Экспорт</Text>
+
+          <TouchableOpacity
+            style={[styles.actionButton, { backgroundColor: inputBgColor, borderColor }]}
+            onPress={async () => {
+              try {
+                const format = await SecureStore.getItemAsync('schedule_format') || 'student';
+                const teacher = await SecureStore.getItemAsync('teacher_name') || '';
+                const auditory = await SecureStore.getItemAsync('auditory_name') || '';
+                const group = await SecureStore.getItemAsync('default_group') || '';
+
+                // Показываем информацию о текущем формате
+                Alert.alert(
+                  'Тест экспорта',
+                  `Формат: ${format}\n` +
+                  (format === 'teacher' ? `Преподаватель: ${teacher || '(не указан)'}` :
+                   format === 'auditory' ? `Аудитория: ${auditory || '(не указана)'}` :
+                   `Группа: ${group || '(не выбрана)'}`) +
+                  '\n\nЭкспорт создаст тестовый .ics файл с фиктивными данными.',
+                  [
+                    { text: 'Отмена', style: 'cancel' },
+                    { text: 'Экспорт', onPress: async () => {
+                      try {
+                        // Создаём тестовые данные расписания
+                        const testDays = [
+                          {
+                            weekday: 1,
+                            lessons: [
+                              { subject: 'Тестовый предмет 1', time: 1, type_lesson: 'Лекция', teacher: 'Иванов И.И.', auditory: '101', group: ['ТСТ-01'] },
+                              { subject: 'Тестовый предмет 2', time: 2, type_lesson: 'Практика', teacher: 'Петров П.П.', auditory: '202', group: ['ТСТ-01'] },
+                            ]
+                          },
+                          {
+                            weekday: 3,
+                            lessons: [
+                              { subject: 'Тестовый предмет 3', time: 1, type_lesson: 'Лабораторная', teacher: 'Сидоров С.С.', auditory: '305', group: ['ТСТ-01', 'ТСТ-02'] },
+                            ]
+                          }
+                        ];
+
+                        const testPairsTime = [
+                          { time: 1, time_start: '08:30', time_end: '10:00' },
+                          { time: 2, time_start: '10:10', time_end: '11:40' },
+                          { time: 3, time_start: '12:10', time_end: '13:40' },
+                        ];
+
+                        const { getWeekNumber } = require('../utils/dateUtils');
+                        const week = getWeekNumber(new Date());
+
+                        await exportScheduleToCalendar({
+                          mode: format === 'teacher' ? 'teacher' : format === 'auditory' ? 'auditory' : 'student',
+                          viewMode: 'week',
+                          scheduleData: format === 'student' ? { days: testDays } : null,
+                          teacherSchedule: format === 'teacher' ? { days: testDays, pairs_time: testPairsTime } : null,
+                          auditorySchedule: format === 'auditory' ? { days: testDays, pairs_time: testPairsTime } : null,
+                          pairsTime: testPairsTime,
+                          currentWeek: week,
+                          currentDate: new Date(),
+                          title: format === 'teacher' ? (teacher || 'Тест') : format === 'auditory' ? (auditory || 'Тест') : (group || 'Тест'),
+                        });
+                        Alert.alert('Готово', 'Тестовый .ics файл экспортирован');
+                      } catch (e) {
+                        if (e.message === 'NO_EVENTS') {
+                          Alert.alert('Ошибка', 'Нет событий для экспорта');
+                        } else {
+                          Alert.alert('Ошибка экспорта', e.message);
+                        }
+                      }
+                    }}
+                  ]
+                );
+              } catch (e) {
+                Alert.alert('Ошибка', e.message);
+              }
+            }}
+          >
+            <Icon name="calendar-outline" size={20} color={colors.primary} />
+            <Text style={[styles.actionButtonText, { color: textColor }]}>
+              Тест экспорта в календарь (.ics)
             </Text>
           </TouchableOpacity>
         </View>
