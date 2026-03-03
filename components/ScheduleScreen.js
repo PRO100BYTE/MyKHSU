@@ -29,6 +29,9 @@ import Snowfall from './Snowfall';
 import { exportScheduleToCalendar } from '../utils/calendarExport';
 import LessonNoteModal from './LessonNoteModal';
 import { loadAllNotes, getLessonNoteKey, findHomeworkBySubject, markHomeworkDelivered } from '../utils/notesStorage';
+import ViewShot from 'react-native-view-shot';
+import * as Sharing from 'expo-sharing';
+import * as FileSystem from 'expo-file-system';
 
 const { width, height } = Dimensions.get('window');
 
@@ -52,6 +55,9 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
   const [noteModalVisible, setNoteModalVisible] = useState(false);
   const [noteModalLesson, setNoteModalLesson] = useState(null);
   const [noteModalWeekday, setNoteModalWeekday] = useState(null);
+  
+  // Скриншот расписания
+  const viewShotRef = useRef(null);
   
   // Анимация появления
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -121,9 +127,9 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
   useEffect(() => {
     if (onExportReady) {
       const hasData = isTeacherMode ? !!teacherSchedule : isAuditoryMode ? !!auditorySchedule : !!scheduleData;
-      onExportReady(hasData ? handleExportCalendar : null, exporting);
+      onExportReady(hasData ? handleExportAction : null, exporting);
     }
-  }, [handleExportCalendar, isTeacherMode, isAuditoryMode, teacherSchedule, auditorySchedule, scheduleData, exporting]);
+  }, [handleExportAction, isTeacherMode, isAuditoryMode, teacherSchedule, auditorySchedule, scheduleData, exporting]);
 
   // Синхронизация статуса кэша с хедером приложения
   useEffect(() => {
@@ -1085,6 +1091,45 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
     }
   };
 
+  const handleShareSchedule = useCallback(async () => {
+    if (exporting || !viewShotRef.current) return;
+    setExporting(true);
+    try {
+      const uri = await viewShotRef.current.capture();
+      const isAvailable = await Sharing.isAvailableAsync();
+      if (!isAvailable) {
+        Alert.alert('Ошибка', 'Функция "Поделиться" недоступна на этом устройстве');
+        return;
+      }
+      
+      const fileName = `schedule_${Date.now()}.png`;
+      const newUri = FileSystem.cacheDirectory + fileName;
+      await FileSystem.moveAsync({ from: uri, to: newUri });
+      
+      await Sharing.shareAsync(newUri, {
+        mimeType: 'image/png',
+        dialogTitle: 'Поделиться расписанием',
+      });
+    } catch (err) {
+      console.error('Share schedule error:', err);
+      Alert.alert('Ошибка', 'Не удалось создать скриншот расписания');
+    } finally {
+      setExporting(false);
+    }
+  }, [exporting]);
+
+  const handleExportAction = useCallback(() => {
+    Alert.alert(
+      'Поделиться расписанием',
+      'Выберите формат',
+      [
+        { text: 'Отмена', style: 'cancel' },
+        { text: '📅 Календарь (.ics)', onPress: handleExportCalendar },
+        { text: '📸 Скриншот', onPress: handleShareSchedule },
+      ]
+    );
+  }, [handleExportCalendar, handleShareSchedule]);
+
   const getTimeForLesson = (timeNumber) => {
     if (!pairsTime || !Array.isArray(pairsTime)) return null;
     return pairsTime.find(pair => pair && pair.time === timeNumber);
@@ -2020,14 +2065,18 @@ return (
         )}
 
         {/* Содержимое расписания с анимацией */}
-        <Animated.View
-          style={{
-            transform: [{ translateX: scheduleSlideAnim }],
-            opacity: scheduleOpacityAnim,
-          }}
-        >
-          {renderContent()}
-        </Animated.View>
+        <ViewShot ref={viewShotRef} options={{ format: 'png', quality: 1, result: 'tmpfile' }}>
+          <View style={{ backgroundColor: bgColor }}>
+            <Animated.View
+              style={{
+                transform: [{ translateX: scheduleSlideAnim }],
+                opacity: scheduleOpacityAnim,
+              }}
+            >
+              {renderContent()}
+            </Animated.View>
+          </View>
+        </ViewShot>
       </ScrollView>
     </Animated.View>
   </View>

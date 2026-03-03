@@ -1,17 +1,21 @@
 import React, { useState, useRef, useEffect, useImperativeHandle, forwardRef } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, Linking, StyleSheet, Platform, Animated, StatusBar, Alert } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, Linking, StyleSheet, Platform, Animated, StatusBar, Alert, ActivityIndicator } from 'react-native';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import { ACCENT_COLORS, LIQUID_GLASS } from '../utils/constants';
 import UnderDevelopmentModal from './UnderDevelopmentModal';
 import BuildingsListScreen from './BuildingsListScreen';
 import Snowfall from './Snowfall';
 import { unlockAchievement } from '../utils/achievements';
+import { showAchievementToast } from './AchievementToast';
+import ApiService from '../utils/api';
 
 const FreshmanScreen = forwardRef(({ theme, accentColor, isNewYearMode, onNavigationChange }, ref) => {
   const [modalVisible, setModalVisible] = useState(false);
   const [currentGroupType, setCurrentGroupType] = useState(null);
   const [showBuildingsList, setShowBuildingsList] = useState(false);
   const [secretTapCount, setSecretTapCount] = useState(0);
+  const [bellScheduleData, setBellScheduleData] = useState(null);
+  const [bellScheduleLoading, setBellScheduleLoading] = useState(false);
   
   const fadeAnim = useRef(new Animated.Value(1)).current;
 
@@ -27,9 +31,7 @@ const FreshmanScreen = forwardRef(({ theme, accentColor, isNewYearMode, onNaviga
     goBack: () => {
       if (showBuildingsList) {
         setShowBuildingsList(false);
-      } else if (currentGroupType === 'vk' || currentGroupType === 'telegram') {
-        setCurrentGroupType('main');
-      } else if (currentGroupType === 'main' || currentGroupType === 'bells' || currentGroupType === 'glossary') {
+      } else if (currentGroupType) {
         setCurrentGroupType(null);
       }
     },
@@ -40,10 +42,6 @@ const FreshmanScreen = forwardRef(({ theme, accentColor, isNewYearMode, onNaviga
     let title = null;
     if (showBuildingsList) {
       title = 'Корпуса ХГУ';
-    } else if (currentGroupType === 'vk') {
-      title = 'Группы ВКонтакте';
-    } else if (currentGroupType === 'telegram') {
-      title = 'Группы Telegram';
     } else if (currentGroupType === 'main') {
       title = 'Полезные группы';
     } else if (currentGroupType === 'bells') {
@@ -53,6 +51,46 @@ const FreshmanScreen = forwardRef(({ theme, accentColor, isNewYearMode, onNaviga
     }
     if (onNavigationChange) onNavigationChange(title);
   }, [showBuildingsList, currentGroupType]);
+
+  // Загрузка расписания звонков с сервера
+  useEffect(() => {
+    if (currentGroupType === 'bells' && !bellScheduleData) {
+      fetchBellSchedule();
+    }
+  }, [currentGroupType]);
+
+  const fetchBellSchedule = async () => {
+    setBellScheduleLoading(true);
+    try {
+      const result = await ApiService.getPairsTime();
+      const pairsTime = result?.data?.pairs_time || [];
+      if (pairsTime.length > 0) {
+        const schedule = pairsTime
+          .filter(p => p && p.time)
+          .sort((a, b) => a.time - b.time)
+          .map((p, i, arr) => {
+            let breakAfter = null;
+            if (i < arr.length - 1) {
+              const [eh, em] = p.time_end.split(':').map(Number);
+              const [nh, nm] = arr[i + 1].time_start.split(':').map(Number);
+              const diff = (nh * 60 + nm) - (eh * 60 + em);
+              if (diff > 0) breakAfter = `${diff} мин`;
+            }
+            return {
+              pair: p.time,
+              start: p.time_start,
+              end: p.time_end,
+              breakAfter,
+            };
+          });
+        setBellScheduleData(schedule);
+      }
+    } catch (error) {
+      console.error('Error fetching bell schedule:', error);
+    } finally {
+      setBellScheduleLoading(false);
+    }
+  };
 
   // Простая анимация fade при смене экрана
   useEffect(() => {
@@ -88,57 +126,75 @@ const FreshmanScreen = forwardRef(({ theme, accentColor, isNewYearMode, onNaviga
   const vkGroups = [
     {
       id: 1,
-      name: 'Хакасский государственный университет им. Н.Ф.Катанова',
+      name: 'ХГУ им. Н.Ф. Катанова',
+      description: 'Официальная группа университета',
       url: 'https://vk.com/khsu_ru',
-      icon: 'school-outline'
+      icon: 'school-outline',
+      brandColor: '#0077FF',
     },
     {
       id: 2,
-      name: 'Инженерно-технологический институт ХГУ',
+      name: 'Инженерно-технологический институт',
+      description: 'Новости и события ИТИ',
       url: 'https://vk.com/khsu_iit',
-      icon: 'business-outline'
+      icon: 'business-outline',
+      brandColor: '#0077FF',
     },
     {
       id: 3,
-      name: 'Кафедра ПОВТиАС ИТИ ХГУ',
+      name: 'Кафедра ПОВТиАС',
+      description: 'Программное обеспечение и автоматизация',
       url: 'https://vk.com/kafedrapovtias',
-      icon: 'code-slash-outline'
+      icon: 'code-slash-outline',
+      brandColor: '#0077FF',
     },
     {
       id: 4,
-      name: 'Кафедра ЦТиД ИТИ ХГУ',
+      name: 'Кафедра ЦТиД',
+      description: 'Цифровые технологии и дизайн',
       url: 'https://vk.com/public212642505',
-      icon: 'color-palette-outline'
+      icon: 'color-palette-outline',
+      brandColor: '#0077FF',
     },
     {
       id: 5,
       name: 'Медиацентр "404"',
+      description: 'Медиа-контент ИТИ',
       url: 'https://vk.com/iti_404',
-      icon: 'camera-outline'
+      icon: 'camera-outline',
+      brandColor: '#0077FF',
     },
     {
       id: 6,
       name: 'Совет обучающихся ХГУ',
+      description: 'Студенческое самоуправление',
       url: 'https://vk.com/so_khsu',
-      icon: 'people-outline'
+      icon: 'people-outline',
+      brandColor: '#0077FF',
     },
     {
       id: 7,
-      name: 'Профсоюзная организация обучающихся ХГУ',
+      name: 'Профсоюз обучающихся ХГУ',
+      description: 'Защита прав студентов',
       url: 'https://vk.com/pos_khsu',
-      icon: 'shield-checkmark-outline'
+      icon: 'shield-checkmark-outline',
+      brandColor: '#0077FF',
     },
     {
       id: 8,
       name: 'Профбюро ИТИ',
+      description: 'Профсоюзное бюро института',
       url: 'https://vk.com/prof_iti_khsu',
-      icon: 'briefcase-outline'
+      icon: 'briefcase-outline',
+      brandColor: '#0077FF',
     },
     {
       id: 9,
       name: 'ХГУ Спорт ИТИ',
+      description: 'Спортивная жизнь института',
       url: 'https://vk.com/club178703236',
-      icon: 'barbell-outline'
+      icon: 'barbell-outline',
+      brandColor: '#0077FF',
     }
   ];
 
@@ -212,24 +268,29 @@ const FreshmanScreen = forwardRef(({ theme, accentColor, isNewYearMode, onNaviga
     >
       <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', padding: 12 }}>
         <View style={{ 
-          width: 36, 
-          height: 36, 
-          borderRadius: 10, 
-          backgroundColor: colors.glass, 
+          width: 40, 
+          height: 40, 
+          borderRadius: 12, 
+          backgroundColor: group.brandColor ? group.brandColor + '14' : colors.glass, 
           justifyContent: 'center', 
           alignItems: 'center',
           marginRight: 12,
           borderWidth: StyleSheet.hairlineWidth, 
-          borderColor: colors.glassBorder,
+          borderColor: group.brandColor ? group.brandColor + '30' : colors.glassBorder,
         }}>
-          <Icon name={group.icon} size={18} color={colors.primary} />
+          <Icon name={group.icon} size={20} color={group.brandColor || colors.primary} />
         </View>
         <View style={{ flex: 1 }}>
           <Text style={{ color: textColor, fontSize: 14, fontFamily: 'Montserrat_500Medium', lineHeight: 19 }}>
             {group.name}
           </Text>
+          {group.description && (
+            <Text style={{ color: placeholderColor, fontSize: 12, fontFamily: 'Montserrat_400Regular', marginTop: 2, lineHeight: 16 }}>
+              {group.description}
+            </Text>
+          )}
         </View>
-        <Icon name="open-outline" size={18} color={placeholderColor} />
+        <Icon name="open-outline" size={16} color={placeholderColor} style={{ marginLeft: 8 }} />
       </View>
     </TouchableOpacity>
   );
@@ -304,9 +365,10 @@ const FreshmanScreen = forwardRef(({ theme, accentColor, isNewYearMode, onNaviga
             setSecretTapCount(0);
             unlockAchievement('konami_code').then(result => {
               if (result) {
+                showAchievementToast(result);
                 Alert.alert(
                   '👁️ За гранью кода',
-                  'Ты нашёл то, что не должен был найти. Или наоборот?\n\nНовое достижение разблокировано!',
+                  'Ты нашёл то, что не должен был найти. Или наоборот?',
                 );
               }
             });
@@ -324,7 +386,7 @@ const FreshmanScreen = forwardRef(({ theme, accentColor, isNewYearMode, onNaviga
   // Экран групп ВКонтакте
   const renderVKGroups = () => (
     <View style={{ flex: 1, padding: 16 }}>
-      <ScrollView>
+      <ScrollView showsVerticalScrollIndicator={false}>
         {vkGroups.map((group, index) => 
           renderGroupCard(group, index === vkGroups.length - 1)
         )}
@@ -382,33 +444,89 @@ const FreshmanScreen = forwardRef(({ theme, accentColor, isNewYearMode, onNaviga
     </View>
   );
 
-  // Экран выбора типа групп
+  // Единый экран сообществ с секциями
   const renderGroupTypeSelection = () => (
-    <View style={{ flex: 1, padding: 16 }}>
-      <Text style={{ 
-        color: placeholderColor, 
-        fontSize: 14, 
-        marginBottom: 24,
-        fontFamily: 'Montserrat_400Regular'
+    <ScrollView style={{ flex: 1, padding: 16 }} contentContainerStyle={{ paddingBottom: 100 }} showsVerticalScrollIndicator={false}>
+      {/* Секция ВКонтакте */}
+      <View style={{
+        backgroundColor: colors.glass,
+        borderRadius: 16,
+        padding: 14,
+        marginBottom: 16,
+        flexDirection: 'row',
+        alignItems: 'center',
+        borderWidth: StyleSheet.hairlineWidth,
+        borderColor: colors.glassBorder,
       }}>
-        Выберите платформу для просмотра групп и сообществ
-      </Text>
+        <View style={{
+          width: 40, height: 40, borderRadius: 12,
+          backgroundColor: '#0077FF18',
+          justifyContent: 'center', alignItems: 'center', marginRight: 12,
+        }}>
+          <Icon name="logo-vk" size={22} color="#0077FF" />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={{ color: textColor, fontSize: 15, fontFamily: 'Montserrat_600SemiBold' }}>
+            ВКонтакте
+          </Text>
+          <Text style={{ color: placeholderColor, fontSize: 12, fontFamily: 'Montserrat_400Regular', marginTop: 2 }}>
+            Официальные группы и сообщества
+          </Text>
+        </View>
+      </View>
 
-      {renderSectionCard(
-        'logo-vk',
-        'Группы ВКонтакте',
-        'Официальные группы и сообщества ВКонтакте',
-        () => setCurrentGroupType('vk')
+      {vkGroups.map((group, index) => 
+        renderGroupCard(group, index === vkGroups.length - 1)
       )}
-      
-      {renderSectionCard(
-        'paper-plane-outline',
-        'Группы Telegram',
-        'Каналы и чаты в Telegram',
-        () => setCurrentGroupType('telegram'),
-        true
-      )}
-    </View>
+
+      {/* Секция Telegram */}
+      <View style={{
+        backgroundColor: colors.glass,
+        borderRadius: 16,
+        padding: 14,
+        marginTop: 24,
+        marginBottom: 16,
+        flexDirection: 'row',
+        alignItems: 'center',
+        borderWidth: StyleSheet.hairlineWidth,
+        borderColor: colors.glassBorder,
+      }}>
+        <View style={{
+          width: 40, height: 40, borderRadius: 12,
+          backgroundColor: '#0088cc18',
+          justifyContent: 'center', alignItems: 'center', marginRight: 12,
+        }}>
+          <Icon name="paper-plane-outline" size={22} color="#0088cc" />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={{ color: textColor, fontSize: 15, fontFamily: 'Montserrat_600SemiBold' }}>
+            Telegram
+          </Text>
+          <Text style={{ color: placeholderColor, fontSize: 12, fontFamily: 'Montserrat_400Regular', marginTop: 2 }}>
+            Каналы и чаты
+          </Text>
+        </View>
+      </View>
+
+      <View style={{ 
+        backgroundColor: glass.surfaceSecondary, 
+        borderRadius: 14, 
+        padding: 20, 
+        alignItems: 'center',
+        borderWidth: StyleSheet.hairlineWidth,
+        borderColor: glass.border,
+      }}>
+        <Text style={{ 
+          color: placeholderColor, 
+          fontSize: 14, 
+          fontFamily: 'Montserrat_400Regular',
+          textAlign: 'center',
+          lineHeight: 20,
+        }}>
+          Telegram-каналы и чаты будут добавлены в ближайшее время
+        </Text>
+      </View>
+    </ScrollView>
   );
 
   // Рендер списка корпусов
@@ -421,18 +539,37 @@ const FreshmanScreen = forwardRef(({ theme, accentColor, isNewYearMode, onNaviga
     </View>
   );
 
-  // Расписание звонков
-  const bellSchedule = [
-    { pair: 1, start: '08:00', end: '09:30', breakAfter: '10 мин' },
-    { pair: 2, start: '09:40', end: '11:10', breakAfter: '20 мин' },
-    { pair: 3, start: '11:30', end: '13:00', breakAfter: '30 мин' },
-    { pair: 4, start: '13:30', end: '15:00', breakAfter: '10 мин' },
-    { pair: 5, start: '15:10', end: '16:40', breakAfter: '10 мин' },
-    { pair: 6, start: '16:50', end: '18:20', breakAfter: '10 мин' },
-    { pair: 7, start: '18:30', end: '20:00', breakAfter: null },
-  ];
-
+  // Расписание звонков (загружается с сервера)
+  const bellSchedule = bellScheduleData || [];
   const renderBellSchedule = () => {
+    if (bellScheduleLoading) {
+      return (
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', paddingTop: 60 }}>
+          <ActivityIndicator size="large" color={colors.primary} />
+          <Text style={{ color: placeholderColor, marginTop: 12, fontFamily: 'Montserrat_400Regular', fontSize: 14 }}>
+            Загрузка расписания...
+          </Text>
+        </View>
+      );
+    }
+
+    if (bellSchedule.length === 0) {
+      return (
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', paddingTop: 60 }}>
+          <Icon name="time-outline" size={40} color={placeholderColor} />
+          <Text style={{ color: placeholderColor, marginTop: 12, fontFamily: 'Montserrat_400Regular', fontSize: 14 }}>
+            Не удалось загрузить расписание
+          </Text>
+          <TouchableOpacity
+            onPress={fetchBellSchedule}
+            style={{ marginTop: 16, paddingHorizontal: 20, paddingVertical: 10, borderRadius: 12, backgroundColor: colors.glass }}
+          >
+            <Text style={{ color: colors.primary, fontFamily: 'Montserrat_500Medium', fontSize: 14 }}>Повторить</Text>
+          </TouchableOpacity>
+        </View>
+      );
+    }
+
     const now = new Date();
     const currentMinutes = now.getHours() * 60 + now.getMinutes();
 
@@ -552,7 +689,6 @@ const FreshmanScreen = forwardRef(({ theme, accentColor, isNewYearMode, onNaviga
     { abbr: 'ДО', full: 'Дистанционное обучение' },
     { abbr: 'ЭОС', full: 'Электронная образовательная среда' },
     { abbr: 'БРС', full: 'Балльно-рейтинговая система оценки знаний' },
-    { abbr: 'ECTS', full: 'European Credit Transfer System — Европейская система перевода кредитов' },
     { abbr: 'ПОВТиАС', full: 'Кафедра программного обеспечения вычислительной техники и автоматизированных систем' },
     { abbr: 'ЦТиД', full: 'Кафедра цифровых технологий и дизайна' },
   ];
@@ -641,10 +777,6 @@ const FreshmanScreen = forwardRef(({ theme, accentColor, isNewYearMode, onNaviga
       return renderMainSections();
     } else if (currentGroupType === 'main') {
       return renderGroupTypeSelection();
-    } else if (currentGroupType === 'vk') {
-      return renderVKGroups();
-    } else if (currentGroupType === 'telegram') {
-      return renderTelegramGroups();
     } else if (currentGroupType === 'bells') {
       return renderBellSchedule();
     } else if (currentGroupType === 'glossary') {

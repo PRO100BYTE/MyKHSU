@@ -16,6 +16,7 @@ import SettingsScreen from './components/SettingsScreen';
 import MapScreen from './components/MapScreen';
 import FreshmanScreen from './components/FreshmanScreen';
 import MatrixRain from './components/MatrixRain';
+import AchievementToast from './components/AchievementToast';
 
 // Импорт утилит
 import { ACCENT_COLORS, SCREENS, LIQUID_GLASS, isNewYearPeriod, getNewYearText, getHolidayInfo } from './utils/constants';
@@ -971,6 +972,9 @@ const handleNewYearModeChange = async (enabled) => {
       
       {/* Навигация — Liquid Glass tab bar */}
       {renderTabBar()}
+
+      {/* Тост уведомление о полученных достижениях */}
+      <AchievementToast theme={effectiveTheme} accentColor={accentColor} />
     </View>
   );
 });

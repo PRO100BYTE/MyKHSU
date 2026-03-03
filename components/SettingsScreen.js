@@ -21,7 +21,8 @@ import ScheduleFormatModal from './ScheduleFormatModal';
 import DeveloperMenuScreen from './DeveloperMenuScreen';
 import AchievementsScreen from './AchievementsScreen';
 import { ACCENT_COLORS, APP_VERSION, APP_DEVELOPERS, APP_SUPPORTERS, GITHUB_REPO_URL, BUILD_VER, BUILD_DATE, LIQUID_GLASS } from '../utils/constants';
-import { getAchievementsCount } from '../utils/achievements';
+import { getAchievementsCount, unlockAchievement } from '../utils/achievements';
+import { showAchievementToast } from './AchievementToast';
 import { getGlassSettingsCardStyle, getGlassIconBadgeStyle } from '../utils/liquidGlass';
 import Snowfall from './Snowfall';
 import { clearAllNotes, getNotesCount } from '../utils/notesStorage';
@@ -307,6 +308,12 @@ const SettingsScreen = forwardRef(({
     if (newCount >= 7 && !developerMode) {
       setDeveloperMode(true);
       SecureStore.setItemAsync('developer_mode', 'true');
+      
+      // Ачивка за режим разработчика
+      unlockAchievement('developer_mode').then(result => {
+        if (result) showAchievementToast(result);
+      });
+      
       Alert.alert(
         '🛠 Режим разработчика',
         'Вы активировали скрытый режим разработчика! В настройках внешнего вида появился секретный акцентный цвет, а в настройках — новый раздел.',

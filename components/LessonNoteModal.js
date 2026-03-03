@@ -16,6 +16,8 @@ import {
 import { Ionicons as Icon } from '@expo/vector-icons';
 import { LIQUID_GLASS, ACCENT_COLORS } from '../utils/constants';
 import { saveNote, loadNote, deleteNote } from '../utils/notesStorage';
+import { unlockAchievement, incrementCounter } from '../utils/achievements';
+import { showAchievementToast } from './AchievementToast';
 
 const TABBAR_HEIGHT = 90;
 const SCREEN_HEIGHT = Dimensions.get('window').height;
@@ -106,6 +108,19 @@ const LessonNoteModal = ({ visible, onClose, lesson, weekday, theme, accentColor
         homework: homework.trim(),
       });
       setHasChanges(false);
+      
+      // Ачивки
+      const firstNote = await unlockAchievement('first_note');
+      if (firstNote) showAchievementToast(firstNote);
+      
+      if (homework.trim()) {
+        const count = await incrementCounter('homework_count');
+        if (count >= 10) {
+          const hwMaster = await unlockAchievement('homework_master');
+          if (hwMaster) showAchievementToast(hwMaster);
+        }
+      }
+      
       onClose(true); // true = saved
     } catch (e) {
       console.error('Error saving note:', e);

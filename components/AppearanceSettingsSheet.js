@@ -4,6 +4,8 @@ import { Ionicons as Icon } from '@expo/vector-icons';
 import { useColorScheme } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
 import { ACCENT_COLORS, isNewYearPeriod, LIQUID_GLASS } from '../utils/constants';
+import { unlockAchievement } from '../utils/achievements';
+import { showAchievementToast } from './AchievementToast';
 
 const AppearanceSettingsSheet = ({ 
   theme, 
@@ -65,6 +67,11 @@ const AppearanceSettingsSheet = ({
     setSelectedTheme(newTheme);
     setTheme(newTheme);
     await SecureStore.setItemAsync('theme', newTheme);
+    
+    // Ачивка за смену темы
+    const ach = await unlockAchievement('theme_changer');
+    if (ach) showAchievementToast(ach);
+    
     // При выборе темы «Матрица» автоматически ставим акцентный цвет matrix
     if (newTheme === 'matrix') {
       setAccentColor('matrix');
