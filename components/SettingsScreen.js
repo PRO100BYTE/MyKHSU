@@ -404,13 +404,13 @@ const SettingsScreen = ({ theme, accentColor, setTheme, setAccentColor, onSchedu
           onPress={() => setScheduleFormatModalVisible(true)}
         >
           <View style={glassIconBadge}>
-            <Icon name="calendar-outline" size={24} color={colors.primary} />
+            <Icon name="calendar-outline" size={22} color={colors.primary} />
           </View>
           <View style={{ flex: 1 }}>
-            <Text style={{ color: textColor, fontSize: 16, fontFamily: 'Montserrat_500Medium' }}>
+            <Text style={{ color: textColor, fontSize: 15, fontFamily: 'Montserrat_500Medium' }}>
               Формат расписания
             </Text>
-            <Text style={{ color: placeholderColor, fontSize: 14, marginTop: 4, fontFamily: 'Montserrat_400Regular' }}>
+            <Text style={{ color: placeholderColor, fontSize: 13, marginTop: 3, fontFamily: 'Montserrat_400Regular', lineHeight: 18 }}>
               Настройте отображение расписания для студентов или преподавателей
             </Text>
           </View>
@@ -423,11 +423,11 @@ const SettingsScreen = ({ theme, accentColor, setTheme, setAccentColor, onSchedu
           onPress={() => setNotificationModalVisible(true)}
         >
           <View style={glassIconBadge}>
-            <Icon name="notifications-outline" size={24} color={colors.primary} />
+            <Icon name="notifications-outline" size={22} color={colors.primary} />
           </View>
           <View style={{ flex: 1 }}>
-            <Text style={{ color: textColor, fontSize: 16, fontFamily: 'Montserrat_500Medium' }}>Уведомления</Text>
-            <Text style={{ color: placeholderColor, fontSize: 14, marginTop: 4, fontFamily: 'Montserrat_400Regular' }}>
+            <Text style={{ color: textColor, fontSize: 15, fontFamily: 'Montserrat_500Medium' }}>Уведомления</Text>
+            <Text style={{ color: placeholderColor, fontSize: 13, marginTop: 3, fontFamily: 'Montserrat_400Regular', lineHeight: 18 }}>
               Настройте уведомления о новостях и расписании
             </Text>
           </View>
@@ -440,11 +440,11 @@ const SettingsScreen = ({ theme, accentColor, setTheme, setAccentColor, onSchedu
           onPress={() => setAppearanceSheetVisible(true)}
         >
           <View style={glassIconBadge}>
-            <Icon name="color-palette-outline" size={24} color={colors.primary} />
+            <Icon name="color-palette-outline" size={22} color={colors.primary} />
           </View>
           <View style={{ flex: 1 }}>
-            <Text style={{ color: textColor, fontSize: 16, fontFamily: 'Montserrat_500Medium' }}>Внешний вид</Text>
-            <Text style={{ color: placeholderColor, fontSize: 14, marginTop: 4, fontFamily: 'Montserrat_400Regular' }}>
+            <Text style={{ color: textColor, fontSize: 15, fontFamily: 'Montserrat_500Medium' }}>Внешний вид</Text>
+            <Text style={{ color: placeholderColor, fontSize: 13, marginTop: 3, fontFamily: 'Montserrat_400Regular', lineHeight: 18 }}>
               Настройте тему и цветовую схему приложения
             </Text>
           </View>
@@ -457,11 +457,11 @@ const SettingsScreen = ({ theme, accentColor, setTheme, setAccentColor, onSchedu
           onPress={() => setAboutModalVisible(true)}
         >
           <View style={glassIconBadge}>
-            <Icon name="information-circle-outline" size={24} color={colors.primary} />
+            <Icon name="information-circle-outline" size={22} color={colors.primary} />
           </View>
           <View style={{ flex: 1 }}>
-            <Text style={{ color: textColor, fontSize: 16, fontFamily: 'Montserrat_500Medium' }}>О приложении</Text>
-            <Text style={{ color: placeholderColor, fontSize: 14, marginTop: 4, fontFamily: 'Montserrat_400Regular' }}>
+            <Text style={{ color: textColor, fontSize: 15, fontFamily: 'Montserrat_500Medium' }}>О приложении</Text>
+            <Text style={{ color: placeholderColor, fontSize: 13, marginTop: 3, fontFamily: 'Montserrat_400Regular', lineHeight: 18 }}>
               Информация о приложении и его возможностях
             </Text>
           </View>
@@ -474,11 +474,11 @@ const SettingsScreen = ({ theme, accentColor, setTheme, setAccentColor, onSchedu
           onPress={openGitHub}
         >
           <View style={glassIconBadge}>
-            <Icon name="logo-github" size={24} color={colors.primary} />
+            <Icon name="logo-github" size={22} color={colors.primary} />
           </View>
           <View style={{ flex: 1 }}>
-            <Text style={{ color: textColor, fontSize: 16, fontFamily: 'Montserrat_500Medium' }}>GitHub репозиторий</Text>
-            <Text style={{ color: placeholderColor, fontSize: 14, marginTop: 4, fontFamily: 'Montserrat_400Regular' }}>
+            <Text style={{ color: textColor, fontSize: 15, fontFamily: 'Montserrat_500Medium' }}>GitHub репозиторий</Text>
+            <Text style={{ color: placeholderColor, fontSize: 13, marginTop: 3, fontFamily: 'Montserrat_400Regular', lineHeight: 18 }}>
               Исходный код проекта на GitHub
             </Text>
           </View>
@@ -491,11 +491,11 @@ const SettingsScreen = ({ theme, accentColor, setTheme, setAccentColor, onSchedu
           onPress={clearAppCache}
         >
           <View style={glassIconBadge}>
-            <Icon name="trash-outline" size={24} color={colors.primary} />
+            <Icon name="trash-outline" size={22} color={colors.primary} />
           </View>
           <View style={{ flex: 1 }}>
-            <Text style={{ color: textColor, fontSize: 16, fontFamily: 'Montserrat_500Medium' }}>Очистка кэша приложения</Text>
-            <Text style={{ color: placeholderColor, fontSize: 14, marginTop: 4, fontFamily: 'Montserrat_400Regular' }}>
+            <Text style={{ color: textColor, fontSize: 15, fontFamily: 'Montserrat_500Medium' }}>Очистка кэша приложения</Text>
+            <Text style={{ color: placeholderColor, fontSize: 13, marginTop: 3, fontFamily: 'Montserrat_400Regular', lineHeight: 18 }}>
               Удалить все сохраненные данные приложения
             </Text>
           </View>
@@ -508,11 +508,11 @@ const SettingsScreen = ({ theme, accentColor, setTheme, setAccentColor, onSchedu
           onPress={clearMapCacheHandler}
         >
           <View style={glassIconBadge}>
-            <Icon name="map-outline" size={24} color={colors.primary} />
+            <Icon name="map-outline" size={22} color={colors.primary} />
           </View>
           <View style={{ flex: 1 }}>
-            <Text style={{ color: textColor, fontSize: 16, fontFamily: 'Montserrat_500Medium' }}>Очистка кэша карты</Text>
-            <Text style={{ color: placeholderColor, fontSize: 14, marginTop: 4, fontFamily: 'Montserrat_400Regular' }}>
+            <Text style={{ color: textColor, fontSize: 15, fontFamily: 'Montserrat_500Medium' }}>Очистка кэша карты</Text>
+            <Text style={{ color: placeholderColor, fontSize: 13, marginTop: 3, fontFamily: 'Montserrat_400Regular', lineHeight: 18 }}>
               Удалить сохраненные картографические данные
             </Text>
           </View>

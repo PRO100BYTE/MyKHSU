@@ -20,8 +20,7 @@ import { useScheduleLogic } from '../hooks/useScheduleLogic';
 import { 
   isCurrentLesson, 
   getLessonDateForWeek, 
-  isCurrentDay,
-  getCurrentLessonStyle 
+  isCurrentDay 
 } from '../utils/scheduleUtils';
 import * as SecureStore from 'expo-secure-store';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -283,29 +282,225 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
     });
   };
 
-  // Функция для получения иконки типа занятия
+  // Функция для получения иконки и лейбла типа занятия
   const getLessonTypeIcon = (type) => {
     const typeLower = (type || '').toLowerCase().trim();
     
     if (typeLower.includes('лек') || typeLower === 'л.' || typeLower === 'лекция') {
-      return { icon: 'school-outline', color: colors.primary };
+      return { icon: 'school-outline', color: '#3B82F6', label: 'Лекция', bg: 'rgba(59, 130, 246, 0.12)' };
     } else if (typeLower.includes('лаб') || typeLower === 'лаб.' || typeLower === 'лабораторная') {
-      return { icon: 'flask-outline', color: '#8b5cf6' };
+      return { icon: 'flask-outline', color: '#8b5cf6', label: 'Лабораторная', bg: 'rgba(139, 92, 246, 0.12)' };
     } else if (typeLower.includes('практ') || typeLower.includes('пр.') || typeLower === 'пр' || typeLower === 'практическая') {
-      return { icon: 'people-outline', color: '#10b981' };
+      return { icon: 'people-outline', color: '#10b981', label: 'Практика', bg: 'rgba(16, 185, 129, 0.12)' };
     } else if (typeLower.includes('конс') || typeLower === 'конс.' || typeLower === 'консультация') {
-      return { icon: 'chatbubble-outline', color: '#f59e0b' };
+      return { icon: 'chatbubble-outline', color: '#f59e0b', label: 'Консультация', bg: 'rgba(245, 158, 11, 0.12)' };
     } else if (typeLower.includes('экзамен') || typeLower.includes('экз.')) {
-      return { icon: 'document-text-outline', color: '#ef4444' };
+      return { icon: 'document-text-outline', color: '#ef4444', label: 'Экзамен', bg: 'rgba(239, 68, 68, 0.12)' };
     } else if (typeLower.includes('мероприятие') || typeLower.includes('собрание')) {
-      return { icon: 'calendar-outline', color: '#6366f1' };
+      return { icon: 'calendar-outline', color: '#6366f1', label: 'Мероприятие', bg: 'rgba(99, 102, 241, 0.12)' };
     } else if (typeLower.includes('зачет') || typeLower.includes('зач.')) {
-      return { icon: 'checkmark-circle-outline', color: '#10b981' };
+      return { icon: 'checkmark-circle-outline', color: '#10b981', label: 'Зачёт', bg: 'rgba(16, 185, 129, 0.12)' };
     } else if (typeLower.includes('самост') || typeLower.includes('сам.')) {
-      return { icon: 'book-outline', color: '#6b7280' };
+      return { icon: 'book-outline', color: '#6b7280', label: 'Самост. работа', bg: 'rgba(107, 114, 128, 0.12)' };
     }
     
-    return { icon: 'book-outline', color: placeholderColor };
+    return { icon: 'book-outline', color: placeholderColor, label: type || 'Занятие', bg: glass.surfaceTertiary };
+  };
+
+  // Общий компонент карточки занятия
+  const renderLessonCard = (lesson, lessonIndex, pairTime, isCurrentLessonFlag, isTeacher = false) => {
+    const typeInfo = getLessonTypeIcon(lesson.type_lesson);
+    
+    return (
+      <View
+        key={lesson.id || lessonIndex}
+        style={{
+          flexDirection: 'row',
+          backgroundColor: isCurrentLessonFlag 
+            ? (colors.glass || colors.primary + '10') 
+            : glass.surfaceSecondary,
+          borderRadius: 16,
+          marginTop: lessonIndex === 0 ? 0 : 10,
+          borderWidth: isCurrentLessonFlag ? 1.5 : StyleSheet.hairlineWidth,
+          borderColor: isCurrentLessonFlag 
+            ? (colors.glassBorder || colors.primary) 
+            : glass.border,
+          overflow: 'hidden',
+          shadowColor: isCurrentLessonFlag ? colors.primary : glass.shadowColor,
+          shadowOffset: { width: 0, height: isCurrentLessonFlag ? 4 : 2 },
+          shadowOpacity: isCurrentLessonFlag ? 0.25 : 0.08,
+          shadowRadius: isCurrentLessonFlag ? 12 : 6,
+          elevation: isCurrentLessonFlag ? 6 : 2,
+        }}
+      >
+        {/* Цветная полоска-акцент слева */}
+        <View style={{
+          width: 4,
+          backgroundColor: typeInfo.color,
+          borderTopLeftRadius: 16,
+          borderBottomLeftRadius: 16,
+        }} />
+        
+        {/* Основной контент */}
+        <View style={{ flex: 1, padding: 14 }}>
+          {/* Верхняя строка: время + тип занятия */}
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+            {/* Время пары */}
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              {pairTime ? (
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                  <Icon name="time-outline" size={15} color={isCurrentLessonFlag ? colors.primary : placeholderColor} />
+                  <Text style={{ 
+                    fontSize: 14, 
+                    fontWeight: '600', 
+                    color: isCurrentLessonFlag ? colors.primary : textColor, 
+                    fontFamily: 'Montserrat_600SemiBold',
+                    marginLeft: 5,
+                  }}>
+                    {pairTime.time_start} – {pairTime.time_end}
+                  </Text>
+                </View>
+              ) : (
+                <Text style={{ 
+                  fontSize: 13, 
+                  color: placeholderColor, 
+                  fontFamily: 'Montserrat_400Regular' 
+                }}>
+                  Пара {lesson.time}
+                </Text>
+              )}
+              {isCurrentLessonFlag && (
+                <View style={{
+                  marginLeft: 8,
+                  paddingHorizontal: 8,
+                  paddingVertical: 2,
+                  borderRadius: 8,
+                  backgroundColor: colors.primary + '20',
+                }}>
+                  <Text style={{ 
+                    fontSize: 11, 
+                    color: colors.primary, 
+                    fontFamily: 'Montserrat_600SemiBold' 
+                  }}>
+                    Сейчас
+                  </Text>
+                </View>
+              )}
+            </View>
+            
+            {/* Бейдж типа занятия */}
+            <View style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              backgroundColor: typeInfo.bg,
+              paddingHorizontal: 10,
+              paddingVertical: 4,
+              borderRadius: 10,
+            }}>
+              <Icon name={typeInfo.icon} size={13} color={typeInfo.color} />
+              <Text style={{ 
+                fontSize: 12, 
+                color: typeInfo.color, 
+                fontFamily: 'Montserrat_500Medium',
+                marginLeft: 4,
+              }}>
+                {typeInfo.label}
+              </Text>
+            </View>
+          </View>
+          
+          {/* Название предмета */}
+          <Text style={{ 
+            fontSize: 16, 
+            fontWeight: '600', 
+            color: textColor, 
+            fontFamily: 'Montserrat_600SemiBold',
+            lineHeight: 22,
+            marginBottom: 10,
+          }}>
+            {lesson.subject}
+          </Text>
+          
+          {/* Детали занятия */}
+          <View style={{ gap: 6 }}>
+            {/* Преподаватель */}
+            {!isTeacher && lesson.teacher && (
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <View style={{ 
+                  width: 26, 
+                  height: 26, 
+                  borderRadius: 13, 
+                  backgroundColor: glass.surfaceTertiary, 
+                  justifyContent: 'center', 
+                  alignItems: 'center',
+                  marginRight: 8,
+                }}>
+                  <Icon name="person-outline" size={14} color={placeholderColor} />
+                </View>
+                <Text style={{ 
+                  color: textColor, 
+                  fontSize: 14, 
+                  fontFamily: 'Montserrat_400Regular',
+                  flex: 1,
+                }}>
+                  {lesson.teacher}
+                </Text>
+              </View>
+            )}
+            
+            {/* Аудитория */}
+            {lesson.auditory && (
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <View style={{ 
+                  width: 26, 
+                  height: 26, 
+                  borderRadius: 13, 
+                  backgroundColor: glass.surfaceTertiary, 
+                  justifyContent: 'center', 
+                  alignItems: 'center',
+                  marginRight: 8,
+                }}>
+                  <Icon name="location-outline" size={14} color={placeholderColor} />
+                </View>
+                <Text style={{ 
+                  color: textColor, 
+                  fontSize: 14, 
+                  fontFamily: 'Montserrat_400Regular',
+                  flex: 1,
+                }}>
+                  {lesson.auditory}
+                </Text>
+              </View>
+            )}
+
+            {/* Группы (для преподавательского режима) */}
+            {isTeacher && lesson.group && Array.isArray(lesson.group) && lesson.group.length > 0 && (
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <View style={{ 
+                  width: 26, 
+                  height: 26, 
+                  borderRadius: 13, 
+                  backgroundColor: glass.surfaceTertiary, 
+                  justifyContent: 'center', 
+                  alignItems: 'center',
+                  marginRight: 8,
+                }}>
+                  <Icon name="people-outline" size={14} color={placeholderColor} />
+                </View>
+                <Text style={{ 
+                  color: textColor, 
+                  fontSize: 14, 
+                  fontFamily: 'Montserrat_400Regular',
+                  flex: 1,
+                }}>
+                  {lesson.group.join(', ')}
+                </Text>
+              </View>
+            )}
+          </View>
+        </View>
+      </View>
+    );
   };
 
   // Загрузка настроек и курсов при монтировании
@@ -565,27 +760,59 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
           if (ref) dayRefs.current[index] = ref;
         }}
         key={day.weekday} 
-        style={{ 
-          backgroundColor: isCurrent ? (colors.glass || colors.primary + '10') : cardBg, 
-          borderRadius: 20, 
-          padding: 16, 
-          marginBottom: 16,
-          borderWidth: isCurrent ? 1.5 : StyleSheet.hairlineWidth,
-          borderColor: isCurrent ? (colors.glassBorder || colors.primary) : borderColor,
-          shadowColor: glass.shadowColor,
-          shadowOffset: { width: 0, height: 2 },
-          shadowOpacity: 1,
-          shadowRadius: 12,
-          elevation: 3,
-        }}
+        style={{ marginBottom: 20 }}
       >
-        <Text style={{ fontSize: 18, fontWeight: 'bold', color: colors.primary, marginBottom: 4, fontFamily: 'Montserrat_600SemiBold' }}>
-          {weekdays[day.weekday - 1]}
-          {isCurrent && ' (Сегодня)'}
-        </Text>
-        <Text style={{ color: placeholderColor, marginBottom: 12, fontFamily: 'Montserrat_400Regular' }}>
-          {formatDate(date)}
-        </Text>
+        {/* Заголовок дня */}
+        <View style={{ 
+          flexDirection: 'row', 
+          alignItems: 'center', 
+          marginBottom: 12,
+          paddingHorizontal: 4,
+        }}>
+          {isCurrent && (
+            <View style={{
+              width: 8,
+              height: 8,
+              borderRadius: 4,
+              backgroundColor: colors.primary,
+              marginRight: 8,
+            }} />
+          )}
+          <Text style={{ 
+            fontSize: 17, 
+            fontWeight: '700', 
+            color: isCurrent ? colors.primary : textColor, 
+            fontFamily: 'Montserrat_700Bold',
+            letterSpacing: 0.2,
+          }}>
+            {weekdays[day.weekday - 1]}
+          </Text>
+          <Text style={{ 
+            color: placeholderColor, 
+            marginLeft: 8, 
+            fontSize: 14,
+            fontFamily: 'Montserrat_400Regular',
+          }}>
+            {formatDate(date)}
+          </Text>
+          {isCurrent && (
+            <View style={{
+              marginLeft: 8,
+              paddingHorizontal: 8,
+              paddingVertical: 2,
+              borderRadius: 8,
+              backgroundColor: colors.primary + '18',
+            }}>
+              <Text style={{ 
+                fontSize: 11, 
+                color: colors.primary, 
+                fontFamily: 'Montserrat_600SemiBold' 
+              }}>
+                Сегодня
+              </Text>
+            </View>
+          )}
+        </View>
 
         {day.lessons && day.lessons.length > 0 ? (
           day.lessons.map((lesson, lessonIndex) => {
@@ -594,66 +821,21 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
             const pairTime = getTimeForLesson(lesson.time);
             const lessonDate = getLessonDateForWeek(weekNumber, day.weekday, currentTime);
             const isCurrentLessonFlag = isCurrentLesson(lesson, pairTime, currentTime, lessonDate);
-            const lessonStyle = getCurrentLessonStyle(isCurrentLessonFlag, colors);
-            const typeIcon = getLessonTypeIcon(lesson.type_lesson);
             
-            return (
-              <View 
-                key={lesson.id || lessonIndex} 
-                style={[{ 
-                  paddingVertical: 12, 
-                  borderTopWidth: 1, 
-                  borderTopColor: borderColor,
-                  marginTop: 12
-                }, lessonStyle]}
-              >
-                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
-                  <Icon name={typeIcon.icon} size={16} color={typeIcon.color} />
-                  <Text style={{ color: placeholderColor, fontSize: 14, fontFamily: 'Montserrat_400Regular', marginLeft: 8 }}>
-                    Пара №{lesson.time}
-                  </Text>
-                </View>
-                
-                <Text style={{ fontWeight: '600', color: textColor, fontSize: 16, fontFamily: 'Montserrat_500Medium' }}>
-                  {lesson.subject} ({lesson.type_lesson})
-                </Text>
-                
-                <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 8 }}>
-                  <Icon name="person-outline" size={14} color={placeholderColor} />
-                  <Text style={{ color: textColor, marginLeft: 8, fontSize: 14, fontFamily: 'Montserrat_400Regular' }}>
-                    {lesson.teacher}
-                  </Text>
-                </View>
-                
-                <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
-                  <Icon name="location-outline" size={14} color={placeholderColor} />
-                  <Text style={{ color: textColor, marginLeft: 8, fontSize: 14, fontFamily: 'Montserrat_400Regular' }}>
-                    Аудитория: {lesson.auditory}
-                  </Text>
-                </View>
-
-                {isTeacherMode && lesson.group && Array.isArray(lesson.group) && lesson.group.length > 0 && (
-                  <View style={{ flexDirection: 'row', alignItems: 'flex-start', marginTop: 4 }}>
-                    <Icon name="people-outline" size={14} color={placeholderColor} style={{ marginTop: 2 }} />
-                    <Text style={{ color: textColor, marginLeft: 8, fontSize: 14, fontFamily: 'Montserrat_400Regular', flex: 1 }}>
-                      Группы: {lesson.group.join(', ')}
-                    </Text>
-                  </View>
-                )}
-                
-                {pairTime && (
-                  <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
-                    <Icon name="time-outline" size={14} color={placeholderColor} />
-                    <Text style={{ color: placeholderColor, marginLeft: 8, fontSize: 14, fontFamily: 'Montserrat_400Regular' }}>
-                      {pairTime.time_start} - {pairTime.time_end}
-                    </Text>
-                  </View>
-                )}
-              </View>
-            );
+            return renderLessonCard(lesson, lessonIndex, pairTime, isCurrentLessonFlag, isTeacherMode);
           })
         ) : (
-          <Text style={{ color: placeholderColor, marginTop: 12, fontFamily: 'Montserrat_400Regular' }}>Занятий нет</Text>
+          <View style={{
+            backgroundColor: glass.surfaceSecondary,
+            borderRadius: 16,
+            padding: 20,
+            alignItems: 'center',
+            borderWidth: StyleSheet.hairlineWidth,
+            borderColor: glass.border,
+          }}>
+            <Icon name="sunny-outline" size={28} color={placeholderColor} style={{ marginBottom: 6 }} />
+            <Text style={{ color: placeholderColor, fontFamily: 'Montserrat_400Regular', fontSize: 14 }}>Занятий нет</Text>
+          </View>
         )}
       </View>
     );
@@ -669,29 +851,67 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
       { lessons: scheduleData.lessons || [] };
     
     if (!daySchedule) return null;
+
+    const isToday = (() => {
+      const now = new Date();
+      return currentDate.getDate() === now.getDate() && 
+             currentDate.getMonth() === now.getMonth() && 
+             currentDate.getFullYear() === now.getFullYear();
+    })();
     
     return (
-      <View 
-        style={{ 
-          backgroundColor: cardBg, 
-          borderRadius: 20, 
-          padding: 16, 
-          marginBottom: 16,
-          borderWidth: StyleSheet.hairlineWidth,
-          borderColor,
-          shadowColor: glass.shadowColor,
-          shadowOffset: { width: 0, height: 2 },
-          shadowOpacity: 1,
-          shadowRadius: 12,
-          elevation: 3,
-        }}
-      >
-        <Text style={{ fontSize: 18, fontWeight: 'bold', color: colors.primary, marginBottom: 4, fontFamily: 'Montserrat_600SemiBold' }}>
-          {weekdays[weekday - 1]}
-        </Text>
-        <Text style={{ color: placeholderColor, marginBottom: 12, fontFamily: 'Montserrat_400Regular' }}>
-          {formatDate(currentDate)}
-        </Text>
+      <View style={{ marginBottom: 16 }}>
+        {/* Заголовок дня */}
+        <View style={{ 
+          flexDirection: 'row', 
+          alignItems: 'center', 
+          marginBottom: 12,
+          paddingHorizontal: 4,
+        }}>
+          {isToday && (
+            <View style={{
+              width: 8,
+              height: 8,
+              borderRadius: 4,
+              backgroundColor: colors.primary,
+              marginRight: 8,
+            }} />
+          )}
+          <Text style={{ 
+            fontSize: 17, 
+            fontWeight: '700', 
+            color: isToday ? colors.primary : textColor, 
+            fontFamily: 'Montserrat_700Bold',
+            letterSpacing: 0.2,
+          }}>
+            {weekdays[weekday - 1]}
+          </Text>
+          <Text style={{ 
+            color: placeholderColor, 
+            marginLeft: 8, 
+            fontSize: 14,
+            fontFamily: 'Montserrat_400Regular',
+          }}>
+            {formatDate(currentDate)}
+          </Text>
+          {isToday && (
+            <View style={{
+              marginLeft: 8,
+              paddingHorizontal: 8,
+              paddingVertical: 2,
+              borderRadius: 8,
+              backgroundColor: colors.primary + '18',
+            }}>
+              <Text style={{ 
+                fontSize: 11, 
+                color: colors.primary, 
+                fontFamily: 'Montserrat_600SemiBold' 
+              }}>
+                Сегодня
+              </Text>
+            </View>
+          )}
+        </View>
 
         {daySchedule.lessons && daySchedule.lessons.length > 0 ? (
           daySchedule.lessons.map((lesson, index) => {
@@ -699,57 +919,21 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
             
             const pairTime = getTimeForLesson(lesson.time);
             const isCurrentLessonFlag = isCurrentLesson(lesson, pairTime, currentTime, currentDate);
-            const lessonStyle = getCurrentLessonStyle(isCurrentLessonFlag, colors);
-            const typeIcon = getLessonTypeIcon(lesson.type_lesson);
             
-            return (
-              <View 
-                key={lesson.id || index} 
-                style={[{ 
-                  paddingVertical: 12, 
-                  borderTopWidth: 1, 
-                  borderTopColor: borderColor,
-                  marginTop: 12
-                }, lessonStyle]}
-              >
-                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
-                  <Icon name={typeIcon.icon} size={16} color={typeIcon.color} />
-                  <Text style={{ color: placeholderColor, fontSize: 14, fontFamily: 'Montserrat_400Regular', marginLeft: 8 }}>
-                    Пара №{lesson.time}
-                  </Text>
-                </View>
-                
-                <Text style={{ fontWeight: '600', color: textColor, fontSize: 16, fontFamily: 'Montserrat_500Medium' }}>
-                  {lesson.subject} ({lesson.type_lesson})
-                </Text>
-                
-                <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 8 }}>
-                  <Icon name="person-outline" size={14} color={placeholderColor} />
-                  <Text style={{ color: textColor, marginLeft: 8, fontSize: 14, fontFamily: 'Montserrat_400Regular' }}>
-                    {lesson.teacher}
-                  </Text>
-                </View>
-                
-                <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
-                  <Icon name="location-outline" size={14} color={placeholderColor} />
-                  <Text style={{ color: textColor, marginLeft: 8, fontSize: 14, fontFamily: 'Montserrat_400Regular' }}>
-                    Аудитория: {lesson.auditory}
-                  </Text>
-                </View>
-                
-                {pairTime && (
-                  <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
-                    <Icon name="time-outline" size={14} color={placeholderColor} />
-                    <Text style={{ color: placeholderColor, marginLeft: 8, fontSize: 14, fontFamily: 'Montserrat_400Regular' }}>
-                      {pairTime.time_start} - {pairTime.time_end}
-                    </Text>
-                  </View>
-                )}
-              </View>
-            );
+            return renderLessonCard(lesson, index, pairTime, isCurrentLessonFlag, false);
           })
         ) : (
-          <Text style={{ color: placeholderColor, marginTop: 12, fontFamily: 'Montserrat_400Regular' }}>Занятий нет</Text>
+          <View style={{
+            backgroundColor: glass.surfaceSecondary,
+            borderRadius: 16,
+            padding: 20,
+            alignItems: 'center',
+            borderWidth: StyleSheet.hairlineWidth,
+            borderColor: glass.border,
+          }}>
+            <Icon name="sunny-outline" size={28} color={placeholderColor} style={{ marginBottom: 6 }} />
+            <Text style={{ color: placeholderColor, fontFamily: 'Montserrat_400Regular', fontSize: 14 }}>Занятий нет</Text>
+          </View>
         )}
       </View>
     );
@@ -773,18 +957,23 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
       <Animated.View
         style={{
           position: 'absolute',
-          top: 0,
-          left: 0,
-          right: 0,
-          height: 60,
-          backgroundColor: cardBg,
-          borderBottomWidth: 1,
-          borderBottomColor: borderColor,
+          top: 8,
+          left: 12,
+          right: 12,
+          backgroundColor: glass.backgroundElevated,
+          borderRadius: 20,
+          borderWidth: StyleSheet.hairlineWidth,
+          borderColor: glass.borderStrong,
           zIndex: 1000,
           transform: [{ translateY: headerTranslateY }],
           opacity: headerOpacity,
           paddingHorizontal: 16,
-          justifyContent: 'center',
+          paddingVertical: 12,
+          shadowColor: glass.shadowStrong,
+          shadowOffset: { width: 0, height: 4 },
+          shadowOpacity: 1,
+          shadowRadius: 16,
+          elevation: 8,
         }}
       >
         <View style={{ 
@@ -902,13 +1091,7 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
       );
     }
     
-    return (
-      <View style={{ marginBottom: 16 }}>
-        <Text style={{ color: textColor, fontWeight: '500', textAlign: 'center', fontFamily: 'Montserrat_500Medium' }}>
-          Сегодня: {formatDate(new Date())}
-        </Text>
-      </View>
-    );
+    return null;
   };
 
   // Рендер управления с анимацией

@@ -179,35 +179,63 @@ const BuildingsListScreen = ({ theme, accentColor, onBuildingSelect, isNewYearMo
     <TouchableOpacity 
       key={building.id}
       style={{ 
-        backgroundColor: cardBg, 
-        borderRadius: 12, 
-        padding: 16, 
+        flexDirection: 'row',
+        backgroundColor: glass.surfaceSecondary, 
+        borderRadius: 14, 
         marginBottom: isLast ? 0 : 8,
         marginLeft: 16,
-        flexDirection: 'row',
-        alignItems: 'center'
+        alignItems: 'center',
+        borderWidth: StyleSheet.hairlineWidth,
+        borderColor: glass.border,
+        overflow: 'hidden',
+        shadowColor: glass.shadowColor,
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.06,
+        shadowRadius: 4,
+        elevation: 1,
       }}
       onPress={() => handleBuildingPress(building)}
     >
-      <View style={{ backgroundColor: colors.light, borderRadius: 8, padding: 8, marginRight: 12 }}>
-        <Icon 
-          name={getBuildingIcon(building.type)} 
-          size={20} 
-          color={colors.primary} 
-        />
+      {/* Цветная полоска-акцент слева */}
+      <View style={{
+        width: 3,
+        backgroundColor: colors.primary,
+        alignSelf: 'stretch',
+        borderTopLeftRadius: 14,
+        borderBottomLeftRadius: 14,
+      }} />
+      
+      <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', padding: 12 }}>
+        <View style={{ 
+          width: 36,
+          height: 36,
+          borderRadius: 10,
+          backgroundColor: colors.glass, 
+          justifyContent: 'center',
+          alignItems: 'center',
+          marginRight: 12,
+          borderWidth: StyleSheet.hairlineWidth,
+          borderColor: colors.glassBorder,
+        }}>
+          <Icon 
+            name={getBuildingIcon(building.type)} 
+            size={18} 
+            color={colors.primary} 
+          />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={{ color: textColor, fontSize: 15, fontFamily: 'Montserrat_500Medium' }}>
+            {building.name}
+          </Text>
+          <Text style={{ color: placeholderColor, fontSize: 12, marginTop: 2, fontFamily: 'Montserrat_400Regular' }}>
+            {getBuildingTypeText(building.type)}
+          </Text>
+          <Text style={{ color: placeholderColor, fontSize: 13, marginTop: 3, fontFamily: 'Montserrat_400Regular', lineHeight: 18 }}>
+            {building.description}
+          </Text>
+        </View>
+        <Icon name="navigate-outline" size={20} color={colors.primary} />
       </View>
-      <View style={{ flex: 1 }}>
-        <Text style={{ color: textColor, fontSize: 16, fontFamily: 'Montserrat_500Medium' }}>
-          {building.name}
-        </Text>
-        <Text style={{ color: placeholderColor, fontSize: 12, marginTop: 2, fontFamily: 'Montserrat_400Regular' }}>
-          {getBuildingTypeText(building.type)}
-        </Text>
-        <Text style={{ color: placeholderColor, fontSize: 14, marginTop: 4, fontFamily: 'Montserrat_400Regular' }}>
-          {building.description}
-        </Text>
-      </View>
-      <Icon name="navigate-outline" size={20} color={colors.primary} />
     </TouchableOpacity>
   );
 
@@ -223,19 +251,43 @@ const BuildingsListScreen = ({ theme, accentColor, onBuildingSelect, isNewYearMo
             flexDirection: 'row',
             alignItems: 'center',
             justifyContent: 'space-between',
-            padding: 16,
-            backgroundColor: cardBg,
-            borderRadius: 12,
+            padding: 14,
+            backgroundColor: glass.surfaceSecondary,
+            borderRadius: 14,
+            borderWidth: StyleSheet.hairlineWidth,
+            borderColor: glass.border,
+            shadowColor: glass.shadowColor,
+            shadowOffset: { width: 0, height: 1 },
+            shadowOpacity: 0.06,
+            shadowRadius: 4,
+            elevation: 1,
           }}
           onPress={() => toggleSection(category)}
         >
-          <Text style={{ 
-            color: textColor, 
-            fontSize: 18, 
-            fontFamily: 'Montserrat_600SemiBold' 
-          }}>
-            {categoryNames[category]} ({buildingsList.length})
-          </Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
+            <Text style={{ 
+              color: textColor, 
+              fontSize: 16, 
+              fontFamily: 'Montserrat_600SemiBold' 
+            }}>
+              {categoryNames[category]}
+            </Text>
+            <View style={{
+              marginLeft: 8,
+              paddingHorizontal: 8,
+              paddingVertical: 2,
+              borderRadius: 8,
+              backgroundColor: colors.primary + '18',
+            }}>
+              <Text style={{ 
+                fontSize: 12, 
+                color: colors.primary, 
+                fontFamily: 'Montserrat_600SemiBold' 
+              }}>
+                {buildingsList.length}
+              </Text>
+            </View>
+          </View>
           <Icon 
             name={isExpanded ? 'chevron-up' : 'chevron-down'} 
             size={20} 

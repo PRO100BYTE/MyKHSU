@@ -140,34 +140,46 @@ const FreshmanScreen = forwardRef(({ theme, accentColor, isNewYearMode, onNaviga
   const renderSectionCard = (icon, title, description, onPress, isLast = false) => (
     <TouchableOpacity 
       style={{ 
-        backgroundColor: cardBg, 
-        borderRadius: 20, 
-        padding: 16, 
-        marginBottom: isLast ? 0 : 12,
         flexDirection: 'row',
+        backgroundColor: glass.surfaceSecondary, 
+        borderRadius: 16, 
+        marginBottom: isLast ? 0 : 12,
         alignItems: 'center',
         borderWidth: StyleSheet.hairlineWidth,
         borderColor: glass.border,
+        overflow: 'hidden',
         shadowColor: glass.shadowColor,
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 1,
-        shadowRadius: 8,
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.08,
+        shadowRadius: 6,
         elevation: 2,
       }}
       onPress={onPress}
     >
-      <View style={{ backgroundColor: colors.glass, borderRadius: 12, padding: 10, marginRight: 14, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.glassBorder }}>
-        <Icon name={icon} size={24} color={colors.primary} />
+      <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', padding: 14 }}>
+        <View style={{ 
+          width: 42, 
+          height: 42, 
+          borderRadius: 12, 
+          backgroundColor: colors.glass, 
+          justifyContent: 'center', 
+          alignItems: 'center',
+          marginRight: 14,
+          borderWidth: StyleSheet.hairlineWidth, 
+          borderColor: colors.glassBorder,
+        }}>
+          <Icon name={icon} size={22} color={colors.primary} />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={{ color: textColor, fontSize: 15, fontFamily: 'Montserrat_500Medium' }}>
+            {title}
+          </Text>
+          <Text style={{ color: placeholderColor, fontSize: 13, marginTop: 3, fontFamily: 'Montserrat_400Regular', lineHeight: 18 }}>
+            {description}
+          </Text>
+        </View>
+        <Icon name="chevron-forward" size={20} color={placeholderColor} />
       </View>
-      <View style={{ flex: 1 }}>
-        <Text style={{ color: textColor, fontSize: 16, fontFamily: 'Montserrat_500Medium' }}>
-          {title}
-        </Text>
-        <Text style={{ color: placeholderColor, fontSize: 14, marginTop: 4, fontFamily: 'Montserrat_400Regular' }}>
-          {description}
-        </Text>
-      </View>
-      <Icon name="chevron-forward" size={20} color={placeholderColor} />
     </TouchableOpacity>
   );
 
@@ -176,26 +188,43 @@ const FreshmanScreen = forwardRef(({ theme, accentColor, isNewYearMode, onNaviga
     <TouchableOpacity 
       key={group.id}
       style={{ 
-        backgroundColor: cardBg, 
-        borderRadius: 16, 
-        padding: 16, 
-        marginBottom: isLast ? 0 : 10,
         flexDirection: 'row',
+        backgroundColor: glass.surfaceSecondary, 
+        borderRadius: 14, 
+        marginBottom: isLast ? 0 : 10,
         alignItems: 'center',
         borderWidth: StyleSheet.hairlineWidth,
         borderColor: glass.border,
+        overflow: 'hidden',
+        shadowColor: glass.shadowColor,
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.06,
+        shadowRadius: 4,
+        elevation: 1,
       }}
       onPress={() => openLink(group.url)}
     >
-      <View style={{ backgroundColor: colors.glass, borderRadius: 10, padding: 8, marginRight: 12, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.glassBorder }}>
-        <Icon name={group.icon} size={20} color={colors.primary} />
+      <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', padding: 12 }}>
+        <View style={{ 
+          width: 36, 
+          height: 36, 
+          borderRadius: 10, 
+          backgroundColor: colors.glass, 
+          justifyContent: 'center', 
+          alignItems: 'center',
+          marginRight: 12,
+          borderWidth: StyleSheet.hairlineWidth, 
+          borderColor: colors.glassBorder,
+        }}>
+          <Icon name={group.icon} size={18} color={colors.primary} />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={{ color: textColor, fontSize: 14, fontFamily: 'Montserrat_500Medium', lineHeight: 19 }}>
+            {group.name}
+          </Text>
+        </View>
+        <Icon name="open-outline" size={18} color={placeholderColor} />
       </View>
-      <View style={{ flex: 1 }}>
-        <Text style={{ color: textColor, fontSize: 14, fontFamily: 'Montserrat_500Medium' }}>
-          {group.name}
-        </Text>
-      </View>
-      <Icon name="open-outline" size={18} color={placeholderColor} />
     </TouchableOpacity>
   );
 
@@ -262,23 +291,47 @@ const FreshmanScreen = forwardRef(({ theme, accentColor, isNewYearMode, onNaviga
   const renderTelegramGroups = () => (
     <View style={{ flex: 1, padding: 16 }}>
       <View style={{ 
-        backgroundColor: cardBg, 
-        borderRadius: 20, 
-        padding: 24, 
+        backgroundColor: glass.surfaceSecondary, 
+        borderRadius: 16, 
+        padding: 28, 
         alignItems: 'center',
         marginTop: 40,
         borderWidth: StyleSheet.hairlineWidth,
         borderColor: glass.border,
+        shadowColor: glass.shadowColor,
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.08,
+        shadowRadius: 6,
+        elevation: 2,
       }}>
-        <Icon name="paper-plane-outline" size={48} color="#0088cc" />
+        <View style={{
+          width: 56,
+          height: 56,
+          borderRadius: 28,
+          backgroundColor: 'rgba(0, 136, 204, 0.1)',
+          justifyContent: 'center',
+          alignItems: 'center',
+          marginBottom: 14,
+        }}>
+          <Icon name="paper-plane-outline" size={28} color="#0088cc" />
+        </View>
+        <Text style={{ 
+          color: textColor, 
+          fontSize: 16, 
+          fontFamily: 'Montserrat_500Medium',
+          textAlign: 'center',
+          marginBottom: 4,
+        }}>
+          Скоро здесь появятся группы
+        </Text>
         <Text style={{ 
           color: placeholderColor, 
-          fontSize: 16, 
+          fontSize: 14, 
           textAlign: 'center', 
-          marginTop: 16,
-          fontFamily: 'Montserrat_400Regular'
+          fontFamily: 'Montserrat_400Regular',
+          lineHeight: 20,
         }}>
-          Групп пока нет, но они скоро тут появятся :)
+          Мы работаем над добавлением Telegram-каналов и чатов
         </Text>
       </View>
     </View>

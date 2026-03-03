@@ -323,25 +323,52 @@ return (
           <View 
             key={item.id} 
             style={{ 
-              backgroundColor: cardBg, 
-              borderRadius: 20, 
-              padding: 16, 
+              flexDirection: 'row',
+              backgroundColor: glass.surfaceSecondary, 
+              borderRadius: 16, 
               marginBottom: 12, 
               borderWidth: StyleSheet.hairlineWidth, 
               borderColor,
+              overflow: 'hidden',
               shadowColor: glass.shadowColor,
-              shadowOffset: { width: 0, height: 1 },
-              shadowOpacity: 1,
-              shadowRadius: 8,
+              shadowOffset: { width: 0, height: 2 },
+              shadowOpacity: 0.08,
+              shadowRadius: 6,
               elevation: 2,
             }}
           >
-            <Text style={{ color: textColor, fontSize: 16, fontFamily: 'Montserrat_400Regular' }}>
-              {item.content}
-            </Text>
-            <Text style={{ color: placeholderColor, fontSize: 12, textAlign: 'right', marginTop: 12, fontFamily: 'Montserrat_400Regular' }}>
-              {item.hr_date}
-            </Text>
+            {/* Цветная полоска-акцент слева */}
+            <View style={{
+              width: 4,
+              backgroundColor: colors.primary,
+              borderTopLeftRadius: 16,
+              borderBottomLeftRadius: 16,
+            }} />
+            
+            <View style={{ flex: 1, padding: 14 }}>
+              {/* Дата сверху */}
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+                <Icon name="time-outline" size={13} color={placeholderColor} />
+                <Text style={{ 
+                  color: placeholderColor, 
+                  fontSize: 12, 
+                  fontFamily: 'Montserrat_400Regular',
+                  marginLeft: 5,
+                }}>
+                  {item.hr_date}
+                </Text>
+              </View>
+              
+              {/* Контент */}
+              <Text style={{ 
+                color: textColor, 
+                fontSize: 15, 
+                fontFamily: 'Montserrat_400Regular',
+                lineHeight: 22,
+              }}>
+                {item.content}
+              </Text>
+            </View>
           </View>
         ))}
         
@@ -359,13 +386,18 @@ return (
             onPress={loadMoreNews}
             style={{ 
               backgroundColor: colors.primary, 
-              padding: 16, 
-              borderRadius: 8, 
+              padding: 14, 
+              borderRadius: 14, 
               alignItems: 'center',
               marginTop: 16,
               flexDirection: 'row',
               justifyContent: 'center',
-              gap: 8
+              gap: 8,
+              shadowColor: colors.primary,
+              shadowOffset: { width: 0, height: 2 },
+              shadowOpacity: 0.25,
+              shadowRadius: 8,
+              elevation: 3,
             }}
           >
             <Icon name="download-outline" size={20} color="#ffffff" />

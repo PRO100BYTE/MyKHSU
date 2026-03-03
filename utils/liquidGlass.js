@@ -17,17 +17,17 @@ export const getGlassCardStyle = (theme, accentColor) => {
   const colors = ACCENT_COLORS[accentColor];
 
   return {
-    backgroundColor: glass.surfaceCard,
-    borderRadius: 20,
+    backgroundColor: glass.surfaceSecondary,
+    borderRadius: 16,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: glass.border,
     // iOS shadow
     shadowColor: glass.shadowColor,
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 1,
-    shadowRadius: 12,
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
     // Android elevation
-    elevation: 3,
+    elevation: 2,
     overflow: Platform.OS === 'android' ? 'hidden' : 'visible',
   };
 };
@@ -37,18 +37,18 @@ export const getGlassSettingsCardStyle = (theme) => {
   const glass = getGlassTheme(theme);
 
   return {
-    backgroundColor: glass.surfaceCard,
+    backgroundColor: glass.surfaceSecondary,
     borderRadius: 16,
-    padding: 16,
+    padding: 14,
     marginBottom: 12,
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: glass.border,
     shadowColor: glass.shadowColor,
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 1,
-    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
     elevation: 2,
   };
 };
@@ -112,9 +112,12 @@ export const getGlassIconBadgeStyle = (theme, accentColor) => {
   const colors = ACCENT_COLORS[accentColor];
   
   return {
+    width: 42,
+    height: 42,
     backgroundColor: colors.glass,
     borderRadius: 12,
-    padding: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
     marginRight: 14,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: colors.glassBorder,
