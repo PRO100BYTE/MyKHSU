@@ -35,6 +35,56 @@ import ScheduleShareImage from './ScheduleShareImage';
 
 const { width, height } = Dimensions.get('window');
 
+// Компонент обратного отсчёта до конца текущей пары
+const LessonCountdown = ({ timeEnd, accentColor }) => {
+  const colors = ACCENT_COLORS[accentColor] || ACCENT_COLORS.green;
+  const [remaining, setRemaining] = useState('');
+
+  useEffect(() => {
+    const calcRemaining = () => {
+      const now = new Date();
+      const [h, m] = timeEnd.split(':').map(Number);
+      const end = new Date(now);
+      end.setHours(h, m, 0, 0);
+      const diff = end - now;
+      if (diff <= 0) {
+        setRemaining('');
+        return;
+      }
+      const mins = Math.floor(diff / 60000);
+      const secs = Math.floor((diff % 60000) / 1000);
+      setRemaining(mins > 0 ? `${mins} мин ${secs < 10 ? '0' : ''}${secs} с` : `${secs} с`);
+    };
+
+    calcRemaining();
+    const interval = setInterval(calcRemaining, 1000);
+    return () => clearInterval(interval);
+  }, [timeEnd]);
+
+  if (!remaining) return null;
+
+  return (
+    <View style={{
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: colors.primary + '12',
+      paddingHorizontal: 8,
+      paddingVertical: 4,
+      borderRadius: 10,
+      gap: 4,
+    }}>
+      <Icon name="hourglass-outline" size={13} color={colors.primary} />
+      <Text style={{
+        fontSize: 12,
+        color: colors.primary,
+        fontFamily: 'Montserrat_600SemiBold',
+      }}>
+        {remaining}
+      </Text>
+    </View>
+  );
+};
+
 const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings, onSettingsUpdate, isNewYearMode, onCacheStatusChange, onExportReady }) => {
   const [isTeacherMode, setIsTeacherMode] = useState(false);
   const [isAuditoryMode, setIsAuditoryMode] = useState(false);
@@ -696,30 +746,41 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
             );
           })()}
 
-          {/* Кнопка заметок (компактная иконка) */}
+          {/* Нижняя строка: обратный отсчёт + кнопка заметок */}
           {weekday != null && (
-            <TouchableOpacity
-              onPress={() => openNoteModal(lesson, weekday)}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-              style={{
-                alignSelf: 'flex-end',
-                marginTop: 2,
-                width: 30,
-                height: 30,
-                borderRadius: 15,
-                justifyContent: 'center',
-                alignItems: 'center',
-                backgroundColor: hasNoteForLesson(lesson, weekday)
-                  ? (colors.glass || colors.primary + '10')
-                  : glass.surfaceTertiary,
-              }}
-            >
-              <Icon
-                name={hasNoteForLesson(lesson, weekday) ? 'create' : 'create-outline'}
-                size={16}
-                color={hasNoteForLesson(lesson, weekday) ? colors.primary : placeholderColor}
-              />
-            </TouchableOpacity>
+            <View style={{
+              flexDirection: 'row',
+              justifyContent: isCurrentLessonFlag && pairTime ? 'space-between' : 'flex-end',
+              alignItems: 'center',
+              marginTop: 2,
+            }}>
+              {isCurrentLessonFlag && pairTime && (pairTime.time_end || pairTime.end) && (
+                <LessonCountdown
+                  timeEnd={pairTime.time_end || pairTime.end}
+                  accentColor={accentColor}
+                />
+              )}
+              <TouchableOpacity
+                onPress={() => openNoteModal(lesson, weekday)}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                style={{
+                  width: 30,
+                  height: 30,
+                  borderRadius: 15,
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                  backgroundColor: hasNoteForLesson(lesson, weekday)
+                    ? (colors.glass || colors.primary + '10')
+                    : glass.surfaceTertiary,
+                }}
+              >
+                <Icon
+                  name={hasNoteForLesson(lesson, weekday) ? 'create' : 'create-outline'}
+                  size={16}
+                  color={hasNoteForLesson(lesson, weekday) ? colors.primary : placeholderColor}
+                />
+              </TouchableOpacity>
+            </View>
           )}
         </View>
       </View>
