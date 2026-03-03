@@ -27,7 +27,8 @@
         "NSLocationWhenInUseUsageDescription": "Приложению Мой ИТИ ХГУ требуется доступ к вашему местоположению для показа ближайших корпусов ХГУ на карте.",
         "NSLocationAlwaysUsageDescription": "Приложению Мой ИТИ ХГУ требуется доступ к вашему местоположению для показа ближайших корпусов ХГУ на карте.",
         "UIBackgroundModes": ["remote-notification", "fetch"],
-        "LSApplicationQueriesSchemes": ["yandexmaps", "yandexnavi", "comgooglemaps", "maps"]
+        "LSApplicationQueriesSchemes": ["yandexmaps", "yandexnavi", "comgooglemaps", "maps"],
+        "NSCalendarsFullAccessUsageDescription": "\u041f\u0440\u0438\u043b\u043e\u0436\u0435\u043d\u0438\u044e \u041c\u043e\u0439 \u0418\u0422\u0418 \u0425\u0413\u0423 \u0442\u0440\u0435\u0431\u0443\u0435\u0442\u0441\u044f \u0434\u043e\u0441\u0442\u0443\u043f \u043a \u043a\u0430\u043b\u0435\u043d\u0434\u0430\u0440\u044e \u0434\u043b\u044f \u044d\u043a\u0441\u043f\u043e\u0440\u0442\u0430 \u0440\u0430\u0441\u043f\u0438\u0441\u0430\u043d\u0438\u044f \u0437\u0430\u043d\u044f\u0442\u0438\u0439."
       },
       "backgroundColor": "#ffffff"
     },
@@ -46,7 +47,11 @@
         "ACCESS_NETWORK_STATE",
         "ACCESS_WIFI_STATE",
         "FOREGROUND_SERVICE",
-        "WAKE_LOCK"
+        "WAKE_LOCK",
+        "READ_CALENDAR",
+        "WRITE_CALENDAR",
+        "POST_NOTIFICATIONS",
+        "RECEIVE_BOOT_COMPLETED"
       ],
       "config": {
         "googleMaps": {
@@ -81,7 +86,8 @@
           "sounds": ["./assets/notification.wav"]
         }
       ],
-      "expo-splash-screen"
+      "expo-splash-screen",
+      "expo-calendar"
     ],
     "extra": {
       "eas": {

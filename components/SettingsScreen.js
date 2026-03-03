@@ -22,6 +22,7 @@ import DeveloperMenuScreen from './DeveloperMenuScreen';
 import { ACCENT_COLORS, APP_VERSION, APP_DEVELOPERS, APP_SUPPORTERS, GITHUB_REPO_URL, BUILD_VER, BUILD_DATE, LIQUID_GLASS } from '../utils/constants';
 import { getGlassSettingsCardStyle, getGlassIconBadgeStyle } from '../utils/liquidGlass';
 import Snowfall from './Snowfall';
+import { clearAllNotes, getNotesCount } from '../utils/notesStorage';
 
 const { width, height } = Dimensions.get('window');
 
@@ -388,6 +389,33 @@ const SettingsScreen = forwardRef(({
     );
   };
 
+  const clearNotesHandler = async () => {
+    try {
+      const count = await getNotesCount();
+      if (count === 0) {
+        Alert.alert('Заметки', 'Заметок и домашних заданий нет');
+        return;
+      }
+      Alert.alert(
+        'Очистить заметки',
+        `Будет удалено заметок и ДЗ: ${count}. Это действие необратимо. Продолжить?`,
+        [
+          { text: 'Отмена', style: 'cancel' },
+          {
+            text: 'Удалить',
+            style: 'destructive',
+            onPress: async () => {
+              const deleted = await clearAllNotes();
+              Alert.alert('Готово', `Удалено заметок: ${deleted}`);
+            },
+          },
+        ],
+      );
+    } catch (e) {
+      Alert.alert('Ошибка', 'Не удалось очистить заметки');
+    }
+  };
+
   const openGitHub = () => {
     Linking.openURL(GITHUB_REPO_URL);
   };
@@ -521,6 +549,13 @@ const SettingsScreen = forwardRef(({
           title="Очистить кэш карты" 
           subtitle="Удалить картографические данные" 
           onPress={clearMapCacheHandler} 
+          rightElement={<Icon name="trash-outline" size={18} color={placeholderColor} />}
+        />
+        <SettingsRow 
+          icon="document-text-outline" 
+          title="Очистить заметки и ДЗ" 
+          subtitle="Удалить все заметки к парам" 
+          onPress={clearNotesHandler} 
           isLast 
           rightElement={<Icon name="trash-outline" size={18} color={placeholderColor} />}
         />

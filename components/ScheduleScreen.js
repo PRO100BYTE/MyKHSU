@@ -27,6 +27,8 @@ import * as SecureStore from 'expo-secure-store';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Snowfall from './Snowfall';
 import { exportScheduleToCalendar } from '../utils/calendarExport';
+import LessonNoteModal from './LessonNoteModal';
+import { loadAllNotes, getLessonNoteKey, findHomeworkBySubject } from '../utils/notesStorage';
 
 const { width, height } = Dimensions.get('window');
 
@@ -44,6 +46,12 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
   const [loadingCourses, setLoadingCourses] = useState(false);
   const [settingsLoaded, setSettingsLoaded] = useState(false);
   const [exporting, setExporting] = useState(false);
+
+  // Заметки к парам
+  const [lessonNotes, setLessonNotes] = useState({});
+  const [noteModalVisible, setNoteModalVisible] = useState(false);
+  const [noteModalLesson, setNoteModalLesson] = useState(null);
+  const [noteModalWeekday, setNoteModalWeekday] = useState(null);
   
   // Анимация появления
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -351,8 +359,60 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
     return { icon: 'book-outline', color: placeholderColor, label: type || 'Занятие', bg: glass.surfaceTertiary };
   };
 
+  // Загрузка всех заметок
+  const refreshNotes = useCallback(async () => {
+    try {
+      const all = await loadAllNotes();
+      setLessonNotes(all);
+    } catch (e) {
+      console.error('Error loading notes:', e);
+    }
+  }, []);
+
+  useEffect(() => {
+    refreshNotes();
+  }, [scheduleData, teacherSchedule, auditorySchedule]);
+
+  const openNoteModal = (lesson, weekday) => {
+    setNoteModalLesson(lesson);
+    setNoteModalWeekday(weekday);
+    setNoteModalVisible(true);
+  };
+
+  const handleNoteModalClose = (saved) => {
+    setNoteModalVisible(false);
+    setNoteModalLesson(null);
+    setNoteModalWeekday(null);
+    if (saved) refreshNotes();
+  };
+
+  // Проверяет, есть ли заметка к занятию
+  const hasNoteForLesson = (lesson, weekday) => {
+    const group = lesson.group ? (Array.isArray(lesson.group) ? lesson.group.join(',') : lesson.group) : '';
+    const key = getLessonNoteKey(lesson.subject, weekday, lesson.time, group);
+    const note = lessonNotes[key];
+    return note && (note.noteText || note.homework);
+  };
+
+  // Получает текст заметки для отображения превью
+  const getNotePreview = (lesson, weekday) => {
+    const group = lesson.group ? (Array.isArray(lesson.group) ? lesson.group.join(',') : lesson.group) : '';
+    const key = getLessonNoteKey(lesson.subject, weekday, lesson.time, group);
+    return lessonNotes[key] || null;
+  };
+
+  // Получает ДЗ из предыдущего занятия по тому же предмету (для отображения на текущем)
+  const getHomeworkFromPrevLesson = (lesson, weekday) => {
+    const group = lesson.group ? (Array.isArray(lesson.group) ? lesson.group.join(',') : lesson.group) : '';
+    // Не показываем чужое ДЗ, если у текущего занятия уже есть своя заметка с ДЗ
+    const ownKey = getLessonNoteKey(lesson.subject, weekday, lesson.time, group);
+    const ownNote = lessonNotes[ownKey];
+    if (ownNote && ownNote.homework) return null; // у текущего занятия есть своё ДЗ
+    return findHomeworkBySubject(lessonNotes, lesson.subject, group);
+  };
+
   // Общий компонент карточки занятия
-  const renderLessonCard = (lesson, lessonIndex, pairTime, isCurrentLessonFlag, isTeacher = false, isAuditory = false) => {
+  const renderLessonCard = (lesson, lessonIndex, pairTime, isCurrentLessonFlag, isTeacher = false, isAuditory = false, weekday = null) => {
     const typeInfo = getLessonTypeIcon(lesson.type_lesson);
     
     return (
@@ -542,6 +602,94 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
               </View>
             )}
           </View>
+
+          {/* Превью заметки/ДЗ */}
+          {weekday != null && (() => {
+            const noteData = getNotePreview(lesson, weekday);
+            const hasOwnNote = noteData && (noteData.noteText || noteData.homework);
+            const prevHomework = !hasOwnNote || !noteData?.homework ? getHomeworkFromPrevLesson(lesson, weekday) : null;
+            if (!hasOwnNote && !prevHomework) return null;
+            return (
+              <View style={{ marginTop: 10, gap: 6 }}>
+                {noteData?.noteText ? (
+                  <View style={{
+                    flexDirection: 'row',
+                    alignItems: 'flex-start',
+                    backgroundColor: colors.glass || (colors.primary + '10'),
+                    borderRadius: 10,
+                    padding: 8,
+                  }}>
+                    <Icon name="document-text-outline" size={14} color={colors.primary} style={{ marginRight: 6, marginTop: 2 }} />
+                    <Text numberOfLines={2} style={{ flex: 1, color: textColor, fontSize: 13, fontFamily: 'Montserrat_400Regular', lineHeight: 18 }}>
+                      {noteData.noteText}
+                    </Text>
+                  </View>
+                ) : null}
+                {noteData?.homework ? (
+                  <View style={{
+                    flexDirection: 'row',
+                    alignItems: 'flex-start',
+                    backgroundColor: 'rgba(245, 158, 11, 0.10)',
+                    borderRadius: 10,
+                    padding: 8,
+                  }}>
+                    <Icon name="school-outline" size={14} color="#f59e0b" style={{ marginRight: 6, marginTop: 2 }} />
+                    <Text numberOfLines={2} style={{ flex: 1, color: textColor, fontSize: 13, fontFamily: 'Montserrat_400Regular', lineHeight: 18 }}>
+                      {noteData.homework}
+                    </Text>
+                  </View>
+                ) : null}
+                {prevHomework ? (
+                  <View style={{
+                    flexDirection: 'row',
+                    alignItems: 'flex-start',
+                    backgroundColor: 'rgba(245, 158, 11, 0.08)',
+                    borderRadius: 10,
+                    padding: 8,
+                    borderWidth: StyleSheet.hairlineWidth,
+                    borderColor: 'rgba(245, 158, 11, 0.20)',
+                    borderStyle: 'dashed',
+                  }}>
+                    <Icon name="arrow-redo-outline" size={14} color="#f59e0b" style={{ marginRight: 6, marginTop: 2 }} />
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ fontSize: 11, color: '#f59e0b', fontFamily: 'Montserrat_500Medium', marginBottom: 2 }}>
+                        ДЗ с прошлого занятия
+                      </Text>
+                      <Text numberOfLines={2} style={{ color: textColor, fontSize: 13, fontFamily: 'Montserrat_400Regular', lineHeight: 18 }}>
+                        {prevHomework}
+                      </Text>
+                    </View>
+                  </View>
+                ) : null}
+              </View>
+            );
+          })()}
+
+          {/* Кнопка заметок (компактная иконка) */}
+          {weekday != null && (
+            <TouchableOpacity
+              onPress={() => openNoteModal(lesson, weekday)}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              style={{
+                alignSelf: 'flex-end',
+                marginTop: 8,
+                width: 30,
+                height: 30,
+                borderRadius: 15,
+                justifyContent: 'center',
+                alignItems: 'center',
+                backgroundColor: hasNoteForLesson(lesson, weekday)
+                  ? (colors.glass || colors.primary + '10')
+                  : glass.surfaceTertiary,
+              }}
+            >
+              <Icon
+                name={hasNoteForLesson(lesson, weekday) ? 'create' : 'create-outline'}
+                size={16}
+                color={hasNoteForLesson(lesson, weekday) ? colors.primary : placeholderColor}
+              />
+            </TouchableOpacity>
+          )}
         </View>
       </View>
     );
@@ -994,7 +1142,7 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
             const lessonDate = getLessonDateForWeek(weekNumber, day.weekday, currentTime);
             const isCurrentLessonFlag = isCurrentLesson(lesson, pairTime, currentTime, lessonDate);
             
-            return renderLessonCard(lesson, lessonIndex, pairTime, isCurrentLessonFlag, isTeacherMode, isAuditoryMode);
+            return renderLessonCard(lesson, lessonIndex, pairTime, isCurrentLessonFlag, isTeacherMode, isAuditoryMode, day.weekday);
           })
         ) : (
           <View style={{
@@ -1092,7 +1240,7 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
             const pairTime = getTimeForLesson(lesson.time);
             const isCurrentLessonFlag = isCurrentLesson(lesson, pairTime, currentTime, currentDate);
             
-            return renderLessonCard(lesson, index, pairTime, isCurrentLessonFlag, false);
+            return renderLessonCard(lesson, index, pairTime, isCurrentLessonFlag, false, false, weekday);
           })
         ) : (
           <View style={{
@@ -1861,7 +2009,19 @@ return (
 );
   };
 
-  return renderCurrentScreen();
+  return (
+    <>
+      {renderCurrentScreen()}
+      <LessonNoteModal
+        visible={noteModalVisible}
+        onClose={handleNoteModalClose}
+        lesson={noteModalLesson}
+        weekday={noteModalWeekday}
+        theme={theme}
+        accentColor={accentColor}
+      />
+    </>
+  );
   // Стили могут быть добавлены при необходимости
 };
 

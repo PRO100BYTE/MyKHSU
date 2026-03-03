@@ -4,6 +4,7 @@ import { Ionicons as Icon } from '@expo/vector-icons';
 import * as SecureStore from 'expo-secure-store';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ACCENT_COLORS, API_BASE_URL, APP_VERSION, BUILD_VER, BUILD_DATE, LIQUID_GLASS } from '../utils/constants';
+import { loadAllNotes, clearAllNotes, getNotesCount, saveNote } from '../utils/notesStorage';
 import * as Updates from 'expo-updates';
 import * as Notifications from 'expo-notifications';
 import * as TaskManager from 'expo-task-manager';
@@ -804,6 +805,118 @@ const DeveloperMenuScreen = ({ theme, accentColor, onResetDeveloperMode }) => {
             <Icon name="calendar-outline" size={20} color={colors.primary} />
             <Text style={[styles.actionButtonText, { color: textColor }]}>
               Очистить кэш расписания
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Заметки и ДЗ */}
+        <View style={styles.section}>
+          <Text style={[styles.sectionTitle, { color: textColor }]}>Заметки и ДЗ</Text>
+
+          <TouchableOpacity
+            style={[styles.actionButton, { backgroundColor: inputBgColor, borderColor }]}
+            onPress={async () => {
+              try {
+                const count = await getNotesCount();
+                const allNotes = await loadAllNotes();
+                const keys = Object.keys(allNotes);
+                const withHomework = keys.filter(k => allNotes[k]?.homework).length;
+                const withNote = keys.filter(k => allNotes[k]?.noteText).length;
+                Alert.alert(
+                  'Статистика заметок',
+                  `Всего записей: ${count}\n` +
+                  `С заметками: ${withNote}\n` +
+                  `С ДЗ: ${withHomework}\n\n` +
+                  (keys.length > 0 ? 'Последние ключи:\n' + keys.slice(0, 5).map(k => '• ' + k.replace('lesson_note_', '')).join('\n') : '')
+                );
+              } catch (e) {
+                Alert.alert('Ошибка', e.message);
+              }
+            }}
+          >
+            <Icon name="stats-chart-outline" size={20} color={colors.primary} />
+            <Text style={[styles.actionButtonText, { color: textColor }]}>
+              Статистика заметок
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.actionButton, { backgroundColor: inputBgColor, borderColor }]}
+            onPress={async () => {
+              try {
+                const allNotes = await loadAllNotes();
+                const keys = Object.keys(allNotes);
+                if (keys.length === 0) {
+                  Alert.alert('Пусто', 'Заметок нет');
+                  return;
+                }
+                const list = keys.slice(0, 10).map((k, i) => {
+                  const n = allNotes[k];
+                  const short = k.replace('lesson_note_', '');
+                  return `${i + 1}. ${short}\n   Заметка: ${n.noteText ? n.noteText.substring(0, 30) + '...' : '—'}\n   ДЗ: ${n.homework ? n.homework.substring(0, 30) + '...' : '—'}`;
+                }).join('\n\n');
+                Alert.alert(
+                  `Заметки (${keys.length})`,
+                  list + (keys.length > 10 ? `\n\n...и ещё ${keys.length - 10}` : '')
+                );
+              } catch (e) {
+                Alert.alert('Ошибка', e.message);
+              }
+            }}
+          >
+            <Icon name="list-outline" size={20} color={colors.primary} />
+            <Text style={[styles.actionButtonText, { color: textColor }]}>
+              Просмотреть все заметки
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.actionButton, { backgroundColor: inputBgColor, borderColor }]}
+            onPress={async () => {
+              try {
+                await saveNote({
+                  subject: 'Тестовый предмет',
+                  weekday: 1,
+                  timeSlot: 1,
+                  group: 'ТСТ-01',
+                  noteText: 'Тестовая заметка из меню разработчика — ' + new Date().toLocaleTimeString(),
+                  homework: 'Тестовое ДЗ: подготовить доклад к следующему занятию',
+                });
+                Alert.alert('Готово', 'Тестовая заметка создана для «Тестовый предмет» (Пн, 1 пара, ТСТ-01)');
+              } catch (e) {
+                Alert.alert('Ошибка', e.message);
+              }
+            }}
+          >
+            <Icon name="add-circle-outline" size={20} color={colors.primary} />
+            <Text style={[styles.actionButtonText, { color: textColor }]}>
+              Создать тестовую заметку
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.actionButton, { backgroundColor: 'rgba(239, 68, 68, 0.1)', borderColor: 'rgba(239, 68, 68, 0.3)' }]}
+            onPress={() => {
+              Alert.alert(
+                'Очистить все заметки?',
+                'Все заметки и ДЗ будут удалены. Это действие необратимо.',
+                [
+                  { text: 'Отмена', style: 'cancel' },
+                  { text: 'Удалить', style: 'destructive', onPress: async () => {
+                    try {
+                      const count = await clearAllNotes();
+                      Alert.alert('Готово', `Удалено заметок: ${count}`);
+                    } catch (e) {
+                      Alert.alert('Ошибка', e.message);
+                    }
+                  }}
+                ]
+              );
+            }}
+          >
+            <Icon name="trash-outline" size={20} color="#ef4444" />
+            <Text style={[styles.actionButtonText, { color: '#ef4444' }]}>
+              Очистить все заметки
             </Text>
           </TouchableOpacity>
         </View>
