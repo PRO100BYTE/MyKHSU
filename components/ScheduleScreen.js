@@ -1040,35 +1040,45 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
             )}
           </View>
           
-          <View style={{ flexDirection: 'row', alignItems: 'center', flexShrink: 0 }}>
+          <View style={{ 
+            flexDirection: 'row', 
+            alignItems: 'center', 
+            flexShrink: 0,
+            backgroundColor: glass.surfaceSecondary,
+            borderRadius: 14,
+            borderWidth: StyleSheet.hairlineWidth,
+            borderColor: glass.border,
+            paddingVertical: 4,
+            paddingHorizontal: 4,
+          }}>
             <TouchableOpacity 
               onPress={() => changeWeek(-1)} 
-              style={{ padding: 8 }}
+              style={{ padding: 6, borderRadius: 10, backgroundColor: isAnimating ? 'transparent' : colors.glass }}
               disabled={isAnimating}
             >
-              <Icon name="chevron-back" size={24} color={isAnimating ? placeholderColor : colors.primary} />
+              <Icon name="chevron-back" size={18} color={isAnimating ? placeholderColor : colors.primary} />
             </TouchableOpacity>
             
             <Text 
               numberOfLines={1}
               style={{ 
                 color: textColor, 
-                fontWeight: '500', 
+                fontSize: 13,
                 marginHorizontal: 8, 
-                fontFamily: 'Montserrat_500Medium',
-                minWidth: 80,
+                fontFamily: 'Montserrat_600SemiBold',
+                minWidth: 56,
                 textAlign: 'center'
               }}
             >
-              Неделя {currentWeek}
+              Нед. {currentWeek}
             </Text>
             
             <TouchableOpacity 
               onPress={() => changeWeek(1)} 
-              style={{ padding: 8 }}
+              style={{ padding: 6, borderRadius: 10, backgroundColor: isAnimating ? 'transparent' : colors.glass }}
               disabled={isAnimating}
             >
-              <Icon name="chevron-forward" size={24} color={isAnimating ? placeholderColor : colors.primary} />
+              <Icon name="chevron-forward" size={18} color={isAnimating ? placeholderColor : colors.primary} />
             </TouchableOpacity>
           </View>
         </View>
@@ -1099,36 +1109,52 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
     if (isTeacherMode) {
       return (
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-          <Text style={{ color: textColor, fontWeight: '500', fontFamily: 'Montserrat_500Medium' }}>
-            Недельное расписание
-          </Text>
+          <View style={{ 
+            flexDirection: 'row', 
+            alignItems: 'center',
+            backgroundColor: glass.surfaceSecondary, 
+            borderRadius: 14, 
+            paddingVertical: 8,
+            paddingHorizontal: 12,
+            borderWidth: StyleSheet.hairlineWidth,
+            borderColor: glass.border,
+          }}>
+            <Icon name="calendar-outline" size={15} color={colors.primary} style={{ marginRight: 6 }} />
+            <Text style={{ color: textColor, fontSize: 13, fontFamily: 'Montserrat_600SemiBold' }}>Недельное</Text>
+          </View>
           
           <Animated.View
             style={{
               flexDirection: 'row',
               alignItems: 'center',
+              backgroundColor: glass.surfaceSecondary,
+              borderRadius: 14,
+              borderWidth: StyleSheet.hairlineWidth,
+              borderColor: glass.border,
+              paddingVertical: 4,
+              paddingHorizontal: 4,
               transform: [{ translateX: dateSlideAnim }],
               opacity: dateOpacityAnim,
             }}
           >
             <TouchableOpacity 
               onPress={() => changeWeek(-1)} 
-              style={{ padding: 8 }}
+              style={{ padding: 6, borderRadius: 10, backgroundColor: isAnimating ? 'transparent' : colors.glass }}
               disabled={isAnimating}
             >
-              <Icon name="chevron-back" size={24} color={isAnimating ? placeholderColor : colors.primary} />
+              <Icon name="chevron-back" size={18} color={isAnimating ? placeholderColor : colors.primary} />
             </TouchableOpacity>
             
-            <Text style={{ color: textColor, fontWeight: '500', marginHorizontal: 8, fontFamily: 'Montserrat_500Medium' }}>
-              Неделя {currentWeek}
+            <Text style={{ color: textColor, fontSize: 13, marginHorizontal: 8, fontFamily: 'Montserrat_600SemiBold' }}>
+              Нед. {currentWeek}
             </Text>
             
             <TouchableOpacity 
               onPress={() => changeWeek(1)} 
-              style={{ padding: 8 }}
+              style={{ padding: 6, borderRadius: 10, backgroundColor: isAnimating ? 'transparent' : colors.glass }}
               disabled={isAnimating}
             >
-              <Icon name="chevron-forward" size={24} color={isAnimating ? placeholderColor : colors.primary} />
+              <Icon name="chevron-forward" size={18} color={isAnimating ? placeholderColor : colors.primary} />
             </TouchableOpacity>
           </Animated.View>
         </View>
@@ -1433,79 +1459,124 @@ return (
         {!isTeacherMode && showCourseSelector && (
           <>
             {/* Кнопки выбора курса */}
-            {loadingCourses ? (
-              <ActivityIndicator size="small" color={colors.primary} style={{ marginBottom: 16 }} />
-            ) : (
-              <View style={{ 
-                flexDirection: 'row', 
-                flexWrap: 'wrap',
-                backgroundColor: cardBg, 
-                borderRadius: 24, 
-                padding: 4, 
-                marginBottom: 16,
-                borderWidth: 1,
-                borderColor,
-                justifyContent: 'center'
-              }}>
-                {availableCourses.map(courseItem => (
-                  <TouchableOpacity
-                    key={courseItem.id}
-                    onPress={() => handleCourseSelect(courseItem.id)}
-                    style={{
-                      paddingVertical: 8,
-                      paddingHorizontal: 12,
-                      borderRadius: 20,
-                      backgroundColor: course === courseItem.id ? colors.primary : 'transparent',
-                      alignItems: 'center',
-                      margin: 2,
-                      minWidth: '23%',
-                      justifyContent: 'center'
-                    }}
-                  >
-                    <Text style={{ 
-                      color: course === courseItem.id ? '#ffffff' : textColor,
-                      fontWeight: '500',
-                      fontFamily: 'Montserrat_500Medium',
-                      fontSize: 14,
-                      textAlign: 'center'
-                    }}>
-                      {courseItem.label}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
+            <View style={{ marginBottom: 16 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10, paddingHorizontal: 4 }}>
+                <View style={{
+                  width: 28,
+                  height: 28,
+                  borderRadius: 14,
+                  backgroundColor: colors.glass,
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                  marginRight: 8,
+                }}>
+                  <Icon name="school-outline" size={15} color={colors.primary} />
+                </View>
+                <Text style={{
+                  fontSize: 15,
+                  fontFamily: 'Montserrat_600SemiBold',
+                  color: textColor,
+                }}>Курс</Text>
               </View>
-            )}
+              {loadingCourses ? (
+                <ActivityIndicator size="small" color={colors.primary} />
+              ) : (
+                <View style={{ 
+                  flexDirection: 'row', 
+                  backgroundColor: glass.surfaceSecondary, 
+                  borderRadius: 14, 
+                  padding: 3,
+                  borderWidth: StyleSheet.hairlineWidth,
+                  borderColor: glass.border,
+                }}>
+                  {availableCourses.map(courseItem => (
+                    <TouchableOpacity
+                      key={courseItem.id}
+                      onPress={() => handleCourseSelect(courseItem.id)}
+                      style={{
+                        flex: 1,
+                        paddingVertical: 9,
+                        paddingHorizontal: 10,
+                        borderRadius: 12,
+                        backgroundColor: course === courseItem.id ? colors.primary : 'transparent',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        shadowColor: course === courseItem.id ? colors.primary : 'transparent',
+                        shadowOffset: { width: 0, height: 2 },
+                        shadowOpacity: course === courseItem.id ? 0.3 : 0,
+                        shadowRadius: 4,
+                        elevation: course === courseItem.id ? 3 : 0,
+                      }}
+                    >
+                      <Text style={{ 
+                        color: course === courseItem.id ? '#ffffff' : textColor,
+                        fontFamily: 'Montserrat_600SemiBold',
+                        fontSize: 14,
+                        textAlign: 'center'
+                      }}>
+                        {courseItem.label}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              )}
+            </View>
 
             {/* Список групп */}
-            <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', marginBottom: 16 }}>
+            <View style={{ marginBottom: 16 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10, paddingHorizontal: 4 }}>
+                <View style={{
+                  width: 28,
+                  height: 28,
+                  borderRadius: 14,
+                  backgroundColor: colors.glass,
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                  marginRight: 8,
+                }}>
+                  <Icon name="people-outline" size={15} color={colors.primary} />
+                </View>
+                <Text style={{
+                  fontSize: 15,
+                  fontFamily: 'Montserrat_600SemiBold',
+                  color: textColor,
+                }}>Группа</Text>
+              </View>
               {loadingGroups ? (
                 <ActivityIndicator size="large" color={colors.primary} />
               ) : (
-                groups.map(group => (
-                  <TouchableOpacity
-                    key={group}
-                    onPress={() => handleGroupSelect(group)}
-                    style={{
-                      paddingVertical: 8,
-                      paddingHorizontal: 16,
-                      borderRadius: 8,
-                      margin: 4,
-                      backgroundColor: selectedGroup === group ? colors.primary : cardBg,
-                      borderWidth: 1,
-                      borderColor: selectedGroup === group ? colors.primary : borderColor,
-                      justifyContent: 'center',
-                      alignItems: 'center'
-                    }}
-                  >
-                    <Text style={{ 
-                      color: selectedGroup === group ? '#ffffff' : textColor,
-                      fontFamily: 'Montserrat_500Medium',
-                      textAlign: 'center'
-                    }}>
-                      {group}
-                    </Text>
-                  </TouchableOpacity>
-                ))
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 8 }}>
+                  {groups.map(group => (
+                    <TouchableOpacity
+                      key={group}
+                      onPress={() => handleGroupSelect(group)}
+                      style={{
+                        paddingVertical: 10,
+                        paddingHorizontal: 18,
+                        borderRadius: 14,
+                        backgroundColor: selectedGroup === group ? colors.primary : glass.surfaceSecondary,
+                        borderWidth: selectedGroup === group ? 1.5 : StyleSheet.hairlineWidth,
+                        borderColor: selectedGroup === group ? colors.primary : glass.border,
+                        justifyContent: 'center',
+                        alignItems: 'center',
+                        shadowColor: selectedGroup === group ? colors.primary : glass.shadowColor,
+                        shadowOffset: { width: 0, height: selectedGroup === group ? 3 : 1 },
+                        shadowOpacity: selectedGroup === group ? 0.3 : 0.06,
+                        shadowRadius: selectedGroup === group ? 8 : 3,
+                        elevation: selectedGroup === group ? 4 : 1,
+                      }}
+                    >
+                      <Text style={{ 
+                        color: selectedGroup === group ? '#ffffff' : textColor,
+                        fontFamily: selectedGroup === group ? 'Montserrat_600SemiBold' : 'Montserrat_500Medium',
+                        fontSize: 14,
+                        textAlign: 'center'
+                      }}>
+                        {group}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
               )}
             </View>
           </>
