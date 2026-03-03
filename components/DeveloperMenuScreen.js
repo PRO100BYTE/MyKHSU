@@ -6,6 +6,12 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ACCENT_COLORS, API_BASE_URL, APP_VERSION, BUILD_VER, BUILD_DATE, LIQUID_GLASS } from '../utils/constants';
 import * as Updates from 'expo-updates';
 import * as Notifications from 'expo-notifications';
+import * as TaskManager from 'expo-task-manager';
+import * as BackgroundFetch from 'expo-background-fetch';
+import NetInfo from '@react-native-community/netinfo';
+import ApiService from '../utils/api';
+import notificationService from '../utils/notificationService';
+import backgroundService from '../utils/backgroundService';
 
 const DeveloperMenuScreen = ({ theme, accentColor, onResetDeveloperMode }) => {
   const [customApiUrl, setCustomApiUrl] = useState('');
@@ -372,6 +378,346 @@ const DeveloperMenuScreen = ({ theme, accentColor, onResetDeveloperMode }) => {
             <Icon name="checkmark-circle-outline" size={20} color={colors.primary} />
             <Text style={[styles.actionButtonText, { color: textColor }]}>
               Тестовое уведомление: конец пары
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Уведомления и фоновые задачи */}
+        <View style={styles.section}>
+          <Text style={[styles.sectionTitle, { color: textColor }]}>Уведомления и фоновые задачи</Text>
+
+          <TouchableOpacity
+            style={[styles.actionButton, { backgroundColor: inputBgColor, borderColor }]}
+            onPress={async () => {
+              try {
+                const { status } = await Notifications.getPermissionsAsync();
+                const scheduled = await Notifications.getAllScheduledNotificationsAsync();
+                const settings = await notificationService.getNotificationSettings();
+                Alert.alert(
+                  'Статус уведомлений',
+                  `Разрешение: ${status}\n` +
+                  `Запланировано: ${scheduled.length}\n` +
+                  `Включены: ${settings.enabled ? 'Да' : 'Нет'}\n` +
+                  `Новости: ${settings.news ? 'Да' : 'Нет'}\n` +
+                  `Расписание: ${settings.schedule ? 'Да' : 'Нет'}`
+                );
+              } catch (e) {
+                Alert.alert('Ошибка', e.message);
+              }
+            }}
+          >
+            <Icon name="shield-checkmark-outline" size={20} color={colors.primary} />
+            <Text style={[styles.actionButtonText, { color: textColor }]}>
+              Статус уведомлений
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.actionButton, { backgroundColor: inputBgColor, borderColor }]}
+            onPress={async () => {
+              try {
+                const isRegistered = await TaskManager.isTaskRegisteredAsync('BACKGROUND_NEWS_CHECK');
+                const status = await BackgroundFetch.getStatusAsync();
+                const statusMap = {
+                  [BackgroundFetch.BackgroundFetchStatus.Restricted]: 'Ограничен',
+                  [BackgroundFetch.BackgroundFetchStatus.Denied]: 'Запрещён',
+                  [BackgroundFetch.BackgroundFetchStatus.Available]: 'Доступен',
+                };
+                Alert.alert(
+                  'Фоновая задача',
+                  `Зарегистрирована: ${isRegistered ? 'Да' : 'Нет'}\n` +
+                  `BackgroundFetch: ${statusMap[status] || 'Неизвестно'}`
+                );
+              } catch (e) {
+                Alert.alert('Ошибка', e.message);
+              }
+            }}
+          >
+            <Icon name="sync-outline" size={20} color={colors.primary} />
+            <Text style={[styles.actionButtonText, { color: textColor }]}>
+              Статус фоновой задачи
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.actionButton, { backgroundColor: inputBgColor, borderColor }]}
+            onPress={async () => {
+              try {
+                Alert.alert('Запуск', 'Выполняется проверка новостей...');
+                await backgroundService.checkForNewsNotifications();
+                Alert.alert('Готово', 'Фоновая проверка новостей выполнена');
+              } catch (e) {
+                Alert.alert('Ошибка', 'Ошибка проверки: ' + e.message);
+              }
+            }}
+          >
+            <Icon name="cloud-download-outline" size={20} color={colors.primary} />
+            <Text style={[styles.actionButtonText, { color: textColor }]}>
+              Запустить проверку новостей вручную
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.actionButton, { backgroundColor: inputBgColor, borderColor }]}
+            onPress={async () => {
+              try {
+                const scheduled = await Notifications.getAllScheduledNotificationsAsync();
+                if (scheduled.length === 0) {
+                  Alert.alert('Нет уведомлений', 'Запланированных уведомлений нет');
+                  return;
+                }
+                const list = scheduled.slice(0, 10).map((n, i) => 
+                  `${i + 1}. ${n.content.title || '(без заголовка)'}\n   ${n.trigger ? JSON.stringify(n.trigger).substring(0, 60) : 'немедленно'}`
+                ).join('\n\n');
+                Alert.alert(
+                  `Запланировано: ${scheduled.length}`,
+                  list + (scheduled.length > 10 ? `\n\n...и ещё ${scheduled.length - 10}` : '')
+                );
+              } catch (e) {
+                Alert.alert('Ошибка', e.message);
+              }
+            }}
+          >
+            <Icon name="list-outline" size={20} color={colors.primary} />
+            <Text style={[styles.actionButtonText, { color: textColor }]}>
+              Список запланированных уведомлений
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.actionButton, { backgroundColor: inputBgColor, borderColor }]}
+            onPress={() => {
+              Alert.alert(
+                'Отменить все уведомления?',
+                'Все запланированные уведомления будут отменены.',
+                [
+                  { text: 'Отмена', style: 'cancel' },
+                  { text: 'Очистить', style: 'destructive', onPress: async () => {
+                    try {
+                      await Notifications.cancelAllScheduledNotificationsAsync();
+                      Alert.alert('Готово', 'Все запланированные уведомления отменены');
+                    } catch (e) {
+                      Alert.alert('Ошибка', e.message);
+                    }
+                  }}
+                ]
+              );
+            }}
+          >
+            <Icon name="notifications-off-outline" size={20} color={colors.primary} />
+            <Text style={[styles.actionButtonText, { color: textColor }]}>
+              Отменить все запланированные уведомления
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Сеть и API */}
+        <View style={styles.section}>
+          <Text style={[styles.sectionTitle, { color: textColor }]}>Сеть и API</Text>
+
+          <TouchableOpacity
+            style={[styles.actionButton, { backgroundColor: inputBgColor, borderColor }]}
+            onPress={async () => {
+              try {
+                const netState = await NetInfo.fetch();
+                Alert.alert(
+                  'Сетевой статус',
+                  `Подключён: ${netState.isConnected ? 'Да' : 'Нет'}\n` +
+                  `Тип: ${netState.type}\n` +
+                  `WiFi: ${netState.isWifiEnabled !== undefined ? (netState.isWifiEnabled ? 'Да' : 'Нет') : 'N/A'}\n` +
+                  `Детали: ${netState.details ? JSON.stringify(netState.details).substring(0, 150) : 'нет'}`
+                );
+              } catch (e) {
+                Alert.alert('Ошибка', e.message);
+              }
+            }}
+          >
+            <Icon name="wifi-outline" size={20} color={colors.primary} />
+            <Text style={[styles.actionButtonText, { color: textColor }]}>
+              Проверить сеть
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.actionButton, { backgroundColor: inputBgColor, borderColor }]}
+            onPress={async () => {
+              try {
+                const start = Date.now();
+                const result = await ApiService.getNews(0, 1);
+                const elapsed = Date.now() - start;
+                Alert.alert(
+                  'API: Новости',
+                  `Источник: ${result.source}\n` +
+                  `Время ответа: ${elapsed} мс\n` +
+                  `Данные: ${result.data ? result.data.length + ' шт.' : 'нет'}` +
+                  (result.cacheInfo ? `\nКэш от: ${result.cacheInfo.cacheDate}` : '')
+                );
+              } catch (e) {
+                Alert.alert('Ошибка API', e.message);
+              }
+            }}
+          >
+            <Icon name="pulse-outline" size={20} color={colors.primary} />
+            <Text style={[styles.actionButtonText, { color: textColor }]}>
+              Тест API: Новости
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.actionButton, { backgroundColor: inputBgColor, borderColor }]}
+            onPress={async () => {
+              try {
+                const start = Date.now();
+                const result = await ApiService.getGroups(1);
+                const elapsed = Date.now() - start;
+                Alert.alert(
+                  'API: Группы',
+                  `Источник: ${result.source}\n` +
+                  `Время ответа: ${elapsed} мс\n` +
+                  `Данные: ${result.data ? (Array.isArray(result.data) ? result.data.length + ' групп' : 'объект') : 'нет'}` +
+                  (result.cacheInfo ? `\nКэш от: ${result.cacheInfo.cacheDate}` : '')
+                );
+              } catch (e) {
+                Alert.alert('Ошибка API', e.message);
+              }
+            }}
+          >
+            <Icon name="people-outline" size={20} color={colors.primary} />
+            <Text style={[styles.actionButtonText, { color: textColor }]}>
+              Тест API: Группы
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Кэш */}
+        <View style={styles.section}>
+          <Text style={[styles.sectionTitle, { color: textColor }]}>Кэш</Text>
+
+          <TouchableOpacity
+            style={[styles.actionButton, { backgroundColor: inputBgColor, borderColor }]}
+            onPress={async () => {
+              try {
+                const keys = await AsyncStorage.getAllKeys();
+                let totalSize = 0;
+                for (const key of keys) {
+                  const val = await AsyncStorage.getItem(key);
+                  if (val) totalSize += val.length;
+                }
+                const sizeKB = (totalSize / 1024).toFixed(1);
+                const categories = {};
+                keys.forEach(k => {
+                  const prefix = k.split('_')[0] || 'другое';
+                  categories[prefix] = (categories[prefix] || 0) + 1;
+                });
+                const catStr = Object.entries(categories)
+                  .sort((a, b) => b[1] - a[1])
+                  .slice(0, 8)
+                  .map(([k, v]) => `  ${k}: ${v}`)
+                  .join('\n');
+                Alert.alert(
+                  'Статистика кэша',
+                  `Ключей: ${keys.length}\nРазмер: ~${sizeKB} КБ\n\nПо категориям:\n${catStr}`
+                );
+              } catch (e) {
+                Alert.alert('Ошибка', e.message);
+              }
+            }}
+          >
+            <Icon name="pie-chart-outline" size={20} color={colors.primary} />
+            <Text style={[styles.actionButtonText, { color: textColor }]}>
+              Статистика кэша
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.actionButton, { backgroundColor: inputBgColor, borderColor }]}
+            onPress={() => {
+              Alert.alert(
+                'Очистить AsyncStorage?',
+                'Весь кэш приложения (расписание, новости, группы) будет удалён.',
+                [
+                  { text: 'Отмена', style: 'cancel' },
+                  { text: 'Очистить', style: 'destructive', onPress: async () => {
+                    try {
+                      await AsyncStorage.clear();
+                      Alert.alert('Готово', 'AsyncStorage полностью очищен');
+                    } catch (e) {
+                      Alert.alert('Ошибка', e.message);
+                    }
+                  }}
+                ]
+              );
+            }}
+          >
+            <Icon name="trash-outline" size={20} color={colors.primary} />
+            <Text style={[styles.actionButtonText, { color: textColor }]}>
+              Очистить весь кэш (AsyncStorage)
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.actionButton, { backgroundColor: inputBgColor, borderColor }]}
+            onPress={async () => {
+              try {
+                const newsKeys = (await AsyncStorage.getAllKeys()).filter(k => 
+                  k.startsWith('news_') || k === 'last_notified_news' || k === 'new_news_detected' || k === 'news_latest' || k === 'news_last_check'
+                );
+                if (newsKeys.length === 0) {
+                  Alert.alert('Пусто', 'Кэш новостей не найден');
+                  return;
+                }
+                Alert.alert(
+                  'Очистить кэш новостей?',
+                  `Будет удалено ${newsKeys.length} ключей: ${newsKeys.join(', ')}`,
+                  [
+                    { text: 'Отмена', style: 'cancel' },
+                    { text: 'Очистить', style: 'destructive', onPress: async () => {
+                      await AsyncStorage.multiRemove(newsKeys);
+                      Alert.alert('Готово', 'Кэш новостей очищен');
+                    }}
+                  ]
+                );
+              } catch (e) {
+                Alert.alert('Ошибка', e.message);
+              }
+            }}
+          >
+            <Icon name="newspaper-outline" size={20} color={colors.primary} />
+            <Text style={[styles.actionButtonText, { color: textColor }]}>
+              Очистить кэш новостей
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.actionButton, { backgroundColor: inputBgColor, borderColor }]}
+            onPress={async () => {
+              try {
+                const schedKeys = (await AsyncStorage.getAllKeys()).filter(k => 
+                  k.startsWith('schedule_') || k.startsWith('groups_')
+                );
+                if (schedKeys.length === 0) {
+                  Alert.alert('Пусто', 'Кэш расписания не найден');
+                  return;
+                }
+                Alert.alert(
+                  'Очистить кэш расписания?',
+                  `Будет удалено ${schedKeys.length} ключей`,
+                  [
+                    { text: 'Отмена', style: 'cancel' },
+                    { text: 'Очистить', style: 'destructive', onPress: async () => {
+                      await AsyncStorage.multiRemove(schedKeys);
+                      Alert.alert('Готово', 'Кэш расписания очищен');
+                    }}
+                  ]
+                );
+              } catch (e) {
+                Alert.alert('Ошибка', e.message);
+              }
+            }}
+          >
+            <Icon name="calendar-outline" size={20} color={colors.primary} />
+            <Text style={[styles.actionButtonText, { color: textColor }]}>
+              Очистить кэш расписания
             </Text>
           </TouchableOpacity>
         </View>
