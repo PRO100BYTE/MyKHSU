@@ -155,6 +155,7 @@ export default Sentry.wrap(function App() {
   // Состояния для контекстных кнопок в хедере
   const [mapFilterCount, setMapFilterCount] = useState(0);
   const scheduleExportHandler = useRef(null);
+  const [scheduleExportAvailable, setScheduleExportAvailable] = useState(false);
   const [scheduleExporting, setScheduleExporting] = useState(false);
   const [mapSubScreen, setMapSubScreen] = useState(null);
   const [freshmanSubScreen, setFreshmanSubScreen] = useState(null);
@@ -685,7 +686,7 @@ const handleNewYearModeChange = async (enabled) => {
                   </Text>
                 </TouchableOpacity>
               )}
-              {activeScreen === SCREENS.SCHEDULE && scheduleExportHandler.current && (
+              {activeScreen === SCREENS.SCHEDULE && scheduleExportAvailable && (
                 <TouchableOpacity
                   onPress={() => scheduleExportHandler.current?.()}
                   disabled={scheduleExporting}
@@ -781,7 +782,7 @@ const handleNewYearModeChange = async (enabled) => {
             </Text>
           </TouchableOpacity>
         )}
-        {activeScreen === SCREENS.SCHEDULE && scheduleExportHandler.current && (
+        {activeScreen === SCREENS.SCHEDULE && scheduleExportAvailable && (
           <TouchableOpacity
             onPress={() => scheduleExportHandler.current?.()}
             disabled={scheduleExporting}
@@ -914,6 +915,7 @@ const handleNewYearModeChange = async (enabled) => {
             }}
             onExportReady={(handler, isExporting) => {
               scheduleExportHandler.current = handler;
+              setScheduleExportAvailable(!!handler);
               setScheduleExporting(isExporting);
             }}
           />
