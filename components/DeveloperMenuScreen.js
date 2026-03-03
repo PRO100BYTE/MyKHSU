@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, TextInput, StyleSheet, Alert, Switch, Clipboard } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, TextInput, StyleSheet, Alert, Switch, Clipboard, Platform } from 'react-native';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import * as SecureStore from 'expo-secure-store';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ACCENT_COLORS, API_BASE_URL, APP_VERSION, BUILD_VER, BUILD_DATE, LIQUID_GLASS } from '../utils/constants';
 import * as Updates from 'expo-updates';
+import * as Notifications from 'expo-notifications';
 
 const DeveloperMenuScreen = ({ theme, accentColor, onResetDeveloperMode }) => {
   const [customApiUrl, setCustomApiUrl] = useState('');
@@ -265,6 +266,114 @@ const DeveloperMenuScreen = ({ theme, accentColor, onResetDeveloperMode }) => {
               ))}
             </View>
           )}
+        </View>
+
+        {/* Тестовые уведомления */}
+        <View style={styles.section}>
+          <Text style={[styles.sectionTitle, { color: textColor }]}>Тестовые уведомления</Text>
+
+          <TouchableOpacity
+            style={[styles.actionButton, { backgroundColor: inputBgColor, borderColor }]}
+            onPress={async () => {
+              try {
+                await Notifications.scheduleNotificationAsync({
+                  content: {
+                    title: '🔔 Тестовое уведомление',
+                    body: 'Это тестовое уведомление из меню разработчика',
+                    data: { type: 'test' },
+                    sound: true,
+                  },
+                  trigger: null,
+                });
+                Alert.alert('Готово', 'Тестовое уведомление отправлено');
+              } catch (e) {
+                Alert.alert('Ошибка', 'Не удалось отправить уведомление: ' + e.message);
+              }
+            }}
+          >
+            <Icon name="notifications-outline" size={20} color={colors.primary} />
+            <Text style={[styles.actionButtonText, { color: textColor }]}>
+              Тестовое уведомление
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.actionButton, { backgroundColor: inputBgColor, borderColor }]}
+            onPress={async () => {
+              try {
+                await Notifications.scheduleNotificationAsync({
+                  content: {
+                    title: '📰 Новая новость',
+                    body: 'Это тестовое уведомление о новой новости из меню разработчика',
+                    data: { type: 'new_news', newsDate: new Date().toISOString() },
+                    sound: true,
+                    ...(Platform.OS === 'android' && { channelId: 'news' }),
+                  },
+                  trigger: null,
+                });
+                Alert.alert('Готово', 'Уведомление о новости отправлено');
+              } catch (e) {
+                Alert.alert('Ошибка', 'Не удалось отправить уведомление: ' + e.message);
+              }
+            }}
+          >
+            <Icon name="newspaper-outline" size={20} color={colors.primary} />
+            <Text style={[styles.actionButtonText, { color: textColor }]}>
+              Тестовое уведомление: новость
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.actionButton, { backgroundColor: inputBgColor, borderColor }]}
+            onPress={async () => {
+              try {
+                await Notifications.scheduleNotificationAsync({
+                  content: {
+                    title: '📚 Началась пара',
+                    body: 'Тестовый предмет в аудитории 101',
+                    data: { type: 'lesson_start' },
+                    sound: true,
+                    ...(Platform.OS === 'android' && { channelId: 'schedule' }),
+                  },
+                  trigger: null,
+                });
+                Alert.alert('Готово', 'Уведомление о начале пары отправлено');
+              } catch (e) {
+                Alert.alert('Ошибка', 'Не удалось отправить уведомление: ' + e.message);
+              }
+            }}
+          >
+            <Icon name="play-circle-outline" size={20} color={colors.primary} />
+            <Text style={[styles.actionButtonText, { color: textColor }]}>
+              Тестовое уведомление: начало пары
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.actionButton, { backgroundColor: inputBgColor, borderColor }]}
+            onPress={async () => {
+              try {
+                await Notifications.scheduleNotificationAsync({
+                  content: {
+                    title: '✅ Пара закончилась',
+                    body: 'Тестовый предмет завершён',
+                    data: { type: 'lesson_end' },
+                    sound: true,
+                    ...(Platform.OS === 'android' && { channelId: 'schedule' }),
+                  },
+                  trigger: null,
+                });
+                Alert.alert('Готово', 'Уведомление об окончании пары отправлено');
+              } catch (e) {
+                Alert.alert('Ошибка', 'Не удалось отправить уведомление: ' + e.message);
+              }
+            }}
+          >
+            <Icon name="checkmark-circle-outline" size={20} color={colors.primary} />
+            <Text style={[styles.actionButtonText, { color: textColor }]}>
+              Тестовое уведомление: конец пары
+            </Text>
+          </TouchableOpacity>
         </View>
 
         {/* Опасные действия */}

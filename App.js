@@ -4,7 +4,6 @@ import { Ionicons as Icon } from '@expo/vector-icons';
 import * as SecureStore from 'expo-secure-store';
 import { useFonts, Montserrat_400Regular, Montserrat_500Medium, Montserrat_600SemiBold, Montserrat_700Bold } from '@expo-google-fonts/montserrat';
 import * as Notifications from 'expo-notifications';
-import * as TaskManager from 'expo-task-manager';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
 
@@ -40,19 +39,6 @@ Notifications.setNotificationHandler({
     shouldPlaySound: true,
     shouldSetBadge: true,
   }),
-});
-
-// Фоновая задача для проверки новостей (только для Android)
-const BACKGROUND_NEWS_CHECK = 'BACKGROUND_NEWS_CHECK';
-
-TaskManager.defineTask(BACKGROUND_NEWS_CHECK, async () => {
-  try {
-    console.log('Background news check running...');
-    await backgroundService.checkForNewsNotifications();
-  } catch (error) {
-    console.error('Background news check error:', error);
-    Sentry.captureException(error);
-  }
 });
 
 const styles = StyleSheet.create({
@@ -414,10 +400,8 @@ const handleNewYearModeChange = async (enabled) => {
       await loadTabbarSettings(); // настройки таббара
       await loadNewYearSettings(); // новогодние настройки
 
-      // Регистрируем фоновую задачу (только для Android)
-      if (Platform.OS === 'android') {
-        await registerBackgroundTask();
-      }
+      // Регистрируем фоновую задачу
+      await registerBackgroundTask();
 
     } catch (error) {
       console.error('Error initializing app:', error);
@@ -462,7 +446,7 @@ const handleNewYearModeChange = async (enabled) => {
 
   const registerBackgroundTask = async () => {
     try {
-      await Notifications.registerTaskAsync(BACKGROUND_NEWS_CHECK);
+      await backgroundService.registerBackgroundNewsCheck();
     } catch (error) {
       console.error('Error registering background task:', error);
     }
