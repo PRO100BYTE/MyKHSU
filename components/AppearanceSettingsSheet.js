@@ -65,6 +65,15 @@ const AppearanceSettingsSheet = ({
     setSelectedTheme(newTheme);
     setTheme(newTheme);
     await SecureStore.setItemAsync('theme', newTheme);
+    // При выборе темы «Матрица» автоматически ставим акцентный цвет matrix
+    if (newTheme === 'matrix') {
+      setAccentColor('matrix');
+      await SecureStore.setItemAsync('accentColor', 'matrix');
+    } else if (accentColor === 'matrix') {
+      // При уходе с темы «Матрица» сбрасываем акцент на зелёный
+      setAccentColor('green');
+      await SecureStore.setItemAsync('accentColor', 'green');
+    }
   };
 
   const handleAccentColorChange = async (newColor) => {
@@ -118,6 +127,14 @@ const AppearanceSettingsSheet = ({
     { key: 'blue', label: 'Голубой' },
     { key: 'purple', label: 'Фиолетовый' },
     ...(developerMode ? [{ key: 'orange', label: 'Оранжевый' }] : []),
+    ...(developerMode ? [{ key: 'matrix', label: 'Матрица' }] : []),
+  ];
+
+  const themeOptions = [
+    { key: 'light', icon: 'sunny-outline', label: 'Светлая' },
+    { key: 'dark', icon: 'moon-outline', label: 'Тёмная' },
+    { key: 'auto', icon: 'phone-portrait-outline', label: 'Системная', desc: systemColorScheme === 'dark' ? 'Тёмная' : 'Светлая' },
+    ...(developerMode ? [{ key: 'matrix', icon: 'code-slash-outline', label: 'Матрица', desc: 'Цифровой дождь' }] : []),
   ];
 
   return (
@@ -130,11 +147,7 @@ const AppearanceSettingsSheet = ({
       <View style={styles.section}>
         <Text style={[styles.sectionTitle, { color: textColor }]}>Тема</Text>
         <View style={styles.optionsContainer}>
-          {[
-            { key: 'light', icon: 'sunny-outline', label: 'Светлая' },
-            { key: 'dark', icon: 'moon-outline', label: 'Тёмная' },
-            { key: 'auto', icon: 'phone-portrait-outline', label: 'Системная', desc: systemColorScheme === 'dark' ? 'Тёмная' : 'Светлая' },
-          ].map(opt => (
+          {themeOptions.map(opt => (
             <TouchableOpacity
               key={opt.key}
               style={[styles.option, { 
@@ -183,6 +196,14 @@ const AppearanceSettingsSheet = ({
             <Icon name="sparkles" size={16} color="#F97316" />
             <Text style={[styles.infoText, { color: '#F97316', marginLeft: 8, flex: 1 }]}>
               Секретный цвет разблокирован через режим разработчика!
+            </Text>
+          </View>
+        )}
+        {developerMode && selectedTheme === 'matrix' && (
+          <View style={[styles.infoSection, { backgroundColor: 'rgba(0, 255, 65, 0.1)', marginTop: 12 }]}>
+            <Icon name="code-slash" size={16} color="#00FF41" />
+            <Text style={[styles.infoText, { color: '#00FF41', marginLeft: 8, flex: 1 }]}>
+              Тема «Матрица» активирована. Добро пожаловать в кроличью нору.
             </Text>
           </View>
         )}

@@ -2,6 +2,7 @@ import React, { useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, StatusBar, Animated, Dimensions, ActivityIndicator } from 'react-native';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import { ACCENT_COLORS, LIQUID_GLASS, APP_VERSION } from '../utils/constants';
+import MatrixRain from './MatrixRain';
 
 const { width, height } = Dimensions.get('window');
 
@@ -11,10 +12,11 @@ const SplashScreen = ({ accentColor, theme, holidayInfo }) => {
   const safeColors = colors || { primary: '#10b981', light: '#d1fae5' };
   
   const glass = LIQUID_GLASS[theme] || LIQUID_GLASS.light;
-  const backgroundColor = glass.background;
-  const iconColor = theme === 'dark' ? safeColors.light : safeColors.primary;
-  const textColor = theme === 'dark' ? '#ffffff' : '#1c1c1e';
-  const subtextColor = theme === 'dark' ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.4)';
+  const isMatrix = theme === 'matrix';
+  const backgroundColor = isMatrix ? (glass.backgroundSolid || '#0D0208') : glass.background;
+  const iconColor = (theme === 'dark' || isMatrix) ? safeColors.light : safeColors.primary;
+  const textColor = (theme === 'dark' || isMatrix) ? '#ffffff' : '#1c1c1e';
+  const subtextColor = (theme === 'dark' || isMatrix) ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.4)';
 
   // Цвета праздников
   const getHolidayColors = (type) => {
@@ -250,27 +252,31 @@ const SplashScreen = ({ accentColor, theme, holidayInfo }) => {
         backgroundColor={backgroundColor}
       />
 
-      {/* Плавающие блобы */}
-      {blobs.map((blob, index) => (
-        <Animated.View
-          key={`blob-${index}`}
-          style={{
-            position: 'absolute',
-            left: blob.x - blob.size / 2,
-            top: blob.y - blob.size / 2,
-            width: blob.size,
-            height: blob.size,
-            borderRadius: blob.size / 2,
-            backgroundColor: safeColors.primary,
-            opacity: blob.opacity,
-            transform: [
-              { translateX: blobAnims[index].translateX },
-              { translateY: blobAnims[index].translateY },
-              { scale: blobAnims[index].scale },
-            ],
-          }}
-        />
-      ))}
+      {/* Плавающие блобы / Matrix Rain */}
+      {isMatrix ? (
+        <MatrixRain intensity={0.85} />
+      ) : (
+        blobs.map((blob, index) => (
+          <Animated.View
+            key={`blob-${index}`}
+            style={{
+              position: 'absolute',
+              left: blob.x - blob.size / 2,
+              top: blob.y - blob.size / 2,
+              width: blob.size,
+              height: blob.size,
+              borderRadius: blob.size / 2,
+              backgroundColor: safeColors.primary,
+              opacity: blob.opacity,
+              transform: [
+                { translateX: blobAnims[index].translateX },
+                { translateY: blobAnims[index].translateY },
+                { scale: blobAnims[index].scale },
+              ],
+            }}
+          />
+        ))
+      )}
 
       {/* Центральный контент */}
       <View style={styles.contentContainer}>

@@ -433,7 +433,7 @@ const styles = StyleSheet.create({
   infoText: { fontSize: 12, marginLeft: 8, flex: 1, fontFamily: 'Montserrat_400Regular' },
   saveButtonContainer: { 
     padding: 16, 
-    paddingBottom: 32, 
+    paddingBottom: 100, 
     borderTopWidth: StyleSheet.hairlineWidth, 
     borderTopColor: 'rgba(0,0,0,0.06)',
   },

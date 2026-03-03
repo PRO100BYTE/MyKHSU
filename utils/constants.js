@@ -32,6 +32,13 @@ export const ACCENT_COLORS = {
     dark: '#C2410C',
     glass: 'rgba(249, 115, 22, 0.12)',
     glassBorder: 'rgba(249, 115, 22, 0.25)',
+  },
+  matrix: {
+    primary: '#00FF41',
+    light: '#0D1A0F',
+    dark: '#00CC33',
+    glass: 'rgba(0, 255, 65, 0.12)',
+    glassBorder: 'rgba(0, 255, 65, 0.25)',
   }
 };
 
@@ -89,6 +96,35 @@ export const LIQUID_GLASS = {
     // Тени
     shadowColor: 'rgba(0, 0, 0, 0.3)',
     shadowStrong: 'rgba(0, 0, 0, 0.5)',
+    // Blur интенсивность
+    blurIntensity: 80,
+    blurTint: 'systemChromeMaterialDark',
+  },
+  matrix: {
+    // Поверхности
+    surfacePrimary: 'rgba(13, 2, 8, 0.85)',
+    surfaceSecondary: 'rgba(13, 2, 8, 0.70)',
+    surfaceTertiary: 'rgba(0, 255, 65, 0.06)',
+    surfaceCard: 'rgba(13, 2, 8, 0.80)',
+    // Фон
+    background: 'transparent',
+    backgroundSolid: '#0D0208',
+    backgroundElevated: '#0A0A0A',
+    // Границы
+    border: 'rgba(0, 255, 65, 0.12)',
+    borderStrong: 'rgba(0, 255, 65, 0.25)',
+    // Текст
+    text: '#00FF41',
+    textSecondary: '#00AA2A',
+    textTertiary: '#006618',
+    // Навигация (glass)
+    headerGlass: 'rgba(13, 2, 8, 0.88)',
+    tabBarGlass: 'rgba(13, 2, 8, 0.75)',
+    tabBarBlurIntensity: 60,
+    tabBarBlurTint: 'systemThinMaterialDark',
+    // Тени
+    shadowColor: 'rgba(0, 255, 65, 0.15)',
+    shadowStrong: 'rgba(0, 255, 65, 0.3)',
     // Blur интенсивность
     blurIntensity: 80,
     blurTint: 'systemChromeMaterialDark',

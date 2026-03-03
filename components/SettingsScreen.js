@@ -18,6 +18,7 @@ import AppearanceSettingsSheet from './AppearanceSettingsSheet';
 import AboutModal from './AboutModal';
 import NotificationSettingsModal from './NotificationSettingsModal';
 import ScheduleFormatModal from './ScheduleFormatModal';
+import DeveloperMenuScreen from './DeveloperMenuScreen';
 import { ACCENT_COLORS, APP_VERSION, APP_DEVELOPERS, APP_SUPPORTERS, GITHUB_REPO_URL, BUILD_VER, BUILD_DATE, LIQUID_GLASS } from '../utils/constants';
 import { getGlassSettingsCardStyle, getGlassIconBadgeStyle } from '../utils/liquidGlass';
 import Snowfall from './Snowfall';
@@ -189,8 +190,6 @@ const SettingsScreen = forwardRef(({
   isNewYearMode, onNewYearModeChange, onNavigationChange 
 }, ref) => {
   const [currentScreen, setCurrentScreen] = useState(null);
-  const [aboutModalVisible, setAboutModalVisible] = useState(false);
-  const [notificationModalVisible, setNotificationModalVisible] = useState(false);
   const [scheduleSettings, setScheduleSettings] = useState(null);
   const [versionTapCount, setVersionTapCount] = useState(0);
   const [easterEggActive, setEasterEggActive] = useState(false);
@@ -248,6 +247,9 @@ const SettingsScreen = forwardRef(({
     const titles = {
       schedule: 'Формат расписания',
       appearance: 'Внешний вид',
+      notifications: 'Уведомления',
+      about: 'О приложении',
+      developer: 'Меню разработчика',
     };
     if (onNavigationChange) onNavigationChange(titles[currentScreen] || null);
   }, [currentScreen]);
@@ -317,10 +319,15 @@ const SettingsScreen = forwardRef(({
         { text: 'Сбросить', style: 'destructive', onPress: async () => {
           setDeveloperMode(false);
           await SecureStore.setItemAsync('developer_mode', 'false');
-          if (accentColor === 'orange') {
+          if (accentColor === 'orange' || accentColor === 'matrix') {
             setAccentColor('green');
             await SecureStore.setItemAsync('accentColor', 'green');
           }
+          if (theme === 'matrix') {
+            setTheme('dark');
+            await SecureStore.setItemAsync('theme', 'dark');
+          }
+          navigateTo(null);
         }}
       ]
     );
@@ -479,7 +486,7 @@ const SettingsScreen = forwardRef(({
           icon="notifications-outline" 
           title="Настройки уведомлений" 
           subtitle="Уведомления о новостях и расписании" 
-          onPress={() => setNotificationModalVisible(true)} 
+          onPress={() => navigateTo('notifications')} 
           isFirst isLast 
         />
       </SettingsGroup>
@@ -524,7 +531,7 @@ const SettingsScreen = forwardRef(({
           icon="information-circle-outline" 
           title="О приложении" 
           subtitle="Информация и возможности" 
-          onPress={() => setAboutModalVisible(true)} 
+          onPress={() => navigateTo('about')} 
           isFirst 
         />
         <SettingsRow 
@@ -543,13 +550,11 @@ const SettingsScreen = forwardRef(({
           <SectionHeader title="🛠 Режим разработчика" />
           <SettingsGroup>
             <SettingsRow 
-              icon="bug-outline" 
-              title="Сбросить режим разработчика" 
-              subtitle="Скрыть секретные настройки"
-              onPress={resetDeveloperMode} 
+              icon="construct-outline" 
+              title="Меню разработчика" 
+              subtitle="API, отладка, тестирование"
+              onPress={() => navigateTo('developer')} 
               isFirst isLast 
-              destructive 
-              rightElement={<Icon name="close-circle-outline" size={18} color="#ef4444" />}
             />
           </SettingsGroup>
         </>
@@ -669,21 +674,29 @@ const SettingsScreen = forwardRef(({
               }}
             />
           )}
+
+          {currentScreen === 'notifications' && (
+            <NotificationSettingsModal
+              theme={theme}
+              accentColor={accentColor}
+            />
+          )}
+
+          {currentScreen === 'about' && (
+            <AboutModal
+              theme={theme}
+              accentColor={accentColor}
+            />
+          )}
+
+          {currentScreen === 'developer' && (
+            <DeveloperMenuScreen
+              theme={theme}
+              accentColor={accentColor}
+              onResetDeveloperMode={resetDeveloperMode}
+            />
+          )}
         </Animated.View>
-
-        <AboutModal
-          visible={aboutModalVisible}
-          onClose={() => setAboutModalVisible(false)}
-          theme={theme}
-          accentColor={accentColor}
-        />
-
-        <NotificationSettingsModal
-          visible={notificationModalVisible}
-          onClose={() => setNotificationModalVisible(false)}
-          theme={theme}
-          accentColor={accentColor}
-        />
       </Animated.View>
     </View>
   );

@@ -16,6 +16,7 @@ import ScheduleScreen from './components/ScheduleScreen';
 import SettingsScreen from './components/SettingsScreen';
 import MapScreen from './components/MapScreen';
 import FreshmanScreen from './components/FreshmanScreen';
+import MatrixRain from './components/MatrixRain';
 
 // Импорт утилит
 import { ACCENT_COLORS, SCREENS, LIQUID_GLASS, isNewYearPeriod, getNewYearText, getHolidayInfo } from './utils/constants';
@@ -863,7 +864,8 @@ const handleNewYearModeChange = async (enabled) => {
   };
 
   return (
-    <View style={{ flex: 1, backgroundColor: bgColor }}>
+    <View style={{ flex: 1, backgroundColor: effectiveTheme === 'matrix' ? glass.backgroundSolid : bgColor }}>
+      {effectiveTheme === 'matrix' && <MatrixRain intensity={0.85} />}
       {/* Статусбар */}
       <StatusBar 
         barStyle={effectiveTheme === 'light' ? 'dark-content' : 'light-content'}

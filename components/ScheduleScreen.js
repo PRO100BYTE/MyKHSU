@@ -219,6 +219,12 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
   const borderColor = glass.border;
   const placeholderColor = glass.textSecondary;
   const hintBgColor = glass.surfaceTertiary;
+  const isMatrix = theme === 'matrix';
+
+  // Цвета для селектора режима (день/неделя)
+  const selectorActiveBg = isMatrix ? 'rgba(0, 255, 65, 0.15)' : colors.primary;
+  const selectorActiveText = isMatrix ? '#00FF41' : '#ffffff';
+  const selectorActiveShadow = isMatrix ? 'transparent' : colors.primary;
 
   // Функция анимации переключения
   const animateSwitch = (direction, action) => {
@@ -1202,16 +1208,16 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
                 paddingVertical: 8,
                 paddingHorizontal: 14,
                 borderRadius: 12,
-                backgroundColor: viewMode === 'day' ? colors.primary : 'transparent',
-                shadowColor: viewMode === 'day' ? colors.primary : 'transparent',
+                backgroundColor: viewMode === 'day' ? selectorActiveBg : 'transparent',
+                shadowColor: viewMode === 'day' ? selectorActiveShadow : 'transparent',
                 shadowOffset: { width: 0, height: 2 },
                 shadowOpacity: viewMode === 'day' ? 0.3 : 0,
                 shadowRadius: 4,
                 elevation: viewMode === 'day' ? 3 : 0,
               }}
             >
-              <Icon name="today-outline" size={15} color={viewMode === 'day' ? '#ffffff' : placeholderColor} style={{ marginRight: 5 }} />
-              <Text style={{ color: viewMode === 'day' ? '#ffffff' : textColor, fontSize: 13, fontFamily: 'Montserrat_600SemiBold' }}>День</Text>
+              <Icon name="today-outline" size={15} color={viewMode === 'day' ? selectorActiveText : placeholderColor} style={{ marginRight: 5 }} />
+              <Text style={{ color: viewMode === 'day' ? selectorActiveText : textColor, fontSize: 13, fontFamily: 'Montserrat_600SemiBold' }}>День</Text>
             </TouchableOpacity>
             <TouchableOpacity
               onPress={() => {
@@ -1226,16 +1232,16 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
                 paddingVertical: 8,
                 paddingHorizontal: 14,
                 borderRadius: 12,
-                backgroundColor: viewMode === 'week' ? colors.primary : 'transparent',
-                shadowColor: viewMode === 'week' ? colors.primary : 'transparent',
+                backgroundColor: viewMode === 'week' ? selectorActiveBg : 'transparent',
+                shadowColor: viewMode === 'week' ? selectorActiveShadow : 'transparent',
                 shadowOffset: { width: 0, height: 2 },
                 shadowOpacity: viewMode === 'week' ? 0.3 : 0,
                 shadowRadius: 4,
                 elevation: viewMode === 'week' ? 3 : 0,
               }}
             >
-              <Icon name="calendar-outline" size={15} color={viewMode === 'week' ? '#ffffff' : placeholderColor} style={{ marginRight: 5 }} />
-              <Text style={{ color: viewMode === 'week' ? '#ffffff' : textColor, fontSize: 13, fontFamily: 'Montserrat_600SemiBold' }}>Неделя</Text>
+              <Icon name="calendar-outline" size={15} color={viewMode === 'week' ? selectorActiveText : placeholderColor} style={{ marginRight: 5 }} />
+              <Text style={{ color: viewMode === 'week' ? selectorActiveText : textColor, fontSize: 13, fontFamily: 'Montserrat_600SemiBold' }}>Неделя</Text>
             </TouchableOpacity>
           </View>
 

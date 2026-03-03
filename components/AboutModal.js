@@ -1,61 +1,25 @@
 // components/AboutModal.js
-import React, { useRef, useEffect } from 'react';
-import { View, Text, Modal, TouchableOpacity, ScrollView, StyleSheet, Animated } from 'react-native';
+import React from 'react';
+import { View, Text, ScrollView, StyleSheet } from 'react-native';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import { ACCENT_COLORS, APP_VERSION, APP_DEVELOPERS, APP_SUPPORTERS, BUILD_VER, BUILD_DATE, LIQUID_GLASS } from '../utils/constants';
 
-const AboutModal = ({ visible, onClose, theme, accentColor }) => {
+const AboutModal = ({ theme, accentColor }) => {
   const colors = ACCENT_COLORS[accentColor];
   const glass = LIQUID_GLASS[theme] || LIQUID_GLASS.light;
-  const bgColor = glass.backgroundElevated;
+  const bgColor = glass.background;
   const textColor = glass.text;
   const placeholderColor = glass.textSecondary;
   const inputBgColor = glass.surfaceTertiary;
   const borderColor = glass.border;
 
-  const overlayAnim = useRef(new Animated.Value(0)).current;
-  const contentAnim = useRef(new Animated.Value(0)).current;
-
-  useEffect(() => {
-    if (visible) {
-      overlayAnim.setValue(0);
-      contentAnim.setValue(0);
-      Animated.parallel([
-        Animated.timing(overlayAnim, { toValue: 1, duration: 250, useNativeDriver: true }),
-        Animated.spring(contentAnim, { toValue: 1, damping: 20, stiffness: 300, useNativeDriver: true }),
-      ]).start();
-    }
-  }, [visible]);
-
-  const handleClose = () => {
-    Animated.parallel([
-      Animated.timing(overlayAnim, { toValue: 0, duration: 200, useNativeDriver: true }),
-      Animated.timing(contentAnim, { toValue: 0, duration: 180, useNativeDriver: true }),
-    ]).start(() => onClose());
-  };
-
-  if (!visible) return null;
-
-  const contentScale = contentAnim.interpolate({ inputRange: [0, 1], outputRange: [0.92, 1] });
-  const contentTranslateY = contentAnim.interpolate({ inputRange: [0, 1], outputRange: [40, 0] });
-
   return (
-    <Modal
-      visible={visible}
-      animationType="none"
-      transparent={true}
-      onRequestClose={handleClose}
-    >
-      <Animated.View style={[styles.modalContainer, { backgroundColor: 'rgba(0, 0, 0, 0.5)', opacity: overlayAnim }]}>
-            <Animated.View style={[styles.modalContent, { backgroundColor: bgColor, transform: [{ scale: contentScale }, { translateY: contentTranslateY }] }]}>
-          <View style={styles.headerRow}>
-            <Text style={[styles.title, { color: textColor }]}>О приложении</Text>
-            <TouchableOpacity onPress={handleClose} style={styles.closeIcon}>
-              <Icon name="close" size={22} color={placeholderColor} />
-            </TouchableOpacity>
-          </View>
-          
-          <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+    <View style={{ flex: 1, backgroundColor: bgColor }}>
+      <ScrollView 
+        style={{ flex: 1, padding: 16 }} 
+        contentContainerStyle={{ paddingBottom: 100 }}
+        showsVerticalScrollIndicator={false}
+      >
             {/* Идентификация приложения */}
             <View style={[styles.appIdentity, { backgroundColor: colors.glass, borderColor: colors.glassBorder }]}>
               <View style={[styles.appIconCircle, { backgroundColor: colors.primary }]}>
@@ -175,63 +139,11 @@ const AboutModal = ({ visible, onClose, theme, accentColor }) => {
               </View>
             </View>
           </ScrollView>
-
-          {/* Кнопка */}
-          <TouchableOpacity
-            style={[styles.closeButton, { backgroundColor: colors.primary }]}
-            onPress={handleClose}
-          >
-            <Text style={styles.closeButtonText}>Закрыть</Text>
-          </TouchableOpacity>
-            </Animated.View>
-      </Animated.View>
-    </Modal>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
-  modalContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-  modalContent: {
-    width: '100%',
-    borderRadius: 24,
-    padding: 24,
-    maxHeight: '90%',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 12,
-    elevation: 8,
-  },
-  dragHandle: {
-    width: 36,
-    height: 4,
-    borderRadius: 2,
-    alignSelf: 'center',
-    marginBottom: 16,
-  },
-  headerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 20,
-  },
-  title: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    fontFamily: 'Montserrat_600SemiBold',
-    flex: 1,
-  },
-  closeIcon: {
-    padding: 4,
-  },
-  scrollView: {
-    maxHeight: 500,
-  },
   // App identity
   appIdentity: {
     alignItems: 'center',
@@ -320,19 +232,6 @@ const styles = StyleSheet.create({
     marginLeft: 8,
     flex: 1,
     fontFamily: 'Montserrat_400Regular',
-  },
-  // Close button
-  closeButton: {
-    borderRadius: 16,
-    padding: 16,
-    alignItems: 'center',
-    marginTop: 20,
-  },
-  closeButtonText: {
-    color: '#ffffff',
-    fontSize: 16,
-    fontWeight: '600',
-    fontFamily: 'Montserrat_600SemiBold',
   },
 });
 
