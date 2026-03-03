@@ -10,7 +10,10 @@ import {
   RefreshControl, 
   Animated, 
   StatusBar,
-  Alert
+  Alert,
+  LayoutAnimation,
+  Platform,
+  UIManager,
 } from 'react-native';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import { getWeekNumber, formatDate, getDateByWeekAndDay } from '../utils/dateUtils';
@@ -35,6 +38,10 @@ import ScheduleShareImage from './ScheduleShareImage';
 
 const { width, height } = Dimensions.get('window');
 
+if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
+
 // Компонент обратного отсчёта до конца текущей пары
 const LessonCountdown = ({ timeEnd, accentColor }) => {
   const colors = ACCENT_COLORS[accentColor] || ACCENT_COLORS.green;
@@ -51,9 +58,17 @@ const LessonCountdown = ({ timeEnd, accentColor }) => {
         setRemaining('');
         return;
       }
-      const mins = Math.floor(diff / 60000);
+      const hours = Math.floor(diff / 3600000);
+      const mins = Math.floor((diff % 3600000) / 60000);
       const secs = Math.floor((diff % 60000) / 1000);
-      setRemaining(mins > 0 ? `${mins} мин ${secs < 10 ? '0' : ''}${secs} с` : `${secs} с`);
+      const pad = (n) => n < 10 ? '0' + n : '' + n;
+      if (hours > 0) {
+        setRemaining(`${hours} ч ${pad(mins)} мин`);
+      } else if (mins > 0) {
+        setRemaining(`${mins} мин ${pad(secs)} с`);
+      } else {
+        setRemaining(`${secs} с`);
+      }
     };
 
     calcRemaining();
@@ -94,7 +109,6 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
   const [loadingAuditory, setLoadingAuditory] = useState(false);
   const [showCourseSelector, setShowCourseSelector] = useState(true);
   const [selectorExpandedTemp, setSelectorExpandedTemp] = useState(false);
-  const selectorAnimValue = useRef(new Animated.Value(0)).current;
   const [teacherName, setTeacherName] = useState('');
   const [auditoryName, setAuditoryName] = useState('');
   const [availableCourses, setAvailableCourses] = useState([]);
@@ -1932,23 +1946,17 @@ return (
         
         {/* Студенческий режим: кнопки курса и групп */}
         {settingsLoaded && !isTeacherMode && !isAuditoryMode && (showCourseSelector || selectorExpandedTemp) && (
-          <Animated.View style={{
-            opacity: showCourseSelector ? 1 : selectorAnimValue,
-            maxHeight: showCourseSelector ? undefined : selectorAnimValue.interpolate({
-              inputRange: [0, 1],
-              outputRange: [0, 800],
-            }),
-            overflow: 'hidden',
-          }}>
+          <View>
             {/* Кнопка закрытия селектора (только при временном раскрытии) */}
             {selectorExpandedTemp && !showCourseSelector && (
               <TouchableOpacity
                 onPress={() => {
-                  Animated.timing(selectorAnimValue, {
-                    toValue: 0,
-                    duration: 250,
-                    useNativeDriver: false,
-                  }).start(() => setSelectorExpandedTemp(false));
+                  LayoutAnimation.configureNext(LayoutAnimation.create(
+                    250,
+                    LayoutAnimation.Types.easeInEaseOut,
+                    LayoutAnimation.Properties.opacity,
+                  ));
+                  setSelectorExpandedTemp(false);
                 }}
                 style={{
                   flexDirection: 'row',
@@ -2086,7 +2094,7 @@ return (
                 </View>
               )}
             </View>
-          </Animated.View>
+          </View>
         )}
 
         {/* Информация о скрытом селекторе */}
@@ -2124,13 +2132,12 @@ return (
             </Text>
             <TouchableOpacity 
               onPress={() => {
+                LayoutAnimation.configureNext(LayoutAnimation.create(
+                  300,
+                  LayoutAnimation.Types.easeInEaseOut,
+                  LayoutAnimation.Properties.opacity,
+                ));
                 setSelectorExpandedTemp(true);
-                selectorAnimValue.setValue(0);
-                Animated.timing(selectorAnimValue, {
-                  toValue: 1,
-                  duration: 300,
-                  useNativeDriver: false,
-                }).start();
               }}
               style={{
                 paddingVertical: 4,
