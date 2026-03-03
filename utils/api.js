@@ -1,5 +1,6 @@
 import { API_BASE_URL, CORS_PROXY } from './constants';
 import { getWithExpiry, setWithExpiry } from './cache';
+import { getWeekNumber } from './dateUtils';
 import NetInfo from '@react-native-community/netinfo';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as SecureStore from 'expo-secure-store';
@@ -406,6 +407,34 @@ class ApiService {
     
     return this.makeRequest(url, {}, true, cacheKey, 60 * 60 * 1000);
 }
+
+  // Метод для загрузки расписания аудитории
+  async getAuditorySchedule(auditory, week = null) {
+    const encodedAuditory = encodeURIComponent(auditory);
+    let url;
+    let cacheKey;
+    
+    if (week) {
+      url = `${API_BASE_URL}/getpairsweek?type=auditory&data=${encodedAuditory}&week=${week}`;
+      cacheKey = `auditory_schedule_${encodedAuditory}_week_${week}`;
+    } else {
+      const currentWeek = getWeekNumber(new Date());
+      url = `${API_BASE_URL}/getpairsweek?type=auditory&data=${encodedAuditory}&week=${currentWeek}`;
+      cacheKey = `auditory_schedule_${encodedAuditory}_week_${currentWeek}`;
+    }
+    
+    return this.makeRequest(url, {}, true, cacheKey, 60 * 60 * 1000);
+  }
+
+  // Метод для поиска (преподаватели, аудитории, группы)
+  async search(query) {
+    if (!query || query.trim().length < 1) {
+      return { data: { names: [], courses: [], tnames: [], auditories: [] }, source: 'local' };
+    }
+    const encodedQuery = encodeURIComponent(query.trim());
+    const url = `${API_BASE_URL}/search/${encodedQuery}`;
+    return this.makeRequest(url, {}, false, null, null);
+  }
 
 }
 

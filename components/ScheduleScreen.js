@@ -30,10 +30,14 @@ const { width, height } = Dimensions.get('window');
 
 const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings, onSettingsUpdate, isNewYearMode, onCacheStatusChange }) => {
   const [isTeacherMode, setIsTeacherMode] = useState(false);
+  const [isAuditoryMode, setIsAuditoryMode] = useState(false);
   const [teacherSchedule, setTeacherSchedule] = useState(null);
+  const [auditorySchedule, setAuditorySchedule] = useState(null);
   const [loadingTeacher, setLoadingTeacher] = useState(false);
+  const [loadingAuditory, setLoadingAuditory] = useState(false);
   const [showCourseSelector, setShowCourseSelector] = useState(true);
   const [teacherName, setTeacherName] = useState('');
+  const [auditoryName, setAuditoryName] = useState('');
   const [availableCourses, setAvailableCourses] = useState([]);
   const [loadingCourses, setLoadingCourses] = useState(false);
   
@@ -124,10 +128,10 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
 
   // Функция для определения, нужно ли показывать фиксированный заголовок
   const shouldShowFixedHeader = () => {
-    if (isTeacherMode) {
-      return true; // Преподавательский режим - только недельный
+    if (isTeacherMode || isAuditoryMode) {
+      return true; // Преподавательский/аудиторный режим - только недельный
     }
-    if (!isTeacherMode && viewMode === 'week') {
+    if (!isTeacherMode && !isAuditoryMode && viewMode === 'week') {
       return true; // Студенческий недельный режим
     }
     return false; // Студенческий дневной режим
@@ -163,6 +167,7 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
     
     // Проверяем, есть ли текущая дата в отображаемой неделе
     const daysArray = isTeacherMode && teacherSchedule ? teacherSchedule.days : 
+                     isAuditoryMode && auditorySchedule ? auditorySchedule.days :
                      scheduleData && scheduleData.days ? scheduleData.days : [];
     
     // Ищем день с текущей датой
@@ -196,7 +201,7 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
 
   // Автоматический скролл при изменении режима или данных
   useEffect(() => {
-    if (shouldShowFixedHeader() && (scheduleData || teacherSchedule)) {
+    if (shouldShowFixedHeader() && (scheduleData || teacherSchedule || auditorySchedule)) {
       // Небольшая задержка для гарантированной отрисовки компонентов
       const timer = setTimeout(() => {
         scrollToCurrentDate();
@@ -204,12 +209,12 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
       
       return () => clearTimeout(timer);
     }
-  }, [viewMode, isTeacherMode, scheduleData, teacherSchedule, currentWeek]);
+  }, [viewMode, isTeacherMode, isAuditoryMode, scheduleData, teacherSchedule, auditorySchedule, currentWeek]);
 
   // Сброс refs при изменении данных
   useEffect(() => {
     dayRefs.current = {};
-  }, [scheduleData, teacherSchedule]);
+  }, [scheduleData, teacherSchedule, auditorySchedule]);
 
   const glass = LIQUID_GLASS[theme] || LIQUID_GLASS.light;
   const bgColor = glass.background;
@@ -335,7 +340,7 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
   };
 
   // Общий компонент карточки занятия
-  const renderLessonCard = (lesson, lessonIndex, pairTime, isCurrentLessonFlag, isTeacher = false) => {
+  const renderLessonCard = (lesson, lessonIndex, pairTime, isCurrentLessonFlag, isTeacher = false, isAuditory = false) => {
     const typeInfo = getLessonTypeIcon(lesson.type_lesson);
     
     return (
@@ -500,8 +505,8 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
               </View>
             )}
 
-            {/* Группы (для преподавательского режима) */}
-            {isTeacher && lesson.group && Array.isArray(lesson.group) && lesson.group.length > 0 && (
+            {/* Группы (для преподавательского и аудиторного режима) */}
+            {(isTeacher || isAuditory) && lesson.group && Array.isArray(lesson.group) && lesson.group.length > 0 && (
               <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                 <View style={{ 
                   width: 26, 
@@ -571,22 +576,28 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
       const format = await SecureStore.getItemAsync('schedule_format') || 'student';
       const showSelector = await SecureStore.getItemAsync('show_course_selector');
       const teacher = await SecureStore.getItemAsync('teacher_name') || '';
+      const auditory = await SecureStore.getItemAsync('auditory_name') || '';
       
       const shouldShowSelector = showSelector !== 'false';
       
       setIsTeacherMode(format === 'teacher');
+      setIsAuditoryMode(format === 'auditory');
       setShowCourseSelector(shouldShowSelector);
       setTeacherName(teacher);
+      setAuditoryName(auditory);
       
       console.log('Настройки расписания загружены:', { 
         format, 
         showSelector, 
         shouldShowSelector, 
-        teacher 
+        teacher,
+        auditory
       });
       
       if (format === 'teacher' && teacher) {
         fetchTeacherSchedule(teacher);
+      } else if (format === 'auditory' && auditory) {
+        fetchAuditorySchedule(auditory);
       }
     } catch (error) {
       console.error('Error loading schedule settings:', error);
@@ -597,11 +608,15 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
     console.log('Применение внешних настроек:', settings);
     
     setIsTeacherMode(settings.format === 'teacher');
+    setIsAuditoryMode(settings.format === 'auditory');
     setShowCourseSelector(settings.showSelector !== false);
     setTeacherName(settings.teacher || '');
+    setAuditoryName(settings.auditory || '');
     
     if (settings.format === 'teacher' && settings.teacher) {
       fetchTeacherSchedule(settings.teacher);
+    } else if (settings.format === 'auditory' && settings.auditory) {
+      fetchAuditorySchedule(settings.auditory);
     } else if (settings.format === 'student') {
       if (settings.group && !settings.showSelector) {
         setSelectedGroup(settings.group);
@@ -683,6 +698,31 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
     }
   };
 
+  const fetchAuditorySchedule = async (auditory, week = null) => {
+    if (!auditory) {
+      console.log('Номер аудитории не указан');
+      return;
+    }
+    
+    setLoadingAuditory(true);
+    setError(null);
+    try {
+      console.log('Загрузка расписания для аудитории:', auditory, 'неделя:', week || currentWeek);
+      const result = await ApiService.getAuditorySchedule(auditory, week || currentWeek);
+      if (result.data) {
+        setAuditorySchedule(result.data);
+        console.log('Расписание аудитории загружено:', result.data);
+      } else {
+        throw new Error('INVALID_RESPONSE');
+      }
+    } catch (error) {
+      console.error('Error fetching auditory schedule:', error);
+      setError(error.message || 'load-error');
+    } finally {
+      setLoadingAuditory(false);
+    }
+  };
+
   const changeWeek = (weeks) => {
     const newWeek = currentWeek + weeks;
     if (newWeek >= 1) {
@@ -691,6 +731,8 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
         setCurrentWeek(newWeek);
         if (isTeacherMode && teacherName) {
           fetchTeacherSchedule(teacherName, newWeek);
+        } else if (isAuditoryMode && auditoryName) {
+          fetchAuditorySchedule(auditoryName, newWeek);
         }
       });
     }
@@ -743,6 +785,23 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
     }
   };
 
+  const clearAuditoryScheduleCache = async () => {
+    try {
+      const keys = await AsyncStorage.getAllKeys();
+      const auditoryKeys = keys.filter(key => key.startsWith('auditory_schedule_'));
+      
+      if (auditoryKeys.length > 0) {
+        await AsyncStorage.multiRemove(auditoryKeys);
+        console.log('Кэш расписания аудиторий очищен:', auditoryKeys.length, 'ключей');
+      }
+      
+      return true;
+    } catch (error) {
+      console.error('Error clearing auditory schedule cache:', error);
+      return false;
+    }
+  };
+
   const handleRefresh = async () => {
     setRefreshing(true);
     try {
@@ -750,6 +809,8 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
       if (isOnline) {
         if (isTeacherMode) {
           await clearTeacherScheduleCache();
+        } else if (isAuditoryMode) {
+          await clearAuditoryScheduleCache();
         } else {
           await clearScheduleCache();
         }
@@ -757,6 +818,8 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
       
       if (isTeacherMode && teacherName) {
         await fetchTeacherSchedule(teacherName, viewMode === 'week' ? currentWeek : null);
+      } else if (isAuditoryMode && auditoryName) {
+        await fetchAuditorySchedule(auditoryName, currentWeek);
       } else {
         await onRefresh();
       }
@@ -849,7 +912,7 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
             const lessonDate = getLessonDateForWeek(weekNumber, day.weekday, currentTime);
             const isCurrentLessonFlag = isCurrentLesson(lesson, pairTime, currentTime, lessonDate);
             
-            return renderLessonCard(lesson, lessonIndex, pairTime, isCurrentLessonFlag, isTeacherMode);
+            return renderLessonCard(lesson, lessonIndex, pairTime, isCurrentLessonFlag, isTeacherMode, isAuditoryMode);
           })
         ) : (
           <View style={{
@@ -1037,6 +1100,33 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
                   {teacherName || 'ФИО не указано'}
                 </Text>
               </>
+            ) : isAuditoryMode ? (
+              <>
+                <Text 
+                  numberOfLines={1}
+                  ellipsizeMode="tail"
+                  style={{ 
+                    fontSize: 16, 
+                    fontWeight: 'bold', 
+                    color: textColor, 
+                    fontFamily: 'Montserrat_600SemiBold' 
+                  }}
+                >
+                  Расписание аудитории
+                </Text>
+                <Text 
+                  numberOfLines={1}
+                  ellipsizeMode="tail"
+                  style={{ 
+                    fontSize: 14, 
+                    color: colors.primary, 
+                    marginTop: 2,
+                    fontFamily: 'Montserrat_500Medium' 
+                  }}
+                >
+                  {auditoryName || 'Аудитория не указана'}
+                </Text>
+              </>
             ) : (
               <>
                 <Text 
@@ -1128,12 +1218,25 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
       );
     }
     
+    if (isAuditoryMode) {
+      return (
+        <View style={{ alignItems: 'center', marginBottom: 16 }}>
+          <Text style={{ fontSize: 20, fontWeight: 'bold', color: textColor, fontFamily: 'Montserrat_600SemiBold' }}>
+            Расписание аудитории
+          </Text>
+          <Text style={{ color: colors.primary, marginTop: 4, fontFamily: 'Montserrat_500Medium' }}>
+            {auditoryName || 'Аудитория не указана'}
+          </Text>
+        </View>
+      );
+    }
+    
     return null;
   };
 
   // Рендер управления с анимацией
   const renderControls = () => {
-    if (isTeacherMode) {
+    if (isTeacherMode || isAuditoryMode) {
       return (
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
           <View style={{ 
@@ -1305,6 +1408,33 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
           )}
         </View>
       );
+    } else if (isAuditoryMode) {
+      if (loadingAuditory) {
+        return <ActivityIndicator size="large" color={colors.primary} />;
+      }
+      
+      return (
+        <View>
+          {auditorySchedule && auditorySchedule.days ? (
+            <>
+              {auditorySchedule.dates && (
+                <View style={{ alignItems: 'center', marginBottom: 16 }}>
+                  <Text style={{ color: placeholderColor, fontFamily: 'Montserrat_400Regular' }}>
+                    Неделя: {auditorySchedule.week_number} ({auditorySchedule.dates.date_start} - {auditorySchedule.dates.date_end})
+                  </Text>
+                </View>
+              )}
+              {auditorySchedule.days.map((day, index) => 
+                day && day.lessons ? renderDaySchedule(day, currentWeek, index) : null
+              )}
+            </>
+          ) : (
+            <Text style={{ textAlign: 'center', color: placeholderColor, marginTop: 20, fontFamily: 'Montserrat_400Regular' }}>
+              {auditoryName ? 'Расписание не найдено' : 'Укажите номер аудитории в настройках'}
+            </Text>
+          )}
+        </View>
+      );
     } else {
       if (loadingSchedule) {
         return <ActivityIndicator size="large" color={colors.primary} />;
@@ -1381,8 +1511,8 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
   const renderCurrentScreen = () => {
 
 // Обработка ошибок
-if (error && !loadingGroups && !loadingSchedule && !loadingTeacher) {
-  if (error === 'NO_INTERNET' && (scheduleData || teacherSchedule)) {
+if (error && !loadingGroups && !loadingSchedule && !loadingTeacher && !loadingAuditory) {
+  if (error === 'NO_INTERNET' && (scheduleData || teacherSchedule || auditorySchedule)) {
     // Не показываем ошибку, продолжаем рендерить контент
   } else {
     return (
@@ -1394,10 +1524,10 @@ if (error && !loadingGroups && !loadingSchedule && !loadingTeacher) {
           <ConnectionError 
             type={error}
             loading={false}
-            onRetry={isTeacherMode ? () => teacherName && fetchTeacherSchedule(teacherName) : handleRetry}
+            onRetry={isTeacherMode ? () => teacherName && fetchTeacherSchedule(teacherName) : isAuditoryMode ? () => auditoryName && fetchAuditorySchedule(auditoryName) : handleRetry}
             onViewCache={handleViewCache}
-            showCacheButton={!!scheduleData || !!teacherSchedule}
-            cacheAvailable={!!scheduleData || !!teacherSchedule}
+            showCacheButton={!!scheduleData || !!teacherSchedule || !!auditorySchedule}
+            cacheAvailable={!!scheduleData || !!teacherSchedule || !!auditorySchedule}
             theme={theme}
             accentColor={accentColor}
             contentType="schedule"
@@ -1449,7 +1579,7 @@ return (
         {renderControls()}
         
         {/* Студенческий режим: кнопки курса и групп */}
-        {!isTeacherMode && showCourseSelector && (
+        {!isTeacherMode && !isAuditoryMode && showCourseSelector && (
           <>
             {/* Кнопки выбора курса */}
             <View style={{ marginBottom: 16 }}>
@@ -1576,7 +1706,7 @@ return (
         )}
 
         {/* Информация о скрытом селекторе */}
-        {!isTeacherMode && !showCourseSelector && selectedGroup && (
+        {!isTeacherMode && !isAuditoryMode && !showCourseSelector && selectedGroup && (
           <View style={{ 
             backgroundColor: colors.glass || (colors.primary + '10'),
             borderWidth: StyleSheet.hairlineWidth,

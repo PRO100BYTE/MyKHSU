@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, TextInput, ScrollView, StyleSheet, Alert, ActivityIndicator, Switch } from 'react-native';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { View, Text, TouchableOpacity, TextInput, ScrollView, StyleSheet, Alert, ActivityIndicator, Switch, FlatList } from 'react-native';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import * as SecureStore from 'expo-secure-store';
 import { ACCENT_COLORS, COURSES, LIQUID_GLASS } from '../utils/constants';
@@ -10,12 +10,25 @@ const ScheduleFormatModal = ({ theme, accentColor, onSettingsChange, onSave }) =
   const [defaultGroup, setDefaultGroup] = useState('');
   const [defaultCourse, setDefaultCourse] = useState(1);
   const [teacherName, setTeacherName] = useState('');
+  const [auditoryName, setAuditoryName] = useState('');
   const [availableGroups, setAvailableGroups] = useState([]);
   const [selectedCourse, setSelectedCourse] = useState(1);
   const [loadingGroups, setLoadingGroups] = useState(false);
   const [showCourseSelector, setShowCourseSelector] = useState(true);
   const [availableCourses, setAvailableCourses] = useState([]);
   const [loadingCourses, setLoadingCourses] = useState(false);
+  
+  // Поиск преподавателей
+  const [teacherSearchResults, setTeacherSearchResults] = useState([]);
+  const [loadingTeacherSearch, setLoadingTeacherSearch] = useState(false);
+  const [showTeacherSuggestions, setShowTeacherSuggestions] = useState(false);
+  const teacherSearchTimeout = useRef(null);
+  
+  // Поиск аудиторий
+  const [auditorySearchResults, setAuditorySearchResults] = useState([]);
+  const [loadingAuditorySearch, setLoadingAuditorySearch] = useState(false);
+  const [showAuditorySuggestions, setShowAuditorySuggestions] = useState(false);
+  const auditorySearchTimeout = useRef(null);
 
   const colors = ACCENT_COLORS[accentColor];
   const glass = LIQUID_GLASS[theme] || LIQUID_GLASS.light;
@@ -61,12 +74,14 @@ const ScheduleFormatModal = ({ theme, accentColor, onSettingsChange, onSave }) =
       const savedGroup = await SecureStore.getItemAsync('default_group');
       const savedCourse = await SecureStore.getItemAsync('default_course');
       const savedTeacher = await SecureStore.getItemAsync('teacher_name');
+      const savedAuditory = await SecureStore.getItemAsync('auditory_name');
       const savedShowSelector = await SecureStore.getItemAsync('show_course_selector');
       
       if (savedFormat) setScheduleFormat(savedFormat);
       if (savedGroup) setDefaultGroup(savedGroup);
       if (savedCourse) setDefaultCourse(parseInt(savedCourse));
       if (savedTeacher) setTeacherName(savedTeacher);
+      if (savedAuditory) setAuditoryName(savedAuditory);
       if (savedShowSelector !== null) setShowCourseSelector(savedShowSelector === 'true');
       if (savedCourse) setSelectedCourse(parseInt(savedCourse));
     } catch (error) {
@@ -104,6 +119,10 @@ const ScheduleFormatModal = ({ theme, accentColor, onSettingsChange, onSave }) =
         Alert.alert('Ошибка', 'Пожалуйста, укажите ФИО преподавателя');
         return;
       }
+      if (scheduleFormat === 'auditory' && !auditoryName.trim()) {
+        Alert.alert('Ошибка', 'Пожалуйста, укажите номер аудитории');
+        return;
+      }
       if (scheduleFormat === 'student' && !defaultGroup && !showCourseSelector) {
         Alert.alert('Ошибка', 'При скрытом селекторе необходимо выбрать группу по умолчанию');
         return;
@@ -113,6 +132,7 @@ const ScheduleFormatModal = ({ theme, accentColor, onSettingsChange, onSave }) =
       await SecureStore.setItemAsync('default_group', defaultGroup);
       await SecureStore.setItemAsync('default_course', selectedCourse.toString());
       await SecureStore.setItemAsync('teacher_name', teacherName.trim());
+      await SecureStore.setItemAsync('auditory_name', auditoryName.trim());
       await SecureStore.setItemAsync('show_course_selector', showCourseSelector.toString());
       
       if (onSettingsChange) {
@@ -121,6 +141,7 @@ const ScheduleFormatModal = ({ theme, accentColor, onSettingsChange, onSave }) =
           group: defaultGroup,
           course: selectedCourse,
           teacher: teacherName.trim(),
+          auditory: auditoryName.trim(),
           showSelector: showCourseSelector
         });
       }
@@ -145,6 +166,94 @@ const ScheduleFormatModal = ({ theme, accentColor, onSettingsChange, onSave }) =
   const isValidTeacherName = (name) => {
     const pattern = /^[А-ЯЁ][а-яё]+\s[А-ЯЁ]\.[А-ЯЁ]\.$/;
     return pattern.test(name.trim());
+  };
+
+  // Поиск преподавателей через API
+  const searchTeachers = useCallback((query) => {
+    if (teacherSearchTimeout.current) {
+      clearTimeout(teacherSearchTimeout.current);
+    }
+    
+    if (!query || query.trim().length < 2) {
+      setTeacherSearchResults([]);
+      setShowTeacherSuggestions(false);
+      return;
+    }
+    
+    teacherSearchTimeout.current = setTimeout(async () => {
+      setLoadingTeacherSearch(true);
+      try {
+        const result = await ApiService.search(query.trim());
+        if (result.data && result.data.tnames) {
+          setTeacherSearchResults(result.data.tnames);
+          setShowTeacherSuggestions(result.data.tnames.length > 0);
+        } else {
+          setTeacherSearchResults([]);
+          setShowTeacherSuggestions(false);
+        }
+      } catch (error) {
+        console.error('Error searching teachers:', error);
+        setTeacherSearchResults([]);
+        setShowTeacherSuggestions(false);
+      } finally {
+        setLoadingTeacherSearch(false);
+      }
+    }, 400);
+  }, []);
+
+  // Поиск аудиторий через API
+  const searchAuditories = useCallback((query) => {
+    if (auditorySearchTimeout.current) {
+      clearTimeout(auditorySearchTimeout.current);
+    }
+    
+    if (!query || query.trim().length < 1) {
+      setAuditorySearchResults([]);
+      setShowAuditorySuggestions(false);
+      return;
+    }
+    
+    auditorySearchTimeout.current = setTimeout(async () => {
+      setLoadingAuditorySearch(true);
+      try {
+        const result = await ApiService.search(query.trim());
+        if (result.data && result.data.auditories) {
+          setAuditorySearchResults(result.data.auditories);
+          setShowAuditorySuggestions(result.data.auditories.length > 0);
+        } else {
+          setAuditorySearchResults([]);
+          setShowAuditorySuggestions(false);
+        }
+      } catch (error) {
+        console.error('Error searching auditories:', error);
+        setAuditorySearchResults([]);
+        setShowAuditorySuggestions(false);
+      } finally {
+        setLoadingAuditorySearch(false);
+      }
+    }, 400);
+  }, []);
+
+  const handleTeacherNameChange = (text) => {
+    setTeacherName(text);
+    searchTeachers(text);
+  };
+
+  const selectTeacher = (name) => {
+    setTeacherName(name);
+    setShowTeacherSuggestions(false);
+    setTeacherSearchResults([]);
+  };
+
+  const handleAuditoryNameChange = (text) => {
+    setAuditoryName(text);
+    searchAuditories(text);
+  };
+
+  const selectAuditory = (name) => {
+    setAuditoryName(name);
+    setShowAuditorySuggestions(false);
+    setAuditorySearchResults([]);
   };
 
   return (
@@ -196,6 +305,27 @@ const ScheduleFormatModal = ({ theme, accentColor, onSettingsChange, onSave }) =
               Просмотр расписания только в недельном формате для указанного преподавателя
             </Text>
             {scheduleFormat === 'teacher' && (
+              <Icon name="checkmark-circle" size={20} color={colors.primary} style={styles.formatCheckmark} />
+            )}
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.formatOption, { 
+              backgroundColor: scheduleFormat === 'auditory' ? colors.glass : 'transparent',
+              borderColor: scheduleFormat === 'auditory' ? colors.primary : borderColor
+            }]}
+            onPress={() => handleFormatChange('auditory')}
+          >
+            <View style={styles.formatOptionHeader}>
+              <Icon name="business-outline" size={24} color={scheduleFormat === 'auditory' ? colors.primary : placeholderColor} />
+              <Text style={[styles.formatOptionTitle, { color: scheduleFormat === 'auditory' ? colors.primary : textColor }]}>
+                Аудитория
+              </Text>
+            </View>
+            <Text style={[styles.formatOptionDescription, { color: placeholderColor }]}>
+              Просмотр недельного расписания для указанной аудитории
+            </Text>
+            {scheduleFormat === 'auditory' && (
               <Icon name="checkmark-circle" size={20} color={colors.primary} style={styles.formatCheckmark} />
             )}
           </TouchableOpacity>
@@ -337,32 +467,118 @@ const ScheduleFormatModal = ({ theme, accentColor, onSettingsChange, onSave }) =
           <View style={styles.section}>
             <Text style={[styles.sectionTitle, { color: textColor }]}>ФИО преподавателя</Text>
             <Text style={[styles.sectionDescription, { color: placeholderColor }]}>
-              Укажите фамилию и инициалы в формате: Иванов И.И.
+              Начните вводить фамилию преподавателя для поиска
             </Text>
             
-            <TextInput
-              style={[styles.textInput, {
-                backgroundColor: inputBgColor,
-                borderColor: isValidTeacherName(teacherName) ? colors.primary : borderColor,
-                color: textColor
-              }]}
-              placeholder="Например: Курячий С.Б."
-              placeholderTextColor={placeholderColor}
-              value={teacherName}
-              onChangeText={setTeacherName}
-              autoCapitalize="words"
-            />
+            <View style={{ position: 'relative', zIndex: 10 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <TextInput
+                  style={[styles.textInput, {
+                    backgroundColor: inputBgColor,
+                    borderColor: teacherName.trim() ? colors.primary : borderColor,
+                    color: textColor,
+                    flex: 1,
+                  }]}
+                  placeholder="Начните вводить ФИО..."
+                  placeholderTextColor={placeholderColor}
+                  value={teacherName}
+                  onChangeText={handleTeacherNameChange}
+                  autoCapitalize="words"
+                />
+                {loadingTeacherSearch && (
+                  <ActivityIndicator size="small" color={colors.primary} style={{ position: 'absolute', right: 12, top: 20 }} />
+                )}
+              </View>
+              
+              {showTeacherSuggestions && teacherSearchResults.length > 0 && (
+                <View style={[styles.suggestionsContainer, {
+                  backgroundColor: glass.backgroundElevated || inputBgColor,
+                  borderColor: borderColor,
+                }]}>
+                  {teacherSearchResults.map((item, index) => (
+                    <TouchableOpacity
+                      key={index}
+                      style={[styles.suggestionItem, {
+                        borderBottomColor: borderColor,
+                        borderBottomWidth: index < teacherSearchResults.length - 1 ? StyleSheet.hairlineWidth : 0,
+                      }]}
+                      onPress={() => selectTeacher(item)}
+                    >
+                      <Icon name="person-outline" size={16} color={colors.primary} style={{ marginRight: 10 }} />
+                      <Text style={[styles.suggestionText, { color: textColor }]}>{item}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              )}
+            </View>
             
-            {teacherName && !isValidTeacherName(teacherName) && (
-              <Text style={[styles.validationText, { color: '#ef4444' }]}>
-                Используйте формат: Фамилия И.О.
-              </Text>
+            {teacherName.trim() !== '' && (
+              <View style={[styles.selectedInfo, { backgroundColor: colors.glass, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.glassBorder, marginTop: 12 }]}>
+                <Icon name="checkmark-circle" size={16} color={colors.primary} />
+                <Text style={[styles.selectedInfoText, { color: colors.primary }]}>
+                  Выбран преподаватель: {teacherName}
+                </Text>
+              </View>
             )}
+          </View>
+        )}
+
+        {/* Настройки для аудитории */}
+        {scheduleFormat === 'auditory' && (
+          <View style={styles.section}>
+            <Text style={[styles.sectionTitle, { color: textColor }]}>Номер аудитории</Text>
+            <Text style={[styles.sectionDescription, { color: placeholderColor }]}>
+              Начните вводить номер аудитории для поиска
+            </Text>
             
-            {teacherName && isValidTeacherName(teacherName) && (
-              <Text style={[styles.validationText, { color: colors.primary }]}>
-                Формат корректен
-              </Text>
+            <View style={{ position: 'relative', zIndex: 10 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <TextInput
+                  style={[styles.textInput, {
+                    backgroundColor: inputBgColor,
+                    borderColor: auditoryName.trim() ? colors.primary : borderColor,
+                    color: textColor,
+                    flex: 1,
+                  }]}
+                  placeholder="Например: 2-221"
+                  placeholderTextColor={placeholderColor}
+                  value={auditoryName}
+                  onChangeText={handleAuditoryNameChange}
+                />
+                {loadingAuditorySearch && (
+                  <ActivityIndicator size="small" color={colors.primary} style={{ position: 'absolute', right: 12, top: 20 }} />
+                )}
+              </View>
+              
+              {showAuditorySuggestions && auditorySearchResults.length > 0 && (
+                <View style={[styles.suggestionsContainer, {
+                  backgroundColor: glass.backgroundElevated || inputBgColor,
+                  borderColor: borderColor,
+                }]}>
+                  {auditorySearchResults.map((item, index) => (
+                    <TouchableOpacity
+                      key={index}
+                      style={[styles.suggestionItem, {
+                        borderBottomColor: borderColor,
+                        borderBottomWidth: index < auditorySearchResults.length - 1 ? StyleSheet.hairlineWidth : 0,
+                      }]}
+                      onPress={() => selectAuditory(item)}
+                    >
+                      <Icon name="business-outline" size={16} color={colors.primary} style={{ marginRight: 10 }} />
+                      <Text style={[styles.suggestionText, { color: textColor }]}>{item}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              )}
+            </View>
+            
+            {auditoryName.trim() !== '' && (
+              <View style={[styles.selectedInfo, { backgroundColor: colors.glass, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.glassBorder, marginTop: 12 }]}>
+                <Icon name="checkmark-circle" size={16} color={colors.primary} />
+                <Text style={[styles.selectedInfoText, { color: colors.primary }]}>
+                  Выбрана аудитория: {auditoryName}
+                </Text>
+              </View>
             )}
           </View>
         )}
@@ -380,6 +596,12 @@ const ScheduleFormatModal = ({ theme, accentColor, onSettingsChange, onSave }) =
             <Icon name="information-circle-outline" size={16} color={colors.primary} />
             <Text style={[styles.infoText, { color: placeholderColor }]}>
               <Text style={{ color: colors.primary }}>Преподаватель:</Text> только недельное расписание для указанного преподавателя
+            </Text>
+          </View>
+          <View style={styles.infoItem}>
+            <Icon name="information-circle-outline" size={16} color={colors.primary} />
+            <Text style={[styles.infoText, { color: placeholderColor }]}>
+              <Text style={{ color: colors.primary }}>Аудитория:</Text> только недельное расписание для указанной аудитории
             </Text>
           </View>
         </View>
@@ -420,6 +642,24 @@ const styles = StyleSheet.create({
   selectedInfoText: { fontSize: 14, marginLeft: 8, fontFamily: 'Montserrat_500Medium' },
   textInput: { borderWidth: StyleSheet.hairlineWidth, borderRadius: 12, padding: 12, fontSize: 16, fontFamily: 'Montserrat_400Regular', marginTop: 8 },
   validationText: { fontSize: 12, marginTop: 4, fontFamily: 'Montserrat_400Regular' },
+  suggestionsContainer: { 
+    borderWidth: StyleSheet.hairlineWidth, 
+    borderRadius: 12, 
+    marginTop: 4, 
+    maxHeight: 200, 
+    overflow: 'hidden',
+  },
+  suggestionItem: { 
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    paddingVertical: 12, 
+    paddingHorizontal: 14,
+  },
+  suggestionText: { 
+    fontSize: 15, 
+    fontFamily: 'Montserrat_400Regular', 
+    flex: 1,
+  },
   selectorOption: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 12, borderWidth: StyleSheet.hairlineWidth, borderRadius: 12 },
   selectorOptionHeader: { flexDirection: 'row', alignItems: 'center', flex: 1 },
   selectorTextContainer: { marginLeft: 12, flex: 1 },
