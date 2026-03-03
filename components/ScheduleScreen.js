@@ -93,6 +93,8 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
   const [loadingTeacher, setLoadingTeacher] = useState(false);
   const [loadingAuditory, setLoadingAuditory] = useState(false);
   const [showCourseSelector, setShowCourseSelector] = useState(true);
+  const [selectorExpandedTemp, setSelectorExpandedTemp] = useState(false);
+  const selectorAnimValue = useRef(new Animated.Value(0)).current;
   const [teacherName, setTeacherName] = useState('');
   const [auditoryName, setAuditoryName] = useState('');
   const [availableCourses, setAvailableCourses] = useState([]);
@@ -1830,7 +1832,7 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
         }
       }
       
-      if (!selectedGroup && groups.length > 0 && showCourseSelector) {
+      if (!selectedGroup && groups.length > 0 && (showCourseSelector || selectorExpandedTemp)) {
         return (
           <Text style={{ textAlign: 'center', color: placeholderColor, marginTop: 20, fontFamily: 'Montserrat_400Regular' }}>
             Выберите группу для отображения расписания
@@ -1929,8 +1931,40 @@ return (
         {renderControls()}
         
         {/* Студенческий режим: кнопки курса и групп */}
-        {settingsLoaded && !isTeacherMode && !isAuditoryMode && showCourseSelector && (
-          <>
+        {settingsLoaded && !isTeacherMode && !isAuditoryMode && (showCourseSelector || selectorExpandedTemp) && (
+          <Animated.View style={{
+            opacity: showCourseSelector ? 1 : selectorAnimValue,
+            maxHeight: showCourseSelector ? undefined : selectorAnimValue.interpolate({
+              inputRange: [0, 1],
+              outputRange: [0, 800],
+            }),
+            overflow: 'hidden',
+          }}>
+            {/* Кнопка закрытия селектора (только при временном раскрытии) */}
+            {selectorExpandedTemp && !showCourseSelector && (
+              <TouchableOpacity
+                onPress={() => {
+                  Animated.timing(selectorAnimValue, {
+                    toValue: 0,
+                    duration: 250,
+                    useNativeDriver: false,
+                  }).start(() => setSelectorExpandedTemp(false));
+                }}
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  alignSelf: 'flex-end',
+                  paddingVertical: 4,
+                  paddingHorizontal: 10,
+                  borderRadius: 12,
+                  backgroundColor: glass.surfaceTertiary,
+                  marginBottom: 10,
+                }}
+              >
+                <Icon name="chevron-up" size={14} color={placeholderColor} />
+                <Text style={{ color: placeholderColor, fontSize: 12, fontFamily: 'Montserrat_500Medium', marginLeft: 4 }}>Свернуть</Text>
+              </TouchableOpacity>
+            )}
             {/* Кнопки выбора курса */}
             <View style={{ marginBottom: 16 }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10, paddingHorizontal: 4 }}>
@@ -2052,11 +2086,11 @@ return (
                 </View>
               )}
             </View>
-          </>
+          </Animated.View>
         )}
 
         {/* Информация о скрытом селекторе */}
-        {settingsLoaded && !isTeacherMode && !isAuditoryMode && !showCourseSelector && selectedGroup && (
+        {settingsLoaded && !isTeacherMode && !isAuditoryMode && !showCourseSelector && !selectorExpandedTemp && selectedGroup && (
           <View style={{ 
             backgroundColor: colors.glass || (colors.primary + '10'),
             borderWidth: StyleSheet.hairlineWidth,
@@ -2090,18 +2124,13 @@ return (
             </Text>
             <TouchableOpacity 
               onPress={() => {
-                setShowCourseSelector(true);
-                
-                const newSettings = { 
-                  ...externalSettings, 
-                  showSelector: true 
-                };
-                
-                if (onSettingsUpdate) {
-                  onSettingsUpdate(newSettings);
-                }
-                
-                console.log('Показан селектор для смены группы');
+                setSelectorExpandedTemp(true);
+                selectorAnimValue.setValue(0);
+                Animated.timing(selectorAnimValue, {
+                  toValue: 1,
+                  duration: 300,
+                  useNativeDriver: false,
+                }).start();
               }}
               style={{
                 paddingVertical: 4,
