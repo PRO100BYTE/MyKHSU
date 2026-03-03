@@ -28,7 +28,7 @@ import Snowfall from './Snowfall';
 
 const { width, height } = Dimensions.get('window');
 
-const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings, onSettingsUpdate, isNewYearMode }) => {
+const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings, onSettingsUpdate, isNewYearMode, onCacheStatusChange }) => {
   const [isTeacherMode, setIsTeacherMode] = useState(false);
   const [teacherSchedule, setTeacherSchedule] = useState(null);
   const [loadingTeacher, setLoadingTeacher] = useState(false);
@@ -99,6 +99,27 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
       duration: 300,
       useNativeDriver: true,
     }).start();
+  }, []);
+
+  // Синхронизация статуса кэша с хедером приложения
+  useEffect(() => {
+    if (onCacheStatusChange) {
+      if (!isOnline) {
+        onCacheStatusChange('offline', cacheInfo?.cacheInfo?.cacheDate);
+      } else if (showCachedData) {
+        const status = cacheInfo?.source === 'stale_cache' ? 'stale_cache' : 'cache';
+        onCacheStatusChange(status, cacheInfo?.cacheInfo?.cacheDate);
+      } else {
+        onCacheStatusChange(null);
+      }
+    }
+  }, [showCachedData, isOnline, cacheInfo]);
+
+  // Очистка статуса при размонтировании
+  useEffect(() => {
+    return () => {
+      if (onCacheStatusChange) onCacheStatusChange(null);
+    };
   }, []);
 
   // Функция для определения, нужно ли показывать фиксированный заголовок
@@ -1414,40 +1435,6 @@ return (
         contentContainerStyle={{ minHeight: height, paddingBottom: 100 }}
       >
         {/* ВСЕ содержимое расписания */}
-        {showCachedData && (
-          <View style={{ 
-            backgroundColor: colors.glass || (colors.primary + '10'),
-            borderWidth: StyleSheet.hairlineWidth,
-            borderColor: colors.glassBorder || (colors.primary + '25'),
-            borderRadius: 16,
-            paddingVertical: 10,
-            paddingHorizontal: 14,
-            flexDirection: 'row',
-            alignItems: 'center',
-            marginBottom: 12,
-          }}>
-            <View style={{
-              width: 30,
-              height: 30,
-              borderRadius: 15,
-              backgroundColor: colors.primary + '18',
-              justifyContent: 'center',
-              alignItems: 'center',
-              marginRight: 10,
-            }}>
-              <Icon name="cloud-offline-outline" size={16} color={colors.primary} />
-            </View>
-            <Text style={{ 
-              color: textColor, 
-              fontFamily: 'Montserrat_400Regular', 
-              fontSize: 13,
-              flex: 1,
-              opacity: 0.85,
-            }}>
-              {cacheInfo?.source === 'stale_cache' ? 'Показаны ранее загруженные данные' : 'Показаны кэшированные данные'}
-            </Text>
-          </View>
-        )}
         
         {/* Заголовок */}
         {renderHeader()}
@@ -1657,41 +1644,6 @@ return (
         >
           {renderContent()}
         </Animated.View>
-
-        {!isOnline && !error && !showCachedData && (
-          <View style={{ 
-            backgroundColor: colors.glass || (colors.primary + '10'),
-            borderWidth: StyleSheet.hairlineWidth,
-            borderColor: colors.glassBorder || (colors.primary + '25'),
-            borderRadius: 16,
-            paddingVertical: 12,
-            paddingHorizontal: 14,
-            flexDirection: 'row',
-            alignItems: 'center',
-            marginTop: 16,
-          }}>
-            <View style={{
-              width: 30,
-              height: 30,
-              borderRadius: 15,
-              backgroundColor: colors.primary + '18',
-              justifyContent: 'center',
-              alignItems: 'center',
-              marginRight: 10,
-            }}>
-              <Icon name="cloud-offline-outline" size={16} color={colors.primary} />
-            </View>
-            <Text style={{ 
-              color: textColor, 
-              fontFamily: 'Montserrat_400Regular',
-              fontSize: 13,
-              flex: 1,
-              opacity: 0.85,
-            }}>
-              Нет подключения к интернету. Показаны ранее загруженные данные.
-            </Text>
-          </View>
-        )}
       </ScrollView>
     </Animated.View>
   </View>

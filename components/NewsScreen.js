@@ -9,7 +9,7 @@ import notificationService from '../utils/notificationService';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Snowfall from './Snowfall';
 
-const NewsScreen = ({ theme, accentColor, isNewYearMode }) => {
+const NewsScreen = ({ theme, accentColor, isNewYearMode, onCacheStatusChange }) => {
   const [news, setNews] = useState([]);
   const [cachedNews, setCachedNews] = useState([]);
   const [from, setFrom] = useState(0);
@@ -42,6 +42,27 @@ const NewsScreen = ({ theme, accentColor, isNewYearMode }) => {
       duration: 300,
       useNativeDriver: true,
     }).start();
+  }, []);
+
+  // Синхронизация статуса кэша с хедером приложения
+  useEffect(() => {
+    if (onCacheStatusChange) {
+      if (!isOnline) {
+        onCacheStatusChange('offline', cacheInfo?.cacheInfo?.cacheDate);
+      } else if (showCachedData) {
+        const status = cacheInfo?.source === 'stale_cache' ? 'stale_cache' : 'cache';
+        onCacheStatusChange(status, cacheInfo?.cacheInfo?.cacheDate);
+      } else {
+        onCacheStatusChange(null);
+      }
+    }
+  }, [showCachedData, isOnline, cacheInfo]);
+
+  // Очистка статуса при размонтировании
+  useEffect(() => {
+    return () => {
+      if (onCacheStatusChange) onCacheStatusChange(null);
+    };
   }, []);
 
   // Функция для очистки кэша новостей
@@ -284,40 +305,6 @@ return (
         }
       >
         {/* ВСЕ содержимое новостей */}
-        {showCachedData && (
-          <View style={{ 
-            backgroundColor: colors.glass || (colors.primary + '10'),
-            borderWidth: StyleSheet.hairlineWidth,
-            borderColor: colors.glassBorder || (colors.primary + '25'),
-            borderRadius: 16,
-            paddingVertical: 10,
-            paddingHorizontal: 14,
-            flexDirection: 'row',
-            alignItems: 'center',
-            marginBottom: 12,
-          }}>
-            <View style={{
-              width: 30,
-              height: 30,
-              borderRadius: 15,
-              backgroundColor: colors.primary + '18',
-              justifyContent: 'center',
-              alignItems: 'center',
-              marginRight: 10,
-            }}>
-              <Icon name="cloud-offline-outline" size={16} color={colors.primary} />
-            </View>
-            <Text style={{ 
-              color: textColor, 
-              fontFamily: 'Montserrat_400Regular',
-              fontSize: 13,
-              flex: 1,
-              opacity: 0.85,
-            }}>
-              {cacheInfo?.source === 'stale_cache' ? 'Показаны ранее загруженные новости' : 'Показаны кэшированные новости'}
-            </Text>
-          </View>
-        )}
         
         {news.map((item) => (
           <View 
@@ -450,18 +437,6 @@ return (
               opacity: 0.85,
             }}>
               Нет подключения к интернету. {showCachedData ? 'Показаны ранее загруженные новости.' : 'Невозможно загрузить новые данные.'}
-            </Text>
-          </View>
-        )}
-
-        {lastNewsCheck && (
-          <View style={{ 
-            padding: 8, 
-            alignItems: 'center',
-            marginBottom: 16
-          }}>
-            <Text style={{ color: placeholderColor, fontSize: 10, fontFamily: 'Montserrat_400Regular' }}>
-              Последнее обновление: {new Date(lastNewsCheck).toLocaleString('ru-RU')}
             </Text>
           </View>
         )}

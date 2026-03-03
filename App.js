@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import { View, Text, Platform, Appearance, StyleSheet, StatusBar, PanResponder, Animated, TouchableOpacity } from 'react-native';
+import { View, Text, Platform, Appearance, StyleSheet, StatusBar, PanResponder, Animated, TouchableOpacity, Alert } from 'react-native';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import * as SecureStore from 'expo-secure-store';
 import { useFonts, Montserrat_400Regular, Montserrat_500Medium, Montserrat_600SemiBold, Montserrat_700Bold } from '@expo-google-fonts/montserrat';
@@ -168,6 +168,11 @@ export default Sentry.wrap(function App() {
   const [mapFilterCount, setMapFilterCount] = useState(0);
   const [mapSubScreen, setMapSubScreen] = useState(null);
   const [freshmanSubScreen, setFreshmanSubScreen] = useState(null);
+
+  // Статус кэша расписания для иконки в хедере
+  const [scheduleCacheStatus, setScheduleCacheStatus] = useState(null); // null | 'cache' | 'stale_cache' | 'offline'
+  const [newsCacheStatus, setNewsCacheStatus] = useState(null);
+  const [cacheDate, setCacheDate] = useState(null); // дата последнего кэширования
 
   // Анимация индикатора активной вкладки (Liquid Glass iOS 26)
   const indicatorAnim = useRef(new Animated.Value(0)).current;
@@ -561,6 +566,41 @@ const handleNewYearModeChange = async (enabled) => {
     // Показываем кнопку фильтров для экрана карты (основной вид)
     const showFilterButton = activeScreen === SCREENS.MAP && !mapSubScreen;
 
+    // Показываем иконку кэша для экранов расписания и новостей
+    const currentCacheStatus = activeScreen === SCREENS.SCHEDULE ? scheduleCacheStatus 
+      : activeScreen === SCREENS.NEWS ? newsCacheStatus 
+      : null;
+    const showCacheIcon = !!currentCacheStatus;
+
+    const handleCacheIconPress = () => {
+      const screenName = activeScreen === SCREENS.SCHEDULE ? 'Расписание' : 'Новости';
+      const isOffline = currentCacheStatus === 'offline';
+      const isStale = currentCacheStatus === 'stale_cache';
+      
+      let message = isOffline 
+        ? 'Нет подключения к интернету. Показаны ранее сохранённые данные.'
+        : isStale 
+          ? 'Данные загружены из локального хранилища. Потяните вниз для обновления.'
+          : 'Показаны кэшированные данные. Потяните вниз для обновления.';
+      
+      if (cacheDate) {
+        try {
+          const date = new Date(cacheDate);
+          const formatted = date.toLocaleDateString('ru-RU', { 
+            day: 'numeric', month: 'long', year: 'numeric',
+            hour: '2-digit', minute: '2-digit' 
+          });
+          message += `\n\nПоследнее обновление: ${formatted}`;
+        } catch (e) {}
+      }
+      
+      Alert.alert(
+        isOffline ? 'Оффлайн-режим' : `Кэш • ${screenName}`,
+        message,
+        [{ text: 'Понятно' }]
+      );
+    };
+
     const handleBackPress = () => {
       if (activeScreen === SCREENS.MAP) {
         mapScreenRef.current?.goBack();
@@ -622,6 +662,35 @@ const handleNewYearModeChange = async (enabled) => {
                   )}
                 </TouchableOpacity>
               )}
+              {showCacheIcon && (
+                <TouchableOpacity 
+                  onPress={handleCacheIconPress}
+                  activeOpacity={0.7}
+                  style={{ 
+                    flexDirection: 'row', 
+                    alignItems: 'center', 
+                    marginLeft: 8,
+                    backgroundColor: currentCacheStatus === 'offline' ? '#f59e0b18' : colors.glass,
+                    paddingHorizontal: 8,
+                    paddingVertical: 4,
+                    borderRadius: 10,
+                  }}
+                >
+                  <Icon 
+                    name={currentCacheStatus === 'offline' ? 'cloud-offline-outline' : 'cloud-done-outline'} 
+                    size={16} 
+                    color={currentCacheStatus === 'offline' ? '#f59e0b' : colors.primary} 
+                  />
+                  <Text style={{ 
+                    fontSize: 11, 
+                    color: currentCacheStatus === 'offline' ? '#f59e0b' : colors.primary,
+                    fontFamily: 'Montserrat_500Medium',
+                    marginLeft: 4,
+                  }}>
+                    {currentCacheStatus === 'offline' ? 'Оффлайн' : 'Кэш'}
+                  </Text>
+                </TouchableOpacity>
+              )}
             </View>
           </BlurView>
         </View>
@@ -668,6 +737,35 @@ const handleNewYearModeChange = async (enabled) => {
                 </Text>
               </View>
             )}
+          </TouchableOpacity>
+        )}
+        {showCacheIcon && (
+          <TouchableOpacity 
+            onPress={handleCacheIconPress}
+            activeOpacity={0.7}
+            style={{ 
+              flexDirection: 'row', 
+              alignItems: 'center', 
+              marginLeft: 8,
+              backgroundColor: currentCacheStatus === 'offline' ? '#f59e0b18' : colors.glass,
+              paddingHorizontal: 8,
+              paddingVertical: 4,
+              borderRadius: 10,
+            }}
+          >
+            <Icon 
+              name={currentCacheStatus === 'offline' ? 'cloud-offline-outline' : 'cloud-done-outline'} 
+              size={16} 
+              color={currentCacheStatus === 'offline' ? '#f59e0b' : colors.primary} 
+            />
+            <Text style={{ 
+              fontSize: 11, 
+              color: currentCacheStatus === 'offline' ? '#f59e0b' : colors.primary,
+              fontFamily: 'Montserrat_500Medium',
+              marginLeft: 4,
+            }}>
+              {currentCacheStatus === 'offline' ? 'Оффлайн' : 'Кэш'}
+            </Text>
           </TouchableOpacity>
         )}
       </View>
@@ -777,6 +875,10 @@ const handleNewYearModeChange = async (enabled) => {
             accentColor={accentColor} 
             key={`schedule-${refreshKey}`}
             isNewYearMode={isNewYearMode}
+            onCacheStatusChange={(status, date) => {
+              setScheduleCacheStatus(status);
+              if (date) setCacheDate(date);
+            }}
           />
         )}
         {activeScreen === SCREENS.MAP && (
@@ -806,6 +908,10 @@ const handleNewYearModeChange = async (enabled) => {
             accentColor={accentColor} 
             key={`news-${refreshKey}`}
             isNewYearMode={isNewYearMode}
+            onCacheStatusChange={(status, date) => {
+              setNewsCacheStatus(status);
+              if (date) setCacheDate(date);
+            }}
           />
         )}
         {activeScreen === SCREENS.SETTINGS && (
