@@ -9,7 +9,8 @@ import {
   Dimensions, 
   RefreshControl, 
   Animated, 
-  StatusBar
+  StatusBar,
+  Alert
 } from 'react-native';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import { getWeekNumber, formatDate, getDateByWeekAndDay } from '../utils/dateUtils';
@@ -25,6 +26,7 @@ import {
 import * as SecureStore from 'expo-secure-store';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Snowfall from './Snowfall';
+import { exportScheduleToCalendar } from '../utils/calendarExport';
 
 const { width, height } = Dimensions.get('window');
 
@@ -41,6 +43,7 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
   const [availableCourses, setAvailableCourses] = useState([]);
   const [loadingCourses, setLoadingCourses] = useState(false);
   const [settingsLoaded, setSettingsLoaded] = useState(false);
+  const [exporting, setExporting] = useState(false);
   
   // Анимация появления
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -834,6 +837,45 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
     }
   };
 
+  const handleExportCalendar = async () => {
+    if (exporting) return;
+    setExporting(true);
+    try {
+      let mode = 'student';
+      let title = selectedGroup || '';
+      if (isTeacherMode) {
+        mode = 'teacher';
+        title = teacherName;
+      } else if (isAuditoryMode) {
+        mode = 'auditory';
+        title = auditoryName;
+      }
+
+      await exportScheduleToCalendar({
+        mode,
+        viewMode,
+        scheduleData,
+        teacherSchedule,
+        auditorySchedule,
+        pairsTime,
+        currentWeek,
+        currentDate,
+        title,
+      });
+    } catch (err) {
+      if (err.message === 'NO_EVENTS') {
+        Alert.alert('Экспорт', 'Нет занятий для экспорта');
+      } else if (err.message === 'SHARING_NOT_AVAILABLE') {
+        Alert.alert('Экспорт', 'Функция "Поделиться" недоступна на этом устройстве');
+      } else {
+        console.error('Calendar export error:', err);
+        Alert.alert('Ошибка', 'Не удалось экспортировать расписание');
+      }
+    } finally {
+      setExporting(false);
+    }
+  };
+
   const handleRefresh = async () => {
     setRefreshing(true);
     try {
@@ -1268,6 +1310,27 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
 
   // Рендер управления с анимацией
   const renderControls = () => {
+    // Кнопка экспорта в календарь
+    const hasScheduleData = isTeacherMode ? !!teacherSchedule : isAuditoryMode ? !!auditorySchedule : !!scheduleData;
+    const renderExportButton = () => (
+      <TouchableOpacity
+        onPress={handleExportCalendar}
+        disabled={exporting || !hasScheduleData}
+        style={{
+          padding: 8,
+          borderRadius: 12,
+          backgroundColor: exporting || !hasScheduleData ? glass.surfaceTertiary : colors.glass,
+          marginLeft: 8,
+        }}
+      >
+        {exporting ? (
+          <ActivityIndicator size={16} color={colors.primary} />
+        ) : (
+          <Icon name="share-outline" size={18} color={!hasScheduleData ? placeholderColor : colors.primary} />
+        )}
+      </TouchableOpacity>
+    );
+
     if (isTeacherMode || isAuditoryMode) {
       return (
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
@@ -1319,6 +1382,8 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
               <Icon name="chevron-forward" size={18} color={isAnimating ? placeholderColor : colors.primary} />
             </TouchableOpacity>
           </Animated.View>
+          
+          {renderExportButton()}
         </View>
       );
     }
@@ -1414,6 +1479,8 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
               <Icon name="chevron-forward" size={18} color={isAnimating ? placeholderColor : colors.primary} />
             </TouchableOpacity>
           </Animated.View>
+          
+          {renderExportButton()}
         </View>
       );
     }
