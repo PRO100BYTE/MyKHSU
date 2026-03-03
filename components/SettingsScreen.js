@@ -339,9 +339,10 @@ const SettingsScreen = forwardRef(({
       const group = await SecureStore.getItemAsync('default_group') || '';
       const course = await SecureStore.getItemAsync('default_course') || '1';
       const teacher = await SecureStore.getItemAsync('teacher_name') || '';
+      const auditory = await SecureStore.getItemAsync('auditory_name') || '';
       const showSelector = await SecureStore.getItemAsync('show_course_selector') !== 'false';
       
-      setScheduleSettings({ format, group, course: parseInt(course), teacher, showSelector });
+      setScheduleSettings({ format, group, course: parseInt(course), teacher, auditory, showSelector });
     } catch (error) {
       console.error('Error loading schedule settings:', error);
     }
@@ -458,6 +459,7 @@ const SettingsScreen = forwardRef(({
   const getScheduleLabel = () => {
     if (!scheduleSettings) return 'Настроить отображение расписания';
     if (scheduleSettings.format === 'teacher') return `Преподаватель: ${scheduleSettings.teacher || 'не указан'}`;
+    if (scheduleSettings.format === 'auditory') return `Аудитория: ${scheduleSettings.auditory || 'не указана'}`;
     return `Группа: ${scheduleSettings.group || 'не выбрана'}`;
   };
 

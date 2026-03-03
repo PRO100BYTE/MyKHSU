@@ -40,6 +40,7 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
   const [auditoryName, setAuditoryName] = useState('');
   const [availableCourses, setAvailableCourses] = useState([]);
   const [loadingCourses, setLoadingCourses] = useState(false);
+  const [settingsLoaded, setSettingsLoaded] = useState(false);
   
   // Анимация появления
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -595,12 +596,37 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
       });
       
       if (format === 'teacher' && teacher) {
-        fetchTeacherSchedule(teacher);
+        // Дожидаемся получения номера недели с сервера перед загрузкой расписания
+        let serverWeek = null;
+        try {
+          const weekResult = await ApiService.getWeekNumbers();
+          if (weekResult?.data?.current_week_number) {
+            serverWeek = weekResult.data.current_week_number;
+            setCurrentWeek(serverWeek);
+          }
+        } catch (e) {
+          console.error('Error fetching week numbers for teacher:', e);
+        }
+        fetchTeacherSchedule(teacher, serverWeek);
       } else if (format === 'auditory' && auditory) {
-        fetchAuditorySchedule(auditory);
+        // Дожидаемся получения номера недели с сервера перед загрузкой расписания
+        let serverWeek = null;
+        try {
+          const weekResult = await ApiService.getWeekNumbers();
+          if (weekResult?.data?.current_week_number) {
+            serverWeek = weekResult.data.current_week_number;
+            setCurrentWeek(serverWeek);
+          }
+        } catch (e) {
+          console.error('Error fetching week numbers for auditory:', e);
+        }
+        fetchAuditorySchedule(auditory, serverWeek);
       }
+      
+      setSettingsLoaded(true);
     } catch (error) {
       console.error('Error loading schedule settings:', error);
+      setSettingsLoaded(true);
     }
   };
 
@@ -686,6 +712,9 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
       const result = await ApiService.getTeacherSchedule(teacher, week || currentWeek);
       if (result.data) {
         setTeacherSchedule(result.data);
+        if (result.data.week_number && !week) {
+          setCurrentWeek(result.data.week_number);
+        }
         console.log('Расписание преподавателя загружено:', result.data);
       } else {
         throw new Error('INVALID_RESPONSE');
@@ -711,6 +740,9 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
       const result = await ApiService.getAuditorySchedule(auditory, week || currentWeek);
       if (result.data) {
         setAuditorySchedule(result.data);
+        if (result.data.week_number && !week) {
+          setCurrentWeek(result.data.week_number);
+        }
         console.log('Расписание аудитории загружено:', result.data);
       } else {
         throw new Error('INVALID_RESPONSE');
@@ -1417,13 +1449,6 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
         <View>
           {auditorySchedule && auditorySchedule.days ? (
             <>
-              {auditorySchedule.dates && (
-                <View style={{ alignItems: 'center', marginBottom: 16 }}>
-                  <Text style={{ color: placeholderColor, fontFamily: 'Montserrat_400Regular' }}>
-                    Неделя: {auditorySchedule.week_number} ({auditorySchedule.dates.date_start} - {auditorySchedule.dates.date_end})
-                  </Text>
-                </View>
-              )}
               {auditorySchedule.days.map((day, index) => 
                 day && day.lessons ? renderDaySchedule(day, currentWeek, index) : null
               )}
@@ -1579,7 +1604,7 @@ return (
         {renderControls()}
         
         {/* Студенческий режим: кнопки курса и групп */}
-        {!isTeacherMode && !isAuditoryMode && showCourseSelector && (
+        {settingsLoaded && !isTeacherMode && !isAuditoryMode && showCourseSelector && (
           <>
             {/* Кнопки выбора курса */}
             <View style={{ marginBottom: 16 }}>
@@ -1706,7 +1731,7 @@ return (
         )}
 
         {/* Информация о скрытом селекторе */}
-        {!isTeacherMode && !isAuditoryMode && !showCourseSelector && selectedGroup && (
+        {settingsLoaded && !isTeacherMode && !isAuditoryMode && !showCourseSelector && selectedGroup && (
           <View style={{ 
             backgroundColor: colors.glass || (colors.primary + '10'),
             borderWidth: StyleSheet.hairlineWidth,

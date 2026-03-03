@@ -36,6 +36,14 @@ TaskManager.defineTask(BACKGROUND_NEWS_CHECK, async () => {
 // Регистрация периодической фоновой задачи
 export const registerBackgroundNewsCheck = async () => {
   try {
+    // Проверяем доступность Background Fetch на устройстве
+    const status = await BackgroundFetch.getStatusAsync();
+    if (status === BackgroundFetch.BackgroundFetchStatus.Restricted ||
+        status === BackgroundFetch.BackgroundFetchStatus.Denied) {
+      console.log('Background fetch is not available on this device, status:', status);
+      return;
+    }
+
     const isRegistered = await TaskManager.isTaskRegisteredAsync(BACKGROUND_NEWS_CHECK);
     if (isRegistered) {
       console.log('Background news check already registered');
@@ -50,7 +58,8 @@ export const registerBackgroundNewsCheck = async () => {
     
     console.log('Background news check registered');
   } catch (error) {
-    console.error('Error registering background news check:', error);
+    // Ошибка в Expo Go или при отсутствии нативной поддержки — не критично
+    console.log('Background fetch registration skipped:', error.message || error);
   }
 };
 
