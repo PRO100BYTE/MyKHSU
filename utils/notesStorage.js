@@ -107,7 +107,7 @@ export const findHomeworkBySubject = (allNotes, subject, group) => {
   const normalizedSubject = subject.trim().toLowerCase().replace(/\s+/g, '_');
   const normalizedGroup = (group || '').trim().toLowerCase().replace(/\s+/g, '_');
 
-  let latestHomework = null;
+  let latestResult = null;
   let latestTimestamp = 0;
 
   for (const [key, note] of Object.entries(allNotes)) {
@@ -120,9 +120,9 @@ export const findHomeworkBySubject = (allNotes, subject, group) => {
     if (noteSubject === normalizedSubject && noteGroup === normalizedGroup) {
       if (note.updatedAt > latestTimestamp) {
         latestTimestamp = note.updatedAt;
-        latestHomework = note.homework;
+        latestResult = { homework: note.homework, updatedAt: note.updatedAt };
       }
     }
   }
-  return latestHomework;
+  return latestResult;
 };

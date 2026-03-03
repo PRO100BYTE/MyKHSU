@@ -402,17 +402,28 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
   };
 
   // Получает ДЗ из предыдущего занятия по тому же предмету (для отображения на текущем)
-  const getHomeworkFromPrevLesson = (lesson, weekday) => {
+  const getHomeworkFromPrevLesson = (lesson, weekday, lessonDate) => {
     const group = lesson.group ? (Array.isArray(lesson.group) ? lesson.group.join(',') : lesson.group) : '';
     // Не показываем чужое ДЗ, если у текущего занятия уже есть своя заметка с ДЗ
     const ownKey = getLessonNoteKey(lesson.subject, weekday, lesson.time, group);
     const ownNote = lessonNotes[ownKey];
-    if (ownNote && ownNote.homework) return null; // у текущего занятия есть своё ДЗ
-    return findHomeworkBySubject(lessonNotes, lesson.subject, group);
+    if (ownNote && ownNote.homework) return null;
+    const result = findHomeworkBySubject(lessonNotes, lesson.subject, group);
+    if (!result) return null;
+    // Показываем ДЗ только на занятиях ПОСЛЕ даты создания и в пределах 7 дней
+    if (lessonDate && result.updatedAt) {
+      const hwDate = new Date(result.updatedAt);
+      hwDate.setHours(0, 0, 0, 0);
+      const ld = new Date(lessonDate);
+      ld.setHours(0, 0, 0, 0);
+      if (ld.getTime() <= hwDate.getTime()) return null;
+      if ((ld - hwDate) / (1000 * 60 * 60 * 24) > 7) return null;
+    }
+    return result.homework;
   };
 
   // Общий компонент карточки занятия
-  const renderLessonCard = (lesson, lessonIndex, pairTime, isCurrentLessonFlag, isTeacher = false, isAuditory = false, weekday = null) => {
+  const renderLessonCard = (lesson, lessonIndex, pairTime, isCurrentLessonFlag, isTeacher = false, isAuditory = false, weekday = null, lessonDate = null) => {
     const typeInfo = getLessonTypeIcon(lesson.type_lesson);
     
     return (
@@ -607,7 +618,7 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
           {weekday != null && (() => {
             const noteData = getNotePreview(lesson, weekday);
             const hasOwnNote = noteData && (noteData.noteText || noteData.homework);
-            const prevHomework = !hasOwnNote || !noteData?.homework ? getHomeworkFromPrevLesson(lesson, weekday) : null;
+            const prevHomework = !hasOwnNote || !noteData?.homework ? getHomeworkFromPrevLesson(lesson, weekday, lessonDate) : null;
             if (!hasOwnNote && !prevHomework) return null;
             return (
               <View style={{ marginTop: 10, gap: 6 }}>
@@ -1142,7 +1153,7 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
             const lessonDate = getLessonDateForWeek(weekNumber, day.weekday, currentTime);
             const isCurrentLessonFlag = isCurrentLesson(lesson, pairTime, currentTime, lessonDate);
             
-            return renderLessonCard(lesson, lessonIndex, pairTime, isCurrentLessonFlag, isTeacherMode, isAuditoryMode, day.weekday);
+            return renderLessonCard(lesson, lessonIndex, pairTime, isCurrentLessonFlag, isTeacherMode, isAuditoryMode, day.weekday, date);
           })
         ) : (
           <View style={{
@@ -1240,7 +1251,7 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
             const pairTime = getTimeForLesson(lesson.time);
             const isCurrentLessonFlag = isCurrentLesson(lesson, pairTime, currentTime, currentDate);
             
-            return renderLessonCard(lesson, index, pairTime, isCurrentLessonFlag, false, false, weekday);
+            return renderLessonCard(lesson, index, pairTime, isCurrentLessonFlag, false, false, weekday, currentDate);
           })
         ) : (
           <View style={{
