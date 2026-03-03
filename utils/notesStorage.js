@@ -17,10 +17,20 @@ const getNoteKey = (subject, weekday, timeSlot, group) => {
  */
 export const saveNote = async ({ subject, weekday, timeSlot, group, noteText, homework }) => {
   const key = getNoteKey(subject, weekday, timeSlot, group);
+  // Загружаем существующую заметку, чтобы сохранить homeworkTargetDate при обычном редактировании
+  let existing = null;
+  try {
+    const raw = await AsyncStorage.getItem(key);
+    if (raw) existing = JSON.parse(raw);
+  } catch {}
+  const oldHomework = existing?.homework || '';
+  const newHomework = homework || '';
   const data = {
     noteText: noteText || '',
-    homework: homework || '',
+    homework: newHomework,
     updatedAt: Date.now(),
+    // Сбрасываем targetDate только если ДЗ изменилось (новое/обновлённое)
+    homeworkTargetDate: (newHomework && newHomework !== oldHomework) ? null : (existing?.homeworkTargetDate || null),
   };
   await AsyncStorage.setItem(key, JSON.stringify(data));
   return data;
@@ -99,7 +109,7 @@ export const getNotesCount = async () => {
 
 /**
  * Ищет ДЗ по предмету (поиск по всем дням/слотам) — для отображения ДЗ на следующем занятии.
- * Возвращает последнее найденное ДЗ для данного предмета и группы.
+ * Возвращает последнее найденное ДЗ с sourceKey и homeworkTargetDate.
  */
 export const findHomeworkBySubject = (allNotes, subject, group) => {
   if (!allNotes || !subject) return null;
@@ -112,7 +122,6 @@ export const findHomeworkBySubject = (allNotes, subject, group) => {
 
   for (const [key, note] of Object.entries(allNotes)) {
     if (!note || !note.homework) continue;
-    // Ключ формат: lesson_note_<subject>__<weekday>__<timeSlot>__<group>
     const parts = key.replace(NOTES_PREFIX, '').split('__');
     if (parts.length < 4) continue;
     const noteSubject = parts[0];
@@ -120,9 +129,30 @@ export const findHomeworkBySubject = (allNotes, subject, group) => {
     if (noteSubject === normalizedSubject && noteGroup === normalizedGroup) {
       if (note.updatedAt > latestTimestamp) {
         latestTimestamp = note.updatedAt;
-        latestResult = { homework: note.homework, updatedAt: note.updatedAt };
+        latestResult = {
+          homework: note.homework,
+          updatedAt: note.updatedAt,
+          homeworkTargetDate: note.homeworkTargetDate || null,
+          sourceKey: key,
+        };
       }
     }
   }
   return latestResult;
+};
+
+/**
+ * Помечает ДЗ как "доставленное" на конкретную дату.
+ * Записывает homeworkTargetDate в исходную заметку.
+ */
+export const markHomeworkDelivered = async (sourceKey, targetDateISO) => {
+  try {
+    const raw = await AsyncStorage.getItem(sourceKey);
+    if (!raw) return;
+    const note = JSON.parse(raw);
+    note.homeworkTargetDate = targetDateISO;
+    await AsyncStorage.setItem(sourceKey, JSON.stringify(note));
+  } catch (e) {
+    console.error('Error marking homework delivered:', e);
+  }
 };

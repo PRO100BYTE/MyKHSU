@@ -5,6 +5,7 @@ import * as SecureStore from 'expo-secure-store';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ACCENT_COLORS, API_BASE_URL, APP_VERSION, BUILD_VER, BUILD_DATE, LIQUID_GLASS } from '../utils/constants';
 import { loadAllNotes, clearAllNotes, getNotesCount, saveNote } from '../utils/notesStorage';
+import { unlockAchievement, clearAchievements, getAchievementsCount, ACHIEVEMENT_DEFINITIONS } from '../utils/achievements';
 import * as Updates from 'expo-updates';
 import * as Notifications from 'expo-notifications';
 import * as TaskManager from 'expo-task-manager';
@@ -917,6 +918,80 @@ const DeveloperMenuScreen = ({ theme, accentColor, onResetDeveloperMode }) => {
             <Icon name="trash-outline" size={20} color="#ef4444" />
             <Text style={[styles.actionButtonText, { color: '#ef4444' }]}>
               Очистить все заметки
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Достижения */}
+        <View style={styles.section}>
+          <Text style={[styles.sectionTitle, { color: textColor }]}>Достижения</Text>
+
+          <TouchableOpacity
+            style={[styles.actionButton, { backgroundColor: inputBgColor, borderColor: borderColor }]}
+            onPress={async () => {
+              const stats = await getAchievementsCount();
+              Alert.alert('Статистика ачивок', `Получено: ${stats.unlocked} из ${stats.total}`);
+            }}
+          >
+            <Icon name="trophy-outline" size={20} color={colors.primary} />
+            <Text style={[styles.actionButtonText, { color: textColor }]}>
+              Статистика ачивок
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.actionButton, { backgroundColor: inputBgColor, borderColor: borderColor }]}
+            onPress={async () => {
+              const result = await unlockAchievement('first_note');
+              if (result) {
+                Alert.alert('Успех', `Тестовая ачивка "Первая заметка" разблокирована!`);
+              } else {
+                Alert.alert('Инфо', 'Эта ачивка уже получена');
+              }
+            }}
+          >
+            <Icon name="star-outline" size={20} color={colors.primary} />
+            <Text style={[styles.actionButtonText, { color: textColor }]}>
+              Тестовая ачивка
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.actionButton, { backgroundColor: inputBgColor, borderColor: borderColor }]}
+            onPress={async () => {
+              const result = await unlockAchievement('konami_code');
+              if (result) {
+                Alert.alert('👁️ За гранью кода', 'Ты нашёл то, что не должен был найти. Или наоборот?');
+              } else {
+                Alert.alert('Инфо', 'Секретная ачивка уже получена');
+              }
+            }}
+          >
+            <Icon name="eye-outline" size={20} color="#6366F1" />
+            <Text style={[styles.actionButtonText, { color: textColor }]}>
+              Секретная ачивка
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.actionButton, { backgroundColor: 'rgba(239, 68, 68, 0.1)', borderColor: 'rgba(239, 68, 68, 0.3)' }]}
+            onPress={() => {
+              Alert.alert(
+                'Очистить ачивки',
+                'Все полученные достижения будут сброшены.',
+                [
+                  { text: 'Отмена', style: 'cancel' },
+                  { text: 'Очистить', style: 'destructive', onPress: async () => {
+                    await clearAchievements();
+                    Alert.alert('Готово', 'Все достижения сброшены');
+                  }}
+                ]
+              );
+            }}
+          >
+            <Icon name="trash-outline" size={20} color="#ef4444" />
+            <Text style={[styles.actionButtonText, { color: '#ef4444' }]}>
+              Сбросить все ачивки
             </Text>
           </TouchableOpacity>
         </View>

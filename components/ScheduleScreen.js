@@ -28,7 +28,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import Snowfall from './Snowfall';
 import { exportScheduleToCalendar } from '../utils/calendarExport';
 import LessonNoteModal from './LessonNoteModal';
-import { loadAllNotes, getLessonNoteKey, findHomeworkBySubject } from '../utils/notesStorage';
+import { loadAllNotes, getLessonNoteKey, findHomeworkBySubject, markHomeworkDelivered } from '../utils/notesStorage';
 
 const { width, height } = Dimensions.get('window');
 
@@ -401,7 +401,7 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
     return lessonNotes[key] || null;
   };
 
-  // Получает ДЗ из предыдущего занятия по тому же предмету (для отображения на текущем)
+  // Получает ДЗ из предыдущего занятия по тому же предмету (отображается только на 1 следующем занятии)
   const getHomeworkFromPrevLesson = (lesson, weekday, lessonDate) => {
     const group = lesson.group ? (Array.isArray(lesson.group) ? lesson.group.join(',') : lesson.group) : '';
     // Не показываем чужое ДЗ, если у текущего занятия уже есть своя заметка с ДЗ
@@ -409,15 +409,29 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
     const ownNote = lessonNotes[ownKey];
     if (ownNote && ownNote.homework) return null;
     const result = findHomeworkBySubject(lessonNotes, lesson.subject, group);
-    if (!result) return null;
-    // Показываем ДЗ только на занятиях ПОСЛЕ даты создания и в пределах 7 дней
-    if (lessonDate && result.updatedAt) {
-      const hwDate = new Date(result.updatedAt);
-      hwDate.setHours(0, 0, 0, 0);
-      const ld = new Date(lessonDate);
-      ld.setHours(0, 0, 0, 0);
-      if (ld.getTime() <= hwDate.getTime()) return null;
-      if ((ld - hwDate) / (1000 * 60 * 60 * 24) > 7) return null;
+    if (!result || !result.updatedAt || !lessonDate) return null;
+
+    const hwDate = new Date(result.updatedAt);
+    hwDate.setHours(0, 0, 0, 0);
+    const ld = new Date(lessonDate);
+    ld.setHours(0, 0, 0, 0);
+    const ldISO = ld.toISOString();
+
+    // Не показываем на занятиях в день создания ДЗ или раньше
+    if (ld.getTime() <= hwDate.getTime()) return null;
+
+    if (result.homeworkTargetDate) {
+      // targetDate уже установлена — показываем только на этой конкретной дате
+      if (result.homeworkTargetDate === ldISO) return result.homework;
+      return null;
+    }
+
+    // targetDate ещё не установлена — это первое занятие после создания ДЗ,
+    // «захватываем» его: записываем дату в базу и обновляем локальный кэш
+    markHomeworkDelivered(result.sourceKey, ldISO).then(() => refreshNotes());
+    // Обновляем кэш сразу, чтобы при следующем рендере другие карточки не захватили
+    if (lessonNotes[result.sourceKey]) {
+      lessonNotes[result.sourceKey] = { ...lessonNotes[result.sourceKey], homeworkTargetDate: ldISO };
     }
     return result.homework;
   };

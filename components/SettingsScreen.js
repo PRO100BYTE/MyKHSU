@@ -19,7 +19,9 @@ import AboutModal from './AboutModal';
 import NotificationSettingsModal from './NotificationSettingsModal';
 import ScheduleFormatModal from './ScheduleFormatModal';
 import DeveloperMenuScreen from './DeveloperMenuScreen';
+import AchievementsScreen from './AchievementsScreen';
 import { ACCENT_COLORS, APP_VERSION, APP_DEVELOPERS, APP_SUPPORTERS, GITHUB_REPO_URL, BUILD_VER, BUILD_DATE, LIQUID_GLASS } from '../utils/constants';
+import { getAchievementsCount } from '../utils/achievements';
 import { getGlassSettingsCardStyle, getGlassIconBadgeStyle } from '../utils/liquidGlass';
 import Snowfall from './Snowfall';
 import { clearAllNotes, getNotesCount } from '../utils/notesStorage';
@@ -197,6 +199,7 @@ const SettingsScreen = forwardRef(({
   const [secretMessage, setSecretMessage] = useState('');
   const [showConfetti, setShowConfetti] = useState(false);
   const [developerMode, setDeveloperMode] = useState(false);
+  const [achievementsStats, setAchievementsStats] = useState({ unlocked: 0, total: 0 });
   
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const screenFadeAnim = useRef(new Animated.Value(1)).current;
@@ -249,15 +252,24 @@ const SettingsScreen = forwardRef(({
       schedule: 'Формат расписания',
       appearance: 'Внешний вид',
       notifications: 'Уведомления',
+      achievements: 'Достижения',
       about: 'О приложении',
       developer: 'Меню разработчика',
     };
     if (onNavigationChange) onNavigationChange(titles[currentScreen] || null);
   }, [currentScreen]);
 
+  const loadAchievementsStats = async () => {
+    try {
+      const stats = await getAchievementsCount();
+      setAchievementsStats(stats);
+    } catch {}
+  };
+
   useEffect(() => {
     loadDeveloperMode();
     loadScheduleSettings();
+    loadAchievementsStats();
     Animated.timing(fadeAnim, { toValue: 1, duration: 300, useNativeDriver: true }).start();
   }, []);
 
@@ -561,6 +573,18 @@ const SettingsScreen = forwardRef(({
         />
       </SettingsGroup>
 
+      {/* ДОСТИЖЕНИЯ */}
+      <SectionHeader title="Достижения" />
+      <SettingsGroup>
+        <SettingsRow 
+          icon="trophy-outline" 
+          title="Достижения" 
+          subtitle={`Получено ${achievementsStats.unlocked} из ${achievementsStats.total}`}
+          onPress={() => { loadAchievementsStats(); navigateTo('achievements'); }} 
+          isFirst isLast 
+        />
+      </SettingsGroup>
+
       {/* О ПРИЛОЖЕНИИ */}
       <SectionHeader title="О приложении" />
       <SettingsGroup>
@@ -714,6 +738,13 @@ const SettingsScreen = forwardRef(({
 
           {currentScreen === 'notifications' && (
             <NotificationSettingsModal
+              theme={theme}
+              accentColor={accentColor}
+            />
+          )}
+
+          {currentScreen === 'achievements' && (
+            <AchievementsScreen
               theme={theme}
               accentColor={accentColor}
             />
