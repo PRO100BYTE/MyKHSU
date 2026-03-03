@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, Modal, TouchableOpacity, Switch, ScrollView, StyleSheet } from 'react-native';
+import React, { useState, useEffect, useRef } from 'react';
+import { View, Text, Modal, TouchableOpacity, Switch, ScrollView, StyleSheet, Animated } from 'react-native';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import * as SecureStore from 'expo-secure-store';
 import { ACCENT_COLORS, LIQUID_GLASS } from '../utils/constants';
@@ -23,11 +23,27 @@ const NotificationSettingsModal = ({ visible, onClose, theme, accentColor }) => 
   const borderColor = glass.border;
   const inputBgColor = glass.surfaceTertiary;
 
+  const overlayAnim = useRef(new Animated.Value(0)).current;
+  const contentAnim = useRef(new Animated.Value(0)).current;
+
   useEffect(() => {
     if (visible) {
+      overlayAnim.setValue(0);
+      contentAnim.setValue(0);
+      Animated.parallel([
+        Animated.timing(overlayAnim, { toValue: 1, duration: 250, useNativeDriver: true }),
+        Animated.spring(contentAnim, { toValue: 1, damping: 20, stiffness: 300, useNativeDriver: true }),
+      ]).start();
       loadSettings();
     }
   }, [visible]);
+
+  const handleClose = () => {
+    Animated.parallel([
+      Animated.timing(overlayAnim, { toValue: 0, duration: 200, useNativeDriver: true }),
+      Animated.timing(contentAnim, { toValue: 0, duration: 180, useNativeDriver: true }),
+    ]).start(() => onClose());
+  };
 
   const loadSettings = async () => {
     try {
@@ -65,18 +81,21 @@ const NotificationSettingsModal = ({ visible, onClose, theme, accentColor }) => 
 
   if (!visible) return null;
 
+  const contentScale = contentAnim.interpolate({ inputRange: [0, 1], outputRange: [0.92, 1] });
+  const contentTranslateY = contentAnim.interpolate({ inputRange: [0, 1], outputRange: [40, 0] });
+
   return (
     <Modal
       visible={visible}
-      animationType="slide"
+      animationType="none"
       transparent={true}
-      onRequestClose={onClose}
+      onRequestClose={handleClose}
     >
-      <View style={[styles.modalContainer, { backgroundColor: 'rgba(0, 0, 0, 0.5)' }]}>
-            <View style={[styles.modalContent, { backgroundColor: bgColor }]}>
+      <Animated.View style={[styles.modalContainer, { backgroundColor: 'rgba(0, 0, 0, 0.5)', opacity: overlayAnim }]}>
+            <Animated.View style={[styles.modalContent, { backgroundColor: bgColor, transform: [{ scale: contentScale }, { translateY: contentTranslateY }] }]}>
           <View style={styles.headerRow}>
             <Text style={[styles.title, { color: textColor }]}>Настройки уведомлений</Text>
-            <TouchableOpacity onPress={onClose} style={styles.closeIcon}>
+            <TouchableOpacity onPress={handleClose} style={styles.closeIcon}>
               <Icon name="close" size={22} color={placeholderColor} />
             </TouchableOpacity>
           </View>
@@ -238,12 +257,12 @@ const NotificationSettingsModal = ({ visible, onClose, theme, accentColor }) => 
 
           <TouchableOpacity 
             style={[styles.closeButton, { backgroundColor: colors.primary }]}
-            onPress={onClose}
+            onPress={handleClose}
           >
             <Text style={styles.closeButtonText}>Готово</Text>
           </TouchableOpacity>
-            </View>
-      </View>
+            </Animated.View>
+      </Animated.View>
     </Modal>
   );
 };

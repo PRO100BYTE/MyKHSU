@@ -1,5 +1,5 @@
-import React from 'react';
-import { View, Text, Modal, TouchableOpacity, TouchableWithoutFeedback, StyleSheet } from 'react-native';
+import React, { useRef, useEffect } from 'react';
+import { View, Text, Modal, TouchableOpacity, TouchableWithoutFeedback, StyleSheet, Animated } from 'react-native';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import { ACCENT_COLORS, LIQUID_GLASS } from '../utils/constants';
 
@@ -9,23 +9,48 @@ const UnderDevelopmentModal = ({ visible, onClose, theme, accentColor, featureNa
   const textColor = glass.text;
   const placeholderColor = glass.textSecondary;
 
+  const overlayAnim = useRef(new Animated.Value(0)).current;
+  const contentAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (visible) {
+      overlayAnim.setValue(0);
+      contentAnim.setValue(0);
+      Animated.parallel([
+        Animated.timing(overlayAnim, { toValue: 1, duration: 250, useNativeDriver: true }),
+        Animated.spring(contentAnim, { toValue: 1, damping: 20, stiffness: 300, useNativeDriver: true }),
+      ]).start();
+    }
+  }, [visible]);
+
+  const handleClose = () => {
+    Animated.parallel([
+      Animated.timing(overlayAnim, { toValue: 0, duration: 200, useNativeDriver: true }),
+      Animated.timing(contentAnim, { toValue: 0, duration: 180, useNativeDriver: true }),
+    ]).start(() => onClose());
+  };
+
   if (!visible) return null;
+
+  const contentScale = contentAnim.interpolate({ inputRange: [0, 1], outputRange: [0.92, 1] });
+  const contentTranslateY = contentAnim.interpolate({ inputRange: [0, 1], outputRange: [40, 0] });
 
   return (
     <Modal
       visible={visible}
-      animationType="fade"
+      animationType="none"
       transparent={true}
-      onRequestClose={onClose}
+      onRequestClose={handleClose}
     >
-      <TouchableWithoutFeedback onPress={onClose}>
-        <View style={styles.modalContainer}>
-          <View 
+      <TouchableWithoutFeedback onPress={handleClose}>
+        <Animated.View style={[styles.modalContainer, { opacity: overlayAnim }]}>
+          <Animated.View 
             style={[
               styles.modalContent, 
               { 
                 backgroundColor: glass.backgroundElevated,
                 borderColor: glass.borderStrong,
+                transform: [{ scale: contentScale }, { translateY: contentTranslateY }],
               }
             ]} 
             onStartShouldSetResponder={() => true}
@@ -64,12 +89,12 @@ const UnderDevelopmentModal = ({ visible, onClose, theme, accentColor, featureNa
                   shadowColor: colors.primary,
                 }
               ]}
-              onPress={onClose}
+              onPress={handleClose}
             >
               <Text style={styles.closeButtonText}>Понятно</Text>
             </TouchableOpacity>
-          </View>
-        </View>
+          </Animated.View>
+        </Animated.View>
       </TouchableWithoutFeedback>
     </Modal>
   );
