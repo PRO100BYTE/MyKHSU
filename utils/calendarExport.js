@@ -1,6 +1,8 @@
 // utils/calendarExport.js
-import * as FileSystem from 'expo-file-system';
+import { File, Paths } from 'expo-file-system/next';
 import * as Sharing from 'expo-sharing';
+import * as Calendar from 'expo-calendar';
+import { Alert, Platform } from 'react-native';
 import { getDateByWeekAndDay } from './dateUtils';
 
 // Форматирование даты в формат ICS (YYYYMMDDTHHMMSS)
@@ -181,21 +183,9 @@ const generateICSContent = (events, calendarName = 'Расписание MyKHSU'
 };
 
 /**
- * Экспорт расписания в .ics файл и открытие диалога "Поделиться"
- * 
- * @param {Object} params
- * @param {string} params.mode - 'student' | 'teacher' | 'auditory'
- * @param {string} params.viewMode - 'day' | 'week' (только для student)
- * @param {Object} params.scheduleData - данные расписания студента
- * @param {Object} params.teacherSchedule - данные расписания преподавателя
- * @param {Object} params.auditorySchedule - данные расписания аудитории
- * @param {Array}  params.pairsTime - массив временных слотов пар
- * @param {number} params.currentWeek - номер текущей недели
- * @param {Date}   params.currentDate - текущая дата (для дневного режима)
- * @param {string} params.title - название для файла (группа/ФИО/аудитория)
- * @returns {Promise<boolean>} true если успешно
+ * Собирает события из данных расписания
  */
-export const exportScheduleToCalendar = async (params) => {
+const collectEvents = (params) => {
   const {
     mode,
     viewMode = 'week',
@@ -248,31 +238,147 @@ export const exportScheduleToCalendar = async (params) => {
     }
   }
 
-  if (events.length === 0) {
-    throw new Error('NO_EVENTS');
+  return { events, calendarName, fileName };
+};
+
+// Построение описания для системного календаря (без ICS-экранирования)
+const buildPlainDescription = (event) => {
+  return (event.description || '').replace(/\\n/g, '\n');
+};
+
+/**
+ * Экспорт в системный календарь через expo-calendar
+ */
+const exportToSystemCalendar = async (events, calendarName) => {
+  const { status } = await Calendar.requestCalendarPermissionsAsync();
+  if (status !== 'granted') {
+    throw new Error('CALENDAR_PERMISSION_DENIED');
   }
 
+  // Получаем доступные календари
+  const calendars = await Calendar.getCalendarsAsync(Calendar.EntityTypes.EVENT);
+  
+  // Ищем дефолтный календарь для записи
+  let targetCalendarId;
+  
+  if (Platform.OS === 'ios') {
+    const defaultCalendar = await Calendar.getDefaultCalendarAsync();
+    targetCalendarId = defaultCalendar.id;
+  } else {
+    const writableCalendar = calendars.find(
+      c => c.allowsModifications && c.source && c.source.isLocalAccount !== false
+    ) || calendars.find(c => c.allowsModifications);
+    
+    if (writableCalendar) {
+      targetCalendarId = writableCalendar.id;
+    } else {
+      // Создаём новый локальный календарь
+      const defaultSource = Platform.OS === 'android' 
+        ? { isLocalAccount: true, name: 'MyKHSU', type: Calendar.SourceType?.LOCAL }
+        : undefined;
+      targetCalendarId = await Calendar.createCalendarAsync({
+        title: 'MyKHSU',
+        color: '#10B981',
+        entityType: Calendar.EntityTypes.EVENT,
+        source: defaultSource,
+        name: 'mykhsu',
+        ownerAccount: 'mykhsu',
+        accessLevel: Calendar.CalendarAccessLevel.OWNER,
+      });
+    }
+  }
+
+  let addedCount = 0;
+  for (const event of events) {
+    await Calendar.createEventAsync(targetCalendarId, {
+      title: event.summary,
+      startDate: event.startDate,
+      endDate: event.endDate,
+      location: event.location || undefined,
+      notes: buildPlainDescription(event),
+      timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+    });
+    addedCount++;
+  }
+
+  return addedCount;
+};
+
+/**
+ * Экспорт в .ics файл
+ */
+const exportToICSFile = async (events, calendarName, fileName) => {
   const icsContent = generateICSContent(events, calendarName);
 
-  // Сохранение во временную директорию
   const sanitizedFileName = fileName.replace(/[^a-zA-Z0-9_-]/g, '_');
-  const filePath = `${FileSystem.cacheDirectory}${sanitizedFileName}.ics`;
+  const file = new File(Paths.cache, `${sanitizedFileName}.ics`);
+  file.write(icsContent);
 
-  await FileSystem.writeAsStringAsync(filePath, icsContent, {
-    encoding: 'utf8',
-  });
-
-  // Проверяем доступность функции "Поделиться"
   const isAvailable = await Sharing.isAvailableAsync();
   if (!isAvailable) {
     throw new Error('SHARING_NOT_AVAILABLE');
   }
 
-  await Sharing.shareAsync(filePath, {
+  await Sharing.shareAsync(file.uri, {
     mimeType: 'text/calendar',
     dialogTitle: 'Экспорт расписания',
     UTI: 'com.apple.ical.ics',
   });
+};
 
-  return true;
+/**
+ * Экспорт расписания — показывает диалог выбора способа экспорта
+ */
+export const exportScheduleToCalendar = (params) => {
+  return new Promise((resolve, reject) => {
+    // Сначала собираем события, чтобы проверить что экспортировать есть что
+    let collected;
+    try {
+      collected = collectEvents(params);
+    } catch (err) {
+      return reject(err);
+    }
+
+    const { events, calendarName, fileName } = collected;
+
+    if (events.length === 0) {
+      return reject(new Error('NO_EVENTS'));
+    }
+
+    Alert.alert(
+      'Экспорт расписания',
+      `Найдено занятий: ${events.length}\nКуда экспортировать?`,
+      [
+        { text: 'Отмена', style: 'cancel', onPress: () => resolve(false) },
+        {
+          text: '📅 В Календарь',
+          onPress: async () => {
+            try {
+              const count = await exportToSystemCalendar(events, calendarName);
+              Alert.alert('Готово', `Добавлено ${count} событий в календарь`);
+              resolve(true);
+            } catch (err) {
+              if (err.message === 'CALENDAR_PERMISSION_DENIED') {
+                Alert.alert('Нет доступа', 'Разрешите доступ к календарю в настройках устройства');
+                resolve(false);
+              } else {
+                reject(err);
+              }
+            }
+          },
+        },
+        {
+          text: '📄 В файл .ics',
+          onPress: async () => {
+            try {
+              await exportToICSFile(events, calendarName, fileName);
+              resolve(true);
+            } catch (err) {
+              reject(err);
+            }
+          },
+        },
+      ]
+    );
+  });
 };

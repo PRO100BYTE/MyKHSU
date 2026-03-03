@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { 
   View, 
   Text, 
@@ -115,7 +115,7 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
       const hasData = isTeacherMode ? !!teacherSchedule : isAuditoryMode ? !!auditorySchedule : !!scheduleData;
       onExportReady(hasData ? handleExportCalendar : null, exporting);
     }
-  }, [isTeacherMode, isAuditoryMode, teacherSchedule, auditorySchedule, scheduleData, exporting]);
+  }, [handleExportCalendar, isTeacherMode, isAuditoryMode, teacherSchedule, auditorySchedule, scheduleData, exporting]);
 
   // Синхронизация статуса кэша с хедером приложения
   useEffect(() => {
@@ -845,7 +845,7 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
     }
   };
 
-  const handleExportCalendar = async () => {
+  const handleExportCalendar = useCallback(async () => {
     if (exporting) return;
     setExporting(true);
     try {
@@ -882,7 +882,7 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
     } finally {
       setExporting(false);
     }
-  };
+  }, [isTeacherMode, isAuditoryMode, teacherName, auditoryName, selectedGroup, viewMode, scheduleData, teacherSchedule, auditorySchedule, pairsTime, currentWeek, currentDate, exporting]);
 
   const handleRefresh = async () => {
     setRefreshing(true);

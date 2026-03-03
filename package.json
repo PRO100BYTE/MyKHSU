@@ -21,6 +21,7 @@
     "expo": "~54.0.33",
     "expo-background-fetch": "~14.0.9",
     "expo-blur": "~15.0.8",
+    "expo-calendar": "~15.0.8",
     "expo-constants": "~18.0.9",
     "expo-dev-client": "~6.0.20",
     "expo-device": "~8.0.10",
