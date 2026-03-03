@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -11,16 +11,24 @@ import {
   ScrollView,
   Alert,
   Animated,
+  Dimensions,
 } from 'react-native';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import { LIQUID_GLASS, ACCENT_COLORS } from '../utils/constants';
 import { saveNote, loadNote, deleteNote } from '../utils/notesStorage';
+
+const TABBAR_HEIGHT = 90;
+const SCREEN_HEIGHT = Dimensions.get('window').height;
 
 const LessonNoteModal = ({ visible, onClose, lesson, weekday, theme, accentColor }) => {
   const [noteText, setNoteText] = useState('');
   const [homework, setHomework] = useState('');
   const [loading, setLoading] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
+  const [rendered, setRendered] = useState(false);
+
+  const backdropAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
 
   const glass = LIQUID_GLASS[theme] || LIQUID_GLASS.light;
   const colors = ACCENT_COLORS[accentColor] || ACCENT_COLORS.green;
@@ -31,6 +39,39 @@ const LessonNoteModal = ({ visible, onClose, lesson, weekday, theme, accentColor
     timeSlot: lesson?.time,
     group: lesson?.group ? (Array.isArray(lesson.group) ? lesson.group.join(',') : lesson.group) : '',
   };
+
+  useEffect(() => {
+    if (visible) {
+      setRendered(true);
+      Animated.parallel([
+        Animated.timing(backdropAnim, {
+          toValue: 1,
+          duration: 250,
+          useNativeDriver: true,
+        }),
+        Animated.spring(slideAnim, {
+          toValue: 0,
+          damping: 20,
+          stiffness: 200,
+          mass: 0.8,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    } else if (rendered) {
+      Animated.parallel([
+        Animated.timing(backdropAnim, {
+          toValue: 0,
+          duration: 200,
+          useNativeDriver: true,
+        }),
+        Animated.timing(slideAnim, {
+          toValue: SCREEN_HEIGHT,
+          duration: 200,
+          useNativeDriver: true,
+        }),
+      ]).start(() => setRendered(false));
+    }
+  }, [visible]);
 
   useEffect(() => {
     if (visible && lesson) {
@@ -115,23 +156,24 @@ const LessonNoteModal = ({ visible, onClose, lesson, weekday, theme, accentColor
 
   const hasContent = noteText.trim().length > 0 || homework.trim().length > 0;
 
-  if (!visible) return null;
+  if (!visible && !rendered) return null;
 
   return (
-    <View style={styles.overlay}>
+    <View style={styles.overlay} pointerEvents="box-none">
       <TouchableWithoutFeedback onPress={handleClose}>
-        <View style={styles.backdrop} />
+        <Animated.View style={[styles.backdrop, { opacity: backdropAnim }]} />
       </TouchableWithoutFeedback>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.keyboardView}
         pointerEvents="box-none"
       >
-        <View style={[styles.container, { backgroundColor: glass.backgroundElevated }]}>
-          {/* Handle */}
-          <View style={styles.handleRow}>
-            <View style={[styles.handle, { backgroundColor: glass.textTertiary }]} />
-          </View>
+        <Animated.View
+          style={[
+            styles.container,
+            { backgroundColor: glass.backgroundElevated, transform: [{ translateY: slideAnim }] },
+          ]}
+        >
 
           {/* Header */}
           <View style={[styles.header, { borderBottomColor: glass.border }]}>
@@ -230,7 +272,7 @@ const LessonNoteModal = ({ visible, onClose, lesson, weekday, theme, accentColor
               />
             </View>
           </ScrollView>
-        </View>
+        </Animated.View>
       </KeyboardAvoidingView>
     </View>
   );
@@ -243,7 +285,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    zIndex: 100,
+    zIndex: 5,
     justifyContent: 'flex-end',
   },
   backdrop: {
@@ -252,28 +294,18 @@ const styles = StyleSheet.create({
   },
   keyboardView: {
     justifyContent: 'flex-end',
+    marginBottom: TABBAR_HEIGHT,
   },
   container: {
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
-    maxHeight: '80%',
-    minHeight: '45%',
+    maxHeight: '75%',
+    minHeight: '40%',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: -4 },
     shadowOpacity: 0.15,
     shadowRadius: 20,
     elevation: 16,
-  },
-  handleRow: {
-    alignItems: 'center',
-    paddingTop: 10,
-    paddingBottom: 2,
-  },
-  handle: {
-    width: 36,
-    height: 4,
-    borderRadius: 2,
-    opacity: 0.4,
   },
   header: {
     flexDirection: 'row',

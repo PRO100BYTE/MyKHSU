@@ -672,7 +672,7 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
               hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
               style={{
                 alignSelf: 'flex-end',
-                marginTop: 8,
+                marginTop: 2,
                 width: 30,
                 height: 30,
                 borderRadius: 15,
