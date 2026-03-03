@@ -30,7 +30,7 @@ import { exportScheduleToCalendar } from '../utils/calendarExport';
 
 const { width, height } = Dimensions.get('window');
 
-const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings, onSettingsUpdate, isNewYearMode, onCacheStatusChange }) => {
+const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings, onSettingsUpdate, isNewYearMode, onCacheStatusChange, onExportReady }) => {
   const [isTeacherMode, setIsTeacherMode] = useState(false);
   const [isAuditoryMode, setIsAuditoryMode] = useState(false);
   const [teacherSchedule, setTeacherSchedule] = useState(null);
@@ -108,6 +108,14 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
       useNativeDriver: true,
     }).start();
   }, []);
+
+  // Передаём функцию экспорта и состояние наверх в App.js
+  useEffect(() => {
+    if (onExportReady) {
+      const hasData = isTeacherMode ? !!teacherSchedule : isAuditoryMode ? !!auditorySchedule : !!scheduleData;
+      onExportReady(hasData ? handleExportCalendar : null, exporting);
+    }
+  }, [isTeacherMode, isAuditoryMode, teacherSchedule, auditorySchedule, scheduleData, exporting]);
 
   // Синхронизация статуса кэша с хедером приложения
   useEffect(() => {
@@ -1288,7 +1296,6 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
           <Text style={{ color: colors.primary, marginTop: 4, fontFamily: 'Montserrat_500Medium' }}>
             {teacherName || 'ФИО не указано'}
           </Text>
-          {renderExportButton()}
         </View>
       );
     }
@@ -1302,47 +1309,11 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
           <Text style={{ color: colors.primary, marginTop: 4, fontFamily: 'Montserrat_500Medium' }}>
             {auditoryName || 'Аудитория не указана'}
           </Text>
-          {renderExportButton()}
         </View>
       );
     }
     
     return null;
-  };
-
-  // Кнопка экспорта в календарь
-  const renderExportButton = () => {
-    const hasScheduleData = isTeacherMode ? !!teacherSchedule : isAuditoryMode ? !!auditorySchedule : !!scheduleData;
-    return (
-      <TouchableOpacity
-        onPress={handleExportCalendar}
-        disabled={exporting || !hasScheduleData}
-        style={{
-          flexDirection: 'row',
-          alignItems: 'center',
-          justifyContent: 'center',
-          paddingVertical: 8,
-          paddingHorizontal: 14,
-          borderRadius: 12,
-          backgroundColor: exporting || !hasScheduleData ? glass.surfaceTertiary : colors.glass,
-          marginTop: 10,
-        }}
-      >
-        {exporting ? (
-          <ActivityIndicator size={14} color={colors.primary} />
-        ) : (
-          <Icon name="share-outline" size={15} color={!hasScheduleData ? placeholderColor : colors.primary} />
-        )}
-        <Text style={{
-          fontSize: 13,
-          color: !hasScheduleData ? placeholderColor : colors.primary,
-          fontFamily: 'Montserrat_500Medium',
-          marginLeft: 6,
-        }}>
-          Экспорт в календарь
-        </Text>
-      </TouchableOpacity>
-    );
   };
 
   // Рендер управления с анимацией
@@ -1560,7 +1531,6 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
                     Неделя: {scheduleData.week_number} ({scheduleData.dates.date_start} - {scheduleData.dates.date_end})
                   </Text>
                 )}
-                {renderExportButton()}
               </View>
 
               {scheduleData.days.map((day, index) => 
@@ -1578,7 +1548,6 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
                 <Text style={{ color: placeholderColor, marginTop: 4, fontFamily: 'Montserrat_400Regular' }}>
                   {availableCourses.find(c => c.id === course)?.label || `Курс ${course}`}
                 </Text>
-                {renderExportButton()}
               </View>
               {renderDailySchedule()}
             </View>

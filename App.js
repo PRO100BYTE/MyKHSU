@@ -154,6 +154,8 @@ export default Sentry.wrap(function App() {
 
   // Состояния для контекстных кнопок в хедере
   const [mapFilterCount, setMapFilterCount] = useState(0);
+  const scheduleExportHandler = useRef(null);
+  const [scheduleExporting, setScheduleExporting] = useState(false);
   const [mapSubScreen, setMapSubScreen] = useState(null);
   const [freshmanSubScreen, setFreshmanSubScreen] = useState(null);
   const [settingsSubScreen, setSettingsSubScreen] = useState(null);
@@ -683,6 +685,25 @@ const handleNewYearModeChange = async (enabled) => {
                   </Text>
                 </TouchableOpacity>
               )}
+              {activeScreen === SCREENS.SCHEDULE && scheduleExportHandler.current && (
+                <TouchableOpacity
+                  onPress={() => scheduleExportHandler.current?.()}
+                  disabled={scheduleExporting}
+                  activeOpacity={0.7}
+                  style={{
+                    marginLeft: 8,
+                    padding: 6,
+                    borderRadius: 10,
+                    backgroundColor: colors.glass,
+                  }}
+                >
+                  {scheduleExporting ? (
+                    <ActivityIndicator size={16} color={colors.primary} />
+                  ) : (
+                    <Icon name="share-outline" size={18} color={colors.primary} />
+                  )}
+                </TouchableOpacity>
+              )}
             </View>
           </BlurView>
         </View>
@@ -758,6 +779,25 @@ const handleNewYearModeChange = async (enabled) => {
             }}>
               {currentCacheStatus === 'offline' ? 'Оффлайн' : 'Кэш'}
             </Text>
+          </TouchableOpacity>
+        )}
+        {activeScreen === SCREENS.SCHEDULE && scheduleExportHandler.current && (
+          <TouchableOpacity
+            onPress={() => scheduleExportHandler.current?.()}
+            disabled={scheduleExporting}
+            activeOpacity={0.7}
+            style={{
+              marginLeft: 8,
+              padding: 6,
+              borderRadius: 10,
+              backgroundColor: colors.glass,
+            }}
+          >
+            {scheduleExporting ? (
+              <ActivityIndicator size={16} color={colors.primary} />
+            ) : (
+              <Icon name="share-outline" size={18} color={colors.primary} />
+            )}
           </TouchableOpacity>
         )}
       </View>
@@ -871,6 +911,10 @@ const handleNewYearModeChange = async (enabled) => {
             onCacheStatusChange={(status, date) => {
               setScheduleCacheStatus(status);
               if (date) setCacheDate(date);
+            }}
+            onExportReady={(handler, isExporting) => {
+              scheduleExportHandler.current = handler;
+              setScheduleExporting(isExporting);
             }}
           />
         )}

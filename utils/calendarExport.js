@@ -259,7 +259,7 @@ export const exportScheduleToCalendar = async (params) => {
   const filePath = `${FileSystem.cacheDirectory}${sanitizedFileName}.ics`;
 
   await FileSystem.writeAsStringAsync(filePath, icsContent, {
-    encoding: FileSystem.EncodingType.UTF8,
+    encoding: 'utf8',
   });
 
   // Проверяем доступность функции "Поделиться"
