@@ -25,6 +25,13 @@ export const ACCENT_COLORS = {
     dark: '#5B21B6',
     glass: 'rgba(139, 92, 246, 0.12)',
     glassBorder: 'rgba(139, 92, 246, 0.25)',
+  },
+  orange: {
+    primary: '#F97316',
+    light: '#FFF7ED',
+    dark: '#C2410C',
+    glass: 'rgba(249, 115, 22, 0.12)',
+    glassBorder: 'rgba(249, 115, 22, 0.25)',
   }
 };
 

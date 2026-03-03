@@ -163,11 +163,13 @@ export default Sentry.wrap(function App() {
   // Refs для дочерних экранов (для управления из хедера)
   const mapScreenRef = useRef(null);
   const freshmanScreenRef = useRef(null);
+  const settingsScreenRef = useRef(null);
 
   // Состояния для контекстных кнопок в хедере
   const [mapFilterCount, setMapFilterCount] = useState(0);
   const [mapSubScreen, setMapSubScreen] = useState(null);
   const [freshmanSubScreen, setFreshmanSubScreen] = useState(null);
+  const [settingsSubScreen, setSettingsSubScreen] = useState(null);
 
   // Статус кэша расписания для иконки в хедере
   const [scheduleCacheStatus, setScheduleCacheStatus] = useState(null); // null | 'cache' | 'stale_cache' | 'offline'
@@ -550,7 +552,8 @@ const handleNewYearModeChange = async (enabled) => {
   const renderHeader = () => {
     // Определяем, нужна ли кнопка назад
     const showBackButton = (activeScreen === SCREENS.MAP && mapSubScreen) ||
-                           (activeScreen === SCREENS.FRESHMAN && freshmanSubScreen);
+                           (activeScreen === SCREENS.FRESHMAN && freshmanSubScreen) ||
+                           (activeScreen === SCREENS.SETTINGS && settingsSubScreen);
     
     // Определяем заголовок
     let headerTitle = activeScreen;
@@ -558,6 +561,8 @@ const handleNewYearModeChange = async (enabled) => {
       headerTitle = mapSubScreen;
     } else if (activeScreen === SCREENS.FRESHMAN && freshmanSubScreen) {
       headerTitle = freshmanSubScreen;
+    } else if (activeScreen === SCREENS.SETTINGS && settingsSubScreen) {
+      headerTitle = settingsSubScreen;
     }
 
     // Определяем иконку
@@ -606,6 +611,8 @@ const handleNewYearModeChange = async (enabled) => {
         mapScreenRef.current?.goBack();
       } else if (activeScreen === SCREENS.FRESHMAN) {
         freshmanScreenRef.current?.goBack();
+      } else if (activeScreen === SCREENS.SETTINGS) {
+        settingsScreenRef.current?.goBack();
       }
     };
 
@@ -916,6 +923,7 @@ const handleNewYearModeChange = async (enabled) => {
         )}
         {activeScreen === SCREENS.SETTINGS && (
           <SettingsScreen 
+            ref={settingsScreenRef}
             theme={effectiveTheme} 
             accentColor={accentColor} 
             setTheme={setTheme} 
@@ -924,6 +932,7 @@ const handleNewYearModeChange = async (enabled) => {
             onTabbarSettingsChange={handleTabbarSettingsChange}
             isNewYearMode={isNewYearMode}
             onNewYearModeChange={handleNewYearModeChange}
+            onNavigationChange={setSettingsSubScreen}
           />
         )}
       </View>

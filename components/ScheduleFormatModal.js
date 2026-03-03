@@ -1,11 +1,11 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, Modal, TouchableOpacity, TextInput, ScrollView, StyleSheet, Alert, ActivityIndicator, Switch, Animated } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, TouchableOpacity, TextInput, ScrollView, StyleSheet, Alert, ActivityIndicator, Switch } from 'react-native';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import * as SecureStore from 'expo-secure-store';
 import { ACCENT_COLORS, COURSES, LIQUID_GLASS } from '../utils/constants';
 import ApiService from '../utils/api';
 
-const ScheduleFormatModal = ({ visible, onClose, theme, accentColor, onSettingsChange }) => {
+const ScheduleFormatModal = ({ theme, accentColor, onSettingsChange, onSave }) => {
   const [scheduleFormat, setScheduleFormat] = useState('student');
   const [defaultGroup, setDefaultGroup] = useState('');
   const [defaultCourse, setDefaultCourse] = useState(1);
@@ -19,42 +19,21 @@ const ScheduleFormatModal = ({ visible, onClose, theme, accentColor, onSettingsC
 
   const colors = ACCENT_COLORS[accentColor];
   const glass = LIQUID_GLASS[theme] || LIQUID_GLASS.light;
-  const bgColor = glass.backgroundElevated;
+  const bgColor = glass.background;
   const textColor = glass.text;
   const placeholderColor = glass.textSecondary;
   const inputBgColor = glass.surfaceTertiary;
   const borderColor = glass.border;
 
-  const overlayAnim = useRef(new Animated.Value(0)).current;
-  const contentAnim = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    loadSettings();
+    fetchAvailableCourses();
+  }, []);
 
   useEffect(() => {
-    if (visible) {
-      overlayAnim.setValue(0);
-      contentAnim.setValue(0);
-      Animated.parallel([
-        Animated.timing(overlayAnim, { toValue: 1, duration: 250, useNativeDriver: true }),
-        Animated.spring(contentAnim, { toValue: 1, damping: 20, stiffness: 300, useNativeDriver: true }),
-      ]).start();
-      loadSettings();
-      fetchAvailableCourses();
-    }
-  }, [visible]);
+    loadGroupsForCourse(selectedCourse);
+  }, [selectedCourse]);
 
-  const handleClose = () => {
-    Animated.parallel([
-      Animated.timing(overlayAnim, { toValue: 0, duration: 200, useNativeDriver: true }),
-      Animated.timing(contentAnim, { toValue: 0, duration: 180, useNativeDriver: true }),
-    ]).start(() => onClose());
-  };
-
-  useEffect(() => {
-    if (visible) {
-      loadGroupsForCourse(selectedCourse);
-    }
-  }, [visible, selectedCourse]);
-
-  // Загрузка доступных курсов с API
   const fetchAvailableCourses = async () => {
     setLoadingCourses(true);
     try {
@@ -65,14 +44,11 @@ const ScheduleFormatModal = ({ visible, onClose, theme, accentColor, onSettingsC
           coursesFromApi.includes(courseItem.id.toString())
         );
         setAvailableCourses(filteredCourses);
-        console.log('Доступные курсы загружены в модальном окне:', filteredCourses);
       } else {
-        // Если API не вернуло курсы, используем все по умолчанию
         setAvailableCourses(COURSES);
       }
     } catch (error) {
-      console.error('Error fetching courses in modal:', error);
-      // В случае ошибки используем все курсы по умолчанию
+      console.error('Error fetching courses:', error);
       setAvailableCourses(COURSES);
     } finally {
       setLoadingCourses(false);
@@ -92,18 +68,7 @@ const ScheduleFormatModal = ({ visible, onClose, theme, accentColor, onSettingsC
       if (savedCourse) setDefaultCourse(parseInt(savedCourse));
       if (savedTeacher) setTeacherName(savedTeacher);
       if (savedShowSelector !== null) setShowCourseSelector(savedShowSelector === 'true');
-      
-      // Устанавливаем выбранный курс из сохраненных настроек
-      if (savedCourse) {
-        setSelectedCourse(parseInt(savedCourse));
-      }
-      
-      console.log('Загружены настройки:', { 
-        format: savedFormat, 
-        group: savedGroup, 
-        course: savedCourse,
-        teacher: savedTeacher 
-      });
+      if (savedCourse) setSelectedCourse(parseInt(savedCourse));
     } catch (error) {
       console.error('Error loading schedule format settings:', error);
     }
@@ -115,12 +80,9 @@ const ScheduleFormatModal = ({ visible, onClose, theme, accentColor, onSettingsC
       const result = await ApiService.getGroups(course);
       if (result.data && result.data.groups) {
         setAvailableGroups(result.data.groups);
-        
-        // Если есть сохраненная группа и она есть в новом списке, выбираем ее
         if (defaultGroup && result.data.groups.includes(defaultGroup)) {
           setDefaultGroup(defaultGroup);
         } else if (result.data.groups.length > 0) {
-          // Иначе выбираем первую группу из списка
           setDefaultGroup(result.data.groups[0]);
         }
       } else {
@@ -142,7 +104,6 @@ const ScheduleFormatModal = ({ visible, onClose, theme, accentColor, onSettingsC
         Alert.alert('Ошибка', 'Пожалуйста, укажите ФИО преподавателя');
         return;
       }
-
       if (scheduleFormat === 'student' && !defaultGroup && !showCourseSelector) {
         Alert.alert('Ошибка', 'При скрытом селекторе необходимо выбрать группу по умолчанию');
         return;
@@ -154,14 +115,6 @@ const ScheduleFormatModal = ({ visible, onClose, theme, accentColor, onSettingsC
       await SecureStore.setItemAsync('teacher_name', teacherName.trim());
       await SecureStore.setItemAsync('show_course_selector', showCourseSelector.toString());
       
-      console.log('Настройки сохранены:', { 
-        format: scheduleFormat, 
-        group: defaultGroup, 
-        course: selectedCourse,
-        teacher: teacherName.trim() 
-      });
-      
-      // Вызываем колбэк для передачи новых настроек
       if (onSettingsChange) {
         onSettingsChange({
           format: scheduleFormat,
@@ -173,7 +126,7 @@ const ScheduleFormatModal = ({ visible, onClose, theme, accentColor, onSettingsC
       }
       
       Alert.alert('Успех', 'Настройки расписания сохранены');
-      onClose();
+      if (onSave) onSave();
     } catch (error) {
       console.error('Error saving schedule format settings:', error);
       Alert.alert('Ошибка', 'Не удалось сохранить настройки');
@@ -186,7 +139,7 @@ const ScheduleFormatModal = ({ visible, onClose, theme, accentColor, onSettingsC
 
   const handleCourseChange = (courseId) => {
     setSelectedCourse(courseId);
-    setDefaultGroup(''); // Сбрасываем группу при смене курса
+    setDefaultGroup('');
   };
 
   const isValidTeacherName = (name) => {
@@ -194,556 +147,307 @@ const ScheduleFormatModal = ({ visible, onClose, theme, accentColor, onSettingsC
     return pattern.test(name.trim());
   };
 
-  if (!visible) return null;
-
-  const contentScale = contentAnim.interpolate({ inputRange: [0, 1], outputRange: [0.92, 1] });
-  const contentTranslateY = contentAnim.interpolate({ inputRange: [0, 1], outputRange: [40, 0] });
-
   return (
-    <Modal
-      visible={visible}
-      animationType="none"
-      transparent={true}
-      onRequestClose={handleClose}
-    >
-      <Animated.View style={[styles.modalContainer, { backgroundColor: 'rgba(0, 0, 0, 0.5)', opacity: overlayAnim }]}>
-            <Animated.View style={[styles.modalContent, { backgroundColor: bgColor, transform: [{ scale: contentScale }, { translateY: contentTranslateY }] }]}>
-          <View style={styles.headerRow}>
-            <Text style={[styles.title, { color: textColor }]}>Формат расписания</Text>
-            <TouchableOpacity onPress={handleClose} style={styles.closeIcon}>
-              <Icon name="close" size={22} color={placeholderColor} />
-            </TouchableOpacity>
-          </View>
+    <View style={{ flex: 1, backgroundColor: bgColor }}>
+      <ScrollView 
+        style={{ flex: 1, padding: 16 }} 
+        contentContainerStyle={{ paddingBottom: 120 }}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Выбор формата */}
+        <View style={styles.section}>
+          <Text style={[styles.sectionTitle, { color: textColor }]}>Режим отображения</Text>
           
-          <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
-            {/* Выбор формата */}
-            <View style={styles.section}>
-              <Text style={[styles.sectionTitle, { color: textColor }]}>Режим отображения</Text>
-              
-              <TouchableOpacity
-                style={[
-                  styles.formatOption,
-                  { 
-                    backgroundColor: scheduleFormat === 'student' ? colors.glass : 'transparent',
-                    borderColor: scheduleFormat === 'student' ? colors.primary : borderColor
-                  }
-                ]}
-                onPress={() => handleFormatChange('student')}
-              >
-                <View style={styles.formatOptionHeader}>
-                  <Icon 
-                    name="people-outline" 
-                    size={24} 
-                    color={scheduleFormat === 'student' ? colors.primary : placeholderColor} 
-                  />
-                  <Text style={[
-                    styles.formatOptionTitle, 
-                    { color: scheduleFormat === 'student' ? colors.primary : textColor }
-                  ]}>
-                    Для студентов
-                  </Text>
-                </View>
-                <Text style={[styles.formatOptionDescription, { color: placeholderColor }]}>
-                  Просмотр расписания по группам с возможностью выбора дня/недели
-                </Text>
-                {scheduleFormat === 'student' && (
-                  <Icon name="checkmark-circle" size={20} color={colors.primary} style={styles.formatCheckmark} />
-                )}
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[
-                  styles.formatOption,
-                  { 
-                    backgroundColor: scheduleFormat === 'teacher' ? colors.glass : 'transparent',
-                    borderColor: scheduleFormat === 'teacher' ? colors.primary : borderColor
-                  }
-                ]}
-                onPress={() => handleFormatChange('teacher')}
-              >
-                <View style={styles.formatOptionHeader}>
-                  <Icon 
-                    name="person-outline" 
-                    size={24} 
-                    color={scheduleFormat === 'teacher' ? colors.primary : placeholderColor} 
-                  />
-                  <Text style={[
-                    styles.formatOptionTitle, 
-                    { color: scheduleFormat === 'teacher' ? colors.primary : textColor }
-                  ]}>
-                    Для преподавателей
-                  </Text>
-                </View>
-                <Text style={[styles.formatOptionDescription, { color: placeholderColor }]}>
-                  Просмотр расписания только в недельном формате для указанного преподавателя
-                </Text>
-                {scheduleFormat === 'teacher' && (
-                  <Icon name="checkmark-circle" size={20} color={colors.primary} style={styles.formatCheckmark} />
-                )}
-              </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.formatOption, { 
+              backgroundColor: scheduleFormat === 'student' ? colors.glass : 'transparent',
+              borderColor: scheduleFormat === 'student' ? colors.primary : borderColor
+            }]}
+            onPress={() => handleFormatChange('student')}
+          >
+            <View style={styles.formatOptionHeader}>
+              <Icon name="people-outline" size={24} color={scheduleFormat === 'student' ? colors.primary : placeholderColor} />
+              <Text style={[styles.formatOptionTitle, { color: scheduleFormat === 'student' ? colors.primary : textColor }]}>
+                Для студентов
+              </Text>
             </View>
-
-            {/* Настройки для студента */}
+            <Text style={[styles.formatOptionDescription, { color: placeholderColor }]}>
+              Просмотр расписания по группам с возможностью выбора дня/недели
+            </Text>
             {scheduleFormat === 'student' && (
-              <>
-                <View style={styles.section}>
-                  <Text style={[styles.sectionTitle, { color: textColor }]}>Группа по умолчанию</Text>
-                  <Text style={[styles.sectionDescription, { color: placeholderColor }]}>
-                    Выберите курс и группу, которые будут автоматически загружаться при открытии расписания
-                  </Text>
-                  
-                  {/* Выбор курса */}
-                  <Text style={[styles.subSectionTitle, { color: textColor }]}>Выберите курс:</Text>
-                  {loadingCourses ? (
-                    <View style={{ alignItems: 'center', padding: 10 }}>
-                      <ActivityIndicator size="small" color={colors.primary} />
-                      <Text style={{ color: placeholderColor, marginTop: 8, fontFamily: 'Montserrat_400Regular' }}>
-                        Загрузка курсов...
-                      </Text>
-                    </View>
-                  ) : (
-                    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.coursesScroll}>
-                      {availableCourses.map((courseItem) => (
-                        <TouchableOpacity
-                          key={courseItem.id}
-                          style={[
-                            styles.courseOption,
-                            {
-                              backgroundColor: selectedCourse === courseItem.id ? colors.primary : inputBgColor,
-                              borderColor: selectedCourse === courseItem.id ? colors.primary : borderColor
-                            }
-                          ]}
-                          onPress={() => handleCourseChange(courseItem.id)}
-                        >
-                          <Text style={[
-                            styles.courseOptionText,
-                            { color: selectedCourse === courseItem.id ? '#ffffff' : textColor }
-                          ]}>
-                            {courseItem.label}
-                          </Text>
-                        </TouchableOpacity>
-                      ))}
-                    </ScrollView>
-                  )}
-                  
-                  {/* Список групп */}
-                  <Text style={[styles.subSectionTitle, { color: textColor }]}>Выберите группу:</Text>
-                  {loadingGroups ? (
-                    <View style={{ alignItems: 'center', padding: 20 }}>
-                      <ActivityIndicator size="small" color={colors.primary} />
-                      <Text style={{ color: placeholderColor, marginTop: 8, fontFamily: 'Montserrat_400Regular' }}>
-                        Загрузка групп...
-                      </Text>
-                    </View>
-                  ) : (
-                    <ScrollView 
-                      horizontal 
-                      showsHorizontalScrollIndicator={false} 
-                      style={styles.groupsScroll}
-                      contentContainerStyle={{ paddingHorizontal: 4 }}
-                    >
-                      {availableGroups.map((group) => (
-                        <TouchableOpacity
-                          key={group}
-                          style={[
-                            styles.groupOption,
-                            {
-                              backgroundColor: defaultGroup === group ? colors.primary : inputBgColor,
-                              borderColor: defaultGroup === group ? colors.primary : borderColor
-                            }
-                          ]}
-                          onPress={() => setDefaultGroup(group)}
-                        >
-                          <Text style={[
-                            styles.groupOptionText,
-                            { color: defaultGroup === group ? '#ffffff' : textColor }
-                          ]}>
-                            {group}
-                          </Text>
-                        </TouchableOpacity>
-                      ))}
-                    </ScrollView>
-                  )}
-                  
-                  {availableGroups.length === 0 && !loadingGroups && (
-                    <Text style={[styles.noGroupsText, { color: placeholderColor }]}>
-                      Группы не найдены для выбранного курса
-                    </Text>
-                  )}
-                  
-                  {defaultGroup && (
-                    <View style={[styles.selectedInfo, { backgroundColor: colors.glass, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.glassBorder }]}>
-                      <Icon name="checkmark-circle" size={16} color={colors.primary} />
-                      <Text style={[styles.selectedInfoText, { color: colors.primary }]}>
-                        Выбрана группа: {defaultGroup} ({availableCourses.find(c => c.id === selectedCourse)?.label || `Курс ${selectedCourse}`})
-                      </Text>
-                    </View>
-                  )}
-                </View>
-
-                {/* Настройка отображения селектора */}
-                <View style={styles.section}>
-                  <Text style={[styles.sectionTitle, { color: textColor }]}>Отображение селектора</Text>
-                  
-                  <TouchableOpacity
-                    style={[styles.selectorOption, { borderColor }]}
-                    onPress={() => setShowCourseSelector(!showCourseSelector)}
-                  >
-                    <View style={styles.selectorOptionHeader}>
-                      <Icon 
-                        name={showCourseSelector ? "eye-outline" : "eye-off-outline"} 
-                        size={24} 
-                        color={showCourseSelector ? colors.primary : placeholderColor} 
-                      />
-                      <View style={styles.selectorTextContainer}>
-                        <Text style={[styles.selectorOptionTitle, { color: textColor }]}>
-                          Показывать селектор курсов и групп
-                        </Text>
-                        <Text style={[styles.selectorOptionDescription, { color: placeholderColor }]}>
-                          {showCourseSelector 
-                            ? 'В расписании будет отображаться выбор курса и группы' 
-                            : 'Будет показано только расписание для выбранной группы по умолчанию'}
-                        </Text>
-                      </View>
-                    </View>
-                    <Switch
-                      value={showCourseSelector}
-                      onValueChange={setShowCourseSelector}
-                      trackColor={{ false: borderColor, true: colors.light }}
-                      thumbColor={showCourseSelector ? colors.primary : placeholderColor}
-                    />
-                  </TouchableOpacity>
-
-                  {!showCourseSelector && !defaultGroup && (
-                    <Text style={[styles.warningText, { color: '#ef4444' }]}>
-                      Для скрытия селектора необходимо выбрать группу по умолчанию
-                    </Text>
-                  )}
-
-                  {!showCourseSelector && defaultGroup && (
-                    <Text style={[styles.infoText, { color: colors.primary }]}>
-                      При скрытом селекторе будет показано расписание для группы {defaultGroup} ({availableCourses.find(c => c.id === selectedCourse)?.label || `Курс ${selectedCourse}`})
-                    </Text>
-                  )}
-                </View>
-              </>
+              <Icon name="checkmark-circle" size={20} color={colors.primary} style={styles.formatCheckmark} />
             )}
+          </TouchableOpacity>
 
-            {/* Настройки для преподавателя */}
-            {scheduleFormat === 'teacher' && (
-              <View style={styles.section}>
-                <Text style={[styles.sectionTitle, { color: textColor }]}>ФИО преподавателя</Text>
-                <Text style={[styles.sectionDescription, { color: placeholderColor }]}>
-                  Укажите фамилию и инициалы в формате: Иванов И.И.
-                </Text>
-                
-                <TextInput
-                  style={[
-                    styles.textInput,
-                    {
-                      backgroundColor: inputBgColor,
-                      borderColor: isValidTeacherName(teacherName) ? colors.primary : borderColor,
-                      color: textColor
-                    }
-                  ]}
-                  placeholder="Например: Курячий С.Б."
-                  placeholderTextColor={placeholderColor}
-                  value={teacherName}
-                  onChangeText={setTeacherName}
-                  autoCapitalize="words"
-                />
-                
-                {teacherName && !isValidTeacherName(teacherName) && (
-                  <Text style={[styles.validationText, { color: '#ef4444' }]}>
-                    Используйте формат: Фамилия И.О.
-                  </Text>
-                )}
-                
-                {teacherName && isValidTeacherName(teacherName) && (
-                  <Text style={[styles.validationText, { color: colors.primary }]}>
-                    Формат корректен
-                  </Text>
-                )}
-              </View>
-            )}
-
-            {/* Информация о режимах */}
-            <View style={[styles.infoSection, { backgroundColor: inputBgColor }]}>
-              <Text style={[styles.infoTitle, { color: textColor }]}>Информация о режимах</Text>
-              
-              <View style={styles.infoItem}>
-                <Icon name="information-circle-outline" size={16} color={colors.primary} />
-                <Text style={[styles.infoText, { color: placeholderColor }]}>
-                  <Text style={{ color: colors.primary }}>Студент:</Text> полный функционал с выбором групп и режимов отображения
-                </Text>
-              </View>
-              
-              <View style={styles.infoItem}>
-                <Icon name="information-circle-outline" size={16} color={colors.primary} />
-                <Text style={[styles.infoText, { color: placeholderColor }]}>
-                  <Text style={{ color: colors.primary }}>Преподаватель:</Text> только недельное расписание для указанного преподавателя
-                </Text>
-              </View>
+          <TouchableOpacity
+            style={[styles.formatOption, { 
+              backgroundColor: scheduleFormat === 'teacher' ? colors.glass : 'transparent',
+              borderColor: scheduleFormat === 'teacher' ? colors.primary : borderColor
+            }]}
+            onPress={() => handleFormatChange('teacher')}
+          >
+            <View style={styles.formatOptionHeader}>
+              <Icon name="person-outline" size={24} color={scheduleFormat === 'teacher' ? colors.primary : placeholderColor} />
+              <Text style={[styles.formatOptionTitle, { color: scheduleFormat === 'teacher' ? colors.primary : textColor }]}>
+                Для преподавателей
+              </Text>
             </View>
-          </ScrollView>
+            <Text style={[styles.formatOptionDescription, { color: placeholderColor }]}>
+              Просмотр расписания только в недельном формате для указанного преподавателя
+            </Text>
+            {scheduleFormat === 'teacher' && (
+              <Icon name="checkmark-circle" size={20} color={colors.primary} style={styles.formatCheckmark} />
+            )}
+          </TouchableOpacity>
+        </View>
 
-          <View style={styles.buttonsContainer}>
-            <TouchableOpacity
-              style={[styles.button, styles.cancelButton, { backgroundColor: inputBgColor, borderColor }]}
-              onPress={handleClose}
-            >
-              <Text style={[styles.buttonText, { color: textColor }]}>Отмена</Text>
-            </TouchableOpacity>
+        {/* Настройки для студента */}
+        {scheduleFormat === 'student' && (
+          <>
+            <View style={styles.section}>
+              <Text style={[styles.sectionTitle, { color: textColor }]}>Группа по умолчанию</Text>
+              <Text style={[styles.sectionDescription, { color: placeholderColor }]}>
+                Выберите курс и группу, которые будут автоматически загружаться при открытии расписания
+              </Text>
+              
+              <Text style={[styles.subSectionTitle, { color: textColor }]}>Выберите курс:</Text>
+              {loadingCourses ? (
+                <View style={{ alignItems: 'center', padding: 10 }}>
+                  <ActivityIndicator size="small" color={colors.primary} />
+                  <Text style={{ color: placeholderColor, marginTop: 8, fontFamily: 'Montserrat_400Regular' }}>
+                    Загрузка курсов...
+                  </Text>
+                </View>
+              ) : (
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.coursesScroll}>
+                  {availableCourses.map((courseItem) => (
+                    <TouchableOpacity
+                      key={courseItem.id}
+                      style={[styles.courseOption, {
+                        backgroundColor: selectedCourse === courseItem.id ? colors.primary : inputBgColor,
+                        borderColor: selectedCourse === courseItem.id ? colors.primary : borderColor
+                      }]}
+                      onPress={() => handleCourseChange(courseItem.id)}
+                    >
+                      <Text style={[styles.courseOptionText, { color: selectedCourse === courseItem.id ? '#ffffff' : textColor }]}>
+                        {courseItem.label}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              )}
+              
+              <Text style={[styles.subSectionTitle, { color: textColor }]}>Выберите группу:</Text>
+              {loadingGroups ? (
+                <View style={{ alignItems: 'center', padding: 20 }}>
+                  <ActivityIndicator size="small" color={colors.primary} />
+                  <Text style={{ color: placeholderColor, marginTop: 8, fontFamily: 'Montserrat_400Regular' }}>
+                    Загрузка групп...
+                  </Text>
+                </View>
+              ) : (
+                <ScrollView 
+                  horizontal 
+                  showsHorizontalScrollIndicator={false} 
+                  style={styles.groupsScroll}
+                  contentContainerStyle={{ paddingHorizontal: 4 }}
+                >
+                  {availableGroups.map((group) => (
+                    <TouchableOpacity
+                      key={group}
+                      style={[styles.groupOption, {
+                        backgroundColor: defaultGroup === group ? colors.primary : inputBgColor,
+                        borderColor: defaultGroup === group ? colors.primary : borderColor
+                      }]}
+                      onPress={() => setDefaultGroup(group)}
+                    >
+                      <Text style={[styles.groupOptionText, { color: defaultGroup === group ? '#ffffff' : textColor }]}>
+                        {group}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              )}
+              
+              {availableGroups.length === 0 && !loadingGroups && (
+                <Text style={[styles.noGroupsText, { color: placeholderColor }]}>
+                  Группы не найдены для выбранного курса
+                </Text>
+              )}
+              
+              {defaultGroup && (
+                <View style={[styles.selectedInfo, { backgroundColor: colors.glass, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.glassBorder }]}>
+                  <Icon name="checkmark-circle" size={16} color={colors.primary} />
+                  <Text style={[styles.selectedInfoText, { color: colors.primary }]}>
+                    Выбрана группа: {defaultGroup} ({availableCourses.find(c => c.id === selectedCourse)?.label || `Курс ${selectedCourse}`})
+                  </Text>
+                </View>
+              )}
+            </View>
+
+            <View style={styles.section}>
+              <Text style={[styles.sectionTitle, { color: textColor }]}>Отображение селектора</Text>
+              
+              <TouchableOpacity
+                style={[styles.selectorOption, { borderColor }]}
+                onPress={() => setShowCourseSelector(!showCourseSelector)}
+              >
+                <View style={styles.selectorOptionHeader}>
+                  <Icon 
+                    name={showCourseSelector ? "eye-outline" : "eye-off-outline"} 
+                    size={24} 
+                    color={showCourseSelector ? colors.primary : placeholderColor} 
+                  />
+                  <View style={styles.selectorTextContainer}>
+                    <Text style={[styles.selectorOptionTitle, { color: textColor }]}>
+                      Показывать селектор курсов и групп
+                    </Text>
+                    <Text style={[styles.selectorOptionDescription, { color: placeholderColor }]}>
+                      {showCourseSelector 
+                        ? 'В расписании будет отображаться выбор курса и группы' 
+                        : 'Будет показано только расписание для выбранной группы по умолчанию'}
+                    </Text>
+                  </View>
+                </View>
+                <Switch
+                  value={showCourseSelector}
+                  onValueChange={setShowCourseSelector}
+                  trackColor={{ false: borderColor, true: colors.light }}
+                  thumbColor={showCourseSelector ? colors.primary : placeholderColor}
+                />
+              </TouchableOpacity>
+
+              {!showCourseSelector && !defaultGroup && (
+                <Text style={[styles.warningText, { color: '#ef4444' }]}>
+                  Для скрытия селектора необходимо выбрать группу по умолчанию
+                </Text>
+              )}
+
+              {!showCourseSelector && defaultGroup && (
+                <Text style={[styles.hintText, { color: colors.primary }]}>
+                  При скрытом селекторе будет показано расписание для группы {defaultGroup} ({availableCourses.find(c => c.id === selectedCourse)?.label || `Курс ${selectedCourse}`})
+                </Text>
+              )}
+            </View>
+          </>
+        )}
+
+        {/* Настройки для преподавателя */}
+        {scheduleFormat === 'teacher' && (
+          <View style={styles.section}>
+            <Text style={[styles.sectionTitle, { color: textColor }]}>ФИО преподавателя</Text>
+            <Text style={[styles.sectionDescription, { color: placeholderColor }]}>
+              Укажите фамилию и инициалы в формате: Иванов И.И.
+            </Text>
             
-            <TouchableOpacity
-              style={[styles.button, styles.saveButton, { backgroundColor: colors.primary }]}
-              onPress={saveSettings}
-            >
-              <Text style={[styles.buttonText, { color: '#ffffff' }]}>Сохранить</Text>
-            </TouchableOpacity>
+            <TextInput
+              style={[styles.textInput, {
+                backgroundColor: inputBgColor,
+                borderColor: isValidTeacherName(teacherName) ? colors.primary : borderColor,
+                color: textColor
+              }]}
+              placeholder="Например: Курячий С.Б."
+              placeholderTextColor={placeholderColor}
+              value={teacherName}
+              onChangeText={setTeacherName}
+              autoCapitalize="words"
+            />
+            
+            {teacherName && !isValidTeacherName(teacherName) && (
+              <Text style={[styles.validationText, { color: '#ef4444' }]}>
+                Используйте формат: Фамилия И.О.
+              </Text>
+            )}
+            
+            {teacherName && isValidTeacherName(teacherName) && (
+              <Text style={[styles.validationText, { color: colors.primary }]}>
+                Формат корректен
+              </Text>
+            )}
           </View>
-            </Animated.View>
-      </Animated.View>
-    </Modal>
+        )}
+
+        {/* Информация о режимах */}
+        <View style={[styles.infoSection, { backgroundColor: inputBgColor }]}>
+          <Text style={[styles.infoTitle, { color: textColor }]}>Информация о режимах</Text>
+          <View style={styles.infoItem}>
+            <Icon name="information-circle-outline" size={16} color={colors.primary} />
+            <Text style={[styles.infoText, { color: placeholderColor }]}>
+              <Text style={{ color: colors.primary }}>Студент:</Text> полный функционал с выбором групп и режимов отображения
+            </Text>
+          </View>
+          <View style={styles.infoItem}>
+            <Icon name="information-circle-outline" size={16} color={colors.primary} />
+            <Text style={[styles.infoText, { color: placeholderColor }]}>
+              <Text style={{ color: colors.primary }}>Преподаватель:</Text> только недельное расписание для указанного преподавателя
+            </Text>
+          </View>
+        </View>
+      </ScrollView>
+
+      {/* Кнопка сохранения */}
+      <View style={styles.saveButtonContainer}>
+        <TouchableOpacity
+          style={[styles.saveButton, { backgroundColor: colors.primary }]}
+          onPress={saveSettings}
+        >
+          <Icon name="checkmark" size={20} color="#ffffff" style={{ marginRight: 8 }} />
+          <Text style={styles.saveButtonText}>Сохранить</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
-  modalContainer: {
-    flex: 1,
+  section: { marginBottom: 24 },
+  sectionTitle: { fontSize: 16, fontWeight: '600', marginBottom: 8, fontFamily: 'Montserrat_600SemiBold' },
+  subSectionTitle: { fontSize: 14, fontWeight: '600', marginBottom: 8, marginTop: 12, fontFamily: 'Montserrat_600SemiBold' },
+  sectionDescription: { fontSize: 14, marginBottom: 12, fontFamily: 'Montserrat_400Regular' },
+  formatOption: { borderWidth: StyleSheet.hairlineWidth, borderRadius: 16, padding: 16, marginBottom: 12, position: 'relative' },
+  formatOptionHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
+  formatOptionTitle: { fontSize: 16, fontWeight: '600', marginLeft: 12, fontFamily: 'Montserrat_600SemiBold', flex: 1 },
+  formatOptionDescription: { fontSize: 14, fontFamily: 'Montserrat_400Regular' },
+  formatCheckmark: { position: 'absolute', top: 16, right: 16 },
+  coursesScroll: { marginVertical: 8 },
+  courseOption: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, marginRight: 8, borderWidth: StyleSheet.hairlineWidth },
+  courseOptionText: { fontSize: 14, fontFamily: 'Montserrat_500Medium' },
+  groupsScroll: { marginVertical: 8, minHeight: 50 },
+  groupOption: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, marginRight: 8, borderWidth: StyleSheet.hairlineWidth, marginBottom: 8 },
+  groupOptionText: { fontSize: 14, fontFamily: 'Montserrat_500Medium' },
+  noGroupsText: { fontSize: 14, fontStyle: 'italic', textAlign: 'center', marginTop: 8, fontFamily: 'Montserrat_400Regular' },
+  selectedInfo: { flexDirection: 'row', alignItems: 'center', padding: 12, borderRadius: 12, marginTop: 12 },
+  selectedInfoText: { fontSize: 14, marginLeft: 8, fontFamily: 'Montserrat_500Medium' },
+  textInput: { borderWidth: StyleSheet.hairlineWidth, borderRadius: 12, padding: 12, fontSize: 16, fontFamily: 'Montserrat_400Regular', marginTop: 8 },
+  validationText: { fontSize: 12, marginTop: 4, fontFamily: 'Montserrat_400Regular' },
+  selectorOption: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 12, borderWidth: StyleSheet.hairlineWidth, borderRadius: 12 },
+  selectorOptionHeader: { flexDirection: 'row', alignItems: 'center', flex: 1 },
+  selectorTextContainer: { marginLeft: 12, flex: 1 },
+  selectorOptionTitle: { fontSize: 16, fontWeight: '600', fontFamily: 'Montserrat_600SemiBold' },
+  selectorOptionDescription: { fontSize: 12, marginTop: 4, fontFamily: 'Montserrat_400Regular' },
+  warningText: { fontSize: 12, marginTop: 8, fontFamily: 'Montserrat_400Regular', fontStyle: 'italic' },
+  hintText: { fontSize: 12, marginTop: 8, fontFamily: 'Montserrat_400Regular', fontStyle: 'italic' },
+  infoSection: { marginTop: 16, padding: 12, borderRadius: 16 },
+  infoTitle: { fontSize: 14, fontWeight: '600', marginBottom: 8, fontFamily: 'Montserrat_600SemiBold' },
+  infoItem: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 6 },
+  infoText: { fontSize: 12, marginLeft: 8, flex: 1, fontFamily: 'Montserrat_400Regular' },
+  saveButtonContainer: { 
+    padding: 16, 
+    paddingBottom: 32, 
+    borderTopWidth: StyleSheet.hairlineWidth, 
+    borderTopColor: 'rgba(0,0,0,0.06)',
+  },
+  saveButton: { 
+    flexDirection: 'row', 
+    borderRadius: 16, 
+    padding: 16, 
+    alignItems: 'center', 
     justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
   },
-  modalContent: {
-    width: '100%',
-    borderRadius: 24,
-    padding: 24,
-    maxHeight: '90%',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 12,
-    elevation: 8,
-  },
-  title: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    fontFamily: 'Montserrat_600SemiBold',
-    flex: 1,
-  },
-  dragHandle: {
-    width: 36,
-    height: 4,
-    borderRadius: 2,
-    alignSelf: 'center',
-    marginBottom: 16,
-  },
-  headerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 20,
-  },
-  closeIcon: {
-    padding: 4,
-  },
-  scrollView: {
-    maxHeight: 500,
-  },
-  section: {
-    marginBottom: 24,
-  },
-  sectionTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 8,
-    fontFamily: 'Montserrat_600SemiBold',
-  },
-  subSectionTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    marginBottom: 8,
-    marginTop: 12,
-    fontFamily: 'Montserrat_600SemiBold',
-  },
-  sectionDescription: {
-    fontSize: 14,
-    marginBottom: 12,
-    fontFamily: 'Montserrat_400Regular',
-  },
-  formatOption: {
-    borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 12,
-    position: 'relative',
-  },
-  formatOptionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  formatOptionTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginLeft: 12,
-    fontFamily: 'Montserrat_600SemiBold',
-    flex: 1,
-  },
-  formatOptionDescription: {
-    fontSize: 14,
-    fontFamily: 'Montserrat_400Regular',
-  },
-  formatCheckmark: {
-    position: 'absolute',
-    top: 16,
-    right: 16,
-  },
-  coursesScroll: {
-    marginVertical: 8,
-  },
-  courseOption: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    marginRight: 8,
-    borderWidth: StyleSheet.hairlineWidth,
-  },
-  courseOptionText: {
-    fontSize: 14,
-    fontFamily: 'Montserrat_500Medium',
-  },
-  groupsScroll: {
-    marginVertical: 8,
-    minHeight: 50,
-  },
-  groupOption: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    marginRight: 8,
-    borderWidth: StyleSheet.hairlineWidth,
-    marginBottom: 8,
-  },
-  groupOptionText: {
-    fontSize: 14,
-    fontFamily: 'Montserrat_500Medium',
-  },
-  noGroupsText: {
-    fontSize: 14,
-    fontStyle: 'italic',
-    textAlign: 'center',
-    marginTop: 8,
-    fontFamily: 'Montserrat_400Regular',
-  },
-  selectedInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 12,
-    borderRadius: 12,
-    marginTop: 12,
-  },
-  selectedInfoText: {
-    fontSize: 14,
-    marginLeft: 8,
-    fontFamily: 'Montserrat_500Medium',
-  },
-  textInput: {
-    borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: 12,
-    padding: 12,
-    fontSize: 16,
-    fontFamily: 'Montserrat_400Regular',
-    marginTop: 8,
-  },
-  validationText: {
-    fontSize: 12,
-    marginTop: 4,
-    fontFamily: 'Montserrat_400Regular',
-  },
-  selectorOption: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: 12,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: 12,
-  },
-  selectorOptionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-  },
-  selectorTextContainer: {
-    marginLeft: 12,
-    flex: 1,
-  },
-  selectorOptionTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    fontFamily: 'Montserrat_600SemiBold',
-  },
-  selectorOptionDescription: {
-    fontSize: 12,
-    marginTop: 4,
-    fontFamily: 'Montserrat_400Regular',
-  },
-  warningText: {
-    fontSize: 12,
-    marginTop: 8,
-    fontFamily: 'Montserrat_400Regular',
-    fontStyle: 'italic',
-  },
-  infoText: {
-    fontSize: 12,
-    marginTop: 8,
-    fontFamily: 'Montserrat_400Regular',
-    fontStyle: 'italic',
-  },
-  infoSection: {
-    marginTop: 16,
-    padding: 12,
-    borderRadius: 16,
-  },
-  infoTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    marginBottom: 8,
-    fontFamily: 'Montserrat_600SemiBold',
-  },
-  infoItem: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    marginBottom: 6,
-  },
-  infoText: {
-    fontSize: 12,
-    marginLeft: 8,
-    flex: 1,
-    fontFamily: 'Montserrat_400Regular',
-  },
-  buttonsContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 20,
-  },
-  button: {
-    flex: 1,
-    borderRadius: 16,
-    padding: 16,
-    alignItems: 'center',
-    marginHorizontal: 4,
-  },
-  cancelButton: {
-    borderWidth: StyleSheet.hairlineWidth,
-  },
-  saveButton: {
-    marginLeft: 8,
-  },
-  buttonText: {
-    fontSize: 16,
-    fontWeight: '600',
+  saveButtonText: { 
+    color: '#ffffff', 
+    fontSize: 16, 
+    fontWeight: '600', 
     fontFamily: 'Montserrat_600SemiBold',
   },
 });

@@ -5,6 +5,7 @@ import {
   ScrollView, 
   TouchableOpacity, 
   TouchableWithoutFeedback,
+  TextInput,
   Linking, 
   StyleSheet, 
   Animated, 
@@ -20,7 +21,8 @@ import Snowfall from './Snowfall';
 const BuildingsListScreen = ({ theme, accentColor, onBuildingSelect, isNewYearMode }) => {
   const [showRouteOptions, setShowRouteOptions] = useState(false);
   const [selectedBuilding, setSelectedBuilding] = useState(null);
-  const [expandedSections, setExpandedSections] = useState({});
+  const [expandedSections, setExpandedSections] = useState({ academic: true });
+  const [searchQuery, setSearchQuery] = useState('');
   
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const routeModalAnim = useRef(new Animated.Value(0)).current;
@@ -51,6 +53,25 @@ const BuildingsListScreen = ({ theme, accentColor, onBuildingSelect, isNewYearMo
     sports: buildings.filter(b => b.type === 'sports'),
     other: buildings.filter(b => ['5ka', 'sausage', 'shop', 'cafe', 'coffee', 'garden'].includes(b.type))
   }), []);
+
+  // Фильтрация зданий по поисковому запросу
+  const filteredGroupedBuildings = useMemo(() => {
+    if (!searchQuery.trim()) return groupedBuildings;
+    const query = searchQuery.toLowerCase();
+    const filtered = {};
+    for (const [key, list] of Object.entries(groupedBuildings)) {
+      const matches = list.filter(b => 
+        b.name.toLowerCase().includes(query) || 
+        b.description.toLowerCase().includes(query)
+      );
+      if (matches.length > 0) filtered[key] = matches;
+    }
+    return filtered;
+  }, [groupedBuildings, searchQuery]);
+
+  const totalFilteredCount = useMemo(() => {
+    return Object.values(filteredGroupedBuildings).reduce((sum, list) => sum + list.length, 0);
+  }, [filteredGroupedBuildings]);
 
   // Названия категорий
   const categoryNames = {
@@ -318,30 +339,72 @@ const BuildingsListScreen = ({ theme, accentColor, onBuildingSelect, isNewYearMo
         />
 
         <View style={{ flex: 1, padding: 16 }}>
-          <View style={{ marginBottom: 20 }}>
-            <Text style={{ 
-              color: placeholderColor, 
-              fontSize: 16,
-              fontFamily: 'Montserrat_400Regular',
-              lineHeight: 22
-            }}>
-              Все корпуса Хакасского государственного университета.{'\n'}
-              Выберите корпус для построения маршрута.
+          {/* Поиск */}
+          <View style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            backgroundColor: glass.surfaceTertiary,
+            borderRadius: 14,
+            paddingHorizontal: 14,
+            paddingVertical: 10,
+            marginBottom: 16,
+            borderWidth: StyleSheet.hairlineWidth,
+            borderColor: glass.border,
+          }}>
+            <Icon name="search-outline" size={18} color={placeholderColor} />
+            <TextInput
+              style={{
+                flex: 1,
+                marginLeft: 10,
+                fontSize: 15,
+                fontFamily: 'Montserrat_400Regular',
+                color: textColor,
+                paddingVertical: 0,
+              }}
+              placeholder="Поиск корпусов..."
+              placeholderTextColor={placeholderColor}
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+            />
+            {searchQuery.length > 0 && (
+              <TouchableOpacity onPress={() => setSearchQuery('')}>
+                <Icon name="close-circle" size={18} color={placeholderColor} />
+              </TouchableOpacity>
+            )}
+          </View>
+
+          {/* Счётчик результатов */}
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
+            <Text style={{ color: placeholderColor, fontSize: 13, fontFamily: 'Montserrat_400Regular' }}>
+              {searchQuery ? `Найдено: ${totalFilteredCount}` : `Всего объектов: ${buildings.length}`}
             </Text>
           </View>
 
           <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 100 }}>
-            {Object.entries(groupedBuildings).map(([category, buildingsList]) => 
+            {Object.entries(filteredGroupedBuildings).map(([category, buildingsList]) => 
               renderCategorySection(category, buildingsList)
             )}
             
-            {/* Информационный блок */}
-            <View style={[styles.infoCard, { backgroundColor: colors.glass, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.glassBorder, marginTop: 16 }]}>
-              <Icon name="information-circle-outline" size={20} color={colors.primary} />
-              <Text style={[styles.infoText, { color: placeholderColor, marginLeft: 8, flex: 1 }]}>
-                Для построения маршрута выберите корпус и сервис навигации
-              </Text>
-            </View>
+            {searchQuery && totalFilteredCount === 0 && (
+              <View style={{ alignItems: 'center', paddingVertical: 40 }}>
+                <Icon name="search-outline" size={48} color={placeholderColor} style={{ opacity: 0.4, marginBottom: 12 }} />
+                <Text style={{ color: placeholderColor, fontSize: 16, fontFamily: 'Montserrat_500Medium', textAlign: 'center' }}>
+                  Ничего не найдено
+                </Text>
+                <Text style={{ color: placeholderColor, fontSize: 14, fontFamily: 'Montserrat_400Regular', textAlign: 'center', marginTop: 4 }}>
+                  Попробуйте изменить запрос
+                </Text>
+              </View>
+            )}
+            
+            {!searchQuery && (
+              <View style={[styles.infoCard, { backgroundColor: colors.glass, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.glassBorder, marginTop: 16 }]}>
+                <Icon name="information-circle-outline" size={20} color={colors.primary} />
+                <Text style={[styles.infoText, { color: placeholderColor, marginLeft: 8, flex: 1 }]}>
+                  Для построения маршрута выберите корпус и сервис навигации
+                </Text>
+              </View>
+            )}
           </ScrollView>
         </View>
 
