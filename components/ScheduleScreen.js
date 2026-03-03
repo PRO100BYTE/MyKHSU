@@ -31,7 +31,7 @@ import LessonNoteModal from './LessonNoteModal';
 import { loadAllNotes, getLessonNoteKey, findHomeworkBySubject, markHomeworkDelivered } from '../utils/notesStorage';
 import ViewShot from 'react-native-view-shot';
 import * as Sharing from 'expo-sharing';
-import * as FileSystem from 'expo-file-system';
+import ScheduleShareImage from './ScheduleShareImage';
 
 const { width, height } = Dimensions.get('window');
 
@@ -57,7 +57,7 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
   const [noteModalWeekday, setNoteModalWeekday] = useState(null);
   
   // Скриншот расписания
-  const viewShotRef = useRef(null);
+  const shareImageRef = useRef(null);
   
   // Анимация появления
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -1092,21 +1092,17 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
   };
 
   const handleShareSchedule = useCallback(async () => {
-    if (exporting || !viewShotRef.current) return;
+    if (exporting || !shareImageRef.current) return;
     setExporting(true);
     try {
-      const uri = await viewShotRef.current.capture();
+      const uri = await shareImageRef.current.capture();
       const isAvailable = await Sharing.isAvailableAsync();
       if (!isAvailable) {
         Alert.alert('Ошибка', 'Функция "Поделиться" недоступна на этом устройстве');
         return;
       }
       
-      const fileName = `schedule_${Date.now()}.png`;
-      const newUri = FileSystem.cacheDirectory + fileName;
-      await FileSystem.moveAsync({ from: uri, to: newUri });
-      
-      await Sharing.shareAsync(newUri, {
+      await Sharing.shareAsync(uri, {
         mimeType: 'image/png',
         dialogTitle: 'Поделиться расписанием',
       });
@@ -2065,18 +2061,14 @@ return (
         )}
 
         {/* Содержимое расписания с анимацией */}
-        <ViewShot ref={viewShotRef} options={{ format: 'png', quality: 1, result: 'tmpfile' }}>
-          <View style={{ backgroundColor: bgColor }}>
-            <Animated.View
-              style={{
-                transform: [{ translateX: scheduleSlideAnim }],
-                opacity: scheduleOpacityAnim,
-              }}
-            >
-              {renderContent()}
-            </Animated.View>
-          </View>
-        </ViewShot>
+        <Animated.View
+          style={{
+            transform: [{ translateX: scheduleSlideAnim }],
+            opacity: scheduleOpacityAnim,
+          }}
+        >
+          {renderContent()}
+        </Animated.View>
       </ScrollView>
     </Animated.View>
   </View>
@@ -2093,6 +2085,23 @@ return (
         weekday={noteModalWeekday}
         theme={theme}
         accentColor={accentColor}
+      />
+      <ScheduleShareImage
+        ref={shareImageRef}
+        theme={theme}
+        accentColor={accentColor}
+        scheduleData={scheduleData}
+        teacherSchedule={teacherSchedule}
+        auditorySchedule={auditorySchedule}
+        isTeacherMode={isTeacherMode}
+        isAuditoryMode={isAuditoryMode}
+        teacherName={teacherName}
+        auditoryName={auditoryName}
+        selectedGroup={selectedGroup}
+        viewMode={viewMode}
+        currentDate={currentDate}
+        currentWeek={currentWeek}
+        pairsTime={pairsTime}
       />
     </View>
   );
