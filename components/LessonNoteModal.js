@@ -294,13 +294,12 @@ const styles = StyleSheet.create({
   },
   keyboardView: {
     justifyContent: 'flex-end',
-    marginBottom: TABBAR_HEIGHT,
   },
   container: {
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
-    maxHeight: '75%',
-    minHeight: '40%',
+    maxHeight: '93%',
+    minHeight: '65%',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: -4 },
     shadowOpacity: 0.15,
@@ -340,6 +339,7 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: 16,
+    paddingBottom: TABBAR_HEIGHT + 48,
   },
   section: {
     marginBottom: 20,

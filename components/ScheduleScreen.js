@@ -2010,7 +2010,7 @@ return (
   };
 
   return (
-    <>
+    <View style={{ flex: 1 }}>
       {renderCurrentScreen()}
       <LessonNoteModal
         visible={noteModalVisible}
@@ -2020,7 +2020,7 @@ return (
         theme={theme}
         accentColor={accentColor}
       />
-    </>
+    </View>
   );
   // Стили могут быть добавлены при необходимости
 };
