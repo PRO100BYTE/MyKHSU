@@ -46,4 +46,3 @@ yarn-error.*
 # Prebuild folders
 ios/
 android/
-.env.local
