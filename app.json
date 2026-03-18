@@ -74,9 +74,9 @@
       [
         "@sentry/react-native/expo",
         {
-          "url": "https://sentry.sculkmetrics.com/",
+          "url": "https://sentry.io/", // temporary migrate from sentry.sculkmetrics.com to sentry.io, because of tech works on our server, after works we will migrate back
           "project": "mykhsu",
-          "organization": "sculk"
+          "organization": "pro100byte-team" // temporary migrate from sculk to pro100byte-team, because of tech works on our server, after works we will migrate back
         }
       ],
       "expo-font",
