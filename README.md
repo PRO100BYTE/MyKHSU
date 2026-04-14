@@ -34,6 +34,17 @@
 
 **Мой ИТИ ХГУ** — это официальное мобильное приложение для студентов и преподавателей Инженерно-технологического института Хакасского государственного университета им. Н. Ф. Катанова. Приложение создано для того, чтобы сделать доступ к расписанию, новостям и навигации по университету максимально удобным и быстрым.
 
+## 📚 Документация
+
+Подробная техническая документация находится в каталоге [docs](docs):
+- [docs/README.md](docs/README.md)
+- [docs/architecture.md](docs/architecture.md)
+- [docs/screens.md](docs/screens.md)
+- [docs/data-and-storage.md](docs/data-and-storage.md)
+- [docs/notifications-and-background.md](docs/notifications-and-background.md)
+- [docs/development-guidelines.md](docs/development-guidelines.md)
+- [docs/diagrams.md](docs/diagrams.md)
+
 ## ✨ Основные возможности
 
 ### 🎓 Для студентов
