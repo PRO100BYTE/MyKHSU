@@ -3,6 +3,9 @@ import { Alert, ScrollView, StyleSheet, Switch, Text, TextInput, TouchableOpacit
 import * as Notifications from 'expo-notifications';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import { LIQUID_GLASS, ACCENT_COLORS } from '../utils/constants';
+import { exportAcademicEventsToCalendar } from '../utils/calendarExport';
+import notificationService from '../utils/notificationService';
+import NativeDateField from './NativeDateField';
 import {
   ACADEMIC_EVENT_TYPES,
   addAcademicEvent,
@@ -41,6 +44,11 @@ const AcademicCalendarScreen = ({ theme, accentColor }) => {
 
   const scheduleReminderIfNeeded = async (event) => {
     if (!event.reminderEnabled || !DATE_RE.test(event.date)) return null;
+    const granted = await notificationService.requestPermissions();
+    if (!granted) {
+      Alert.alert('Нет доступа', 'Разрешите уведомления, чтобы получать напоминания о событиях.');
+      return null;
+    }
     const [year, month, day] = event.date.split('-').map(Number);
     const triggerDate = new Date(year, month - 1, day, 9, 0, 0, 0);
     if (Number.isNaN(triggerDate.getTime()) || triggerDate <= new Date()) return null;
@@ -94,6 +102,24 @@ const AcademicCalendarScreen = ({ theme, accentColor }) => {
     await loadEvents();
   };
 
+  const handleExport = async () => {
+    try {
+      await exportAcademicEventsToCalendar(visibleEvents.map((event) => ({
+        ...event,
+        typeLabel: (ACADEMIC_EVENT_TYPES.find((item) => item.key === event.type) || { label: 'Другое' }).label,
+      })), {
+        title: 'Учебные события MyKHSU',
+        fileName: 'academic_events',
+      });
+    } catch (error) {
+      if (error?.message !== 'NO_ACADEMIC_EVENTS') {
+        Alert.alert('Ошибка', 'Не удалось экспортировать учебные события.');
+      } else {
+        Alert.alert('Нет событий', 'Для экспорта пока нет учебных событий.');
+      }
+    }
+  };
+
   const handleDelete = async (event) => {
     Alert.alert('Удалить событие', `Удалить "${event.title}"?`, [
       { text: 'Отмена', style: 'cancel' },
@@ -129,13 +155,13 @@ const AcademicCalendarScreen = ({ theme, accentColor }) => {
           style={[styles.input, { color: glass.text, borderColor: glass.border, backgroundColor: glass.surfaceTertiary }]}
         />
 
-        <Text style={[styles.label, { color: glass.textSecondary }]}>Дата (ГГГГ-ММ-ДД)</Text>
-        <TextInput
+        <NativeDateField
+          label="Дата"
           value={date}
-          onChangeText={(text) => setDate(text.replace(/[^0-9-]/g, '').slice(0, 10))}
-          placeholder="2026-06-15"
-          placeholderTextColor={glass.textTertiary}
-          style={[styles.input, { color: glass.text, borderColor: glass.border, backgroundColor: glass.surfaceTertiary }]}
+          onChange={setDate}
+          theme={theme}
+          accentColor={accentColor}
+          placeholder="Выбрать дату события"
         />
 
         <Text style={[styles.label, { color: glass.textSecondary }]}>Тип</Text>
@@ -184,7 +210,13 @@ const AcademicCalendarScreen = ({ theme, accentColor }) => {
       </View>
 
       <View style={[styles.card, { marginTop: 14, backgroundColor: glass.surfaceSecondary, borderColor: glass.border }]}>
-        <Text style={[styles.label, { color: glass.textSecondary }]}>Фильтры</Text>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+          <Text style={[styles.label, { color: glass.textSecondary, marginTop: 0 }]}>Фильтры</Text>
+          <TouchableOpacity onPress={handleExport} style={[styles.exportBtn, { borderColor: glass.border, backgroundColor: colors.glass }]}>
+            <Icon name="share-outline" size={15} color={colors.primary} />
+            <Text style={{ color: colors.primary, fontSize: 12, fontFamily: 'Montserrat_600SemiBold' }}>Экспорт</Text>
+          </TouchableOpacity>
+        </View>
         <View style={styles.chipsRow}>
           {[{ key: 'all', label: 'Все' }, ...ACADEMIC_EVENT_TYPES].map((item) => {
             const active = filter === item.key;
@@ -301,6 +333,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: 8,
+  },
+  exportBtn: {
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
   },
 });
 

@@ -4,6 +4,7 @@ import { Ionicons as Icon } from '@expo/vector-icons';
 import { ACCENT_COLORS, LIQUID_GLASS } from '../utils/constants';
 import UnderDevelopmentModal from './UnderDevelopmentModal';
 import BuildingsListScreen from './BuildingsListScreen';
+import AcademicCalendarScreen from './AcademicCalendarScreen';
 import Snowfall from './Snowfall';
 import { unlockAchievement } from '../utils/achievements';
 import { showAchievementToast } from './AchievementToast';
@@ -46,6 +47,8 @@ const FreshmanScreen = forwardRef(({ theme, accentColor, isNewYearMode, onNaviga
       title = 'Полезные группы';
     } else if (currentGroupType === 'bells') {
       title = 'Расписание звонков';
+    } else if (currentGroupType === 'academicCalendar') {
+      title = 'Календарь учебных событий';
     } else if (currentGroupType === 'glossary') {
       title = 'Словарь аббревиатур';
     }
@@ -348,6 +351,13 @@ const FreshmanScreen = forwardRef(({ theme, accentColor, isNewYearMode, onNaviga
       )}
 
       {renderSectionCard(
+        'today-outline',
+        'Календарь учебных событий',
+        'Экзамены, зачеты, практика и экспорт в календарь',
+        () => setCurrentGroupType('academicCalendar'),
+      )}
+
+      {renderSectionCard(
         'book-outline',
         'Словарь аббревиатур',
         'Расшифровка университетских сокращений',
@@ -585,6 +595,10 @@ const FreshmanScreen = forwardRef(({ theme, accentColor, isNewYearMode, onNaviga
         accentColor={accentColor} 
       />
     </View>
+  );
+
+  const renderAcademicCalendar = () => (
+    <AcademicCalendarScreen theme={theme} accentColor={accentColor} />
   );
 
   // Расписание звонков (загружается с сервера)
@@ -827,6 +841,8 @@ const FreshmanScreen = forwardRef(({ theme, accentColor, isNewYearMode, onNaviga
       return renderGroupTypeSelection();
     } else if (currentGroupType === 'bells') {
       return renderBellSchedule();
+    } else if (currentGroupType === 'academicCalendar') {
+      return renderAcademicCalendar();
     } else if (currentGroupType === 'glossary') {
       return renderGlossary();
     }

@@ -43,7 +43,7 @@ import {
   loadAllAttendance,
   saveAttendance,
   removeAttendance,
-  buildAttendanceKey,
+  buildAttendanceKeyV2,
 } from '../utils/attendanceStorage';
 import {
   getFavorites,
@@ -515,6 +515,26 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
     setNoteModalVisible(true);
   };
 
+  const formatLocalDateISO = useCallback((date) => {
+    if (!date) return '';
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }, []);
+
+  const getAttendanceMeta = useCallback((lesson, weekday, lessonDate) => {
+    const resolvedDate = lessonDate || (viewMode === 'day'
+      ? currentDate
+      : getLessonDateForWeek(currentWeek, weekday, currentTime));
+
+    return {
+      group: selectedGroup || '',
+      dateISO: formatLocalDateISO(resolvedDate),
+      lessonType: lesson?.type_lesson || '',
+    };
+  }, [selectedGroup, viewMode, currentDate, currentWeek, currentTime, formatLocalDateISO]);
+
   const handleNoteModalClose = (saved) => {
     setNoteModalVisible(false);
     setNoteModalLesson(null);
@@ -523,26 +543,26 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
   };
 
   // Отметить посещаемость пары (toggle: повторный тап снимает отметку)
-  const handleAttendanceMark = useCallback(async (lesson, weekday, status) => {
-    const group = selectedGroup || '';
-    const key = buildAttendanceKey(lesson.subject, weekday, lesson.time, group);
+  const handleAttendanceMark = useCallback(async (lesson, weekday, status, lessonDate) => {
+    const { group, dateISO, lessonType } = getAttendanceMeta(lesson, weekday, lessonDate);
+    const key = buildAttendanceKeyV2(lesson.subject, weekday, lesson.time, group, dateISO, lessonType);
     const current = attendanceMap[key];
     try {
       if (current?.status === status) {
-        await removeAttendance({ subject: lesson.subject, weekday, timeSlot: lesson.time, group });
+        await removeAttendance({ subject: lesson.subject, weekday, timeSlot: lesson.time, group, dateISO, lessonType });
         setAttendanceMap(prev => {
           const next = { ...prev };
           delete next[key];
           return next;
         });
       } else {
-        const entry = await saveAttendance({ subject: lesson.subject, weekday, timeSlot: lesson.time, group, status });
+        const entry = await saveAttendance({ subject: lesson.subject, weekday, timeSlot: lesson.time, group, status, dateISO, lessonType });
         setAttendanceMap(prev => ({ ...prev, [key]: entry }));
       }
     } catch (e) {
       console.error('Error saving attendance:', e);
     }
-  }, [attendanceMap, selectedGroup]);
+  }, [attendanceMap, getAttendanceMeta]);
 
   const confirmRemoveFavorite = useCallback((id, label = 'элемент') => {
     Alert.alert(
@@ -948,16 +968,17 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
                 {attendanceTrackingEnabled && !isTeacher && !isAuditory && (
                   <TouchableOpacity
                     onPress={() => {
-                      const attKey = buildAttendanceKey(lesson.subject, weekday, lesson.time, selectedGroup || '');
+                      const { group, dateISO, lessonType } = getAttendanceMeta(lesson, weekday, lessonDate);
+                      const attKey = buildAttendanceKeyV2(lesson.subject, weekday, lesson.time, group, dateISO, lessonType);
                       const currentStatus = attendanceMap[attKey]?.status;
                       if (currentStatus === 'attended') {
-                        handleAttendanceMark(lesson, weekday, 'missed');
+                        handleAttendanceMark(lesson, weekday, 'missed', lessonDate);
                       } else if (currentStatus === 'missed') {
-                        handleAttendanceMark(lesson, weekday, 'excused');
+                        handleAttendanceMark(lesson, weekday, 'excused', lessonDate);
                       } else if (currentStatus === 'excused') {
-                        handleAttendanceMark(lesson, weekday, 'excused');
+                        handleAttendanceMark(lesson, weekday, 'excused', lessonDate);
                       } else {
-                        handleAttendanceMark(lesson, weekday, 'attended');
+                        handleAttendanceMark(lesson, weekday, 'attended', lessonDate);
                       }
                     }}
                     hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
@@ -968,7 +989,8 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
                       justifyContent: 'center',
                       alignItems: 'center',
                       backgroundColor: (() => {
-                        const attKey = buildAttendanceKey(lesson.subject, weekday, lesson.time, selectedGroup || '');
+                        const { group, dateISO, lessonType } = getAttendanceMeta(lesson, weekday, lessonDate);
+                        const attKey = buildAttendanceKeyV2(lesson.subject, weekday, lesson.time, group, dateISO, lessonType);
                         const status = attendanceMap[attKey]?.status;
                         if (status === 'attended') return 'rgba(16, 185, 129, 0.14)';
                         if (status === 'missed') return 'rgba(239, 68, 68, 0.14)';
@@ -978,7 +1000,8 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
                     }}
                   >
                     {(() => {
-                      const attKey = buildAttendanceKey(lesson.subject, weekday, lesson.time, selectedGroup || '');
+                      const { group, dateISO, lessonType } = getAttendanceMeta(lesson, weekday, lessonDate);
+                      const attKey = buildAttendanceKeyV2(lesson.subject, weekday, lesson.time, group, dateISO, lessonType);
                       const status = attendanceMap[attKey]?.status;
                       if (status === 'attended') {
                         return <Icon name="checkmark-circle" size={16} color="#10b981" />;

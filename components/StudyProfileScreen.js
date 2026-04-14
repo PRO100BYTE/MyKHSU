@@ -57,7 +57,7 @@ const StudyProfileScreen = ({ theme, accentColor }) => {
     let attended = 0;
     let all = 0;
     Object.values(attendanceMap).forEach((entry) => {
-      if (!entry) return;
+      if (!entry || !entry.dateISO) return;
       if (entry.status === 'attended') attended += 1;
       all += 1;
     });

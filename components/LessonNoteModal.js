@@ -19,6 +19,8 @@ import { LIQUID_GLASS, ACCENT_COLORS } from '../utils/constants';
 import { saveNote, loadNote, deleteNote, HOMEWORK_STATUSES } from '../utils/notesStorage';
 import { unlockAchievement, incrementCounter } from '../utils/achievements';
 import { showAchievementToast } from './AchievementToast';
+import NativeDateField from './NativeDateField';
+import notificationService from '../utils/notificationService';
 
 const TABBAR_HEIGHT = 90;
 const SCREEN_HEIGHT = Dimensions.get('window').height;
@@ -129,9 +131,13 @@ const LessonNoteModal = ({ visible, onClose, lesson, weekday, theme, accentColor
       }
 
       if (!shouldCancelReminder && trimmedDueDate) {
+        const granted = await notificationService.requestPermissions();
+        if (!granted) {
+          Alert.alert('Нет доступа', 'Разрешите уведомления, чтобы получать напоминания о дедлайнах.');
+        }
         const [year, month, day] = trimmedDueDate.split('-').map(Number);
         const triggerDate = new Date(year, month - 1, day, 9, 0, 0, 0);
-        if (triggerDate > new Date()) {
+        if (granted && triggerDate > new Date()) {
           if (homeworkReminderId) {
             try {
               await Notifications.cancelScheduledNotificationAsync(homeworkReminderId);
@@ -356,28 +362,16 @@ const LessonNoteModal = ({ visible, onClose, lesson, weekday, theme, accentColor
                     })}
                   </View>
 
-                  <Text style={{ color: glass.textSecondary, fontSize: 12, fontFamily: 'Montserrat_500Medium', marginBottom: 6 }}>
-                    Дедлайн (ГГГГ-ММ-ДД)
-                  </Text>
-                  <TextInput
-                    style={[
-                      styles.input,
-                      {
-                        minHeight: 44,
-                        maxHeight: 44,
-                        backgroundColor: glass.surfaceSecondary,
-                        color: glass.text,
-                        borderColor: glass.border,
-                        paddingTop: 10,
-                      },
-                    ]}
-                    placeholder="2026-05-20"
-                    placeholderTextColor={glass.textTertiary}
+                  <NativeDateField
+                    label="Дедлайн"
                     value={homeworkDueDate}
-                    onChangeText={(text) => {
-                      setHomeworkDueDate(text.replace(/[^0-9-]/g, '').slice(0, 10));
+                    onChange={(nextValue) => {
+                      setHomeworkDueDate(nextValue);
                       setHasChanges(true);
                     }}
+                    theme={theme}
+                    accentColor={accentColor}
+                    placeholder="Выбрать дедлайн"
                   />
 
                   <View style={{ flexDirection: 'row', gap: 6, marginTop: 8 }}>
