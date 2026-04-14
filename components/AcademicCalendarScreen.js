@@ -16,6 +16,12 @@ import {
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
+const formatDisplayDate = (value) => {
+  if (!DATE_RE.test(String(value || ''))) return value || 'Дата не указана';
+  const [year, month, day] = value.split('-');
+  return `${day}.${month}.${year}`;
+};
+
 const AcademicCalendarScreen = ({ theme, accentColor }) => {
   const [events, setEvents] = useState([]);
   const [filter, setFilter] = useState('all');
@@ -41,6 +47,11 @@ const AcademicCalendarScreen = ({ theme, accentColor }) => {
     if (filter === 'all') return events;
     return events.filter((event) => event.type === filter);
   }, [events, filter]);
+
+  const upcomingCount = useMemo(() => {
+    const today = new Date().toISOString().slice(0, 10);
+    return events.filter((event) => event.date >= today).length;
+  }, [events]);
 
   const scheduleReminderIfNeeded = async (event) => {
     if (!event.reminderEnabled || !DATE_RE.test(event.date)) return null;
@@ -145,6 +156,20 @@ const AcademicCalendarScreen = ({ theme, accentColor }) => {
     <ScrollView style={{ flex: 1, padding: 16 }} contentContainerStyle={{ paddingBottom: 64 }}>
       <Text style={[styles.title, { color: glass.text }]}>Календарь учебных событий</Text>
 
+      <View style={[styles.heroCard, { backgroundColor: colors.glass, borderColor: colors.glassBorder || glass.border }]}>
+        <View style={styles.heroBadge}>
+          <Icon name="sparkles-outline" size={18} color={colors.primary} />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={{ color: glass.text, fontSize: 15, fontFamily: 'Montserrat_600SemiBold' }}>
+            Учебный планер
+          </Text>
+          <Text style={{ color: glass.textSecondary, fontSize: 12, fontFamily: 'Montserrat_400Regular', marginTop: 4, lineHeight: 18 }}>
+            Всего событий: {events.length}. Ближайших и актуальных: {upcomingCount}. Добавляйте экзамены, зачеты и практику в одном месте.
+          </Text>
+        </View>
+      </View>
+
       <View style={[styles.card, { backgroundColor: glass.surfaceSecondary, borderColor: glass.border }]}>
         <Text style={[styles.label, { color: glass.textSecondary }]}>Название</Text>
         <TextInput
@@ -241,28 +266,66 @@ const AcademicCalendarScreen = ({ theme, accentColor }) => {
         </View>
 
         {visibleEvents.length === 0 && (
-          <Text style={{ color: glass.textSecondary, marginTop: 6, fontFamily: 'Montserrat_400Regular' }}>
-            События не найдены.
-          </Text>
+          <View style={[styles.emptyState, { borderColor: glass.border, backgroundColor: glass.surfaceTertiary }]}>
+            <View style={[styles.emptyIconWrap, { backgroundColor: colors.glass }]}>
+              <Icon name="calendar-clear-outline" size={22} color={colors.primary} />
+            </View>
+            <Text style={{ color: glass.text, marginTop: 10, fontSize: 14, fontFamily: 'Montserrat_600SemiBold' }}>
+              События не найдены
+            </Text>
+            <Text style={{ color: glass.textSecondary, marginTop: 6, fontFamily: 'Montserrat_400Regular', textAlign: 'center', lineHeight: 18 }}>
+              Попробуйте другой фильтр или добавьте первое учебное событие.
+            </Text>
+          </View>
         )}
 
         {visibleEvents.map((event) => (
           <View key={event.id} style={[styles.eventRow, { borderColor: glass.border, backgroundColor: glass.surfaceTertiary }]}>
-            <View style={{ flex: 1 }}>
-              <Text style={{ color: glass.text, fontFamily: 'Montserrat_600SemiBold', fontSize: 14 }}>{event.title}</Text>
-              <Text style={{ color: glass.textSecondary, fontFamily: 'Montserrat_400Regular', fontSize: 12, marginTop: 2 }}>
-                {event.date} · {(ACADEMIC_EVENT_TYPES.find((item) => item.key === event.type) || { label: 'Другое' }).label}
-                {event.reminderEnabled ? ' · с напоминанием' : ''}
+            <View style={[styles.dateBadge, { backgroundColor: colors.glass, borderColor: colors.glassBorder || glass.border }]}>
+              <Text style={{ color: colors.primary, fontSize: 11, fontFamily: 'Montserrat_700Bold' }}>
+                {formatDisplayDate(event.date).slice(0, 5)}
               </Text>
+              <Text style={{ color: glass.textSecondary, fontSize: 10, fontFamily: 'Montserrat_500Medium', marginTop: 2 }}>
+                {formatDisplayDate(event.date).slice(6)}
+              </Text>
+            </View>
+
+            <View style={{ flex: 1 }}>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ color: glass.text, fontFamily: 'Montserrat_600SemiBold', fontSize: 14, lineHeight: 20 }}>{event.title}</Text>
+                  <View style={styles.metaRow}>
+                    <View style={[styles.metaChip, { borderColor: glass.border, backgroundColor: glass.surfaceSecondary }]}>
+                      <Icon name="pricetag-outline" size={12} color={colors.primary} />
+                      <Text style={{ color: glass.textSecondary, fontFamily: 'Montserrat_500Medium', fontSize: 11 }}>
+                        {(ACADEMIC_EVENT_TYPES.find((item) => item.key === event.type) || { label: 'Другое' }).label}
+                      </Text>
+                    </View>
+                    {event.reminderEnabled ? (
+                      <View style={[styles.metaChip, { borderColor: glass.border, backgroundColor: glass.surfaceSecondary }]}>
+                        <Icon name="notifications-outline" size={12} color="#f59e0b" />
+                        <Text style={{ color: glass.textSecondary, fontFamily: 'Montserrat_500Medium', fontSize: 11 }}>
+                          Напоминание
+                        </Text>
+                      </View>
+                    ) : null}
+                  </View>
+                </View>
+                <TouchableOpacity onPress={() => handleDelete(event)} style={styles.deleteBtn}>
+                  <Icon name="trash-outline" size={18} color="#ef4444" />
+                </TouchableOpacity>
+              </View>
+
+              <Text style={{ color: colors.primary, fontFamily: 'Montserrat_600SemiBold', fontSize: 12, marginTop: 6 }}>
+                {formatDisplayDate(event.date)}
+              </Text>
+
               {!!event.description && (
-                <Text style={{ color: glass.textSecondary, fontFamily: 'Montserrat_400Regular', fontSize: 12, marginTop: 4 }}>
+                <Text style={{ color: glass.textSecondary, fontFamily: 'Montserrat_400Regular', fontSize: 12, marginTop: 6, lineHeight: 18 }}>
                   {event.description}
                 </Text>
               )}
             </View>
-            <TouchableOpacity onPress={() => handleDelete(event)} style={{ padding: 6 }}>
-              <Icon name="trash-outline" size={18} color="#ef4444" />
-            </TouchableOpacity>
           </View>
         ))}
       </View>
@@ -280,6 +343,22 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     borderWidth: StyleSheet.hairlineWidth,
     padding: 12,
+  },
+  heroCard: {
+    borderRadius: 18,
+    borderWidth: StyleSheet.hairlineWidth,
+    padding: 14,
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 12,
+  },
+  heroBadge: {
+    width: 42,
+    height: 42,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.22)',
   },
   label: {
     fontSize: 12,
@@ -327,12 +406,12 @@ const styles = StyleSheet.create({
   },
   eventRow: {
     marginTop: 8,
-    borderRadius: 10,
+    borderRadius: 14,
     borderWidth: StyleSheet.hairlineWidth,
-    padding: 10,
+    padding: 12,
     flexDirection: 'row',
     alignItems: 'flex-start',
-    gap: 8,
+    gap: 12,
   },
   exportBtn: {
     borderWidth: StyleSheet.hairlineWidth,
@@ -342,6 +421,51 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
+  },
+  dateBadge: {
+    width: 62,
+    borderRadius: 14,
+    borderWidth: StyleSheet.hairlineWidth,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 6,
+  },
+  metaRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginTop: 8,
+  },
+  metaChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: 999,
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+  },
+  deleteBtn: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emptyState: {
+    marginTop: 8,
+    borderRadius: 14,
+    borderWidth: StyleSheet.hairlineWidth,
+    padding: 20,
+    alignItems: 'center',
+  },
+  emptyIconWrap: {
+    width: 48,
+    height: 48,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });
 

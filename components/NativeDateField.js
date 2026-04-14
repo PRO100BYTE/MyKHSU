@@ -11,9 +11,29 @@ const formatISODate = (date) => {
   return `${year}-${month}-${day}`;
 };
 
+const formatDisplayDate = (date) => {
+  const day = String(date.getDate()).padStart(2, '0');
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const year = date.getFullYear();
+  return `${day}.${month}.${year}`;
+};
+
 const parseISODate = (value) => {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(value || ''))) return null;
-  const [year, month, day] = value.split('-').map(Number);
+  const normalized = String(value || '').trim();
+  if (!normalized) return null;
+
+  let year;
+  let month;
+  let day;
+
+  if (/^\d{4}-\d{2}-\d{2}$/.test(normalized)) {
+    [year, month, day] = normalized.split('-').map(Number);
+  } else if (/^\d{2}\.\d{2}\.\d{4}$/.test(normalized)) {
+    [day, month, year] = normalized.split('.').map(Number);
+  } else {
+    return null;
+  }
+
   const result = new Date(year, month - 1, day, 12, 0, 0, 0);
   return Number.isNaN(result.getTime()) ? null : result;
 };
@@ -23,6 +43,10 @@ const NativeDateField = ({ label, value, onChange, theme, accentColor, placehold
   const glass = LIQUID_GLASS[theme] || LIQUID_GLASS.light;
   const colors = ACCENT_COLORS[accentColor] || ACCENT_COLORS.green;
   const selectedDate = useMemo(() => parseISODate(value) || new Date(), [value]);
+  const displayValue = useMemo(() => {
+    const parsed = parseISODate(value);
+    return parsed ? formatDisplayDate(parsed) : '';
+  }, [value]);
 
   const openPicker = () => {
     if (Platform.OS === 'android') {
@@ -71,7 +95,7 @@ const NativeDateField = ({ label, value, onChange, theme, accentColor, placehold
               fontFamily: 'Montserrat_400Regular',
             }}
           >
-            {value || placeholder}
+            {displayValue || placeholder}
           </Text>
         </View>
 

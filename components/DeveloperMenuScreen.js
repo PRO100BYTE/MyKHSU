@@ -6,6 +6,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ACCENT_COLORS, API_BASE_URL, APP_VERSION, BUILD_VER, BUILD_DATE, LIQUID_GLASS } from '../utils/constants';
 import { loadAllNotes, clearAllNotes, getNotesCount, saveNote } from '../utils/notesStorage';
 import { unlockAchievement, clearAchievements, getAchievementsCount, ACHIEVEMENT_DEFINITIONS } from '../utils/achievements';
+import { addAcademicEvent, getAcademicEvents, saveAcademicEvents } from '../utils/academicEventsStorage';
 import * as Updates from 'expo-updates';
 import * as Notifications from 'expo-notifications';
 import * as TaskManager from 'expo-task-manager';
@@ -142,6 +143,61 @@ const DeveloperMenuScreen = ({ theme, accentColor, onResetDeveloperMode }) => {
         }}
       ]
     );
+  };
+
+  const createPlannerFixtures = async () => {
+    const today = new Date();
+    const inTwoDays = new Date(today);
+    inTwoDays.setDate(today.getDate() + 2);
+    const inFiveDays = new Date(today);
+    inFiveDays.setDate(today.getDate() + 5);
+    const toISO = (date) => {
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    };
+
+    await addAcademicEvent({
+      title: 'Тестовый экзамен по аналитике',
+      date: toISO(inFiveDays),
+      type: 'exam',
+      description: 'Аудитория 305, взять зачетку и ручку.',
+      reminderEnabled: false,
+    });
+
+    await addAcademicEvent({
+      title: 'Тестовая практика по проекту',
+      date: toISO(inTwoDays),
+      type: 'practice',
+      description: 'Подготовить прототип и презентацию.',
+      reminderEnabled: false,
+    });
+
+    await saveNote({
+      subject: 'Тестовый предмет',
+      weekday: 1,
+      timeSlot: 1,
+      group: 'ТСТ-01',
+      noteText: 'Тестовая заметка из учебного планера',
+      homework: 'Подготовить отчет по лабораторной работе',
+      homeworkStatus: 'in_progress',
+      homeworkDueDate: toISO(inTwoDays),
+    });
+
+    await notificationService.appendScheduleChangeHistory([
+      {
+        type: 'changed',
+        weekday: 2,
+        prev: { subject: 'Алгоритмы', teacher: 'Иванов И.И.', auditory: '201', time: '2' },
+        lesson: { subject: 'Алгоритмы', teacher: 'Петров П.П.', auditory: '410', time: '2' },
+      },
+    ], 'ТСТ-01');
+  };
+
+  const clearPlannerFixtures = async () => {
+    await saveAcademicEvents([]);
+    await AsyncStorage.removeItem('schedule_changes_history_v1');
   };
 
   return (
@@ -919,6 +975,73 @@ const DeveloperMenuScreen = ({ theme, accentColor, onResetDeveloperMode }) => {
             <Text style={[styles.actionButtonText, { color: '#ef4444' }]}>
               Очистить все заметки
             </Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Учебный планер */}
+        <View style={styles.section}>
+          <Text style={[styles.sectionTitle, { color: textColor }]}>Учебный планер</Text>
+
+          <TouchableOpacity
+            style={[styles.actionButton, { backgroundColor: inputBgColor, borderColor }]}
+            onPress={async () => {
+              try {
+                await createPlannerFixtures();
+                Alert.alert('Готово', 'Добавлены тестовые учебные события, дедлайн и запись в историю изменений.');
+              } catch (e) {
+                Alert.alert('Ошибка', e.message);
+              }
+            }}
+          >
+            <Icon name="flask-outline" size={20} color={colors.primary} />
+            <Text style={[styles.actionButtonText, { color: textColor }]}>Создать тестовые данные планера</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.actionButton, { backgroundColor: inputBgColor, borderColor }]}
+            onPress={async () => {
+              try {
+                const events = await getAcademicEvents();
+                const history = await notificationService.getScheduleChangesHistory(30);
+                Alert.alert(
+                  'Статистика планера',
+                  `Учебных событий: ${events.length}\nИстория изменений: ${history.length}`
+                );
+              } catch (e) {
+                Alert.alert('Ошибка', e.message);
+              }
+            }}
+          >
+            <Icon name="analytics-outline" size={20} color={colors.primary} />
+            <Text style={[styles.actionButtonText, { color: textColor }]}>Статистика учебного планера</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.actionButton, { backgroundColor: 'rgba(239, 68, 68, 0.1)', borderColor: 'rgba(239, 68, 68, 0.3)' }]}
+            onPress={() => {
+              Alert.alert(
+                'Очистить данные планера?',
+                'Будут удалены учебные события и история изменений расписания.',
+                [
+                  { text: 'Отмена', style: 'cancel' },
+                  {
+                    text: 'Очистить',
+                    style: 'destructive',
+                    onPress: async () => {
+                      try {
+                        await clearPlannerFixtures();
+                        Alert.alert('Готово', 'Данные учебного планера очищены');
+                      } catch (e) {
+                        Alert.alert('Ошибка', e.message);
+                      }
+                    },
+                  },
+                ]
+              );
+            }}
+          >
+            <Icon name="trash-outline" size={20} color="#ef4444" />
+            <Text style={[styles.actionButtonText, { color: '#ef4444' }]}>Очистить данные планера</Text>
           </TouchableOpacity>
         </View>
 
