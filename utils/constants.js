@@ -1,5 +1,5 @@
 // Константы API
-export const API_BASE_URL = 'https://t2iti.khsu.ru/api';
+export const API_BASE_URL = 'https://t2.iti-khsu.ru/api';
 export const CORS_PROXY = 'https://api.allorigins.win/raw?url=';
 export const CACHE_TTL = 7 * 24 * 60 * 60 * 1000; // 7 дней
 
