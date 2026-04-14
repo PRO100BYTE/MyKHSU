@@ -217,6 +217,20 @@ export const useScheduleLogic = () => {
       } catch (notifyError) {
         console.error('Error scheduling notifications:', notifyError);
       }
+
+      // Проверяем изменения в расписании и уведомляем пользователя
+      try {
+        const scopeSuffix = viewMode === 'day'
+          ? `day_${new Date(currentDate).toISOString().slice(0, 10)}`
+          : `week_${processedSchedule?.week_number || currentWeek}`;
+        await notificationService.checkScheduleChanges(
+          processedSchedule,
+          `${group}__${scopeSuffix}`,
+          { source: result.source }
+        );
+      } catch (changeError) {
+        console.error('Error checking schedule changes:', changeError);
+      }
       
       console.log('Загружено расписание для группы', group, 'на', viewMode === 'day' ? currentDate.toDateString() : `неделю ${currentWeek}`);
     } catch (error) {

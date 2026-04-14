@@ -158,6 +158,8 @@ export default Sentry.wrap(function App() {
   const scheduleExportHandler = useRef(null);
   const [scheduleExportAvailable, setScheduleExportAvailable] = useState(false);
   const [scheduleExporting, setScheduleExporting] = useState(false);
+  const scheduleFavoritesHandler = useRef(null);
+  const [scheduleFavoritesAvailable, setScheduleFavoritesAvailable] = useState(false);
   const [mapSubScreen, setMapSubScreen] = useState(null);
   const [freshmanSubScreen, setFreshmanSubScreen] = useState(null);
   const [settingsSubScreen, setSettingsSubScreen] = useState(null);
@@ -687,6 +689,20 @@ const handleNewYearModeChange = async (enabled) => {
                   </Text>
                 </TouchableOpacity>
               )}
+              {activeScreen === SCREENS.SCHEDULE && scheduleFavoritesAvailable && (
+                <TouchableOpacity
+                  onPress={() => scheduleFavoritesHandler.current?.()}
+                  activeOpacity={0.7}
+                  style={{
+                    marginLeft: 8,
+                    padding: 6,
+                    borderRadius: 10,
+                    backgroundColor: colors.glass,
+                  }}
+                >
+                  <Icon name="star-outline" size={18} color={colors.primary} />
+                </TouchableOpacity>
+              )}
               {activeScreen === SCREENS.SCHEDULE && scheduleExportAvailable && (
                 <TouchableOpacity
                   onPress={() => scheduleExportHandler.current?.()}
@@ -781,6 +797,20 @@ const handleNewYearModeChange = async (enabled) => {
             }}>
               {currentCacheStatus === 'offline' ? 'Оффлайн' : 'Кэш'}
             </Text>
+          </TouchableOpacity>
+        )}
+        {activeScreen === SCREENS.SCHEDULE && scheduleFavoritesAvailable && (
+          <TouchableOpacity
+            onPress={() => scheduleFavoritesHandler.current?.()}
+            activeOpacity={0.7}
+            style={{
+              marginLeft: 8,
+              padding: 6,
+              borderRadius: 10,
+              backgroundColor: colors.glass,
+            }}
+          >
+            <Icon name="star-outline" size={18} color={colors.primary} />
           </TouchableOpacity>
         )}
         {activeScreen === SCREENS.SCHEDULE && scheduleExportAvailable && (
@@ -918,6 +948,10 @@ const handleNewYearModeChange = async (enabled) => {
               scheduleExportHandler.current = handler;
               setScheduleExportAvailable(!!handler);
               setScheduleExporting(isExporting);
+            }}
+            onFavoritesReady={(handler) => {
+              scheduleFavoritesHandler.current = handler;
+              setScheduleFavoritesAvailable(!!handler);
             }}
           />
         )}
