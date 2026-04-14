@@ -6,6 +6,10 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getWithExpiry, setWithExpiry } from './cache';
 import { getDateByWeekAndDay } from './dateUtils';
 
+const SCHEDULE_CHANGES_HISTORY_KEY = 'schedule_changes_history_v1';
+const SCHEDULE_CHANGES_HISTORY_DAYS = 7;
+const SCHEDULE_CHANGES_HISTORY_LIMIT = 200;
+
 // Конфигурация уведомлений
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -427,10 +431,52 @@ class NotificationService {
       const changes = this.detectScheduleChanges(prevDays, newDays);
 
       if (changes.length > 0) {
+        await this.appendScheduleChangeHistory(changes, scheduleKey);
         await this.sendScheduleChangeNotification(changes);
       }
     } catch (error) {
       console.error('Error checking schedule changes:', error);
+    }
+  }
+
+  async appendScheduleChangeHistory(changes, scheduleKey) {
+    try {
+      const now = Date.now();
+      const raw = await AsyncStorage.getItem(SCHEDULE_CHANGES_HISTORY_KEY);
+      const current = raw ? JSON.parse(raw) : [];
+      const nextEntries = (changes || []).map((change) => ({
+        id: `${now}_${Math.random().toString(16).slice(2, 8)}`,
+        timestamp: now,
+        scheduleKey,
+        type: change.type,
+        weekday: change.weekday,
+        lesson: change.lesson || null,
+        prev: change.prev || null,
+      }));
+
+      const minTs = now - SCHEDULE_CHANGES_HISTORY_DAYS * 24 * 60 * 60 * 1000;
+      const merged = [...nextEntries, ...(Array.isArray(current) ? current : [])]
+        .filter((entry) => Number(entry?.timestamp || 0) >= minTs)
+        .slice(0, SCHEDULE_CHANGES_HISTORY_LIMIT);
+
+      await AsyncStorage.setItem(SCHEDULE_CHANGES_HISTORY_KEY, JSON.stringify(merged));
+    } catch (error) {
+      console.error('Error appending schedule history:', error);
+    }
+  }
+
+  async getScheduleChangesHistory(days = SCHEDULE_CHANGES_HISTORY_DAYS) {
+    try {
+      const raw = await AsyncStorage.getItem(SCHEDULE_CHANGES_HISTORY_KEY);
+      if (!raw) return [];
+      const parsed = JSON.parse(raw);
+      if (!Array.isArray(parsed)) return [];
+      const minTs = Date.now() - Number(days || SCHEDULE_CHANGES_HISTORY_DAYS) * 24 * 60 * 60 * 1000;
+      return parsed
+        .filter((entry) => Number(entry?.timestamp || 0) >= minTs)
+        .sort((a, b) => Number(b?.timestamp || 0) - Number(a?.timestamp || 0));
+    } catch {
+      return [];
     }
   }
 

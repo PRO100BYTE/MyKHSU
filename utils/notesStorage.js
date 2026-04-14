@@ -1,6 +1,17 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const NOTES_PREFIX = 'lesson_note_';
+export const HOMEWORK_STATUSES = {
+  TODO: 'todo',
+  IN_PROGRESS: 'in_progress',
+  DONE: 'done',
+};
+
+const normalizeHomeworkStatus = (status) => {
+  if (status === HOMEWORK_STATUSES.IN_PROGRESS) return HOMEWORK_STATUSES.IN_PROGRESS;
+  if (status === HOMEWORK_STATUSES.DONE) return HOMEWORK_STATUSES.DONE;
+  return HOMEWORK_STATUSES.TODO;
+};
 
 /**
  * Генерирует уникальный ключ для заметки по параметрам занятия
@@ -15,7 +26,17 @@ const getNoteKey = (subject, weekday, timeSlot, group) => {
 /**
  * Сохраняет заметку/ДЗ к занятию
  */
-export const saveNote = async ({ subject, weekday, timeSlot, group, noteText, homework }) => {
+export const saveNote = async ({
+  subject,
+  weekday,
+  timeSlot,
+  group,
+  noteText,
+  homework,
+  homeworkStatus,
+  homeworkDueDate,
+  homeworkReminderNotificationId,
+}) => {
   const key = getNoteKey(subject, weekday, timeSlot, group);
   // Загружаем существующую заметку, чтобы сохранить homeworkTargetDate при обычном редактировании
   let existing = null;
@@ -25,9 +46,18 @@ export const saveNote = async ({ subject, weekday, timeSlot, group, noteText, ho
   } catch {}
   const oldHomework = existing?.homework || '';
   const newHomework = homework || '';
+  const resolvedStatus = newHomework
+    ? normalizeHomeworkStatus(homeworkStatus || existing?.homeworkStatus)
+    : null;
+  const resolvedDueDate = newHomework ? (homeworkDueDate || existing?.homeworkDueDate || null) : null;
   const data = {
     noteText: noteText || '',
     homework: newHomework,
+    homeworkStatus: resolvedStatus,
+    homeworkDueDate: resolvedDueDate,
+    homeworkReminderNotificationId: resolvedDueDate
+      ? (homeworkReminderNotificationId || existing?.homeworkReminderNotificationId || null)
+      : null,
     updatedAt: Date.now(),
     // Сбрасываем targetDate только если ДЗ изменилось (новое/обновлённое)
     homeworkTargetDate: (newHomework && newHomework !== oldHomework) ? null : (existing?.homeworkTargetDate || null),
@@ -131,6 +161,8 @@ export const findHomeworkBySubject = (allNotes, subject, group) => {
         latestTimestamp = note.updatedAt;
         latestResult = {
           homework: note.homework,
+          homeworkStatus: normalizeHomeworkStatus(note.homeworkStatus),
+          homeworkDueDate: note.homeworkDueDate || null,
           updatedAt: note.updatedAt,
           homeworkTargetDate: note.homeworkTargetDate || null,
           sourceKey: key,
@@ -139,6 +171,57 @@ export const findHomeworkBySubject = (allNotes, subject, group) => {
     }
   }
   return latestResult;
+};
+
+const parseNoteKey = (noteKey) => {
+  const parts = noteKey.replace(NOTES_PREFIX, '').split('__');
+  if (parts.length < 4) return null;
+  const [subject, weekday, timeSlot, group] = parts;
+  return {
+    subject: String(subject || '').replace(/_/g, ' '),
+    weekday: Number(weekday) || null,
+    timeSlot: String(timeSlot || ''),
+    group: String(group || '').replace(/_/g, ' '),
+  };
+};
+
+export const getAllHomeworkDeadlines = async () => {
+  const all = await loadAllNotes();
+  const todayISO = new Date().toISOString().slice(0, 10);
+  const deadlines = [];
+
+  for (const [key, note] of Object.entries(all)) {
+    if (!note || !note.homework) continue;
+    const parsed = parseNoteKey(key);
+    if (!parsed) continue;
+    const status = normalizeHomeworkStatus(note.homeworkStatus);
+    const dueDate = note.homeworkDueDate || null;
+    const isOverdue = !!dueDate && status !== HOMEWORK_STATUSES.DONE && dueDate < todayISO;
+
+    deadlines.push({
+      id: key,
+      subject: parsed.subject,
+      group: parsed.group,
+      weekday: parsed.weekday,
+      timeSlot: parsed.timeSlot,
+      homework: note.homework,
+      status,
+      dueDate,
+      isOverdue,
+      updatedAt: note.updatedAt || Date.now(),
+    });
+  }
+
+  return deadlines.sort((a, b) => {
+    if (a.status !== b.status) {
+      if (a.status === HOMEWORK_STATUSES.DONE) return 1;
+      if (b.status === HOMEWORK_STATUSES.DONE) return -1;
+    }
+    if (a.dueDate && b.dueDate) return a.dueDate.localeCompare(b.dueDate);
+    if (a.dueDate && !b.dueDate) return -1;
+    if (!a.dueDate && b.dueDate) return 1;
+    return b.updatedAt - a.updatedAt;
+  });
 };
 
 /**

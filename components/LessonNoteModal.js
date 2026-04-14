@@ -13,9 +13,10 @@ import {
   Animated,
   Dimensions,
 } from 'react-native';
+import * as Notifications from 'expo-notifications';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import { LIQUID_GLASS, ACCENT_COLORS } from '../utils/constants';
-import { saveNote, loadNote, deleteNote } from '../utils/notesStorage';
+import { saveNote, loadNote, deleteNote, HOMEWORK_STATUSES } from '../utils/notesStorage';
 import { unlockAchievement, incrementCounter } from '../utils/achievements';
 import { showAchievementToast } from './AchievementToast';
 
@@ -25,6 +26,9 @@ const SCREEN_HEIGHT = Dimensions.get('window').height;
 const LessonNoteModal = ({ visible, onClose, lesson, weekday, theme, accentColor }) => {
   const [noteText, setNoteText] = useState('');
   const [homework, setHomework] = useState('');
+  const [homeworkStatus, setHomeworkStatus] = useState(HOMEWORK_STATUSES.TODO);
+  const [homeworkDueDate, setHomeworkDueDate] = useState('');
+  const [homeworkReminderId, setHomeworkReminderId] = useState(null);
   const [loading, setLoading] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
   const [rendered, setRendered] = useState(false);
@@ -88,9 +92,15 @@ const LessonNoteModal = ({ visible, onClose, lesson, weekday, theme, accentColor
       if (existing) {
         setNoteText(existing.noteText || '');
         setHomework(existing.homework || '');
+        setHomeworkStatus(existing.homeworkStatus || HOMEWORK_STATUSES.TODO);
+        setHomeworkDueDate(existing.homeworkDueDate || '');
+        setHomeworkReminderId(existing.homeworkReminderNotificationId || null);
       } else {
         setNoteText('');
         setHomework('');
+        setHomeworkStatus(HOMEWORK_STATUSES.TODO);
+        setHomeworkDueDate('');
+        setHomeworkReminderId(null);
       }
       setHasChanges(false);
     } catch (e) {
@@ -102,11 +112,51 @@ const LessonNoteModal = ({ visible, onClose, lesson, weekday, theme, accentColor
 
   const handleSave = async () => {
     try {
+      const trimmedDueDate = homeworkDueDate.trim();
+      if (trimmedDueDate && !/^\d{4}-\d{2}-\d{2}$/.test(trimmedDueDate)) {
+        Alert.alert('Некорректная дата', 'Используйте формат ГГГГ-ММ-ДД для дедлайна.');
+        return;
+      }
+
+      let nextReminderId = homeworkReminderId || null;
+      const shouldCancelReminder = !homework.trim() || !trimmedDueDate || homeworkStatus === HOMEWORK_STATUSES.DONE;
+
+      if (shouldCancelReminder && homeworkReminderId) {
+        try {
+          await Notifications.cancelScheduledNotificationAsync(homeworkReminderId);
+        } catch {}
+        nextReminderId = null;
+      }
+
+      if (!shouldCancelReminder && trimmedDueDate) {
+        const [year, month, day] = trimmedDueDate.split('-').map(Number);
+        const triggerDate = new Date(year, month - 1, day, 9, 0, 0, 0);
+        if (triggerDate > new Date()) {
+          if (homeworkReminderId) {
+            try {
+              await Notifications.cancelScheduledNotificationAsync(homeworkReminderId);
+            } catch {}
+          }
+          nextReminderId = await Notifications.scheduleNotificationAsync({
+            content: {
+              title: 'Дедлайн по паре',
+              body: `${lesson?.subject || 'Задание'}: ${homework.trim().slice(0, 80)}`,
+              data: { type: 'homework_deadline', subject: lesson?.subject || '' },
+            },
+            trigger: { type: 'date', date: triggerDate },
+          });
+        }
+      }
+
       await saveNote({
         ...lessonParams,
         noteText: noteText.trim(),
         homework: homework.trim(),
+        homeworkStatus: homework.trim() ? homeworkStatus : null,
+        homeworkDueDate: homework.trim() ? (trimmedDueDate || null) : null,
+        homeworkReminderNotificationId: nextReminderId,
       });
+      setHomeworkReminderId(nextReminderId);
       setHasChanges(false);
       
       // Ачивки
@@ -139,9 +189,15 @@ const LessonNoteModal = ({ visible, onClose, lesson, weekday, theme, accentColor
           style: 'destructive',
           onPress: async () => {
             try {
+              if (homeworkReminderId) {
+                try {
+                  await Notifications.cancelScheduledNotificationAsync(homeworkReminderId);
+                } catch {}
+              }
               await deleteNote(lessonParams);
               setNoteText('');
               setHomework('');
+              setHomeworkReminderId(null);
               setHasChanges(false);
               onClose(true);
             } catch (e) {
@@ -170,6 +226,14 @@ const LessonNoteModal = ({ visible, onClose, lesson, weekday, theme, accentColor
   };
 
   const hasContent = noteText.trim().length > 0 || homework.trim().length > 0;
+
+  const setQuickDueDate = (daysFromNow) => {
+    const date = new Date();
+    date.setDate(date.getDate() + daysFromNow);
+    const iso = date.toISOString().slice(0, 10);
+    setHomeworkDueDate(iso);
+    setHasChanges(true);
+  };
 
   if (!visible && !rendered) return null;
 
@@ -254,6 +318,114 @@ const LessonNoteModal = ({ visible, onClose, lesson, weekday, theme, accentColor
                 multiline
                 textAlignVertical="top"
               />
+
+              {homework.trim().length > 0 && (
+                <>
+                  <Text style={{ color: glass.textSecondary, fontSize: 12, fontFamily: 'Montserrat_500Medium', marginTop: 10, marginBottom: 6 }}>
+                    Статус
+                  </Text>
+                  <View style={{ flexDirection: 'row', gap: 6, marginBottom: 10 }}>
+                    {[
+                      { key: HOMEWORK_STATUSES.TODO, label: 'К выполнению', color: '#64748b' },
+                      { key: HOMEWORK_STATUSES.IN_PROGRESS, label: 'В работе', color: '#f59e0b' },
+                      { key: HOMEWORK_STATUSES.DONE, label: 'Сделано', color: '#10b981' },
+                    ].map(item => {
+                      const active = homeworkStatus === item.key;
+                      return (
+                        <TouchableOpacity
+                          key={item.key}
+                          onPress={() => {
+                            setHomeworkStatus(item.key);
+                            setHasChanges(true);
+                          }}
+                          style={{
+                            flex: 1,
+                            borderRadius: 10,
+                            paddingVertical: 7,
+                            alignItems: 'center',
+                            backgroundColor: active ? `${item.color}22` : glass.surfaceTertiary,
+                            borderWidth: StyleSheet.hairlineWidth,
+                            borderColor: active ? item.color : glass.border,
+                          }}
+                        >
+                          <Text style={{ color: active ? item.color : glass.textSecondary, fontSize: 11, fontFamily: 'Montserrat_500Medium' }}>
+                            {item.label}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+
+                  <Text style={{ color: glass.textSecondary, fontSize: 12, fontFamily: 'Montserrat_500Medium', marginBottom: 6 }}>
+                    Дедлайн (ГГГГ-ММ-ДД)
+                  </Text>
+                  <TextInput
+                    style={[
+                      styles.input,
+                      {
+                        minHeight: 44,
+                        maxHeight: 44,
+                        backgroundColor: glass.surfaceSecondary,
+                        color: glass.text,
+                        borderColor: glass.border,
+                        paddingTop: 10,
+                      },
+                    ]}
+                    placeholder="2026-05-20"
+                    placeholderTextColor={glass.textTertiary}
+                    value={homeworkDueDate}
+                    onChangeText={(text) => {
+                      setHomeworkDueDate(text.replace(/[^0-9-]/g, '').slice(0, 10));
+                      setHasChanges(true);
+                    }}
+                  />
+
+                  <View style={{ flexDirection: 'row', gap: 6, marginTop: 8 }}>
+                    <TouchableOpacity
+                      onPress={() => setQuickDueDate(1)}
+                      style={{
+                        paddingHorizontal: 10,
+                        paddingVertical: 6,
+                        borderRadius: 10,
+                        backgroundColor: glass.surfaceTertiary,
+                        borderWidth: StyleSheet.hairlineWidth,
+                        borderColor: glass.border,
+                      }}
+                    >
+                      <Text style={{ color: glass.textSecondary, fontSize: 11, fontFamily: 'Montserrat_500Medium' }}>+1 день</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      onPress={() => setQuickDueDate(7)}
+                      style={{
+                        paddingHorizontal: 10,
+                        paddingVertical: 6,
+                        borderRadius: 10,
+                        backgroundColor: glass.surfaceTertiary,
+                        borderWidth: StyleSheet.hairlineWidth,
+                        borderColor: glass.border,
+                      }}
+                    >
+                      <Text style={{ color: glass.textSecondary, fontSize: 11, fontFamily: 'Montserrat_500Medium' }}>+7 дней</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      onPress={() => {
+                        setHomeworkDueDate('');
+                        setHasChanges(true);
+                      }}
+                      style={{
+                        paddingHorizontal: 10,
+                        paddingVertical: 6,
+                        borderRadius: 10,
+                        backgroundColor: glass.surfaceTertiary,
+                        borderWidth: StyleSheet.hairlineWidth,
+                        borderColor: glass.border,
+                      }}
+                    >
+                      <Text style={{ color: glass.textSecondary, fontSize: 11, fontFamily: 'Montserrat_500Medium' }}>Сбросить</Text>
+                    </TouchableOpacity>
+                  </View>
+                </>
+              )}
             </View>
 
             {/* Домашнее задание */}
