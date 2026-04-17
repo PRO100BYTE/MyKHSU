@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Keyboard, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import DateTimePicker, { DateTimePickerAndroid } from '@react-native-community/datetimepicker';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import { LIQUID_GLASS, ACCENT_COLORS } from '../utils/constants';
@@ -49,6 +49,12 @@ const NativeDateField = ({ label, value, onChange, theme, accentColor, placehold
   }, [value]);
 
   const openPicker = () => {
+    Keyboard.dismiss();
+
+    if (!value) {
+      onChange(formatISODate(new Date()));
+    }
+
     if (Platform.OS === 'android') {
       DateTimePickerAndroid.open({
         value: selectedDate,
@@ -63,13 +69,15 @@ const NativeDateField = ({ label, value, onChange, theme, accentColor, placehold
       return;
     }
 
-    setShowIOSPicker((prev) => !prev);
+    setTimeout(() => {
+      setShowIOSPicker((prev) => !prev);
+    }, 80);
   };
 
   return (
     <View>
       {label ? (
-        <Text style={{ color: glass.textSecondary, fontSize: 12, fontFamily: 'Montserrat_500Medium', marginBottom: 6, marginTop: 8 }}>
+        <Text style={{ color: glass.textSecondary, fontSize: 12, fontFamily: 'Montserrat_500Medium', marginBottom: 6, marginTop: 10 }}>
           {label}
         </Text>
       ) : null}
@@ -92,7 +100,7 @@ const NativeDateField = ({ label, value, onChange, theme, accentColor, placehold
               marginLeft: 8,
               color: value ? glass.text : glass.textTertiary,
               fontSize: 14,
-              fontFamily: 'Montserrat_400Regular',
+              fontFamily: value ? 'Montserrat_500Medium' : 'Montserrat_400Regular',
             }}
           >
             {displayValue || placeholder}
@@ -110,7 +118,7 @@ const NativeDateField = ({ label, value, onChange, theme, accentColor, placehold
         <View
           style={{
             marginTop: 8,
-            borderRadius: 12,
+            borderRadius: 14,
             overflow: 'hidden',
             borderWidth: StyleSheet.hairlineWidth,
             borderColor: glass.border,
@@ -129,7 +137,10 @@ const NativeDateField = ({ label, value, onChange, theme, accentColor, placehold
             accentColor={colors.primary}
           />
           <TouchableOpacity
-            onPress={() => setShowIOSPicker(false)}
+            onPress={() => {
+              Keyboard.dismiss();
+              setShowIOSPicker(false);
+            }}
             style={{
               paddingVertical: 10,
               alignItems: 'center',
@@ -149,11 +160,11 @@ const NativeDateField = ({ label, value, onChange, theme, accentColor, placehold
 
 const styles = StyleSheet.create({
   field: {
-    minHeight: 44,
-    borderRadius: 10,
+    minHeight: 46,
+    borderRadius: 12,
     borderWidth: StyleSheet.hairlineWidth,
-    paddingHorizontal: 10,
-    paddingVertical: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 11,
     flexDirection: 'row',
     alignItems: 'center',
   },
