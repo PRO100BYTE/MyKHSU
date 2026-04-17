@@ -1,27 +1,21 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   Alert,
-  Animated,
-  Dimensions,
-  KeyboardAvoidingView,
   Modal,
-  Platform,
   ScrollView,
+  StatusBar,
   StyleSheet,
   Switch,
   Text,
   TextInput,
   TouchableOpacity,
-  TouchableWithoutFeedback,
   View,
 } from 'react-native';
 import { Ionicons as Icon } from '@expo/vector-icons';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ACCENT_COLORS, LIQUID_GLASS } from '../utils/constants';
 import { ACADEMIC_EVENT_TYPES } from '../utils/academicEventsStorage';
 import NativeDateField from './NativeDateField';
 
-const SCREEN_HEIGHT = Dimensions.get('window').height;
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 const buildInitialState = (event) => ({
@@ -40,23 +34,19 @@ const AcademicEventModal = ({ visible, onClose, onSubmit, event, theme, accentCo
   const [description, setDescription] = useState('');
   const [reminderEnabled, setReminderEnabled] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
-  const [rendered, setRendered] = useState(false);
   const [saving, setSaving] = useState(false);
-
-  const backdropAnim = useRef(new Animated.Value(0)).current;
-  const slideAnim = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
-  const insets = useSafeAreaInsets();
 
   const glass = LIQUID_GLASS[theme] || LIQUID_GLASS.light;
   const colors = ACCENT_COLORS[accentColor] || ACCENT_COLORS.green;
+  const bgColor = glass.backgroundElevated || glass.background;
+  const textColor = glass.text;
+  const placeholderColor = glass.textSecondary;
+  const borderColor = glass.border;
   const initialState = useMemo(() => buildInitialState(event), [event]);
   const isEditing = !!event?.id;
-  const modalVisible = visible || rendered;
-  const bottomInset = Math.max(insets.bottom, Platform.OS === 'android' ? 12 : 8);
 
   useEffect(() => {
     if (visible) {
-      setRendered(true);
       setTitle(initialState.title);
       setDate(initialState.date);
       setType(initialState.type);
@@ -64,36 +54,8 @@ const AcademicEventModal = ({ visible, onClose, onSubmit, event, theme, accentCo
       setReminderEnabled(initialState.reminderEnabled);
       setHasChanges(false);
       setSaving(false);
-
-      Animated.parallel([
-        Animated.timing(backdropAnim, {
-          toValue: 1,
-          duration: 250,
-          useNativeDriver: true,
-        }),
-        Animated.spring(slideAnim, {
-          toValue: 0,
-          damping: 20,
-          stiffness: 200,
-          mass: 0.8,
-          useNativeDriver: true,
-        }),
-      ]).start();
-    } else if (rendered) {
-      Animated.parallel([
-        Animated.timing(backdropAnim, {
-          toValue: 0,
-          duration: 200,
-          useNativeDriver: true,
-        }),
-        Animated.timing(slideAnim, {
-          toValue: SCREEN_HEIGHT,
-          duration: 200,
-          useNativeDriver: true,
-        }),
-      ]).start(() => setRendered(false));
     }
-  }, [visible, initialState, rendered, backdropAnim, slideAnim]);
+  }, [visible, initialState]);
 
   const markChanged = (setter) => (value) => {
     setter(value);
@@ -150,214 +112,145 @@ const AcademicEventModal = ({ visible, onClose, onSubmit, event, theme, accentCo
     );
   };
 
-  if (!modalVisible) return null;
-
   return (
     <Modal
-      visible={modalVisible}
-      transparent
-      animationType="none"
-      statusBarTranslucent
-      presentationStyle="overFullScreen"
+      visible={visible}
+      animationType="slide"
+      presentationStyle="pageSheet"
       onRequestClose={handleClose}
     >
-      <View style={styles.overlay} pointerEvents="box-none">
-        <TouchableWithoutFeedback onPress={handleClose}>
-          <Animated.View style={[styles.backdrop, { opacity: backdropAnim }]} />
-        </TouchableWithoutFeedback>
+      <View style={{ flex: 1, backgroundColor: bgColor }}>
+        <StatusBar barStyle={theme === 'light' ? 'dark-content' : 'light-content'} />
 
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          style={[styles.keyboardView, { paddingBottom: bottomInset }]}
-          pointerEvents="box-none"
-        >
-          <Animated.View
-            style={[
-              styles.container,
-              { backgroundColor: glass.backgroundElevated, transform: [{ translateY: slideAnim }] },
-            ]}
-          >
-            <View style={[styles.header, { borderBottomColor: glass.border }]}>
-              <TouchableOpacity onPress={handleClose} style={styles.headerBtn}>
-                <Icon name="close" size={24} color={glass.text} />
-              </TouchableOpacity>
-
-              <View style={styles.headerCenter}>
-                <Text style={[styles.headerTitle, { color: glass.text }]}> 
-                  {isEditing ? 'Редактирование события' : 'Новое событие'}
-                </Text>
-                <Text style={[styles.headerSubtitle, { color: glass.textSecondary }]}> 
-                  Учебный планер
-                </Text>
-              </View>
-
-              <TouchableOpacity
-                onPress={handleSubmit}
-                style={[styles.saveBtn, { backgroundColor: colors.primary, opacity: saving ? 0.6 : 1 }]}
-                disabled={saving}
-              >
-                <Icon name={isEditing ? 'checkmark' : 'add'} size={20} color="#fff" />
-              </TouchableOpacity>
+        <View style={[styles.header, { borderBottomColor: borderColor }]}> 
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+            <View style={{
+              width: 36,
+              height: 36,
+              borderRadius: 18,
+              backgroundColor: colors.glass || colors.primary + '18',
+              justifyContent: 'center',
+              alignItems: 'center',
+            }}>
+              <Icon name="calendar-outline" size={18} color={colors.primary} />
             </View>
+            <View>
+              <Text style={{ fontSize: 17, fontFamily: 'Montserrat_700Bold', color: textColor }}>
+                {isEditing ? 'Редактирование события' : 'Новое событие'}
+              </Text>
+              <Text style={{ fontSize: 12, fontFamily: 'Montserrat_400Regular', color: placeholderColor }}>
+                Учебный планер
+              </Text>
+            </View>
+          </View>
 
-            <ScrollView style={styles.content} keyboardShouldPersistTaps="handled">
-              <View style={styles.section}>
-                <View style={styles.sectionHeader}>
-                  <View style={[styles.sectionIcon, { backgroundColor: colors.glass }]}> 
-                    <Icon name="calendar-outline" size={16} color={colors.primary} />
-                  </View>
-                  <Text style={[styles.sectionTitle, { color: glass.text }]}>Основное</Text>
-                </View>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            <TouchableOpacity
+              onPress={handleSubmit}
+              style={[styles.saveBtn, { backgroundColor: colors.primary, opacity: saving ? 0.6 : 1 }]}
+              disabled={saving}
+            >
+              <Icon name={isEditing ? 'checkmark' : 'add'} size={18} color="#fff" />
+            </TouchableOpacity>
 
-                <Text style={[styles.label, { color: glass.textSecondary }]}>Название</Text>
-                <TextInput
-                  value={title}
-                  onChangeText={markChanged(setTitle)}
-                  placeholder="Например, Экзамен по математике"
-                  placeholderTextColor={glass.textTertiary}
+            <TouchableOpacity onPress={handleClose} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+              <Icon name="close" size={22} color={placeholderColor} />
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        <ScrollView contentContainerStyle={{ padding: 20 }} keyboardShouldPersistTaps="handled">
+          <Text style={[styles.label, { color: placeholderColor, marginTop: 0 }]}>НАЗВАНИЕ</Text>
+          <TextInput
+            value={title}
+            onChangeText={markChanged(setTitle)}
+            placeholder="Например, Экзамен по математике"
+            placeholderTextColor={glass.textTertiary}
+            style={[
+              styles.input,
+              { color: textColor, borderColor, backgroundColor: glass.surfaceSecondary },
+            ]}
+          />
+
+          <NativeDateField
+            label="Дата"
+            value={date}
+            onChange={markChanged(setDate)}
+            theme={theme}
+            accentColor={accentColor}
+            placeholder="Выбрать дату события"
+          />
+
+          <Text style={[styles.label, { color: placeholderColor }]}>ТИП СОБЫТИЯ</Text>
+          <View style={styles.chipsRow}>
+            {ACADEMIC_EVENT_TYPES.map((eventType) => {
+              const active = type === eventType.key;
+              return (
+                <TouchableOpacity
+                  key={eventType.key}
+                  onPress={() => {
+                    setType(eventType.key);
+                    setHasChanges(true);
+                  }}
                   style={[
-                    styles.input,
-                    { color: glass.text, borderColor: glass.border, backgroundColor: glass.surfaceSecondary },
+                    styles.chip,
+                    {
+                      borderColor: active ? colors.primary : borderColor,
+                      backgroundColor: active ? colors.glass : glass.surfaceSecondary,
+                    },
                   ]}
-                />
+                >
+                  <Text style={{ color: active ? colors.primary : placeholderColor, fontSize: 12, fontFamily: 'Montserrat_500Medium' }}>
+                    {eventType.label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
 
-                <NativeDateField
-                  label="Дата"
-                  value={date}
-                  onChange={markChanged(setDate)}
-                  theme={theme}
-                  accentColor={accentColor}
-                  placeholder="Выбрать дату события"
-                />
+          <Text style={[styles.label, { color: placeholderColor }]}>ОПИСАНИЕ</Text>
+          <TextInput
+            value={description}
+            onChangeText={markChanged(setDescription)}
+            placeholder="Аудитория, время, комментарии"
+            placeholderTextColor={glass.textTertiary}
+            multiline
+            textAlignVertical="top"
+            style={[
+              styles.input,
+              styles.multilineInput,
+              { color: textColor, borderColor, backgroundColor: glass.surfaceSecondary },
+            ]}
+          />
 
-                <Text style={[styles.label, { color: glass.textSecondary }]}>Тип</Text>
-                <View style={styles.chipsRow}>
-                  {ACADEMIC_EVENT_TYPES.map((eventType) => {
-                    const active = type === eventType.key;
-                    return (
-                      <TouchableOpacity
-                        key={eventType.key}
-                        onPress={() => {
-                          setType(eventType.key);
-                          setHasChanges(true);
-                        }}
-                        style={[
-                          styles.chip,
-                          {
-                            borderColor: active ? colors.primary : glass.border,
-                            backgroundColor: active ? colors.glass : glass.surfaceSecondary,
-                          },
-                        ]}
-                      >
-                        <Text style={{ color: active ? colors.primary : glass.textSecondary, fontSize: 12, fontFamily: 'Montserrat_500Medium' }}>
-                          {eventType.label}
-                        </Text>
-                      </TouchableOpacity>
-                    );
-                  })}
-                </View>
-              </View>
-
-              <View style={styles.section}>
-                <View style={styles.sectionHeader}>
-                  <View style={[styles.sectionIcon, { backgroundColor: 'rgba(245, 158, 11, 0.14)' }]}> 
-                    <Icon name="document-text-outline" size={16} color="#f59e0b" />
-                  </View>
-                  <Text style={[styles.sectionTitle, { color: glass.text }]}>Описание и напоминание</Text>
-                </View>
-
-                <Text style={[styles.label, { color: glass.textSecondary }]}>Описание</Text>
-                <TextInput
-                  value={description}
-                  onChangeText={markChanged(setDescription)}
-                  placeholder="Аудитория, время, комментарии"
-                  placeholderTextColor={glass.textTertiary}
-                  multiline
-                  textAlignVertical="top"
-                  style={[
-                    styles.input,
-                    styles.multilineInput,
-                    { color: glass.text, borderColor: glass.border, backgroundColor: glass.surfaceSecondary },
-                  ]}
-                />
-
-                <View style={[styles.switchRow, { backgroundColor: glass.surfaceSecondary, borderColor: glass.border }]}> 
-                  <View style={{ flex: 1, marginRight: 12 }}>
-                    <Text style={{ color: glass.text, fontFamily: 'Montserrat_500Medium', fontSize: 13 }}>
-                      Локальное напоминание в 09:00
-                    </Text>
-                    <Text style={{ color: glass.textSecondary, fontFamily: 'Montserrat_400Regular', fontSize: 11, marginTop: 4 }}>
-                      Подходит для экзаменов, зачетов и важных учебных дат.
-                    </Text>
-                  </View>
-                  <Switch
-                    value={reminderEnabled}
-                    onValueChange={(value) => {
-                      setReminderEnabled(value);
-                      setHasChanges(true);
-                    }}
-                    trackColor={{ true: colors.primary, false: '#64748b' }}
-                  />
-                </View>
-              </View>
-            </ScrollView>
-          </Animated.View>
-        </KeyboardAvoidingView>
+          <View style={[styles.switchRow, { backgroundColor: glass.surfaceSecondary, borderColor }]}> 
+            <Text style={{ color: textColor, fontFamily: 'Montserrat_500Medium', fontSize: 13, flex: 1, marginRight: 12 }}>
+              Локальное напоминание в 09:00
+            </Text>
+            <Switch
+              value={reminderEnabled}
+              onValueChange={(value) => {
+                setReminderEnabled(value);
+                setHasChanges(true);
+              }}
+              trackColor={{ true: colors.primary, false: '#64748b' }}
+            />
+          </View>
+        </ScrollView>
       </View>
     </Modal>
   );
 };
 
 const styles = StyleSheet.create({
-  overlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    zIndex: 8,
-    justifyContent: 'flex-end',
-  },
-  backdrop: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.35)',
-  },
-  keyboardView: {
-    justifyContent: 'flex-end',
-  },
-  container: {
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    maxHeight: '86%',
-    minHeight: '58%',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 20,
-    elevation: 16,
-  },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingVertical: 14,
+    paddingTop: 20,
+    paddingBottom: 16,
     borderBottomWidth: StyleSheet.hairlineWidth,
-  },
-  headerBtn: {
-    padding: 4,
-  },
-  headerCenter: {
-    flex: 1,
-    marginHorizontal: 12,
-  },
-  headerTitle: {
-    fontSize: 16,
-    fontFamily: 'Montserrat_700Bold',
-  },
-  headerSubtitle: {
-    fontSize: 12,
-    fontFamily: 'Montserrat_400Regular',
-    marginTop: 2,
   },
   saveBtn: {
     width: 36,
@@ -365,30 +258,6 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  content: {
-    paddingHorizontal: 16,
-    paddingTop: 12,
-  },
-  section: {
-    marginBottom: 16,
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 10,
-  },
-  sectionIcon: {
-    width: 30,
-    height: 30,
-    borderRadius: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 10,
-  },
-  sectionTitle: {
-    fontSize: 15,
-    fontFamily: 'Montserrat_600SemiBold',
   },
   label: {
     fontSize: 12,
@@ -404,12 +273,13 @@ const styles = StyleSheet.create({
     fontFamily: 'Montserrat_400Regular',
   },
   multilineInput: {
-    minHeight: 88,
+    minHeight: 96,
   },
   chipsRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 6,
+    marginBottom: 8,
   },
   chip: {
     borderWidth: StyleSheet.hairlineWidth,
