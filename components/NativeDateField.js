@@ -4,6 +4,8 @@ import DateTimePicker, { DateTimePickerAndroid } from '@react-native-community/d
 import { Ionicons as Icon } from '@expo/vector-icons';
 import { LIQUID_GLASS, ACCENT_COLORS } from '../utils/constants';
 
+const PICKER_LOCALE = 'ru-RU';
+
 const formatISODate = (date) => {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, '0');
@@ -59,6 +61,7 @@ const NativeDateField = ({ label, value, onChange, theme, accentColor, placehold
       DateTimePickerAndroid.open({
         value: selectedDate,
         mode: 'date',
+        display: 'calendar',
         is24Hour: true,
         onChange: (event, pickedDate) => {
           if (event.type === 'set' && pickedDate) {
@@ -125,10 +128,33 @@ const NativeDateField = ({ label, value, onChange, theme, accentColor, placehold
             backgroundColor: glass.surfaceSecondary,
           }}
         >
+          <View
+            style={{
+              paddingHorizontal: 12,
+              paddingVertical: 10,
+              borderBottomWidth: StyleSheet.hairlineWidth,
+              borderBottomColor: glass.border,
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+            }}
+          >
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              <Icon name="calendar-clear-outline" size={15} color={colors.primary} />
+              <Text style={{ color: glass.text, fontSize: 12, fontFamily: 'Montserrat_600SemiBold' }}>
+                Выбор даты
+              </Text>
+            </View>
+            <Text style={{ color: glass.textSecondary, fontSize: 11, fontFamily: 'Montserrat_500Medium' }}>
+              {formatDisplayDate(selectedDate)}
+            </Text>
+          </View>
+
           <DateTimePicker
             value={selectedDate}
             mode="date"
             display="inline"
+            locale={PICKER_LOCALE}
             onChange={(_, pickedDate) => {
               if (pickedDate) {
                 onChange(formatISODate(pickedDate));
@@ -136,22 +162,50 @@ const NativeDateField = ({ label, value, onChange, theme, accentColor, placehold
             }}
             accentColor={colors.primary}
           />
-          <TouchableOpacity
-            onPress={() => {
-              Keyboard.dismiss();
-              setShowIOSPicker(false);
-            }}
+
+          <View
             style={{
-              paddingVertical: 10,
+              flexDirection: 'row',
               alignItems: 'center',
+              justifyContent: 'space-between',
               borderTopWidth: StyleSheet.hairlineWidth,
               borderTopColor: glass.border,
+              paddingHorizontal: 8,
+              paddingVertical: 6,
             }}
           >
-            <Text style={{ color: colors.primary, fontSize: 13, fontFamily: 'Montserrat_600SemiBold' }}>
-              Готово
-            </Text>
-          </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => onChange(formatISODate(new Date()))}
+              style={styles.actionBtn}
+            >
+              <Text style={{ color: colors.primary, fontSize: 12, fontFamily: 'Montserrat_600SemiBold' }}>
+                Сегодня
+              </Text>
+            </TouchableOpacity>
+
+            {clearable && value ? (
+              <TouchableOpacity
+                onPress={() => onChange('')}
+                style={styles.actionBtn}
+              >
+                <Text style={{ color: '#ef4444', fontSize: 12, fontFamily: 'Montserrat_600SemiBold' }}>
+                  Очистить
+                </Text>
+              </TouchableOpacity>
+            ) : <View />}
+
+            <TouchableOpacity
+              onPress={() => {
+                Keyboard.dismiss();
+                setShowIOSPicker(false);
+              }}
+              style={styles.actionBtn}
+            >
+              <Text style={{ color: colors.primary, fontSize: 12, fontFamily: 'Montserrat_700Bold' }}>
+                Готово
+              </Text>
+            </TouchableOpacity>
+          </View>
         </View>
       ) : null}
     </View>
@@ -167,6 +221,13 @@ const styles = StyleSheet.create({
     paddingVertical: 11,
     flexDirection: 'row',
     alignItems: 'center',
+  },
+  actionBtn: {
+    minHeight: 34,
+    paddingHorizontal: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 10,
   },
 });
 
