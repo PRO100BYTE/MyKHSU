@@ -98,11 +98,12 @@ const NewsScreen = ({ theme, accentColor, isNewYearMode, onCacheStatusChange }) 
   };
 
   const extractNewsList = (payload) => {
+    if (payload == null) return [];
     if (Array.isArray(payload)) return payload;
     if (Array.isArray(payload?.news)) return payload.news;
     if (Array.isArray(payload?.items)) return payload.items;
     if (Array.isArray(payload?.data)) return payload.data;
-    return null;
+    return [];
   };
 
   // Создание уникального ID для новости
@@ -172,10 +173,6 @@ const NewsScreen = ({ theme, accentColor, isNewYearMode, onCacheStatusChange }) 
     try {
       const result = await ApiService.getNews(currentFrom, 10);
       const newsList = extractNewsList(result.data);
-      
-      if (!newsList) {
-        throw new Error('INVALID_RESPONSE');
-      }
       
       // Фильтрация пустого контента и дубликатов
       const filteredData = filterAndProcessNews(newsList);
@@ -366,6 +363,29 @@ return (
               </View>
             );
           }
+
+            if (!loading && filteredNews.length === 0 && !searchQuery.trim()) {
+              return (
+                <View style={{
+                  backgroundColor: glass.surfaceSecondary,
+                  borderRadius: 16,
+                  borderWidth: StyleSheet.hairlineWidth,
+                  borderColor,
+                  paddingVertical: 22,
+                  paddingHorizontal: 16,
+                  alignItems: 'center',
+                  marginTop: 8,
+                }}>
+                  <Icon name="newspaper-outline" size={34} color={placeholderColor} style={{ marginBottom: 10 }} />
+                  <Text style={{ color: textColor, fontFamily: 'Montserrat_600SemiBold', fontSize: 14, textAlign: 'center' }}>
+                    Пока что новостей нет
+                  </Text>
+                  <Text style={{ color: placeholderColor, fontFamily: 'Montserrat_400Regular', fontSize: 13, marginTop: 6, textAlign: 'center' }}>
+                    Попробуйте заглянуть позже :)
+                  </Text>
+                </View>
+              );
+            }
 
           return filteredNews.map((item) => (
           <View 

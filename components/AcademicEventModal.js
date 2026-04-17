@@ -21,6 +21,7 @@ import NativeDateField from './NativeDateField';
 
 const SCREEN_HEIGHT = Dimensions.get('window').height;
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+const TABBAR_SAFE_OFFSET = 92;
 
 const buildInitialState = (event) => ({
   id: event?.id || null,
@@ -310,12 +311,13 @@ const styles = StyleSheet.create({
   },
   keyboardView: {
     justifyContent: 'flex-end',
+    paddingBottom: TABBAR_SAFE_OFFSET,
   },
   container: {
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
-    maxHeight: '92%',
-    minHeight: '62%',
+    maxHeight: '86%',
+    minHeight: '58%',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: -4 },
     shadowOpacity: 0.15,

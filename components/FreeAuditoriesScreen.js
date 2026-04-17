@@ -17,6 +17,40 @@ import ApiService from '../utils/api';
 
 const WEEKDAY_SHORT = ['', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
 
+const getMondayForCurrentWeek = () => {
+  const today = new Date();
+  const day = today.getDay() || 7;
+  const monday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  monday.setDate(monday.getDate() - (day - 1));
+  return monday;
+};
+
+const getDateByRelativeWeek = (targetWeek, baseWeek, dayOfWeek) => {
+  const safeBaseWeek = Number(baseWeek) || Number(targetWeek) || 1;
+  const safeTargetWeek = Number(targetWeek) || safeBaseWeek;
+  const weekDiff = safeTargetWeek - safeBaseWeek;
+  const baseMonday = getMondayForCurrentWeek();
+  const targetDate = new Date(baseMonday);
+  targetDate.setDate(baseMonday.getDate() + weekDiff * 7 + (dayOfWeek - 1));
+  return targetDate;
+};
+
+const formatHintDate = (date) => {
+  const day = String(date.getDate()).padStart(2, '0');
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  return `${day}.${month}`;
+};
+
+const buildWeekOptions = (current, fromApi) => {
+  if (Array.isArray(fromApi) && fromApi.length > 0) {
+    return [...new Set(fromApi.map((w) => Number(w)).filter((w) => Number.isFinite(w) && w > 0))].sort((a, b) => a - b);
+  }
+
+  const base = Number(current) || 1;
+  const left = Math.max(1, base - 2);
+  return [left, left + 1, left + 2, left + 3, left + 4];
+};
+
 const FreeAuditoriesScreen = ({ visible, onClose, theme, accentColor, currentWeek, pairsTime }) => {
   const glass = LIQUID_GLASS[theme] || LIQUID_GLASS.light;
   const colors = ACCENT_COLORS[accentColor] || ACCENT_COLORS.green;
@@ -35,6 +69,7 @@ const FreeAuditoriesScreen = ({ visible, onClose, theme, accentColor, currentWee
   const [results, setResults] = useState(null); // null = не запускали
   const [localPairsTime, setLocalPairsTime] = useState([]);
   const [weekNum, setWeekNum] = useState(currentWeek || 1);
+  const [weekOptions, setWeekOptions] = useState(buildWeekOptions(currentWeek || 1));
   const searchRef = useRef(null);
 
   const effectivePairsTime = pairsTime && pairsTime.length > 0 ? pairsTime : localPairsTime;
@@ -68,13 +103,20 @@ const FreeAuditoriesScreen = ({ visible, onClose, theme, accentColor, currentWee
         if (r?.data?.pairs_time) setLocalPairsTime(r.data.pairs_time);
       }).catch(() => {});
     }
-    if (!currentWeek) {
-      ApiService.getWeekNumbers().then(r => {
-        if (r?.data?.current_week_number) setWeekNum(r.data.current_week_number);
-      }).catch(() => {});
-    } else {
+    if (currentWeek) {
       setWeekNum(currentWeek);
+      setWeekOptions(buildWeekOptions(currentWeek));
     }
+
+    ApiService.getWeekNumbers().then(r => {
+      const fromApiCurrent = r?.data?.current_week_number;
+      if (!currentWeek && fromApiCurrent) {
+        setWeekNum(fromApiCurrent);
+      }
+      setWeekOptions(buildWeekOptions(currentWeek || fromApiCurrent || weekNum, r?.data?.week_numbers));
+    }).catch(() => {
+      setWeekOptions(buildWeekOptions(currentWeek || weekNum));
+    });
   }, [visible]);
 
   // Устанавливаем текущую пару при загрузке времён
@@ -197,12 +239,46 @@ const FreeAuditoriesScreen = ({ visible, onClose, theme, accentColor, currentWee
           contentContainerStyle={{ padding: 20 }}
           keyboardShouldPersistTaps="handled"
         >
+          {/* Выбор недели */}
+          <Text style={{ fontSize: 13, fontFamily: 'Montserrat_600SemiBold', color: placeholderColor, marginBottom: 8 }}>
+            НЕДЕЛЯ
+          </Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 16 }} contentContainerStyle={{ gap: 8 }}>
+            {weekOptions.map((w) => (
+              <TouchableOpacity
+                key={`week_${w}`}
+                onPress={() => setWeekNum(w)}
+                style={{
+                  paddingVertical: 8,
+                  paddingHorizontal: 12,
+                  borderRadius: 14,
+                  backgroundColor: weekNum === w ? colors.primary : glass.surfaceSecondary,
+                  borderWidth: weekNum === w ? 1.5 : StyleSheet.hairlineWidth,
+                  borderColor: weekNum === w ? colors.primary : glass.border,
+                }}
+              >
+                <Text
+                  style={{
+                    fontSize: 13,
+                    fontFamily: 'Montserrat_600SemiBold',
+                    color: weekNum === w ? '#fff' : textColor,
+                  }}
+                >
+                  {w}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+
           {/* Выбор дня */}
           <Text style={{ fontSize: 13, fontFamily: 'Montserrat_600SemiBold', color: placeholderColor, marginBottom: 8 }}>
             ДЕНЬ НЕДЕЛИ
           </Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 16 }} contentContainerStyle={{ gap: 8 }}>
             {[1, 2, 3, 4, 5, 6].map(d => (
+              (() => {
+                const dayDate = getDateByRelativeWeek(weekNum, currentWeek || weekNum, d);
+                return (
               <TouchableOpacity
                 key={d}
                 onPress={() => setSelectedDay(d)}
@@ -222,7 +298,17 @@ const FreeAuditoriesScreen = ({ visible, onClose, theme, accentColor, currentWee
                 }}>
                   {WEEKDAY_SHORT[d]}
                 </Text>
+                <Text style={{
+                  fontSize: 10,
+                  fontFamily: 'Montserrat_500Medium',
+                  color: selectedDay === d ? 'rgba(255,255,255,0.85)' : placeholderColor,
+                  marginTop: 2,
+                }}>
+                  {formatHintDate(dayDate)}
+                </Text>
               </TouchableOpacity>
+                );
+              })()
             ))}
           </ScrollView>
 

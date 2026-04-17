@@ -174,7 +174,7 @@ const AcademicCalendarScreen = ({ theme, accentColor }) => {
 
   return (
     <View style={{ flex: 1 }}>
-      <ScrollView style={{ flex: 1, padding: 16 }} contentContainerStyle={{ paddingBottom: 112 }}>
+      <ScrollView style={{ flex: 1, padding: 16 }} contentContainerStyle={{ paddingBottom: 32 }}>
       <Text style={[styles.title, { color: glass.text }]}>Календарь учебных событий</Text>
 
       <View style={[styles.heroCard, { backgroundColor: colors.glass, borderColor: colors.glassBorder || glass.border }]}>
@@ -192,12 +192,17 @@ const AcademicCalendarScreen = ({ theme, accentColor }) => {
       </View>
 
       <View style={[styles.card, { marginTop: 14, backgroundColor: glass.surfaceSecondary, borderColor: glass.border }]}>
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+        <View style={styles.filtersHeaderRow}>
           <Text style={[styles.label, { color: glass.textSecondary, marginTop: 0 }]}>Фильтры</Text>
-          <TouchableOpacity onPress={handleExport} style={[styles.exportBtn, { borderColor: glass.border, backgroundColor: colors.glass }]}>
-            <Icon name="share-outline" size={15} color={colors.primary} />
-            <Text style={{ color: colors.primary, fontSize: 12, fontFamily: 'Montserrat_600SemiBold' }}>Экспорт</Text>
-          </TouchableOpacity>
+          <View style={styles.topActions}>
+            <TouchableOpacity onPress={openCreateModal} style={[styles.iconHeaderBtn, { borderColor: glass.border, backgroundColor: colors.glass }]}>
+              <Icon name="add" size={17} color={colors.primary} />
+            </TouchableOpacity>
+            <TouchableOpacity onPress={handleExport} style={[styles.exportBtn, { borderColor: glass.border, backgroundColor: colors.glass }]}>
+              <Icon name="share-outline" size={15} color={colors.primary} />
+              <Text style={{ color: colors.primary, fontSize: 12, fontFamily: 'Montserrat_600SemiBold' }}>Экспорт</Text>
+            </TouchableOpacity>
+          </View>
         </View>
         <View style={styles.chipsRow}>
           {[{ key: 'all', label: 'Все' }, ...ACADEMIC_EVENT_TYPES].map((item) => {
@@ -222,6 +227,8 @@ const AcademicCalendarScreen = ({ theme, accentColor }) => {
           })}
         </View>
 
+        <View style={styles.eventsSection}>
+
         {visibleEvents.length === 0 && (
           <View style={[styles.emptyState, { borderColor: glass.border, backgroundColor: glass.surfaceTertiary }]}>
             <View style={[styles.emptyIconWrap, { backgroundColor: colors.glass }]}>
@@ -231,7 +238,7 @@ const AcademicCalendarScreen = ({ theme, accentColor }) => {
               События не найдены
             </Text>
             <Text style={{ color: glass.textSecondary, marginTop: 6, fontFamily: 'Montserrat_400Regular', textAlign: 'center', lineHeight: 18 }}>
-              Попробуйте другой фильтр или нажмите на кнопку +, чтобы добавить первое учебное событие.
+              Попробуйте другой фильтр или нажмите на кнопку + в блоке фильтров.
             </Text>
           </View>
         )}
@@ -290,17 +297,11 @@ const AcademicCalendarScreen = ({ theme, accentColor }) => {
             </View>
           </View>
         ))}
+
+        </View>
       </View>
 
       </ScrollView>
-
-      <TouchableOpacity
-        onPress={openCreateModal}
-        style={[styles.fab, { backgroundColor: colors.primary, shadowColor: colors.primary }]}
-        activeOpacity={0.9}
-      >
-        <Icon name="add" size={28} color="#fff" />
-      </TouchableOpacity>
 
       <AcademicEventModal
         visible={isModalVisible}
@@ -351,6 +352,18 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 6,
+    marginTop: 6,
+    marginBottom: 12,
+  },
+  filtersHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 6,
+  },
+  eventsSection: {
+    marginTop: 6,
   },
   chip: {
     borderWidth: StyleSheet.hairlineWidth,
@@ -375,6 +388,19 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
+  },
+  topActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  iconHeaderBtn: {
+    width: 33,
+    height: 33,
+    borderRadius: 16,
+    borderWidth: StyleSheet.hairlineWidth,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   dateBadge: {
     width: 62,
@@ -424,20 +450,6 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  fab: {
-    position: 'absolute',
-    right: 20,
-    bottom: 24,
-    width: 58,
-    height: 58,
-    borderRadius: 29,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.28,
-    shadowRadius: 16,
-    elevation: 8,
   },
 });
 
