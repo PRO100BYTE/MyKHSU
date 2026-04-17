@@ -1,11 +1,11 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Alert, ScrollView, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import * as Notifications from 'expo-notifications';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import { LIQUID_GLASS, ACCENT_COLORS } from '../utils/constants';
 import { exportAcademicEventsToCalendar } from '../utils/calendarExport';
 import notificationService from '../utils/notificationService';
-import NativeDateField from './NativeDateField';
+import AcademicEventModal from './AcademicEventModal';
 import {
   ACADEMIC_EVENT_TYPES,
   addAcademicEvent,
@@ -25,11 +25,8 @@ const formatDisplayDate = (value) => {
 const AcademicCalendarScreen = ({ theme, accentColor }) => {
   const [events, setEvents] = useState([]);
   const [filter, setFilter] = useState('all');
-  const [title, setTitle] = useState('');
-  const [date, setDate] = useState('');
-  const [type, setType] = useState('exam');
-  const [description, setDescription] = useState('');
-  const [reminderEnabled, setReminderEnabled] = useState(false);
+  const [isModalVisible, setIsModalVisible] = useState(false);
+  const [editingEvent, setEditingEvent] = useState(null);
 
   const glass = LIQUID_GLASS[theme] || LIQUID_GLASS.light;
   const colors = ACCENT_COLORS[accentColor] || ACCENT_COLORS.green;
@@ -74,43 +71,66 @@ const AcademicCalendarScreen = ({ theme, accentColor }) => {
     });
   };
 
-  const handleAddEvent = async () => {
-    const trimmedTitle = title.trim();
-    const trimmedDate = date.trim();
+  const openCreateModal = () => {
+    setEditingEvent(null);
+    setIsModalVisible(true);
+  };
+
+  const openEditModal = (event) => {
+    setEditingEvent(event);
+    setIsModalVisible(true);
+  };
+
+  const closeModal = () => {
+    setIsModalVisible(false);
+    setEditingEvent(null);
+  };
+
+  const handleSaveEvent = async (draft) => {
+    const trimmedTitle = draft.title.trim();
+    const trimmedDate = draft.date.trim();
 
     if (!trimmedTitle) {
-      Alert.alert('Пустой заголовок', 'Введите название учебного события.');
-      return;
+      throw new Error('Введите название учебного события.');
     }
 
     if (!DATE_RE.test(trimmedDate)) {
-      Alert.alert('Некорректная дата', 'Используйте формат ГГГГ-ММ-ДД.');
-      return;
+      throw new Error('Выберите дату учебного события через календарь.');
     }
 
-    const baseEvent = {
+    const eventId = draft.id || `academic_${Date.now()}_${Math.random().toString(16).slice(2, 8)}`;
+    const previousEvent = draft.id ? events.find((item) => item.id === draft.id) : null;
+    const normalizedEvent = {
+      id: eventId,
       title: trimmedTitle,
       date: trimmedDate,
-      type,
-      description,
-      reminderEnabled,
+      type: draft.type,
+      description: draft.description.trim(),
+      reminderEnabled: !!draft.reminderEnabled,
+      notificationId: null,
     };
 
-    const saved = await addAcademicEvent(baseEvent);
-    const created = saved.find((item) => item.title === trimmedTitle && item.date === trimmedDate && item.type === type);
-
-    if (created) {
-      const notificationId = await scheduleReminderIfNeeded(created);
-      if (notificationId) {
-        await updateAcademicEvent(created.id, { notificationId });
+    try {
+      if (previousEvent?.notificationId) {
+        try {
+          await Notifications.cancelScheduledNotificationAsync(previousEvent.notificationId);
+        } catch {}
       }
-    }
 
-    setTitle('');
-    setDate('');
-    setDescription('');
-    setReminderEnabled(false);
-    await loadEvents();
+      if (normalizedEvent.reminderEnabled) {
+        normalizedEvent.notificationId = await scheduleReminderIfNeeded(normalizedEvent);
+      }
+
+      if (draft.id) {
+        await updateAcademicEvent(draft.id, normalizedEvent);
+      } else {
+        await addAcademicEvent(normalizedEvent);
+      }
+
+      await loadEvents();
+    } catch (error) {
+      throw new Error(error?.message || 'Не удалось сохранить учебное событие.');
+    }
   };
 
   const handleExport = async () => {
@@ -153,7 +173,8 @@ const AcademicCalendarScreen = ({ theme, accentColor }) => {
   };
 
   return (
-    <ScrollView style={{ flex: 1, padding: 16 }} contentContainerStyle={{ paddingBottom: 64 }}>
+    <View style={{ flex: 1 }}>
+      <ScrollView style={{ flex: 1, padding: 16 }} contentContainerStyle={{ paddingBottom: 112 }}>
       <Text style={[styles.title, { color: glass.text }]}>Календарь учебных событий</Text>
 
       <View style={[styles.heroCard, { backgroundColor: colors.glass, borderColor: colors.glassBorder || glass.border }]}>
@@ -168,70 +189,6 @@ const AcademicCalendarScreen = ({ theme, accentColor }) => {
             Всего событий: {events.length}. Ближайших и актуальных: {upcomingCount}. Добавляйте экзамены, зачеты и практику в одном месте.
           </Text>
         </View>
-      </View>
-
-      <View style={[styles.card, { backgroundColor: glass.surfaceSecondary, borderColor: glass.border }]}>
-        <Text style={[styles.label, { color: glass.textSecondary }]}>Название</Text>
-        <TextInput
-          value={title}
-          onChangeText={setTitle}
-          placeholder="Например, Экзамен по математике"
-          placeholderTextColor={glass.textTertiary}
-          style={[styles.input, { color: glass.text, borderColor: glass.border, backgroundColor: glass.surfaceTertiary }]}
-        />
-
-        <NativeDateField
-          label="Дата"
-          value={date}
-          onChange={setDate}
-          theme={theme}
-          accentColor={accentColor}
-          placeholder="Выбрать дату события"
-        />
-
-        <Text style={[styles.label, { color: glass.textSecondary }]}>Тип</Text>
-        <View style={styles.chipsRow}>
-          {ACADEMIC_EVENT_TYPES.map((eventType) => {
-            const active = type === eventType.key;
-            return (
-              <TouchableOpacity
-                key={eventType.key}
-                onPress={() => setType(eventType.key)}
-                style={[
-                  styles.chip,
-                  {
-                    borderColor: active ? colors.primary : glass.border,
-                    backgroundColor: active ? colors.glass : glass.surfaceTertiary,
-                  },
-                ]}
-              >
-                <Text style={{ color: active ? colors.primary : glass.textSecondary, fontSize: 12, fontFamily: 'Montserrat_500Medium' }}>
-                  {eventType.label}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
-
-        <Text style={[styles.label, { color: glass.textSecondary }]}>Описание (опционально)</Text>
-        <TextInput
-          value={description}
-          onChangeText={setDescription}
-          placeholder="Аудитория, время, комментарии"
-          placeholderTextColor={glass.textTertiary}
-          multiline
-          style={[styles.input, { minHeight: 70, color: glass.text, borderColor: glass.border, backgroundColor: glass.surfaceTertiary }]}
-        />
-
-        <View style={styles.switchRow}>
-          <Text style={{ color: glass.text, fontFamily: 'Montserrat_500Medium' }}>Локальное напоминание в 09:00</Text>
-          <Switch value={reminderEnabled} onValueChange={setReminderEnabled} trackColor={{ true: colors.primary, false: '#64748b' }} />
-        </View>
-
-        <TouchableOpacity onPress={handleAddEvent} style={[styles.addBtn, { backgroundColor: colors.primary }]}> 
-          <Icon name="add" size={18} color="#fff" />
-          <Text style={styles.addBtnText}>Добавить событие</Text>
-        </TouchableOpacity>
       </View>
 
       <View style={[styles.card, { marginTop: 14, backgroundColor: glass.surfaceSecondary, borderColor: glass.border }]}>
@@ -274,7 +231,7 @@ const AcademicCalendarScreen = ({ theme, accentColor }) => {
               События не найдены
             </Text>
             <Text style={{ color: glass.textSecondary, marginTop: 6, fontFamily: 'Montserrat_400Regular', textAlign: 'center', lineHeight: 18 }}>
-              Попробуйте другой фильтр или добавьте первое учебное событие.
+              Попробуйте другой фильтр или нажмите на кнопку +, чтобы добавить первое учебное событие.
             </Text>
           </View>
         )}
@@ -311,9 +268,14 @@ const AcademicCalendarScreen = ({ theme, accentColor }) => {
                     ) : null}
                   </View>
                 </View>
-                <TouchableOpacity onPress={() => handleDelete(event)} style={styles.deleteBtn}>
-                  <Icon name="trash-outline" size={18} color="#ef4444" />
-                </TouchableOpacity>
+                <View style={styles.actionButtons}>
+                  <TouchableOpacity onPress={() => openEditModal(event)} style={styles.iconActionBtn}>
+                    <Icon name="create-outline" size={18} color={colors.primary} />
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={() => handleDelete(event)} style={styles.iconActionBtn}>
+                    <Icon name="trash-outline" size={18} color="#ef4444" />
+                  </TouchableOpacity>
+                </View>
               </View>
 
               <Text style={{ color: colors.primary, fontFamily: 'Montserrat_600SemiBold', fontSize: 12, marginTop: 6 }}>
@@ -329,7 +291,26 @@ const AcademicCalendarScreen = ({ theme, accentColor }) => {
           </View>
         ))}
       </View>
-    </ScrollView>
+
+      </ScrollView>
+
+      <TouchableOpacity
+        onPress={openCreateModal}
+        style={[styles.fab, { backgroundColor: colors.primary, shadowColor: colors.primary }]}
+        activeOpacity={0.9}
+      >
+        <Icon name="add" size={28} color="#fff" />
+      </TouchableOpacity>
+
+      <AcademicEventModal
+        visible={isModalVisible}
+        onClose={closeModal}
+        onSubmit={handleSaveEvent}
+        event={editingEvent}
+        theme={theme}
+        accentColor={accentColor}
+      />
+    </View>
   );
 };
 
@@ -366,13 +347,6 @@ const styles = StyleSheet.create({
     marginBottom: 6,
     marginTop: 8,
   },
-  input: {
-    borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: 10,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-    fontFamily: 'Montserrat_400Regular',
-  },
   chipsRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -383,26 +357,6 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     paddingHorizontal: 10,
     paddingVertical: 6,
-  },
-  switchRow: {
-    marginTop: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  addBtn: {
-    marginTop: 12,
-    borderRadius: 10,
-    paddingVertical: 10,
-    justifyContent: 'center',
-    alignItems: 'center',
-    flexDirection: 'row',
-    gap: 8,
-  },
-  addBtnText: {
-    color: '#fff',
-    fontSize: 13,
-    fontFamily: 'Montserrat_600SemiBold',
   },
   eventRow: {
     marginTop: 8,
@@ -446,7 +400,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 5,
   },
-  deleteBtn: {
+  actionButtons: {
+    flexDirection: 'row',
+    gap: 4,
+  },
+  iconActionBtn: {
     width: 30,
     height: 30,
     borderRadius: 15,
@@ -466,6 +424,20 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  fab: {
+    position: 'absolute',
+    right: 20,
+    bottom: 24,
+    width: 58,
+    height: 58,
+    borderRadius: 29,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.28,
+    shadowRadius: 16,
+    elevation: 8,
   },
 });
 
