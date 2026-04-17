@@ -4,6 +4,7 @@ import {
   Animated,
   Dimensions,
   KeyboardAvoidingView,
+  Modal,
   Platform,
   ScrollView,
   StyleSheet,
@@ -15,13 +16,13 @@ import {
   View,
 } from 'react-native';
 import { Ionicons as Icon } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ACCENT_COLORS, LIQUID_GLASS } from '../utils/constants';
 import { ACADEMIC_EVENT_TYPES } from '../utils/academicEventsStorage';
 import NativeDateField from './NativeDateField';
 
 const SCREEN_HEIGHT = Dimensions.get('window').height;
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
-const TABBAR_SAFE_OFFSET = 92;
 
 const buildInitialState = (event) => ({
   id: event?.id || null,
@@ -44,11 +45,14 @@ const AcademicEventModal = ({ visible, onClose, onSubmit, event, theme, accentCo
 
   const backdropAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
+  const insets = useSafeAreaInsets();
 
   const glass = LIQUID_GLASS[theme] || LIQUID_GLASS.light;
   const colors = ACCENT_COLORS[accentColor] || ACCENT_COLORS.green;
   const initialState = useMemo(() => buildInitialState(event), [event]);
   const isEditing = !!event?.id;
+  const modalVisible = visible || rendered;
+  const bottomInset = Math.max(insets.bottom, Platform.OS === 'android' ? 12 : 8);
 
   useEffect(() => {
     if (visible) {
@@ -146,152 +150,161 @@ const AcademicEventModal = ({ visible, onClose, onSubmit, event, theme, accentCo
     );
   };
 
-  if (!visible && !rendered) return null;
+  if (!modalVisible) return null;
 
   return (
-    <View style={styles.overlay} pointerEvents="box-none">
-      <TouchableWithoutFeedback onPress={handleClose}>
-        <Animated.View style={[styles.backdrop, { opacity: backdropAnim }]} />
-      </TouchableWithoutFeedback>
+    <Modal
+      visible={modalVisible}
+      transparent
+      animationType="none"
+      statusBarTranslucent
+      presentationStyle="overFullScreen"
+      onRequestClose={handleClose}
+    >
+      <View style={styles.overlay} pointerEvents="box-none">
+        <TouchableWithoutFeedback onPress={handleClose}>
+          <Animated.View style={[styles.backdrop, { opacity: backdropAnim }]} />
+        </TouchableWithoutFeedback>
 
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={styles.keyboardView}
-        pointerEvents="box-none"
-      >
-        <Animated.View
-          style={[
-            styles.container,
-            { backgroundColor: glass.backgroundElevated, transform: [{ translateY: slideAnim }] },
-          ]}
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={[styles.keyboardView, { paddingBottom: bottomInset }]}
+          pointerEvents="box-none"
         >
-          <View style={[styles.header, { borderBottomColor: glass.border }]}>
-            <TouchableOpacity onPress={handleClose} style={styles.headerBtn}>
-              <Icon name="close" size={24} color={glass.text} />
-            </TouchableOpacity>
+          <Animated.View
+            style={[
+              styles.container,
+              { backgroundColor: glass.backgroundElevated, transform: [{ translateY: slideAnim }] },
+            ]}
+          >
+            <View style={[styles.header, { borderBottomColor: glass.border }]}>
+              <TouchableOpacity onPress={handleClose} style={styles.headerBtn}>
+                <Icon name="close" size={24} color={glass.text} />
+              </TouchableOpacity>
 
-            <View style={styles.headerCenter}>
-              <Text style={[styles.headerTitle, { color: glass.text }]}>
-                {isEditing ? 'Редактирование события' : 'Новое событие'}
-              </Text>
-              <Text style={[styles.headerSubtitle, { color: glass.textSecondary }]}>
-                Учебный планер
-              </Text>
+              <View style={styles.headerCenter}>
+                <Text style={[styles.headerTitle, { color: glass.text }]}> 
+                  {isEditing ? 'Редактирование события' : 'Новое событие'}
+                </Text>
+                <Text style={[styles.headerSubtitle, { color: glass.textSecondary }]}> 
+                  Учебный планер
+                </Text>
+              </View>
+
+              <TouchableOpacity
+                onPress={handleSubmit}
+                style={[styles.saveBtn, { backgroundColor: colors.primary, opacity: saving ? 0.6 : 1 }]}
+                disabled={saving}
+              >
+                <Icon name={isEditing ? 'checkmark' : 'add'} size={20} color="#fff" />
+              </TouchableOpacity>
             </View>
 
-            <TouchableOpacity
-              onPress={handleSubmit}
-              style={[styles.saveBtn, { backgroundColor: colors.primary, opacity: saving ? 0.6 : 1 }]}
-              disabled={saving}
-            >
-              <Icon name={isEditing ? 'checkmark' : 'add'} size={20} color="#fff" />
-            </TouchableOpacity>
-          </View>
-
-          <ScrollView style={styles.content} keyboardShouldPersistTaps="handled">
-            <View style={styles.section}>
-              <View style={styles.sectionHeader}>
-                <View style={[styles.sectionIcon, { backgroundColor: colors.glass }]}>
-                  <Icon name="calendar-outline" size={16} color={colors.primary} />
+            <ScrollView style={styles.content} keyboardShouldPersistTaps="handled">
+              <View style={styles.section}>
+                <View style={styles.sectionHeader}>
+                  <View style={[styles.sectionIcon, { backgroundColor: colors.glass }]}> 
+                    <Icon name="calendar-outline" size={16} color={colors.primary} />
+                  </View>
+                  <Text style={[styles.sectionTitle, { color: glass.text }]}>Основное</Text>
                 </View>
-                <Text style={[styles.sectionTitle, { color: glass.text }]}>Основное</Text>
-              </View>
 
-              <Text style={[styles.label, { color: glass.textSecondary }]}>Название</Text>
-              <TextInput
-                value={title}
-                onChangeText={markChanged(setTitle)}
-                placeholder="Например, Экзамен по математике"
-                placeholderTextColor={glass.textTertiary}
-                style={[
-                  styles.input,
-                  { color: glass.text, borderColor: glass.border, backgroundColor: glass.surfaceSecondary },
-                ]}
-              />
-
-              <NativeDateField
-                label="Дата"
-                value={date}
-                onChange={markChanged(setDate)}
-                theme={theme}
-                accentColor={accentColor}
-                placeholder="Выбрать дату события"
-              />
-
-              <Text style={[styles.label, { color: glass.textSecondary }]}>Тип</Text>
-              <View style={styles.chipsRow}>
-                {ACADEMIC_EVENT_TYPES.map((eventType) => {
-                  const active = type === eventType.key;
-                  return (
-                    <TouchableOpacity
-                      key={eventType.key}
-                      onPress={() => {
-                        setType(eventType.key);
-                        setHasChanges(true);
-                      }}
-                      style={[
-                        styles.chip,
-                        {
-                          borderColor: active ? colors.primary : glass.border,
-                          backgroundColor: active ? colors.glass : glass.surfaceSecondary,
-                        },
-                      ]}
-                    >
-                      <Text style={{ color: active ? colors.primary : glass.textSecondary, fontSize: 12, fontFamily: 'Montserrat_500Medium' }}>
-                        {eventType.label}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
-            </View>
-
-            <View style={styles.section}>
-              <View style={styles.sectionHeader}>
-                <View style={[styles.sectionIcon, { backgroundColor: 'rgba(245, 158, 11, 0.14)' }]}>
-                  <Icon name="document-text-outline" size={16} color="#f59e0b" />
-                </View>
-                <Text style={[styles.sectionTitle, { color: glass.text }]}>Описание и напоминание</Text>
-              </View>
-
-              <Text style={[styles.label, { color: glass.textSecondary }]}>Описание</Text>
-              <TextInput
-                value={description}
-                onChangeText={markChanged(setDescription)}
-                placeholder="Аудитория, время, комментарии"
-                placeholderTextColor={glass.textTertiary}
-                multiline
-                textAlignVertical="top"
-                style={[
-                  styles.input,
-                  styles.multilineInput,
-                  { color: glass.text, borderColor: glass.border, backgroundColor: glass.surfaceSecondary },
-                ]}
-              />
-
-              <View style={[styles.switchRow, { backgroundColor: glass.surfaceSecondary, borderColor: glass.border }]}> 
-                <View style={{ flex: 1, marginRight: 12 }}>
-                  <Text style={{ color: glass.text, fontFamily: 'Montserrat_500Medium', fontSize: 13 }}>
-                    Локальное напоминание в 09:00
-                  </Text>
-                  <Text style={{ color: glass.textSecondary, fontFamily: 'Montserrat_400Regular', fontSize: 11, marginTop: 4 }}>
-                    Подходит для экзаменов, зачетов и важных учебных дат.
-                  </Text>
-                </View>
-                <Switch
-                  value={reminderEnabled}
-                  onValueChange={(value) => {
-                    setReminderEnabled(value);
-                    setHasChanges(true);
-                  }}
-                  trackColor={{ true: colors.primary, false: '#64748b' }}
+                <Text style={[styles.label, { color: glass.textSecondary }]}>Название</Text>
+                <TextInput
+                  value={title}
+                  onChangeText={markChanged(setTitle)}
+                  placeholder="Например, Экзамен по математике"
+                  placeholderTextColor={glass.textTertiary}
+                  style={[
+                    styles.input,
+                    { color: glass.text, borderColor: glass.border, backgroundColor: glass.surfaceSecondary },
+                  ]}
                 />
+
+                <NativeDateField
+                  label="Дата"
+                  value={date}
+                  onChange={markChanged(setDate)}
+                  theme={theme}
+                  accentColor={accentColor}
+                  placeholder="Выбрать дату события"
+                />
+
+                <Text style={[styles.label, { color: glass.textSecondary }]}>Тип</Text>
+                <View style={styles.chipsRow}>
+                  {ACADEMIC_EVENT_TYPES.map((eventType) => {
+                    const active = type === eventType.key;
+                    return (
+                      <TouchableOpacity
+                        key={eventType.key}
+                        onPress={() => {
+                          setType(eventType.key);
+                          setHasChanges(true);
+                        }}
+                        style={[
+                          styles.chip,
+                          {
+                            borderColor: active ? colors.primary : glass.border,
+                            backgroundColor: active ? colors.glass : glass.surfaceSecondary,
+                          },
+                        ]}
+                      >
+                        <Text style={{ color: active ? colors.primary : glass.textSecondary, fontSize: 12, fontFamily: 'Montserrat_500Medium' }}>
+                          {eventType.label}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
               </View>
-            </View>
-          </ScrollView>
-        </Animated.View>
-      </KeyboardAvoidingView>
-    </View>
+
+              <View style={styles.section}>
+                <View style={styles.sectionHeader}>
+                  <View style={[styles.sectionIcon, { backgroundColor: 'rgba(245, 158, 11, 0.14)' }]}> 
+                    <Icon name="document-text-outline" size={16} color="#f59e0b" />
+                  </View>
+                  <Text style={[styles.sectionTitle, { color: glass.text }]}>Описание и напоминание</Text>
+                </View>
+
+                <Text style={[styles.label, { color: glass.textSecondary }]}>Описание</Text>
+                <TextInput
+                  value={description}
+                  onChangeText={markChanged(setDescription)}
+                  placeholder="Аудитория, время, комментарии"
+                  placeholderTextColor={glass.textTertiary}
+                  multiline
+                  textAlignVertical="top"
+                  style={[
+                    styles.input,
+                    styles.multilineInput,
+                    { color: glass.text, borderColor: glass.border, backgroundColor: glass.surfaceSecondary },
+                  ]}
+                />
+
+                <View style={[styles.switchRow, { backgroundColor: glass.surfaceSecondary, borderColor: glass.border }]}> 
+                  <View style={{ flex: 1, marginRight: 12 }}>
+                    <Text style={{ color: glass.text, fontFamily: 'Montserrat_500Medium', fontSize: 13 }}>
+                      Локальное напоминание в 09:00
+                    </Text>
+                    <Text style={{ color: glass.textSecondary, fontFamily: 'Montserrat_400Regular', fontSize: 11, marginTop: 4 }}>
+                      Подходит для экзаменов, зачетов и важных учебных дат.
+                    </Text>
+                  </View>
+                  <Switch
+                    value={reminderEnabled}
+                    onValueChange={(value) => {
+                      setReminderEnabled(value);
+                      setHasChanges(true);
+                    }}
+                    trackColor={{ true: colors.primary, false: '#64748b' }}
+                  />
+                </View>
+              </View>
+            </ScrollView>
+          </Animated.View>
+        </KeyboardAvoidingView>
+      </View>
+    </Modal>
   );
 };
 
@@ -311,7 +324,6 @@ const styles = StyleSheet.create({
   },
   keyboardView: {
     justifyContent: 'flex-end',
-    paddingBottom: TABBAR_SAFE_OFFSET,
   },
   container: {
     borderTopLeftRadius: 24,
