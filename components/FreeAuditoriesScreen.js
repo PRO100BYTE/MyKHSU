@@ -191,6 +191,18 @@ const FreeAuditoriesScreen = ({ visible, onClose, theme, accentColor, currentWee
   }, [searchQuery, selectedSlot, selectedDay, weekNum]);
 
   const selectedPairInfo = effectivePairsTime.find(p => p.time === selectedSlot);
+  const minWeek = weekOptions.length > 0 ? Math.min(...weekOptions) : 1;
+  const maxWeek = weekOptions.length > 0 ? Math.max(...weekOptions) : Number.MAX_SAFE_INTEGER;
+  const canGoPrevWeek = weekNum > minWeek;
+  const canGoNextWeek = weekNum < maxWeek;
+
+  const changeWeek = (delta) => {
+    setWeekNum((prev) => {
+      const next = Number(prev || 1) + delta;
+      if (next < minWeek || next > maxWeek) return prev;
+      return next;
+    });
+  };
 
   return (
     <Modal
@@ -243,32 +255,38 @@ const FreeAuditoriesScreen = ({ visible, onClose, theme, accentColor, currentWee
           <Text style={{ fontSize: 13, fontFamily: 'Montserrat_600SemiBold', color: placeholderColor, marginBottom: 8 }}>
             НЕДЕЛЯ
           </Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 16 }} contentContainerStyle={{ gap: 8 }}>
-            {weekOptions.map((w) => (
-              <TouchableOpacity
-                key={`week_${w}`}
-                onPress={() => setWeekNum(w)}
-                style={{
-                  paddingVertical: 8,
-                  paddingHorizontal: 12,
-                  borderRadius: 14,
-                  backgroundColor: weekNum === w ? colors.primary : glass.surfaceSecondary,
-                  borderWidth: weekNum === w ? 1.5 : StyleSheet.hairlineWidth,
-                  borderColor: weekNum === w ? colors.primary : glass.border,
-                }}
-              >
-                <Text
-                  style={{
-                    fontSize: 13,
-                    fontFamily: 'Montserrat_600SemiBold',
-                    color: weekNum === w ? '#fff' : textColor,
-                  }}
-                >
-                  {w}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
+          <View style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            backgroundColor: glass.surfaceSecondary,
+            borderRadius: 14,
+            borderWidth: StyleSheet.hairlineWidth,
+            borderColor: glass.border,
+            paddingVertical: 4,
+            paddingHorizontal: 4,
+            marginBottom: 16,
+            alignSelf: 'flex-start',
+          }}>
+            <TouchableOpacity
+              onPress={() => changeWeek(-1)}
+              style={{ padding: 6, borderRadius: 10, backgroundColor: canGoPrevWeek ? colors.glass : 'transparent' }}
+              disabled={!canGoPrevWeek}
+            >
+              <Icon name="chevron-back" size={18} color={canGoPrevWeek ? colors.primary : placeholderColor} />
+            </TouchableOpacity>
+
+            <Text style={{ color: textColor, fontSize: 13, marginHorizontal: 8, fontFamily: 'Montserrat_600SemiBold', minWidth: 84, textAlign: 'center' }}>
+              Неделя {weekNum}
+            </Text>
+
+            <TouchableOpacity
+              onPress={() => changeWeek(1)}
+              style={{ padding: 6, borderRadius: 10, backgroundColor: canGoNextWeek ? colors.glass : 'transparent' }}
+              disabled={!canGoNextWeek}
+            >
+              <Icon name="chevron-forward" size={18} color={canGoNextWeek ? colors.primary : placeholderColor} />
+            </TouchableOpacity>
+          </View>
 
           {/* Выбор дня */}
           <Text style={{ fontSize: 13, fontFamily: 'Montserrat_600SemiBold', color: placeholderColor, marginBottom: 8 }}>
