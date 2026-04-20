@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, StyleSheet, RefreshControl, Animated, StatusBar } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, StyleSheet, RefreshControl, Animated, StatusBar, TextInput } from 'react-native';
 import { Ionicons as Icon } from '@expo/vector-icons';
-import { ACCENT_COLORS } from '../utils/constants';
+import { ACCENT_COLORS, LIQUID_GLASS } from '../utils/constants';
 import ConnectionError from './ConnectionError';
 import NetInfo from '@react-native-community/netinfo';
 import ApiService from '../utils/api';
@@ -9,7 +9,7 @@ import notificationService from '../utils/notificationService';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Snowfall from './Snowfall';
 
-const NewsScreen = ({ theme, accentColor, isNewYearMode }) => {
+const NewsScreen = ({ theme, accentColor, isNewYearMode, onCacheStatusChange }) => {
   const [news, setNews] = useState([]);
   const [cachedNews, setCachedNews] = useState([]);
   const [from, setFrom] = useState(0);
@@ -22,17 +22,19 @@ const NewsScreen = ({ theme, accentColor, isNewYearMode }) => {
   const [cacheInfo, setCacheInfo] = useState(null);
   const [hasMoreNews, setHasMoreNews] = useState(true);
   const [lastNewsCheck, setLastNewsCheck] = useState(null);
+  const [searchQuery, setSearchQuery] = useState('');
   
   // Анимация появления
   const fadeAnim = useRef(new Animated.Value(0)).current;
 
-  const bgColor = theme === 'light' ? '#f3f4f6' : '#111827';
-  const cardBg = theme === 'light' ? '#ffffff' : '#1f2937';
-  const textColor = theme === 'light' ? '#111827' : '#ffffff';
-  const placeholderColor = theme === 'light' ? '#6b7280' : '#9ca3af';
-  const borderColor = theme === 'light' ? '#e5e7eb' : '#374151';
+  const glass = LIQUID_GLASS[theme] || LIQUID_GLASS.light;
+  const bgColor = glass.background;
+  const cardBg = glass.surfaceCard;
+  const textColor = glass.text;
+  const placeholderColor = glass.textSecondary;
+  const borderColor = glass.border;
   const colors = ACCENT_COLORS[accentColor];
-  const hintBgColor = theme === 'light' ? '#f9fafb' : '#2d3748'; // Более темный для темной темы
+  const hintBgColor = glass.surfaceTertiary;
 
   // Запуск анимации при монтировании
   useEffect(() => {
@@ -41,6 +43,27 @@ const NewsScreen = ({ theme, accentColor, isNewYearMode }) => {
       duration: 300,
       useNativeDriver: true,
     }).start();
+  }, []);
+
+  // Синхронизация статуса кэша с хедером приложения
+  useEffect(() => {
+    if (onCacheStatusChange) {
+      if (!isOnline) {
+        onCacheStatusChange('offline', cacheInfo?.cacheInfo?.cacheDate);
+      } else if (showCachedData) {
+        const status = cacheInfo?.source === 'stale_cache' ? 'stale_cache' : 'cache';
+        onCacheStatusChange(status, cacheInfo?.cacheInfo?.cacheDate);
+      } else {
+        onCacheStatusChange(null);
+      }
+    }
+  }, [showCachedData, isOnline, cacheInfo]);
+
+  // Очистка статуса при размонтировании
+  useEffect(() => {
+    return () => {
+      if (onCacheStatusChange) onCacheStatusChange(null);
+    };
   }, []);
 
   // Функция для очистки кэша новостей
@@ -72,6 +95,15 @@ const NewsScreen = ({ theme, accentColor, isNewYearMode }) => {
         index === self.findIndex(t => t.id === item.id)
       )
       .sort((a, b) => new Date(b.normalizedDate) - new Date(a.normalizedDate));
+  };
+
+  const extractNewsList = (payload) => {
+    if (payload == null) return [];
+    if (Array.isArray(payload)) return payload;
+    if (Array.isArray(payload?.news)) return payload.news;
+    if (Array.isArray(payload?.items)) return payload.items;
+    if (Array.isArray(payload?.data)) return payload.data;
+    return [];
   };
 
   // Создание уникального ID для новости
@@ -140,13 +172,10 @@ const NewsScreen = ({ theme, accentColor, isNewYearMode }) => {
     
     try {
       const result = await ApiService.getNews(currentFrom, 10);
-      
-      if (!result.data || !Array.isArray(result.data)) {
-        throw new Error('INVALID_RESPONSE');
-      }
+      const newsList = extractNewsList(result.data);
       
       // Фильтрация пустого контента и дубликатов
-      const filteredData = filterAndProcessNews(result.data);
+      const filteredData = filterAndProcessNews(newsList);
       
       if (filteredData.length === 0 && currentFrom === 0) {
         setHasMoreNews(false);
@@ -272,61 +301,145 @@ return (
       />
       
       <ScrollView 
-        contentContainerStyle={{ paddingTop: 16, paddingHorizontal: 16 }}
+        contentContainerStyle={{ paddingTop: 16, paddingHorizontal: 16, paddingBottom: 100 }}
         refreshControl={
           <RefreshControl
-            refreshing={refreshing}
-            onRefresh={handleRefresh}
+            refreshing={refreshing}            onRefresh={handleRefresh}
             colors={[colors.primary]}
             tintColor={colors.primary}
           />
         }
       >
         {/* ВСЕ содержимое новостей */}
-        {showCachedData && (
-          <View style={{ 
-            backgroundColor: hintBgColor, 
-            padding: 12, 
-            borderRadius: 8,
-            flexDirection: 'row',
-            alignItems: 'center',
-            justifyContent: 'center',
-            marginBottom: 16,
-            borderWidth: 1,
-            borderColor: borderColor,
-            shadowColor: '#000',
-            shadowOffset: { width: 0, height: 1 },
-            shadowOpacity: theme === 'light' ? 0.05 : 0.2,
-            shadowRadius: 2,
-            elevation: 2
-          }}>
-            <Icon name="time-outline" size={16} color={colors.primary} />
-            <Text style={{ color: colors.primary, marginLeft: 8, fontFamily: 'Montserrat_400Regular' }}>
-              {cacheInfo?.source === 'stale_cache' ? 'Показаны ранее загруженные новости' : 'Показаны кэшированные новости'}
-            </Text>
-          </View>
-        )}
-        
-        {news.map((item) => (
+
+        {/* Поиск по новостям */}
+        <View style={{
+          flexDirection: 'row',
+          alignItems: 'center',
+          backgroundColor: glass.surfaceSecondary,
+          borderRadius: 14,
+          borderWidth: StyleSheet.hairlineWidth,
+          borderColor: glass.border,
+          paddingHorizontal: 12,
+          marginBottom: 16,
+          gap: 8,
+        }}>
+          <Icon name="search-outline" size={18} color={placeholderColor} />
+          <TextInput
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            placeholder="Поиск по новостям..."
+            placeholderTextColor={placeholderColor}
+            style={{
+              flex: 1,
+              paddingVertical: 12,
+              fontSize: 15,
+              fontFamily: 'Montserrat_400Regular',
+              color: textColor,
+            }}
+            clearButtonMode="while-editing"
+          />
+          {searchQuery.length > 0 && (
+            <TouchableOpacity onPress={() => setSearchQuery('')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              <Icon name="close-circle" size={18} color={placeholderColor} />
+            </TouchableOpacity>
+          )}
+        </View>
+
+        {(() => {
+          const filteredNews = searchQuery.trim()
+            ? news.filter(item =>
+                (item.content || '').toLowerCase().includes(searchQuery.toLowerCase())
+              )
+            : news;
+
+          if (searchQuery.trim() && filteredNews.length === 0) {
+            return (
+              <View style={{ alignItems: 'center', marginTop: 24, marginBottom: 16 }}>
+                <Icon name="search-outline" size={36} color={placeholderColor} style={{ marginBottom: 8 }} />
+                <Text style={{ color: placeholderColor, fontFamily: 'Montserrat_400Regular', fontSize: 14 }}>
+                  Ничего не найдено
+                </Text>
+              </View>
+            );
+          }
+
+            if (!loading && filteredNews.length === 0 && !searchQuery.trim()) {
+              return (
+                <View style={{
+                  backgroundColor: glass.surfaceSecondary,
+                  borderRadius: 16,
+                  borderWidth: StyleSheet.hairlineWidth,
+                  borderColor,
+                  paddingVertical: 22,
+                  paddingHorizontal: 16,
+                  alignItems: 'center',
+                  marginTop: 8,
+                }}>
+                  <Icon name="newspaper-outline" size={34} color={placeholderColor} style={{ marginBottom: 10 }} />
+                  <Text style={{ color: textColor, fontFamily: 'Montserrat_600SemiBold', fontSize: 14, textAlign: 'center' }}>
+                    Пока что новостей нет
+                  </Text>
+                  <Text style={{ color: placeholderColor, fontFamily: 'Montserrat_400Regular', fontSize: 13, marginTop: 6, textAlign: 'center' }}>
+                    Попробуйте заглянуть позже :)
+                  </Text>
+                </View>
+              );
+            }
+
+          return filteredNews.map((item) => (
           <View 
             key={item.id} 
             style={{ 
-              backgroundColor: cardBg, 
-              borderRadius: 12, 
-              padding: 16, 
+              flexDirection: 'row',
+              backgroundColor: glass.surfaceSecondary, 
+              borderRadius: 16, 
               marginBottom: 12, 
-              borderWidth: 1, 
-              borderColor 
+              borderWidth: StyleSheet.hairlineWidth, 
+              borderColor,
+              overflow: 'hidden',
+              shadowColor: glass.shadowColor,
+              shadowOffset: { width: 0, height: 2 },
+              shadowOpacity: 0.08,
+              shadowRadius: 6,
+              elevation: 2,
             }}
           >
-            <Text style={{ color: textColor, fontSize: 16, fontFamily: 'Montserrat_400Regular' }}>
-              {item.content}
-            </Text>
-            <Text style={{ color: placeholderColor, fontSize: 12, textAlign: 'right', marginTop: 12, fontFamily: 'Montserrat_400Regular' }}>
-              {item.hr_date}
-            </Text>
+            {/* Цветная полоска-акцент слева */}
+            <View style={{
+              width: 4,
+              backgroundColor: colors.primary,
+              borderTopLeftRadius: 16,
+              borderBottomLeftRadius: 16,
+            }} />
+            
+            <View style={{ flex: 1, padding: 14 }}>
+              {/* Дата сверху */}
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+                <Icon name="time-outline" size={13} color={placeholderColor} />
+                <Text style={{ 
+                  color: placeholderColor, 
+                  fontSize: 12, 
+                  fontFamily: 'Montserrat_400Regular',
+                  marginLeft: 5,
+                }}>
+                  {item.hr_date}
+                </Text>
+              </View>
+              
+              {/* Контент */}
+              <Text style={{ 
+                color: textColor, 
+                fontSize: 15, 
+                fontFamily: 'Montserrat_400Regular',
+                lineHeight: 22,
+              }}>
+                {item.content}
+              </Text>
+            </View>
           </View>
-        ))}
+          ));
+        })()}
         
         {loadingMore && (
           <View style={{ padding: 16, alignItems: 'center' }}>
@@ -342,13 +455,18 @@ return (
             onPress={loadMoreNews}
             style={{ 
               backgroundColor: colors.primary, 
-              padding: 16, 
-              borderRadius: 8, 
+              padding: 14, 
+              borderRadius: 14, 
               alignItems: 'center',
               marginTop: 16,
               flexDirection: 'row',
               justifyContent: 'center',
-              gap: 8
+              gap: 8,
+              shadowColor: colors.primary,
+              shadowOffset: { width: 0, height: 2 },
+              shadowOpacity: 0.25,
+              shadowRadius: 8,
+              elevation: 3,
             }}
           >
             <Icon name="download-outline" size={20} color="#ffffff" />
@@ -372,36 +490,35 @@ return (
         
         {!isOnline && news.length > 0 && (
           <View style={{ 
-            backgroundColor: hintBgColor, 
-            padding: 16, 
-            borderRadius: 8, 
+            backgroundColor: colors.glass || (colors.primary + '10'),
+            borderWidth: StyleSheet.hairlineWidth,
+            borderColor: colors.glassBorder || (colors.primary + '25'),
+            borderRadius: 16,
+            paddingVertical: 12,
+            paddingHorizontal: 14,
+            flexDirection: 'row',
             alignItems: 'center',
             marginTop: 16,
-            flexDirection: 'row',
-            justifyContent: 'center',
-            borderWidth: 1,
-            borderColor: borderColor,
-            shadowColor: '#000',
-            shadowOffset: { width: 0, height: 1 },
-            shadowOpacity: theme === 'light' ? 0.05 : 0.2,
-            shadowRadius: 2,
-            elevation: 2
           }}>
-            <Icon name="cloud-offline-outline" size={20} color={colors.primary} />
-            <Text style={{ color: colors.primary, marginLeft: 8, textAlign: 'center', fontFamily: 'Montserrat_400Regular' }}>
+            <View style={{
+              width: 30,
+              height: 30,
+              borderRadius: 15,
+              backgroundColor: colors.primary + '18',
+              justifyContent: 'center',
+              alignItems: 'center',
+              marginRight: 10,
+            }}>
+              <Icon name="cloud-offline-outline" size={16} color={colors.primary} />
+            </View>
+            <Text style={{ 
+              color: textColor, 
+              fontFamily: 'Montserrat_400Regular',
+              fontSize: 13,
+              flex: 1,
+              opacity: 0.85,
+            }}>
               Нет подключения к интернету. {showCachedData ? 'Показаны ранее загруженные новости.' : 'Невозможно загрузить новые данные.'}
-            </Text>
-          </View>
-        )}
-
-        {lastNewsCheck && (
-          <View style={{ 
-            padding: 8, 
-            alignItems: 'center',
-            marginBottom: 16
-          }}>
-            <Text style={{ color: placeholderColor, fontSize: 10, fontFamily: 'Montserrat_400Regular' }}>
-              Последнее обновление: {new Date(lastNewsCheck).toLocaleString('ru-RU')}
             </Text>
           </View>
         )}

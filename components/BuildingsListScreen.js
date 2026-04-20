@@ -4,6 +4,8 @@ import {
   Text, 
   ScrollView, 
   TouchableOpacity, 
+  TouchableWithoutFeedback,
+  TextInput,
   Linking, 
   StyleSheet, 
   Animated, 
@@ -12,22 +14,24 @@ import {
   Platform 
 } from 'react-native';
 import { Ionicons as Icon } from '@expo/vector-icons';
-import { ACCENT_COLORS } from '../utils/constants';
+import { ACCENT_COLORS, LIQUID_GLASS } from '../utils/constants';
 import { buildings } from '../utils/buildingCoordinates';
 import Snowfall from './Snowfall';
 
 const BuildingsListScreen = ({ theme, accentColor, onBuildingSelect, isNewYearMode }) => {
   const [showRouteOptions, setShowRouteOptions] = useState(false);
   const [selectedBuilding, setSelectedBuilding] = useState(null);
-  const [expandedSections, setExpandedSections] = useState({});
+  const [expandedSections, setExpandedSections] = useState({ academic: true });
+  const [searchQuery, setSearchQuery] = useState('');
   
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const routeModalAnim = useRef(new Animated.Value(0)).current;
 
-  const bgColor = theme === 'light' ? '#f3f4f6' : '#111827';
-  const cardBg = theme === 'light' ? '#ffffff' : '#1f2937';
-  const textColor = theme === 'light' ? '#111827' : '#ffffff';
-  const placeholderColor = theme === 'light' ? '#6b7280' : '#9ca3af';
+  const glass = LIQUID_GLASS[theme] || LIQUID_GLASS.light;
+  const bgColor = glass.background;
+  const cardBg = glass.surfaceCard;
+  const textColor = glass.text;
+  const placeholderColor = glass.textSecondary;
   const colors = ACCENT_COLORS[accentColor];
 
   useEffect(() => {
@@ -49,6 +53,25 @@ const BuildingsListScreen = ({ theme, accentColor, onBuildingSelect, isNewYearMo
     sports: buildings.filter(b => b.type === 'sports'),
     other: buildings.filter(b => ['5ka', 'sausage', 'shop', 'cafe', 'coffee', 'garden'].includes(b.type))
   }), []);
+
+  // Фильтрация зданий по поисковому запросу
+  const filteredGroupedBuildings = useMemo(() => {
+    if (!searchQuery.trim()) return groupedBuildings;
+    const query = searchQuery.toLowerCase();
+    const filtered = {};
+    for (const [key, list] of Object.entries(groupedBuildings)) {
+      const matches = list.filter(b => 
+        b.name.toLowerCase().includes(query) || 
+        b.description.toLowerCase().includes(query)
+      );
+      if (matches.length > 0) filtered[key] = matches;
+    }
+    return filtered;
+  }, [groupedBuildings, searchQuery]);
+
+  const totalFilteredCount = useMemo(() => {
+    return Object.values(filteredGroupedBuildings).reduce((sum, list) => sum + list.length, 0);
+  }, [filteredGroupedBuildings]);
 
   // Названия категорий
   const categoryNames = {
@@ -177,35 +200,63 @@ const BuildingsListScreen = ({ theme, accentColor, onBuildingSelect, isNewYearMo
     <TouchableOpacity 
       key={building.id}
       style={{ 
-        backgroundColor: cardBg, 
-        borderRadius: 12, 
-        padding: 16, 
+        flexDirection: 'row',
+        backgroundColor: glass.surfaceSecondary, 
+        borderRadius: 14, 
         marginBottom: isLast ? 0 : 8,
         marginLeft: 16,
-        flexDirection: 'row',
-        alignItems: 'center'
+        alignItems: 'center',
+        borderWidth: StyleSheet.hairlineWidth,
+        borderColor: glass.border,
+        overflow: 'hidden',
+        shadowColor: glass.shadowColor,
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.06,
+        shadowRadius: 4,
+        elevation: 1,
       }}
       onPress={() => handleBuildingPress(building)}
     >
-      <View style={{ backgroundColor: colors.light, borderRadius: 8, padding: 8, marginRight: 12 }}>
-        <Icon 
-          name={getBuildingIcon(building.type)} 
-          size={20} 
-          color={colors.primary} 
-        />
+      {/* Цветная полоска-акцент слева */}
+      <View style={{
+        width: 3,
+        backgroundColor: colors.primary,
+        alignSelf: 'stretch',
+        borderTopLeftRadius: 14,
+        borderBottomLeftRadius: 14,
+      }} />
+      
+      <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', padding: 12 }}>
+        <View style={{ 
+          width: 36,
+          height: 36,
+          borderRadius: 10,
+          backgroundColor: colors.glass, 
+          justifyContent: 'center',
+          alignItems: 'center',
+          marginRight: 12,
+          borderWidth: StyleSheet.hairlineWidth,
+          borderColor: colors.glassBorder,
+        }}>
+          <Icon 
+            name={getBuildingIcon(building.type)} 
+            size={18} 
+            color={colors.primary} 
+          />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={{ color: textColor, fontSize: 15, fontFamily: 'Montserrat_500Medium' }}>
+            {building.name}
+          </Text>
+          <Text style={{ color: placeholderColor, fontSize: 12, marginTop: 2, fontFamily: 'Montserrat_400Regular' }}>
+            {getBuildingTypeText(building.type)}
+          </Text>
+          <Text style={{ color: placeholderColor, fontSize: 13, marginTop: 3, fontFamily: 'Montserrat_400Regular', lineHeight: 18 }}>
+            {building.description}
+          </Text>
+        </View>
+        <Icon name="navigate-outline" size={20} color={colors.primary} />
       </View>
-      <View style={{ flex: 1 }}>
-        <Text style={{ color: textColor, fontSize: 16, fontFamily: 'Montserrat_500Medium' }}>
-          {building.name}
-        </Text>
-        <Text style={{ color: placeholderColor, fontSize: 12, marginTop: 2, fontFamily: 'Montserrat_400Regular' }}>
-          {getBuildingTypeText(building.type)}
-        </Text>
-        <Text style={{ color: placeholderColor, fontSize: 14, marginTop: 4, fontFamily: 'Montserrat_400Regular' }}>
-          {building.description}
-        </Text>
-      </View>
-      <Icon name="navigate-outline" size={20} color={colors.primary} />
     </TouchableOpacity>
   );
 
@@ -221,19 +272,43 @@ const BuildingsListScreen = ({ theme, accentColor, onBuildingSelect, isNewYearMo
             flexDirection: 'row',
             alignItems: 'center',
             justifyContent: 'space-between',
-            padding: 16,
-            backgroundColor: cardBg,
-            borderRadius: 12,
+            padding: 14,
+            backgroundColor: glass.surfaceSecondary,
+            borderRadius: 14,
+            borderWidth: StyleSheet.hairlineWidth,
+            borderColor: glass.border,
+            shadowColor: glass.shadowColor,
+            shadowOffset: { width: 0, height: 1 },
+            shadowOpacity: 0.06,
+            shadowRadius: 4,
+            elevation: 1,
           }}
           onPress={() => toggleSection(category)}
         >
-          <Text style={{ 
-            color: textColor, 
-            fontSize: 18, 
-            fontFamily: 'Montserrat_600SemiBold' 
-          }}>
-            {categoryNames[category]} ({buildingsList.length})
-          </Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
+            <Text style={{ 
+              color: textColor, 
+              fontSize: 16, 
+              fontFamily: 'Montserrat_600SemiBold' 
+            }}>
+              {categoryNames[category]}
+            </Text>
+            <View style={{
+              marginLeft: 8,
+              paddingHorizontal: 8,
+              paddingVertical: 2,
+              borderRadius: 8,
+              backgroundColor: colors.primary + '18',
+            }}>
+              <Text style={{ 
+                fontSize: 12, 
+                color: colors.primary, 
+                fontFamily: 'Montserrat_600SemiBold' 
+              }}>
+                {buildingsList.length}
+              </Text>
+            </View>
+          </View>
           <Icon 
             name={isExpanded ? 'chevron-up' : 'chevron-down'} 
             size={20} 
@@ -264,30 +339,72 @@ const BuildingsListScreen = ({ theme, accentColor, onBuildingSelect, isNewYearMo
         />
 
         <View style={{ flex: 1, padding: 16 }}>
-          <View style={{ marginBottom: 20 }}>
-            <Text style={{ 
-              color: placeholderColor, 
-              fontSize: 16,
-              fontFamily: 'Montserrat_400Regular',
-              lineHeight: 22
-            }}>
-              Все корпуса Хакасского государственного университета.{'\n'}
-              Выберите корпус для построения маршрута.
+          {/* Поиск */}
+          <View style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            backgroundColor: glass.surfaceTertiary,
+            borderRadius: 14,
+            paddingHorizontal: 14,
+            paddingVertical: 10,
+            marginBottom: 16,
+            borderWidth: StyleSheet.hairlineWidth,
+            borderColor: glass.border,
+          }}>
+            <Icon name="search-outline" size={18} color={placeholderColor} />
+            <TextInput
+              style={{
+                flex: 1,
+                marginLeft: 10,
+                fontSize: 15,
+                fontFamily: 'Montserrat_400Regular',
+                color: textColor,
+                paddingVertical: 0,
+              }}
+              placeholder="Поиск корпусов..."
+              placeholderTextColor={placeholderColor}
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+            />
+            {searchQuery.length > 0 && (
+              <TouchableOpacity onPress={() => setSearchQuery('')}>
+                <Icon name="close-circle" size={18} color={placeholderColor} />
+              </TouchableOpacity>
+            )}
+          </View>
+
+          {/* Счётчик результатов */}
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
+            <Text style={{ color: placeholderColor, fontSize: 13, fontFamily: 'Montserrat_400Regular' }}>
+              {searchQuery ? `Найдено: ${totalFilteredCount}` : `Всего объектов: ${buildings.length}`}
             </Text>
           </View>
 
-          <ScrollView showsVerticalScrollIndicator={false}>
-            {Object.entries(groupedBuildings).map(([category, buildingsList]) => 
+          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 100 }}>
+            {Object.entries(filteredGroupedBuildings).map(([category, buildingsList]) => 
               renderCategorySection(category, buildingsList)
             )}
             
-            {/* Информационный блок */}
-            <View style={[styles.infoCard, { backgroundColor: colors.light, marginTop: 16 }]}>
-              <Icon name="information-circle-outline" size={20} color={colors.primary} />
-              <Text style={[styles.infoText, { color: colors.primary, marginLeft: 8, flex: 1 }]}>
-                Для построения маршрута выберите корпус и сервис навигации
-              </Text>
-            </View>
+            {searchQuery && totalFilteredCount === 0 && (
+              <View style={{ alignItems: 'center', paddingVertical: 40 }}>
+                <Icon name="search-outline" size={48} color={placeholderColor} style={{ opacity: 0.4, marginBottom: 12 }} />
+                <Text style={{ color: placeholderColor, fontSize: 16, fontFamily: 'Montserrat_500Medium', textAlign: 'center' }}>
+                  Ничего не найдено
+                </Text>
+                <Text style={{ color: placeholderColor, fontSize: 14, fontFamily: 'Montserrat_400Regular', textAlign: 'center', marginTop: 4 }}>
+                  Попробуйте изменить запрос
+                </Text>
+              </View>
+            )}
+            
+            {!searchQuery && (
+              <View style={[styles.infoCard, { backgroundColor: colors.glass, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.glassBorder, marginTop: 16 }]}>
+                <Icon name="information-circle-outline" size={20} color={colors.primary} />
+                <Text style={[styles.infoText, { color: placeholderColor, marginLeft: 8, flex: 1 }]}>
+                  Для построения маршрута выберите корпус и сервис навигации
+                </Text>
+              </View>
+            )}
           </ScrollView>
         </View>
 
@@ -302,11 +419,17 @@ const BuildingsListScreen = ({ theme, accentColor, onBuildingSelect, isNewYearMo
               }
             ]}
           >
+            <TouchableWithoutFeedback onPress={handleCloseRouteModal}>
+              <View style={{ flex: 1 }} />
+            </TouchableWithoutFeedback>
             <Animated.View 
               style={[
                 styles.routeModal,
                 { 
-                  backgroundColor: theme === 'dark' ? '#1f2937' : '#ffffff',
+                  backgroundColor: glass.backgroundElevated,
+                  borderColor: glass.border,
+                  borderWidth: StyleSheet.hairlineWidth,
+                  borderBottomWidth: 0,
                   transform: [{
                     translateY: routeModalAnim.interpolate({
                       inputRange: [0, 1],
@@ -316,59 +439,65 @@ const BuildingsListScreen = ({ theme, accentColor, onBuildingSelect, isNewYearMo
                 }
               ]}
             >
-              <Text style={[styles.routeModalTitle, { color: textColor, fontFamily: 'Montserrat_600SemiBold' }]}>
-                Построить маршрут
-              </Text>
-              <Text style={[styles.routeModalSubtitle, { color: textColor, fontFamily: 'Montserrat_500Medium' }]}>
-                {selectedBuilding?.name}
-              </Text>
-              <Text style={[styles.routeModalDescription, { color: placeholderColor, fontFamily: 'Montserrat_400Regular' }]}>
-                {selectedBuilding?.description}
+              {/* Header with close button */}
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 16 }}>
+                <View style={{ width: 44, height: 44, borderRadius: 14, backgroundColor: colors.glass, justifyContent: 'center', alignItems: 'center', marginRight: 12, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.glassBorder }}>
+                  <Icon name="navigate-outline" size={22} color={colors.primary} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.routeModalTitle, { color: textColor, fontFamily: 'Montserrat_600SemiBold' }]}>
+                    {selectedBuilding?.name}
+                  </Text>
+                  <Text style={{ color: placeholderColor, fontSize: 13, fontFamily: 'Montserrat_400Regular', marginTop: 2 }}>
+                    {selectedBuilding?.description}
+                  </Text>
+                </View>
+                <TouchableOpacity 
+                  onPress={handleCloseRouteModal}
+                  style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: glass.surfaceTertiary, justifyContent: 'center', alignItems: 'center' }}
+                >
+                  <Icon name="close" size={18} color={placeholderColor} />
+                </TouchableOpacity>
+              </View>
+              
+              <Text style={{ color: placeholderColor, fontSize: 13, fontFamily: 'Montserrat_500Medium', marginBottom: 12 }}>
+                Выберите сервис навигации
               </Text>
               
               <TouchableOpacity 
-                style={[styles.routeOption, { backgroundColor: colors.light }]}
+                style={[styles.routeOption, { backgroundColor: colors.glass, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.glassBorder }]}
                 onPress={() => handleRouteServiceSelect('yandex')}
               >
                 <View style={[styles.routeIcon, { backgroundColor: colors.primary }]}>
                   <Text style={[styles.routeIconText, { fontFamily: 'Montserrat_700Bold' }]}>Я</Text>
                 </View>
                 <View style={styles.routeOptionText}>
-                  <Text style={[styles.routeOptionTitle, { color: colors.primary, fontFamily: 'Montserrat_600SemiBold' }]}>
+                  <Text style={[styles.routeOptionTitle, { color: textColor, fontFamily: 'Montserrat_600SemiBold' }]}>
                     Яндекс.Карты
                   </Text>
-                  <Text style={[styles.routeOptionDesc, { color: colors.primary, fontFamily: 'Montserrat_400Regular' }]}>
-                    Открыть в веб-браузере
+                  <Text style={[styles.routeOptionDesc, { color: placeholderColor, fontFamily: 'Montserrat_400Regular' }]}>
+                    Откроется в браузере
                   </Text>
                 </View>
-                <Icon name="open-outline" size={20} color={colors.primary} />
+                <Icon name="open-outline" size={18} color={placeholderColor} />
               </TouchableOpacity>
 
               <TouchableOpacity 
-                style={[styles.routeOption, { backgroundColor: colors.light, marginTop: 12 }]}
+                style={[styles.routeOption, { backgroundColor: colors.glass, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.glassBorder, marginTop: 10 }]}
                 onPress={() => handleRouteServiceSelect('2gis')}
               >
                 <View style={[styles.routeIcon, { backgroundColor: colors.primary }]}>
                   <Text style={[styles.routeIconText, { fontFamily: 'Montserrat_700Bold' }]}>2</Text>
                 </View>
                 <View style={styles.routeOptionText}>
-                  <Text style={[styles.routeOptionTitle, { color: colors.primary, fontFamily: 'Montserrat_600SemiBold' }]}>
+                  <Text style={[styles.routeOptionTitle, { color: textColor, fontFamily: 'Montserrat_600SemiBold' }]}>
                     2ГИС
                   </Text>
-                  <Text style={[styles.routeOptionDesc, { color: colors.primary, fontFamily: 'Montserrat_400Regular' }]}>
-                    Открыть в веб-браузере
+                  <Text style={[styles.routeOptionDesc, { color: placeholderColor, fontFamily: 'Montserrat_400Regular' }]}>
+                    Откроется в браузере
                   </Text>
                 </View>
-                <Icon name="open-outline" size={20} color={colors.primary} />
-              </TouchableOpacity>
-
-              <TouchableOpacity 
-                style={[styles.cancelButton, { marginTop: 16 }]}
-                onPress={handleCloseRouteModal}
-              >
-                <Text style={[styles.cancelButtonText, { color: placeholderColor, fontFamily: 'Montserrat_500Medium' }]}>
-                  Отмена
-                </Text>
+                <Icon name="open-outline" size={18} color={placeholderColor} />
               </TouchableOpacity>
             </Animated.View>
           </Animated.View>
@@ -383,7 +512,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     padding: 16,
-    borderRadius: 8,
+    borderRadius: 16,
   },
   infoText: {
     fontSize: 14,
@@ -399,33 +528,25 @@ const styles = StyleSheet.create({
     zIndex: 1001,
   },
   routeModal: {
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
     padding: 20,
-    paddingBottom: Platform.OS === 'ios' ? 34 : 20,
+    paddingBottom: Platform.OS === 'ios' ? 100 : 40,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: -2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 8,
-    elevation: 5,
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 16,
+    elevation: 8,
   },
   routeModalTitle: {
-    fontSize: 18,
-    marginBottom: 4,
-  },
-  routeModalSubtitle: {
     fontSize: 16,
     marginBottom: 2,
-  },
-  routeModalDescription: {
-    fontSize: 14,
-    marginBottom: 16,
   },
   routeOption: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 16,
-    borderRadius: 12,
+    padding: 14,
+    borderRadius: 14,
   },
   routeIcon: {
     width: 32,
