@@ -9,6 +9,7 @@ import { getDateByWeekAndDay } from './dateUtils';
 const SCHEDULE_CHANGES_HISTORY_KEY = 'schedule_changes_history_v1';
 const SCHEDULE_CHANGES_HISTORY_DAYS = 7;
 const SCHEDULE_CHANGES_HISTORY_LIMIT = 200;
+const SCHEDULE_NOTIFICATION_IDS_KEY = 'schedule_notification_ids';
 
 // Конфигурация уведомлений
 Notifications.setNotificationHandler({
@@ -107,8 +108,14 @@ class NotificationService {
         }
       }
 
-      // Отменяем предыдущие уведомления о парах
-      await Notifications.cancelAllScheduledNotificationsAsync();
+      // Отменяем предыдущие уведомления о парах (только schedule-уведомления, не трогая homework_deadline/academic_event)
+      try {
+        const prevIdsRaw = await AsyncStorage.getItem(SCHEDULE_NOTIFICATION_IDS_KEY);
+        const prevIds = prevIdsRaw ? JSON.parse(prevIdsRaw) : [];
+        for (const id of prevIds) {
+          try { await Notifications.cancelScheduledNotificationAsync(id); } catch {}
+        }
+      } catch {}
 
       const notifications = [];
       const now = new Date();
@@ -161,16 +168,21 @@ class NotificationService {
         }
       }
 
-      // Планируем все уведомления
+      // Планируем все уведомления и сохраняем их ID
       let scheduled = 0;
+      const newNotificationIds = [];
       for (const notification of notifications) {
         try {
-          await Notifications.scheduleNotificationAsync(notification);
+          const notifId = await Notifications.scheduleNotificationAsync(notification);
+          newNotificationIds.push(notifId);
           scheduled++;
         } catch (e) {
           console.error('Error scheduling notification:', e);
         }
       }
+      try {
+        await AsyncStorage.setItem(SCHEDULE_NOTIFICATION_IDS_KEY, JSON.stringify(newNotificationIds));
+      } catch {}
 
       console.log(`Запланировано ${scheduled} уведомлений о парах`);
     } catch (error) {

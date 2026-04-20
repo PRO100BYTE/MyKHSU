@@ -49,7 +49,10 @@ export const saveNote = async ({
   const resolvedStatus = newHomework
     ? normalizeHomeworkStatus(homeworkStatus || existing?.homeworkStatus)
     : null;
-  const resolvedDueDate = newHomework ? (homeworkDueDate || existing?.homeworkDueDate || null) : null;
+  // homeworkDueDate === null означает явную очистку дедлайна; undefined — поле не передавалось (используем existing)
+  const resolvedDueDate = newHomework
+    ? (homeworkDueDate !== undefined ? homeworkDueDate : (existing?.homeworkDueDate ?? null))
+    : null;
   const data = {
     noteText: noteText || '',
     homework: newHomework,
@@ -187,7 +190,8 @@ const parseNoteKey = (noteKey) => {
 
 export const getAllHomeworkDeadlines = async () => {
   const all = await loadAllNotes();
-  const todayISO = new Date().toISOString().slice(0, 10);
+  const _now = new Date();
+  const todayISO = `${_now.getFullYear()}-${String(_now.getMonth() + 1).padStart(2, '0')}-${String(_now.getDate()).padStart(2, '0')}`;
   const deadlines = [];
 
   for (const [key, note] of Object.entries(all)) {

@@ -220,8 +220,10 @@ export const useScheduleLogic = () => {
 
       // Проверяем изменения в расписании и уведомляем пользователя
       try {
+        const d = new Date(currentDate);
+        const localDateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
         const scopeSuffix = viewMode === 'day'
-          ? `day_${new Date(currentDate).toISOString().slice(0, 10)}`
+          ? `day_${localDateStr}`
           : `week_${processedSchedule?.week_number || currentWeek}`;
         await notificationService.checkScheduleChanges(
           processedSchedule,

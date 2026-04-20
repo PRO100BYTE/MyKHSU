@@ -564,6 +564,13 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
     }
   }, [attendanceMap, getAttendanceMeta]);
 
+  const checkIsActiveFavorite = useCallback((fav) => {
+    if (fav.type === 'teacher') return isTeacherMode && teacherName === fav.data.teacherName;
+    if (fav.type === 'auditory') return isAuditoryMode && auditoryName === fav.data.auditoryName;
+    if (fav.type === 'student') return !isTeacherMode && !isAuditoryMode && selectedGroup === fav.data.group;
+    return false;
+  }, [isTeacherMode, isAuditoryMode, teacherName, auditoryName, selectedGroup]);
+
   const confirmRemoveFavorite = useCallback((id, label = 'элемент') => {
     Alert.alert(
       'Удалить из избранного?',
@@ -633,13 +640,6 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
       if (onSettingsUpdate) onSettingsUpdate({ format: 'student', group: fav.data.group, course: fav.data.course });
     }
   }, [fetchTeacherSchedule, fetchAuditorySchedule, setCourse, setSelectedGroup, onSettingsUpdate]);
-
-  const checkIsActiveFavorite = useCallback((fav) => {
-    if (fav.type === 'teacher') return isTeacherMode && teacherName === fav.data.teacherName;
-    if (fav.type === 'auditory') return isAuditoryMode && auditoryName === fav.data.auditoryName;
-    if (fav.type === 'student') return !isTeacherMode && !isAuditoryMode && selectedGroup === fav.data.group;
-    return false;
-  }, [isTeacherMode, isAuditoryMode, teacherName, auditoryName, selectedGroup]);
 
   // Удалить из избранного (с подтверждением)
   const handleRemoveFavoriteFromBar = useCallback((id, label) => {
