@@ -474,7 +474,12 @@ const handleNewYearModeChange = async (enabled) => {
       } else if (savedTheme) {
         setTheme(savedTheme);
       }
-      if (savedAccentColor) setAccentColor(savedAccentColor);
+      if (savedAccentColor === 'legend' && !allUnlocked) {
+        setAccentColor('green');
+        await SecureStore.setItemAsync('accentColor', 'green');
+      } else if (savedAccentColor) {
+        setAccentColor(savedAccentColor);
+      }
     } catch (error) {
       console.error('Error loading settings:', error);
     }

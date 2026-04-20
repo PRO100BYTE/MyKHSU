@@ -39,6 +39,13 @@ export const ACCENT_COLORS = {
     dark: '#00CC33',
     glass: 'rgba(0, 255, 65, 0.12)',
     glassBorder: 'rgba(0, 255, 65, 0.25)',
+  },
+  legend: {
+    primary: '#FFD666',
+    light: '#FFF7E0',
+    dark: '#8A6A1F',
+    glass: 'rgba(255, 214, 102, 0.14)',
+    glassBorder: 'rgba(255, 214, 102, 0.28)',
   }
 };
 

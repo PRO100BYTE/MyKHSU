@@ -431,7 +431,7 @@ const SplashScreen = ({ accentColor, theme, holidayInfo, legendUnlocked = false 
               },
             ]}
           >
-            {isLegendSplash ? 'Легенда кампуса' : 'Твой университет в кармане'}
+            {isLegendSplash ? 'Легенда ИТИ ХГУ' : 'Твой университет в кармане'}
           </Text>
         </Animated.View>
 
