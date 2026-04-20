@@ -104,6 +104,11 @@ const AppearanceSettingsSheet = ({
   };
 
   const handleAccentColorChange = async (newColor) => {
+    if (newColor === 'legend' && !(legendUnlocked || localLegendUnlocked)) {
+      Alert.alert('Цвет недоступен', 'Легендарный акцент откроется после получения всех достижений.');
+      return;
+    }
+
     setAccentColor(newColor);
     await SecureStore.setItemAsync('accentColor', newColor);
   };
@@ -155,6 +160,7 @@ const AppearanceSettingsSheet = ({
     { key: 'purple', label: 'Фиолетовый' },
     ...(developerMode ? [{ key: 'orange', label: 'Оранжевый' }] : []),
     ...(developerMode ? [{ key: 'matrix', label: 'Матрица' }] : []),
+    ...((legendUnlocked || localLegendUnlocked) ? [{ key: 'legend', label: 'Легендарный' }] : []),
   ];
 
   const themeOptions = [
@@ -240,6 +246,14 @@ const AppearanceSettingsSheet = ({
             <Icon name="trophy" size={16} color="#FFD666" />
             <Text style={[styles.infoText, { color: '#FFD666', marginLeft: 8, flex: 1 }]}> 
               Эксклюзивная тема открыта за полный набор достижений.
+            </Text>
+          </View>
+        )}
+        {(legendUnlocked || localLegendUnlocked) && accentColor === 'legend' && (
+          <View style={[styles.infoSection, { backgroundColor: 'rgba(255, 214, 102, 0.12)', marginTop: 12 }]}> 
+            <Icon name="diamond" size={16} color="#FFD666" />
+            <Text style={[styles.infoText, { color: '#FFD666', marginLeft: 8, flex: 1 }]}> 
+              Легендарный акцент активен.
             </Text>
           </View>
         )}
