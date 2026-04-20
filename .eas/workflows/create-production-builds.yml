@@ -5,6 +5,9 @@ on:
     branches:
       - "master"
 
+env:
+  SENTRY_ALLOW_FAILURE: "true"
+
 jobs:
   build_android:
     type: build # This job type creates a production build for Android (Google Play Store format)
