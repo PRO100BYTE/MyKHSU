@@ -74,9 +74,9 @@
       [
         "@sentry/react-native/expo",
         {
-          "url": "https://sentry.io/", // temporary migrate from sentry.sculkmetrics.com to sentry.io, because of tech works on our server, after works we will migrate back
+          "url": "https://sentry.io/",
           "project": "mykhsu",
-          "organization": "pro100byte-team" // temporary migrate from sculk to pro100byte-team, because of tech works on our server, after works we will migrate back
+          "organization": "pro100byte-team"
         }
       ],
       "expo-font",
@@ -97,7 +97,8 @@
         }
       ],
       "expo-splash-screen",
-      "expo-calendar"
+      "expo-calendar",
+      "@react-native-community/datetimepicker"
     ],
     "extra": {
       "eas": {
