@@ -6,6 +6,7 @@ if (!Array.prototype.toReversed) {
     value() {
       return this.slice().reverse();
     },
+    enumerable: false,
     writable: true,
     configurable: true,
   });
