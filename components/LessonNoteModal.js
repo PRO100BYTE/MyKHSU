@@ -175,6 +175,11 @@ const LessonNoteModal = ({ visible, onClose, lesson, weekday, theme, accentColor
           const hwMaster = await unlockAchievement('homework_master');
           if (hwMaster) showAchievementToast(hwMaster);
         }
+
+        if (homeworkStatus === HOMEWORK_STATUSES.DONE) {
+          const hwDone = await unlockAchievement('homework_done');
+          if (hwDone) showAchievementToast(hwDone);
+        }
       }
       
       onClose(true); // true = saved

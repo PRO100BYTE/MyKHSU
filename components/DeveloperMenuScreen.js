@@ -16,6 +16,7 @@ import ApiService from '../utils/api';
 import notificationService from '../utils/notificationService';
 import backgroundService from '../utils/backgroundService';
 import { exportScheduleToCalendar } from '../utils/calendarExport';
+import SnakeGame from './SnakeGame';
 
 const DeveloperMenuScreen = ({ theme, accentColor, onResetDeveloperMode }) => {
   const [customApiUrl, setCustomApiUrl] = useState('');
@@ -23,6 +24,10 @@ const DeveloperMenuScreen = ({ theme, accentColor, onResetDeveloperMode }) => {
   const [cacheKeys, setCacheKeys] = useState([]);
   const [secureKeys, setSecureKeys] = useState([]);
   const [showDebugInfo, setShowDebugInfo] = useState(false);
+  const [snakeVisible, setSnakeVisible] = useState(false);
+  const [storageKeyInput, setStorageKeyInput] = useState('');
+  const [storageKeyValue, setStorageKeyValue] = useState(null);
+  const [apiPingResults, setApiPingResults] = useState(null);
 
   const colors = ACCENT_COLORS[accentColor];
   const glass = LIQUID_GLASS[theme] || LIQUID_GLASS.light;
@@ -1097,6 +1102,44 @@ const DeveloperMenuScreen = ({ theme, accentColor, onResetDeveloperMode }) => {
           </TouchableOpacity>
 
           <TouchableOpacity
+            style={[styles.actionButton, { backgroundColor: inputBgColor, borderColor: borderColor }]}
+            onPress={async () => {
+              const result = await unlockAchievement('offline_hero');
+              if (result) {
+                Alert.alert('Успех', 'Ачивка "Партизан" разблокирована');
+              } else {
+                Alert.alert('Инфо', 'Ачивка "Партизан" уже получена');
+              }
+            }}
+          >
+            <Icon name="cloud-offline-outline" size={20} color={colors.primary} />
+            <Text style={[styles.actionButtonText, { color: textColor }]}>Тест: offline_hero ачивка</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.actionButton, { backgroundColor: inputBgColor, borderColor }]}
+            onPress={async () => {
+              let count = 0;
+              for (const id of Object.keys(ACHIEVEMENT_DEFINITIONS)) {
+                const result = await unlockAchievement(id);
+                if (result) count += 1;
+              }
+              Alert.alert('Готово', `Разблокировано новых ачивок: ${count}`);
+            }}
+          >
+            <Icon name="ribbon-outline" size={20} color={colors.primary} />
+            <Text style={[styles.actionButtonText, { color: textColor }]}>Разблокировать все ачивки</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.actionButton, { backgroundColor: 'rgba(99, 102, 241, 0.08)', borderColor: 'rgba(99, 102, 241, 0.25)' }]}
+            onPress={() => setSnakeVisible(true)}
+          >
+            <Icon name="game-controller-outline" size={20} color="#6366F1" />
+            <Text style={[styles.actionButtonText, { color: textColor }]}>Мини-игра</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
             style={[styles.actionButton, { backgroundColor: 'rgba(239, 68, 68, 0.1)', borderColor: 'rgba(239, 68, 68, 0.3)' }]}
             onPress={() => {
               Alert.alert(
@@ -1161,6 +1204,88 @@ const DeveloperMenuScreen = ({ theme, accentColor, onResetDeveloperMode }) => {
             Некоторые изменения требуют перезапуска приложения
           </Text>
         </View>
+
+        {/* Пинг всех API */}
+        <View style={styles.section}>
+          <Text style={[styles.sectionTitle, { color: textColor }]}>Пинг всех API</Text>
+          <TouchableOpacity
+            style={[styles.actionButton, { backgroundColor: inputBgColor, borderColor }]}
+            onPress={async () => {
+              setApiPingResults(null);
+              const endpoints = [
+                { label: 'Новости', fn: () => ApiService.getNews(0, 1) },
+                { label: 'Группы', fn: () => ApiService.getGroups(1) },
+                { label: 'Расписание', fn: () => ApiService.getSchedule('125-1', new Date()) },
+              ];
+              const results = await Promise.allSettled(
+                endpoints.map(async e => {
+                  const start = Date.now();
+                  const r = await e.fn();
+                  return { label: e.label, ms: Date.now() - start, source: r?.source || '?' };
+                })
+              );
+              const lines = results.map((r, i) =>
+                r.status === 'fulfilled'
+                  ? `${endpoints[i].label}: ${r.value.ms} мс [${r.value.source}]`
+                  : `${endpoints[i].label}: ошибка`
+              );
+              setApiPingResults(lines.join('\n'));
+              Alert.alert('Пинг API', lines.join('\n'));
+            }}
+          >
+            <Icon name="speedometer-outline" size={20} color={colors.primary} />
+            <Text style={[styles.actionButtonText, { color: textColor }]}>Запустить пинг всех эндпоинтов</Text>
+          </TouchableOpacity>
+          {apiPingResults ? (
+            <View style={[styles.debugCard, { backgroundColor: inputBgColor, borderColor }]}>
+              <Text style={[styles.debugText, { color: placeholderColor }]}>{apiPingResults}</Text>
+            </View>
+          ) : null}
+        </View>
+
+        {/* Инспектор AsyncStorage */}
+        <View style={styles.section}>
+          <Text style={[styles.sectionTitle, { color: textColor }]}>Инспектор AsyncStorage</Text>
+          <TextInput
+            style={[styles.textInput, { backgroundColor: inputBgColor, borderColor, color: textColor }]}
+            placeholder="Ключ AsyncStorage..."
+            placeholderTextColor={placeholderColor}
+            value={storageKeyInput}
+            onChangeText={setStorageKeyInput}
+            autoCapitalize="none"
+            autoCorrect={false}
+          />
+          <TouchableOpacity
+            style={[styles.saveButton, { backgroundColor: colors.primary }]}
+            onPress={async () => {
+              const key = storageKeyInput.trim();
+              if (!key) { Alert.alert('Ошибка', 'Введите ключ'); return; }
+              try {
+                const value = await AsyncStorage.getItem(key);
+                setStorageKeyValue(value !== null ? value : '(null)');
+              } catch (e) {
+                setStorageKeyValue(`Ошибка: ${e.message}`);
+              }
+            }}
+          >
+            <Text style={styles.saveButtonText}>Прочитать значение</Text>
+          </TouchableOpacity>
+          {storageKeyValue !== null ? (
+            <View style={[styles.debugCard, { backgroundColor: inputBgColor, borderColor }]}>
+              <Text style={[styles.debugTitle, { color: textColor }]}>Значение:</Text>
+              <Text style={[styles.debugText, { color: placeholderColor }]} selectable>
+                {storageKeyValue}
+              </Text>
+            </View>
+          ) : null}
+        </View>
+
+        <SnakeGame
+          visible={snakeVisible}
+          onClose={() => setSnakeVisible(false)}
+          theme={theme}
+          accentColor={accentColor}
+        />
       </ScrollView>
     </View>
   );

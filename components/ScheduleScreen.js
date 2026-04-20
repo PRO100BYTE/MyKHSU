@@ -31,6 +31,8 @@ import * as SecureStore from 'expo-secure-store';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Snowfall from './Snowfall';
 import { exportScheduleToCalendar } from '../utils/calendarExport';
+import { unlockAchievement } from '../utils/achievements';
+import { showAchievementToast } from './AchievementToast';
 import LessonNoteModal from './LessonNoteModal';
 import { loadAllNotes, getLessonNoteKey, findHomeworkBySubject, markHomeworkDelivered } from '../utils/notesStorage';
 import ViewShot from 'react-native-view-shot';
@@ -1401,6 +1403,9 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
         currentDate,
         title,
       });
+      unlockAchievement('export_master').then(result => {
+        if (result) showAchievementToast(result);
+      }).catch(() => {});
     } catch (err) {
       if (err.message === 'NO_EVENTS') {
         Alert.alert('Экспорт', 'Нет занятий для экспорта');

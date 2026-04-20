@@ -3,6 +3,7 @@ import NetInfo from '@react-native-community/netinfo';
 import ApiService from '../utils/api';
 import notificationService from '../utils/notificationService';
 import { getWeekNumber, setServerWeekNumber } from '../utils/dateUtils';
+import { unlockAchievement } from '../utils/achievements';
 import * as SecureStore from 'expo-secure-store';
 
 export const useScheduleLogic = () => {
@@ -243,6 +244,7 @@ export const useScheduleLogic = () => {
         setScheduleData(cachedScheduleData);
         setShowCachedData(true);
         setCacheInfo({ source: 'stale_cache', cacheInfo: { cacheDate: new Date().toISOString() } });
+        unlockAchievement('offline_hero').catch(() => {});
       }
     } finally {
       setLoadingSchedule(false);

@@ -14,6 +14,8 @@ import {
 import { Ionicons as Icon } from '@expo/vector-icons';
 import { ACCENT_COLORS, LIQUID_GLASS } from '../utils/constants';
 import ApiService from '../utils/api';
+import { unlockAchievement } from '../utils/achievements';
+import { showAchievementToast } from './AchievementToast';
 
 const WEEKDAY_SHORT = ['', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
 
@@ -98,6 +100,10 @@ const FreeAuditoriesScreen = ({ visible, onClose, theme, accentColor, currentWee
   useEffect(() => {
     if (!visible) return;
     // Загружаем пары и неделю, если не переданы
+    unlockAchievement('free_room_hunter').then(result => {
+      if (result) showAchievementToast(result);
+    }).catch(() => {});
+
     if (!pairsTime || pairsTime.length === 0) {
       ApiService.getPairsTime().then(r => {
         if (r?.data?.pairs_time) setLocalPairsTime(r.data.pairs_time);
