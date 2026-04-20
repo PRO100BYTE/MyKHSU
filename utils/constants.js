@@ -39,6 +39,13 @@ export const ACCENT_COLORS = {
     dark: '#00CC33',
     glass: 'rgba(0, 255, 65, 0.12)',
     glassBorder: 'rgba(0, 255, 65, 0.25)',
+  },
+  legend: {
+    primary: '#FFD666',
+    light: '#FFF7E0',
+    dark: '#8A6A1F',
+    glass: 'rgba(255, 214, 102, 0.14)',
+    glassBorder: 'rgba(255, 214, 102, 0.28)',
   }
 };
 
@@ -128,15 +135,44 @@ export const LIQUID_GLASS = {
     // Blur интенсивность
     blurIntensity: 80,
     blurTint: 'systemChromeMaterialDark',
+  },
+  legend: {
+    // Поверхности
+    surfacePrimary: 'rgba(41, 32, 18, 0.78)',
+    surfaceSecondary: 'rgba(41, 32, 18, 0.62)',
+    surfaceTertiary: 'rgba(255, 214, 102, 0.10)',
+    surfaceCard: 'rgba(41, 32, 18, 0.72)',
+    // Фон
+    background: '#120D06',
+    backgroundSolid: '#120D06',
+    backgroundElevated: '#1B140A',
+    // Границы
+    border: 'rgba(255, 214, 102, 0.18)',
+    borderStrong: 'rgba(255, 214, 102, 0.34)',
+    // Текст
+    text: '#F5E7C4',
+    textSecondary: '#C8B787',
+    textTertiary: '#8D7D55',
+    // Навигация (glass)
+    headerGlass: 'rgba(30, 22, 12, 0.86)',
+    tabBarGlass: 'rgba(30, 22, 12, 0.72)',
+    tabBarBlurIntensity: 60,
+    tabBarBlurTint: 'systemThinMaterialDark',
+    // Тени
+    shadowColor: 'rgba(255, 214, 102, 0.18)',
+    shadowStrong: 'rgba(255, 214, 102, 0.30)',
+    // Blur интенсивность
+    blurIntensity: 80,
+    blurTint: 'systemChromeMaterialDark',
   }
 };
 
 // Версия приложения
-export const APP_VERSION = '2.3.1';
+export const APP_VERSION = '2.3.2';
 export const APP_DEVELOPERS = 'студентами группы 125-1 в составе команды PRO100BYTE Team';
 export const APP_SUPPORTERS = 'ХГУ им. Н.Ф. Катанова и ООО "Скалк Софт"';
-export const BUILD_VER = 'git-efaefa9';
-export const BUILD_DATE = '20.04.2026';
+export const BUILD_VER = 'git-09f4be9';
+export const BUILD_DATE = '21.04.2026';
 
 // Дни недели
 export const WEEKDAYS = [
@@ -153,7 +189,7 @@ export const WEEKDAYS = [
 export const SCREENS = {
   SCHEDULE: 'Расписание',
   MAP: 'Карта',
-  FRESHMAN: 'Первокурснику',
+  FRESHMAN: 'Первокурснику / Студенту',
   NEWS: 'Новости',
   SETTINGS: 'Настройки'
 };

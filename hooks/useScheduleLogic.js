@@ -3,6 +3,7 @@ import NetInfo from '@react-native-community/netinfo';
 import ApiService from '../utils/api';
 import notificationService from '../utils/notificationService';
 import { getWeekNumber, setServerWeekNumber } from '../utils/dateUtils';
+import { unlockAchievement } from '../utils/achievements';
 import * as SecureStore from 'expo-secure-store';
 
 export const useScheduleLogic = () => {
@@ -217,6 +218,22 @@ export const useScheduleLogic = () => {
       } catch (notifyError) {
         console.error('Error scheduling notifications:', notifyError);
       }
+
+      // Проверяем изменения в расписании и уведомляем пользователя
+      try {
+        const d = new Date(currentDate);
+        const localDateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        const scopeSuffix = viewMode === 'day'
+          ? `day_${localDateStr}`
+          : `week_${processedSchedule?.week_number || currentWeek}`;
+        await notificationService.checkScheduleChanges(
+          processedSchedule,
+          `${group}__${scopeSuffix}`,
+          { source: result.source }
+        );
+      } catch (changeError) {
+        console.error('Error checking schedule changes:', changeError);
+      }
       
       console.log('Загружено расписание для группы', group, 'на', viewMode === 'day' ? currentDate.toDateString() : `неделю ${currentWeek}`);
     } catch (error) {
@@ -227,6 +244,7 @@ export const useScheduleLogic = () => {
         setScheduleData(cachedScheduleData);
         setShowCachedData(true);
         setCacheInfo({ source: 'stale_cache', cacheInfo: { cacheDate: new Date().toISOString() } });
+        unlockAchievement('offline_hero').catch(() => {});
       }
     } finally {
       setLoadingSchedule(false);

@@ -11,6 +11,7 @@ import {
   Animated, 
   StatusBar,
   Alert,
+  Modal,
   LayoutAnimation,
   Platform,
   UIManager,
@@ -30,11 +31,28 @@ import * as SecureStore from 'expo-secure-store';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Snowfall from './Snowfall';
 import { exportScheduleToCalendar } from '../utils/calendarExport';
+import { unlockAchievement } from '../utils/achievements';
+import { showAchievementToast } from './AchievementToast';
 import LessonNoteModal from './LessonNoteModal';
 import { loadAllNotes, getLessonNoteKey, findHomeworkBySubject, markHomeworkDelivered } from '../utils/notesStorage';
 import ViewShot from 'react-native-view-shot';
 import * as Sharing from 'expo-sharing';
 import ScheduleShareImage from './ScheduleShareImage';
+import notificationService from '../utils/notificationService';
+import AttendanceStatsModal from './AttendanceStatsModal';
+import FreeAuditoriesScreen from './FreeAuditoriesScreen';
+import {
+  loadAllAttendance,
+  saveAttendance,
+  removeAttendance,
+  buildAttendanceKeyV2,
+} from '../utils/attendanceStorage';
+import {
+  getFavorites,
+  addFavorite,
+  removeFavorite,
+  buildFavoriteId,
+} from '../utils/favoritesStorage';
 
 const { width, height } = Dimensions.get('window');
 
@@ -100,7 +118,7 @@ const LessonCountdown = ({ timeEnd, accentColor }) => {
   );
 };
 
-const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings, onSettingsUpdate, isNewYearMode, onCacheStatusChange, onExportReady }) => {
+const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings, onSettingsUpdate, isNewYearMode, onCacheStatusChange, onExportReady, onFavoritesReady }) => {
   const [isTeacherMode, setIsTeacherMode] = useState(false);
   const [isAuditoryMode, setIsAuditoryMode] = useState(false);
   const [teacherSchedule, setTeacherSchedule] = useState(null);
@@ -115,6 +133,20 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
   const [loadingCourses, setLoadingCourses] = useState(false);
   const [settingsLoaded, setSettingsLoaded] = useState(false);
   const [exporting, setExporting] = useState(false);
+
+  // Посещаемость
+  const [attendanceMap, setAttendanceMap] = useState({});
+  const [attendanceStatsVisible, setAttendanceStatsVisible] = useState(false);
+  const [attendanceTrackingEnabled, setAttendanceTrackingEnabled] = useState(true);
+
+  // Избранные расписания
+  const [favorites, setFavorites] = useState([]);
+  const [isFav, setIsFav] = useState(false);
+  const [favoritesModalVisible, setFavoritesModalVisible] = useState(false);
+
+  // Поиск свободных аудиторий
+  const [freeAuditoriesVisible, setFreeAuditoriesVisible] = useState(false);
+  const [freeAuditoriesEnabled, setFreeAuditoriesEnabled] = useState(true);
 
   // Заметки к парам
   const [lessonNotes, setLessonNotes] = useState({});
@@ -196,6 +228,13 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
       onExportReady(hasData ? handleExportAction : null, exporting);
     }
   }, [handleExportAction, isTeacherMode, isAuditoryMode, teacherSchedule, auditorySchedule, scheduleData, exporting]);
+
+  // Передаём обработчик открытия модалки избранного в App.js
+  useEffect(() => {
+    if (onFavoritesReady) {
+      onFavoritesReady(() => setFavoritesModalVisible(true));
+    }
+  }, [onFavoritesReady]);
 
   // Синхронизация статуса кэша с хедером приложения
   useEffect(() => {
@@ -445,11 +484,58 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
     refreshNotes();
   }, [scheduleData, teacherSchedule, auditorySchedule]);
 
+  // Загрузка отметок посещаемости
+  useEffect(() => {
+    loadAllAttendance().then(setAttendanceMap).catch(() => {});
+  }, []);
+
+  // Загрузка избранных расписаний
+  useEffect(() => {
+    getFavorites().then(setFavorites).catch(() => {});
+  }, []);
+
+  // Обновление isFav при смене активного расписания
+  useEffect(() => {
+    let type, data;
+    if (isTeacherMode && teacherName) {
+      type = 'teacher'; data = { teacherName };
+    } else if (isAuditoryMode && auditoryName) {
+      type = 'auditory'; data = { auditoryName };
+    } else if (selectedGroup) {
+      type = 'student'; data = { group: selectedGroup };
+    } else {
+      setIsFav(false);
+      return;
+    }
+    const id = buildFavoriteId(type, data);
+    getFavorites().then(list => setIsFav(list.some(f => f.id === id))).catch(() => {});
+  }, [isTeacherMode, isAuditoryMode, teacherName, auditoryName, selectedGroup]);
+
   const openNoteModal = (lesson, weekday) => {
     setNoteModalLesson(lesson);
     setNoteModalWeekday(weekday);
     setNoteModalVisible(true);
   };
+
+  const formatLocalDateISO = useCallback((date) => {
+    if (!date) return '';
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }, []);
+
+  const getAttendanceMeta = useCallback((lesson, weekday, lessonDate) => {
+    const resolvedDate = lessonDate || (viewMode === 'day'
+      ? currentDate
+      : getLessonDateForWeek(currentWeek, weekday, currentTime));
+
+    return {
+      group: selectedGroup || '',
+      dateISO: formatLocalDateISO(resolvedDate),
+      lessonType: lesson?.type_lesson || '',
+    };
+  }, [selectedGroup, viewMode, currentDate, currentWeek, currentTime, formatLocalDateISO]);
 
   const handleNoteModalClose = (saved) => {
     setNoteModalVisible(false);
@@ -457,6 +543,110 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
     setNoteModalWeekday(null);
     if (saved) refreshNotes();
   };
+
+  // Отметить посещаемость пары (toggle: повторный тап снимает отметку)
+  const handleAttendanceMark = useCallback(async (lesson, weekday, status, lessonDate) => {
+    const { group, dateISO, lessonType } = getAttendanceMeta(lesson, weekday, lessonDate);
+    const key = buildAttendanceKeyV2(lesson.subject, weekday, lesson.time, group, dateISO, lessonType);
+    const current = attendanceMap[key];
+    try {
+      if (current?.status === status) {
+        await removeAttendance({ subject: lesson.subject, weekday, timeSlot: lesson.time, group, dateISO, lessonType });
+        setAttendanceMap(prev => {
+          const next = { ...prev };
+          delete next[key];
+          return next;
+        });
+      } else {
+        const entry = await saveAttendance({ subject: lesson.subject, weekday, timeSlot: lesson.time, group, status, dateISO, lessonType });
+        setAttendanceMap(prev => ({ ...prev, [key]: entry }));
+      }
+    } catch (e) {
+      console.error('Error saving attendance:', e);
+    }
+  }, [attendanceMap, getAttendanceMeta]);
+
+  const checkIsActiveFavorite = useCallback((fav) => {
+    if (fav.type === 'teacher') return isTeacherMode && teacherName === fav.data.teacherName;
+    if (fav.type === 'auditory') return isAuditoryMode && auditoryName === fav.data.auditoryName;
+    if (fav.type === 'student') return !isTeacherMode && !isAuditoryMode && selectedGroup === fav.data.group;
+    return false;
+  }, [isTeacherMode, isAuditoryMode, teacherName, auditoryName, selectedGroup]);
+
+  const confirmRemoveFavorite = useCallback((id, label = 'элемент') => {
+    Alert.alert(
+      'Удалить из избранного?',
+      `"${label}" будет удален из избранного.`,
+      [
+        { text: 'Отмена', style: 'cancel' },
+        {
+          text: 'Удалить',
+          style: 'destructive',
+          onPress: async () => {
+            await removeFavorite(id);
+            setFavorites(prev => prev.filter(f => f.id !== id));
+            const cur = favorites.find(f => f.id === id);
+            if (cur && checkIsActiveFavorite(cur)) setIsFav(false);
+          },
+        },
+      ]
+    );
+  }, [favorites, checkIsActiveFavorite]);
+
+  // Добавить / удалить текущее расписание из избранного
+  const handleToggleFavorite = useCallback(async () => {
+    let type, label, data;
+    if (isTeacherMode && teacherName) {
+      type = 'teacher'; label = teacherName; data = { teacherName };
+    } else if (isAuditoryMode && auditoryName) {
+      type = 'auditory'; label = auditoryName; data = { auditoryName };
+    } else if (selectedGroup) {
+      type = 'student'; label = selectedGroup; data = { group: selectedGroup, course };
+    } else {
+      return;
+    }
+    const id = buildFavoriteId(type, data);
+    try {
+      if (isFav) {
+        confirmRemoveFavorite(id, label);
+      } else {
+        const favorite = { id, type, label, data };
+        await addFavorite(favorite);
+        setFavorites(prev => [...prev, favorite]);
+        setIsFav(true);
+      }
+    } catch (e) {
+      console.error('Error toggling favorite:', e);
+    }
+  }, [isFav, isTeacherMode, isAuditoryMode, teacherName, auditoryName, selectedGroup, course, confirmRemoveFavorite]);
+
+  // Применить избранное
+  const applyFavorite = useCallback((fav) => {
+    if (fav.type === 'teacher') {
+      setIsTeacherMode(true);
+      setIsAuditoryMode(false);
+      setTeacherName(fav.data.teacherName);
+      fetchTeacherSchedule(fav.data.teacherName);
+      if (onSettingsUpdate) onSettingsUpdate({ format: 'teacher', teacher: fav.data.teacherName });
+    } else if (fav.type === 'auditory') {
+      setIsTeacherMode(false);
+      setIsAuditoryMode(true);
+      setAuditoryName(fav.data.auditoryName);
+      fetchAuditorySchedule(fav.data.auditoryName);
+      if (onSettingsUpdate) onSettingsUpdate({ format: 'auditory', auditory: fav.data.auditoryName });
+    } else if (fav.type === 'student') {
+      setIsTeacherMode(false);
+      setIsAuditoryMode(false);
+      if (fav.data.course) setCourse(fav.data.course);
+      if (fav.data.group) setSelectedGroup(fav.data.group);
+      if (onSettingsUpdate) onSettingsUpdate({ format: 'student', group: fav.data.group, course: fav.data.course });
+    }
+  }, [fetchTeacherSchedule, fetchAuditorySchedule, setCourse, setSelectedGroup, onSettingsUpdate]);
+
+  // Удалить из избранного (с подтверждением)
+  const handleRemoveFavoriteFromBar = useCallback((id, label) => {
+    confirmRemoveFavorite(id, label);
+  }, [confirmRemoveFavorite]);
 
   // Проверяет, есть ли заметка к занятию
   const hasNoteForLesson = (lesson, weekday) => {
@@ -776,26 +966,79 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
                   accentColor={accentColor}
                 />
               )}
-              <TouchableOpacity
-                onPress={() => openNoteModal(lesson, weekday)}
-                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                style={{
-                  width: 30,
-                  height: 30,
-                  borderRadius: 15,
-                  justifyContent: 'center',
-                  alignItems: 'center',
-                  backgroundColor: hasNoteForLesson(lesson, weekday)
-                    ? (colors.glass || colors.primary + '10')
-                    : glass.surfaceTertiary,
-                }}
-              >
-                <Icon
-                  name={hasNoteForLesson(lesson, weekday) ? 'create' : 'create-outline'}
-                  size={16}
-                  color={hasNoteForLesson(lesson, weekday) ? colors.primary : placeholderColor}
-                />
-              </TouchableOpacity>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                {attendanceTrackingEnabled && !isTeacher && !isAuditory && (
+                  <TouchableOpacity
+                    onPress={() => {
+                      const { group, dateISO, lessonType } = getAttendanceMeta(lesson, weekday, lessonDate);
+                      const attKey = buildAttendanceKeyV2(lesson.subject, weekday, lesson.time, group, dateISO, lessonType);
+                      const currentStatus = attendanceMap[attKey]?.status;
+                      if (currentStatus === 'attended') {
+                        handleAttendanceMark(lesson, weekday, 'missed', lessonDate);
+                      } else if (currentStatus === 'missed') {
+                        handleAttendanceMark(lesson, weekday, 'excused', lessonDate);
+                      } else if (currentStatus === 'excused') {
+                        handleAttendanceMark(lesson, weekday, 'excused', lessonDate);
+                      } else {
+                        handleAttendanceMark(lesson, weekday, 'attended', lessonDate);
+                      }
+                    }}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    style={{
+                      width: 30,
+                      height: 30,
+                      borderRadius: 15,
+                      justifyContent: 'center',
+                      alignItems: 'center',
+                      backgroundColor: (() => {
+                        const { group, dateISO, lessonType } = getAttendanceMeta(lesson, weekday, lessonDate);
+                        const attKey = buildAttendanceKeyV2(lesson.subject, weekday, lesson.time, group, dateISO, lessonType);
+                        const status = attendanceMap[attKey]?.status;
+                        if (status === 'attended') return 'rgba(16, 185, 129, 0.14)';
+                        if (status === 'missed') return 'rgba(239, 68, 68, 0.14)';
+                        if (status === 'excused') return 'rgba(245, 158, 11, 0.14)';
+                        return glass.surfaceTertiary;
+                      })(),
+                    }}
+                  >
+                    {(() => {
+                      const { group, dateISO, lessonType } = getAttendanceMeta(lesson, weekday, lessonDate);
+                      const attKey = buildAttendanceKeyV2(lesson.subject, weekday, lesson.time, group, dateISO, lessonType);
+                      const status = attendanceMap[attKey]?.status;
+                      if (status === 'attended') {
+                        return <Icon name="checkmark-circle" size={16} color="#10b981" />;
+                      }
+                      if (status === 'missed') {
+                        return <Icon name="close-circle" size={16} color="#ef4444" />;
+                      }
+                      if (status === 'excused') {
+                        return <Icon name="remove-circle" size={16} color="#f59e0b" />;
+                      }
+                      return <Icon name="checkmark-done-outline" size={16} color={placeholderColor} />;
+                    })()}
+                  </TouchableOpacity>
+                )}
+                <TouchableOpacity
+                  onPress={() => openNoteModal(lesson, weekday)}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  style={{
+                    width: 30,
+                    height: 30,
+                    borderRadius: 15,
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    backgroundColor: hasNoteForLesson(lesson, weekday)
+                      ? (colors.glass || colors.primary + '10')
+                      : glass.surfaceTertiary,
+                  }}
+                >
+                  <Icon
+                    name={hasNoteForLesson(lesson, weekday) ? 'create' : 'create-outline'}
+                    size={16}
+                    color={hasNoteForLesson(lesson, weekday) ? colors.primary : placeholderColor}
+                  />
+                </TouchableOpacity>
+              </View>
             </View>
           )}
         </View>
@@ -845,21 +1088,29 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
       const showSelector = await SecureStore.getItemAsync('show_course_selector');
       const teacher = await SecureStore.getItemAsync('teacher_name') || '';
       const auditory = await SecureStore.getItemAsync('auditory_name') || '';
+      const attendanceTracking = await SecureStore.getItemAsync('attendance_tracking_enabled');
+      const freeAuditories = await SecureStore.getItemAsync('free_auditories_enabled');
       
       const shouldShowSelector = showSelector !== 'false';
+      const shouldTrackAttendance = attendanceTracking !== 'false';
+      const shouldShowFreeAuditories = freeAuditories !== 'false';
       
       setIsTeacherMode(format === 'teacher');
       setIsAuditoryMode(format === 'auditory');
       setShowCourseSelector(shouldShowSelector);
       setTeacherName(teacher);
       setAuditoryName(auditory);
+      setAttendanceTrackingEnabled(shouldTrackAttendance);
+      setFreeAuditoriesEnabled(shouldShowFreeAuditories);
       
       console.log('Настройки расписания загружены:', { 
         format, 
         showSelector, 
         shouldShowSelector, 
         teacher,
-        auditory
+        auditory,
+        shouldTrackAttendance,
+        shouldShowFreeAuditories,
       });
       
       if (format === 'teacher' && teacher) {
@@ -905,6 +1156,12 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
     setShowCourseSelector(settings.showSelector !== false);
     setTeacherName(settings.teacher || '');
     setAuditoryName(settings.auditory || '');
+    if (typeof settings.attendanceTrackingEnabled === 'boolean') {
+      setAttendanceTrackingEnabled(settings.attendanceTrackingEnabled);
+    }
+    if (typeof settings.freeAuditoriesEnabled === 'boolean') {
+      setFreeAuditoriesEnabled(settings.freeAuditoriesEnabled);
+    }
     
     if (settings.format === 'teacher' && settings.teacher) {
       fetchTeacherSchedule(settings.teacher);
@@ -982,6 +1239,16 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
         if (result.data.week_number && !week) {
           setCurrentWeek(result.data.week_number);
         }
+        try {
+          const weekScope = result.data.week_number || week || currentWeek || 'unknown';
+          await notificationService.checkScheduleChanges(
+            result.data,
+            `teacher_${teacher}__week_${weekScope}`,
+            { source: result.source }
+          );
+        } catch (notifyError) {
+          console.error('Error checking teacher schedule changes:', notifyError);
+        }
         console.log('Расписание преподавателя загружено:', result.data);
       } else {
         throw new Error('INVALID_RESPONSE');
@@ -1009,6 +1276,16 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
         setAuditorySchedule(result.data);
         if (result.data.week_number && !week) {
           setCurrentWeek(result.data.week_number);
+        }
+        try {
+          const weekScope = result.data.week_number || week || currentWeek || 'unknown';
+          await notificationService.checkScheduleChanges(
+            result.data,
+            `auditory_${auditory}__week_${weekScope}`,
+            { source: result.source }
+          );
+        } catch (notifyError) {
+          console.error('Error checking auditory schedule changes:', notifyError);
         }
         console.log('Расписание аудитории загружено:', result.data);
       } else {
@@ -1126,6 +1403,9 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
         currentDate,
         title,
       });
+      unlockAchievement('export_master').then(result => {
+        if (result) showAchievementToast(result);
+      }).catch(() => {});
     } catch (err) {
       if (err.message === 'NO_EVENTS') {
         Alert.alert('Экспорт', 'Нет занятий для экспорта');
@@ -1874,6 +2154,85 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
     return null;
   };
 
+  const hasSelection = (isTeacherMode && teacherName) || (isAuditoryMode && auditoryName) || (!isTeacherMode && !isAuditoryMode && selectedGroup);
+
+  const renderFavoriteToggleButton = ({ compact = false } = {}) => {
+    if (!hasSelection) return null;
+    return (
+      <TouchableOpacity
+        onPress={handleToggleFavorite}
+        style={{
+          flexDirection: 'row',
+          alignItems: 'center',
+          paddingVertical: compact ? 5 : 6,
+          paddingHorizontal: compact ? 8 : 10,
+          borderRadius: compact ? 10 : 12,
+          backgroundColor: isFav ? (colors.glass || colors.primary + '15') : glass.surfaceSecondary,
+          borderWidth: StyleSheet.hairlineWidth,
+          borderColor: isFav ? (colors.glassBorder || colors.primary + '35') : glass.border,
+          gap: 4,
+        }}
+      >
+        <Icon name={isFav ? 'star' : 'star-outline'} size={compact ? 12 : 13} color={isFav ? colors.primary : placeholderColor} />
+        <Text style={{
+          fontSize: compact ? 11 : 12,
+          fontFamily: 'Montserrat_500Medium',
+          color: isFav ? colors.primary : textColor,
+        }}>
+          {compact ? 'Избр.' : (isFav ? 'В избранном' : 'В избранное')}
+        </Text>
+      </TouchableOpacity>
+    );
+  };
+
+  // Кнопки инструментов: посещаемость + свободные аудитории
+  const renderToolbar = () => {
+    const showAttendanceBtn = attendanceTrackingEnabled && !isTeacherMode && !isAuditoryMode && selectedGroup;
+    const showFreeAuditoriesBtn = freeAuditoriesEnabled;
+    const showFavoriteInToolbar = hasSelection && (isTeacherMode || isAuditoryMode);
+    if (!showFavoriteInToolbar && !showAttendanceBtn && !showFreeAuditoriesBtn) return null;
+
+    const compactActionStyle = {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingVertical: 6,
+      paddingHorizontal: 10,
+      borderRadius: 12,
+      backgroundColor: glass.surfaceSecondary,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: glass.border,
+      gap: 5,
+    };
+
+    return (
+      <View style={{ flexDirection: 'row', gap: 6, marginBottom: 10, flexWrap: 'wrap' }}>
+        {showFavoriteInToolbar && renderFavoriteToggleButton({ compact: true })}
+        {showAttendanceBtn && (
+          <TouchableOpacity
+            onPress={() => setAttendanceStatsVisible(true)}
+            style={compactActionStyle}
+          >
+            <Icon name="bar-chart-outline" size={13} color={colors.primary} />
+            <Text style={{ fontSize: 11, fontFamily: 'Montserrat_500Medium', color: textColor }}>
+              Посещаемость
+            </Text>
+          </TouchableOpacity>
+        )}
+        {showFreeAuditoriesBtn && (
+          <TouchableOpacity
+            onPress={() => setFreeAuditoriesVisible(true)}
+            style={compactActionStyle}
+          >
+            <Icon name="grid-outline" size={13} color={colors.primary} />
+            <Text style={{ fontSize: 11, fontFamily: 'Montserrat_500Medium', color: textColor }}>
+              Своб. аудитории
+            </Text>
+          </TouchableOpacity>
+        )}
+      </View>
+    );
+  };
+
   const renderCurrentScreen = () => {
 
 // Обработка ошибок
@@ -1943,7 +2302,10 @@ return (
 
         {/* Управление */}
         {renderControls()}
-        
+
+        {/* Инструменты: посещаемость, свободные аудитории */}
+        {renderToolbar()}
+
         {/* Студенческий режим: кнопки курса и групп */}
         {settingsLoaded && !isTeacherMode && !isAuditoryMode && (showCourseSelector || selectorExpandedTemp) && (
           <View>
@@ -2039,23 +2401,26 @@ return (
 
             {/* Список групп */}
             <View style={{ marginBottom: 16 }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10, paddingHorizontal: 4 }}>
-                <View style={{
-                  width: 28,
-                  height: 28,
-                  borderRadius: 14,
-                  backgroundColor: colors.glass,
-                  justifyContent: 'center',
-                  alignItems: 'center',
-                  marginRight: 8,
-                }}>
-                  <Icon name="people-outline" size={15} color={colors.primary} />
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10, paddingHorizontal: 4 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                  <View style={{
+                    width: 28,
+                    height: 28,
+                    borderRadius: 14,
+                    backgroundColor: colors.glass,
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    marginRight: 8,
+                  }}>
+                    <Icon name="people-outline" size={15} color={colors.primary} />
+                  </View>
+                  <Text style={{
+                    fontSize: 15,
+                    fontFamily: 'Montserrat_600SemiBold',
+                    color: textColor,
+                  }}>Группа</Text>
                 </View>
-                <Text style={{
-                  fontSize: 15,
-                  fontFamily: 'Montserrat_600SemiBold',
-                  color: textColor,
-                }}>Группа</Text>
+                {renderFavoriteToggleButton({ compact: true })}
               </View>
               {loadingGroups ? (
                 <ActivityIndicator size="large" color={colors.primary} />
@@ -2130,6 +2495,11 @@ return (
             }}>
               Группа {selectedGroup}
             </Text>
+            {hasSelection && (
+              <View style={{ marginRight: 8 }}>
+                {renderFavoriteToggleButton({ compact: true })}
+              </View>
+            )}
             <TouchableOpacity 
               onPress={() => {
                 LayoutAnimation.configureNext(LayoutAnimation.create(
@@ -2175,6 +2545,149 @@ return (
   return (
     <View style={{ flex: 1 }}>
       {renderCurrentScreen()}
+      <Modal
+        visible={favoritesModalVisible}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setFavoritesModalVisible(false)}
+      >
+        <View style={{ flex: 1, backgroundColor: glass.backgroundElevated || bgColor }}>
+          <StatusBar barStyle={theme === 'light' ? 'dark-content' : 'light-content'} />
+
+          <View style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            paddingHorizontal: 20,
+            paddingTop: 20,
+            paddingBottom: 16,
+            borderBottomWidth: StyleSheet.hairlineWidth,
+            borderBottomColor: glass.border,
+          }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+              <View style={{
+                width: 36,
+                height: 36,
+                borderRadius: 18,
+                backgroundColor: colors.glass || colors.primary + '18',
+                justifyContent: 'center',
+                alignItems: 'center',
+              }}>
+                <Icon name="star-outline" size={18} color={colors.primary} />
+              </View>
+              <Text style={{ color: textColor, fontSize: 18, fontFamily: 'Montserrat_700Bold' }}>
+                Избранные расписания
+              </Text>
+            </View>
+            <TouchableOpacity onPress={() => setFavoritesModalVisible(false)}>
+              <Icon name="close" size={22} color={placeholderColor} />
+            </TouchableOpacity>
+          </View>
+
+          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: 20 }}>
+            {favorites.length === 0 ? (
+              <View style={{ alignItems: 'center', marginTop: 44 }}>
+                <Icon name="star-outline" size={44} color={placeholderColor} style={{ marginBottom: 10 }} />
+                <Text style={{ color: placeholderColor, fontFamily: 'Montserrat_600SemiBold', fontSize: 15 }}>
+                  Избранных расписаний пока нет
+                </Text>
+                <Text style={{ color: placeholderColor, fontFamily: 'Montserrat_400Regular', fontSize: 13, marginTop: 6, textAlign: 'center', opacity: 0.9 }}>
+                  Добавьте группы, преподавателей или аудитории в избранное
+                </Text>
+              </View>
+            ) : (
+              (() => {
+                const sections = [
+                  {
+                    key: 'student',
+                    title: 'Студенческие группы',
+                    icon: 'people-outline',
+                    data: favorites.filter(f => f.type === 'student'),
+                  },
+                  {
+                    key: 'teacher',
+                    title: 'Преподаватели',
+                    icon: 'person-outline',
+                    data: favorites.filter(f => f.type === 'teacher'),
+                  },
+                  {
+                    key: 'auditory',
+                    title: 'Аудитории',
+                    icon: 'business-outline',
+                    data: favorites.filter(f => f.type === 'auditory'),
+                  },
+                ].filter(section => section.data.length > 0);
+
+                return sections.map(section => (
+                  <View key={section.key} style={{ marginBottom: 16 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+                      <Icon name={section.icon} size={15} color={colors.primary} />
+                      <Text style={{ marginLeft: 6, color: placeholderColor, fontSize: 12, fontFamily: 'Montserrat_600SemiBold' }}>
+                        {section.title.toUpperCase()}
+                      </Text>
+                    </View>
+
+                    <View style={{ gap: 8 }}>
+                      {section.data.map(fav => {
+                        const active = checkIsActiveFavorite(fav);
+                        return (
+                          <View
+                            key={fav.id}
+                            style={{
+                              flexDirection: 'row',
+                              alignItems: 'center',
+                              borderRadius: 12,
+                              borderWidth: StyleSheet.hairlineWidth,
+                              borderColor: active ? colors.primary : glass.border,
+                              backgroundColor: active ? (colors.glass || colors.primary + '10') : glass.surfaceSecondary,
+                              paddingVertical: 9,
+                              paddingHorizontal: 10,
+                            }}
+                          >
+                            <TouchableOpacity
+                              onPress={() => {
+                                applyFavorite(fav);
+                                setFavoritesModalVisible(false);
+                              }}
+                              style={{ flexDirection: 'row', alignItems: 'center', flex: 1, marginRight: 8 }}
+                            >
+                              <Icon name={active ? 'star' : 'star-outline'} size={14} color={active ? colors.primary : placeholderColor} />
+                              <Text numberOfLines={1} style={{ marginLeft: 8, color: textColor, fontSize: 13, fontFamily: 'Montserrat_500Medium', flex: 1 }}>
+                                {fav.label}
+                              </Text>
+                              {active && (
+                                <Text style={{ color: colors.primary, fontSize: 11, fontFamily: 'Montserrat_600SemiBold', marginRight: 4 }}>
+                                  Активно
+                                </Text>
+                              )}
+                              <Icon name="chevron-forward" size={14} color={placeholderColor} />
+                            </TouchableOpacity>
+
+                            <TouchableOpacity
+                              onPress={() => handleRemoveFavoriteFromBar(fav.id, fav.label)}
+                              hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+                              style={{
+                                width: 28,
+                                height: 28,
+                                borderRadius: 8,
+                                justifyContent: 'center',
+                                alignItems: 'center',
+                                backgroundColor: 'rgba(239, 68, 68, 0.12)',
+                              }}
+                            >
+                              <Icon name="trash-outline" size={14} color="#ef4444" />
+                            </TouchableOpacity>
+                          </View>
+                        );
+                      })}
+                    </View>
+                  </View>
+                ));
+              })()
+            )}
+          </ScrollView>
+        </View>
+      </Modal>
       <LessonNoteModal
         visible={noteModalVisible}
         onClose={handleNoteModalClose}
@@ -2182,6 +2695,21 @@ return (
         weekday={noteModalWeekday}
         theme={theme}
         accentColor={accentColor}
+      />
+      <AttendanceStatsModal
+        visible={attendanceStatsVisible}
+        onClose={() => setAttendanceStatsVisible(false)}
+        attendanceMap={attendanceMap}
+        theme={theme}
+        accentColor={accentColor}
+      />
+      <FreeAuditoriesScreen
+        visible={freeAuditoriesVisible}
+        onClose={() => setFreeAuditoriesVisible(false)}
+        theme={theme}
+        accentColor={accentColor}
+        currentWeek={currentWeek}
+        pairsTime={pairsTime}
       />
       <ScheduleShareImage
         ref={shareImageRef}

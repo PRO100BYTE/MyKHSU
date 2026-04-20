@@ -9,6 +9,7 @@ const NotificationSettingsModal = ({ theme, accentColor }) => {
     enabled: false,
     news: false,
     schedule: false,
+    scheduleChanges: true,
     beforeLesson: true,
     lessonStart: true,
     beforeLessonEnd: true,
@@ -31,7 +32,8 @@ const NotificationSettingsModal = ({ theme, accentColor }) => {
     try {
       const saved = await SecureStore.getItemAsync('notification_settings');
       if (saved) {
-        setSettings(JSON.parse(saved));
+        const parsed = JSON.parse(saved);
+        setSettings(prev => ({ ...prev, ...parsed }));
       }
     } catch (error) {
       console.error('Error loading settings:', error);
@@ -54,8 +56,14 @@ const NotificationSettingsModal = ({ theme, accentColor }) => {
     if (key === 'enabled' && !newSettings.enabled) {
       newSettings.news = false;
       newSettings.schedule = false;
+      newSettings.scheduleChanges = false;
     } else if ((key === 'news' || key === 'schedule') && newSettings[key] && !newSettings.enabled) {
       newSettings.enabled = true;
+    } else if (key === 'schedule' && !newSettings.schedule) {
+      newSettings.scheduleChanges = false;
+    } else if (key === 'scheduleChanges' && newSettings.scheduleChanges) {
+      newSettings.enabled = true;
+      newSettings.schedule = true;
     }
     
     saveSettings(newSettings);
@@ -125,6 +133,25 @@ const NotificationSettingsModal = ({ theme, accentColor }) => {
                 trackColor={{ false: borderColor, true: colors.light }}
                 thumbColor={settings.schedule && settings.enabled ? colors.primary : placeholderColor}
                 disabled={!settings.enabled}
+              />
+            </View>
+
+            <View style={[styles.settingItem, { borderBottomColor: borderColor }]}>
+              <View style={styles.settingInfo}>
+                <Icon name="sync-outline" size={24} color={placeholderColor} />
+                <View style={styles.textContainer}>
+                  <Text style={[styles.settingLabel, { color: textColor }]}>Изменения расписания</Text>
+                  <Text style={[styles.settingDescription, { color: placeholderColor }]}>
+                    Уведомления при изменении пар
+                  </Text>
+                </View>
+              </View>
+              <Switch
+                value={settings.scheduleChanges && settings.schedule && settings.enabled}
+                onValueChange={() => toggleSetting('scheduleChanges')}
+                trackColor={{ false: borderColor, true: colors.light }}
+                thumbColor={settings.scheduleChanges && settings.schedule && settings.enabled ? colors.primary : placeholderColor}
+                disabled={!settings.enabled || !settings.schedule}
               />
             </View>
             </View>

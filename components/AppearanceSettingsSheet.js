@@ -4,12 +4,13 @@ import { Ionicons as Icon } from '@expo/vector-icons';
 import { useColorScheme } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
 import { ACCENT_COLORS, isNewYearPeriod, LIQUID_GLASS } from '../utils/constants';
-import { unlockAchievement } from '../utils/achievements';
+import { getAchievementsCount, unlockAchievement } from '../utils/achievements';
 import { showAchievementToast } from './AchievementToast';
 
 const AppearanceSettingsSheet = ({ 
   theme, 
   accentColor, 
+  legendUnlocked,
   setTheme, 
   setAccentColor, 
   onTabbarSettingsChange,
@@ -31,10 +32,24 @@ const AppearanceSettingsSheet = ({
   const [showTabbarLabels, setShowTabbarLabels] = useState(true);
   const [tabbarFontSize, setTabbarFontSize] = useState('medium');
   const [newYearSetting, setNewYearSetting] = useState(false);
+  const [localLegendUnlocked, setLocalLegendUnlocked] = useState(false);
 
   useEffect(() => {
     loadSettings();
   }, []);
+
+  useEffect(() => {
+    checkLegendUnlock();
+  }, []);
+
+  const checkLegendUnlock = async () => {
+    try {
+      const stats = await getAchievementsCount();
+      setLocalLegendUnlocked(stats.total > 0 && stats.unlocked >= stats.total);
+    } catch {
+      setLocalLegendUnlocked(false);
+    }
+  };
 
   const loadSettings = async () => {
     try {
@@ -64,6 +79,11 @@ const AppearanceSettingsSheet = ({
   };
 
   const handleThemeChange = async (newTheme) => {
+    if (newTheme === 'legend' && !(legendUnlocked || localLegendUnlocked)) {
+      Alert.alert('Тема недоступна', 'Легендарная тема откроется после получения всех достижений.');
+      return;
+    }
+
     setSelectedTheme(newTheme);
     setTheme(newTheme);
     await SecureStore.setItemAsync('theme', newTheme);
@@ -84,6 +104,11 @@ const AppearanceSettingsSheet = ({
   };
 
   const handleAccentColorChange = async (newColor) => {
+    if (newColor === 'legend' && !(legendUnlocked || localLegendUnlocked)) {
+      Alert.alert('Цвет недоступен', 'Легендарный акцент откроется после получения всех достижений.');
+      return;
+    }
+
     setAccentColor(newColor);
     await SecureStore.setItemAsync('accentColor', newColor);
   };
@@ -135,6 +160,7 @@ const AppearanceSettingsSheet = ({
     { key: 'purple', label: 'Фиолетовый' },
     ...(developerMode ? [{ key: 'orange', label: 'Оранжевый' }] : []),
     ...(developerMode ? [{ key: 'matrix', label: 'Матрица' }] : []),
+    ...((legendUnlocked || localLegendUnlocked) ? [{ key: 'legend', label: 'Легендарный' }] : []),
   ];
 
   const themeOptions = [
@@ -142,6 +168,7 @@ const AppearanceSettingsSheet = ({
     { key: 'dark', icon: 'moon-outline', label: 'Тёмная' },
     { key: 'auto', icon: 'phone-portrait-outline', label: 'Системная', desc: systemColorScheme === 'dark' ? 'Тёмная' : 'Светлая' },
     ...(developerMode ? [{ key: 'matrix', icon: 'code-slash-outline', label: 'Матрица', desc: 'Цифровой дождь' }] : []),
+    ...((legendUnlocked || localLegendUnlocked) ? [{ key: 'legend', icon: 'trophy-outline', label: 'Легендарная', desc: 'Награда за все достижения' }] : []),
   ];
 
   return (
@@ -211,6 +238,22 @@ const AppearanceSettingsSheet = ({
             <Icon name="code-slash" size={16} color="#00FF41" />
             <Text style={[styles.infoText, { color: '#00FF41', marginLeft: 8, flex: 1 }]}>
               Тема «Матрица» активирована. Добро пожаловать в кроличью нору.
+            </Text>
+          </View>
+        )}
+        {(legendUnlocked || localLegendUnlocked) && selectedTheme === 'legend' && (
+          <View style={[styles.infoSection, { backgroundColor: 'rgba(255, 214, 102, 0.12)', marginTop: 12 }]}> 
+            <Icon name="trophy" size={16} color="#FFD666" />
+            <Text style={[styles.infoText, { color: '#FFD666', marginLeft: 8, flex: 1 }]}> 
+              Эксклюзивная тема открыта за полный набор достижений.
+            </Text>
+          </View>
+        )}
+        {(legendUnlocked || localLegendUnlocked) && accentColor === 'legend' && (
+          <View style={[styles.infoSection, { backgroundColor: 'rgba(255, 214, 102, 0.12)', marginTop: 12 }]}> 
+            <Icon name="diamond" size={16} color="#FFD666" />
+            <Text style={[styles.infoText, { color: '#FFD666', marginLeft: 8, flex: 1 }]}> 
+              Легендарный акцент активен.
             </Text>
           </View>
         )}

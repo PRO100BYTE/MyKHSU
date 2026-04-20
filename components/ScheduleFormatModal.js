@@ -15,6 +15,8 @@ const ScheduleFormatModal = ({ theme, accentColor, onSettingsChange, onSave }) =
   const [selectedCourse, setSelectedCourse] = useState(1);
   const [loadingGroups, setLoadingGroups] = useState(false);
   const [showCourseSelector, setShowCourseSelector] = useState(true);
+  const [attendanceTrackingEnabled, setAttendanceTrackingEnabled] = useState(true);
+  const [freeAuditoriesEnabled, setFreeAuditoriesEnabled] = useState(true);
   const [availableCourses, setAvailableCourses] = useState([]);
   const [loadingCourses, setLoadingCourses] = useState(false);
   
@@ -76,6 +78,8 @@ const ScheduleFormatModal = ({ theme, accentColor, onSettingsChange, onSave }) =
       const savedTeacher = await SecureStore.getItemAsync('teacher_name');
       const savedAuditory = await SecureStore.getItemAsync('auditory_name');
       const savedShowSelector = await SecureStore.getItemAsync('show_course_selector');
+      const savedAttendanceTracking = await SecureStore.getItemAsync('attendance_tracking_enabled');
+      const savedFreeAuditories = await SecureStore.getItemAsync('free_auditories_enabled');
       
       if (savedFormat) setScheduleFormat(savedFormat);
       if (savedGroup) setDefaultGroup(savedGroup);
@@ -83,6 +87,8 @@ const ScheduleFormatModal = ({ theme, accentColor, onSettingsChange, onSave }) =
       if (savedTeacher) setTeacherName(savedTeacher);
       if (savedAuditory) setAuditoryName(savedAuditory);
       if (savedShowSelector !== null) setShowCourseSelector(savedShowSelector === 'true');
+      if (savedAttendanceTracking !== null) setAttendanceTrackingEnabled(savedAttendanceTracking === 'true');
+      if (savedFreeAuditories !== null) setFreeAuditoriesEnabled(savedFreeAuditories === 'true');
       if (savedCourse) setSelectedCourse(parseInt(savedCourse));
     } catch (error) {
       console.error('Error loading schedule format settings:', error);
@@ -134,6 +140,8 @@ const ScheduleFormatModal = ({ theme, accentColor, onSettingsChange, onSave }) =
       await SecureStore.setItemAsync('teacher_name', teacherName.trim());
       await SecureStore.setItemAsync('auditory_name', auditoryName.trim());
       await SecureStore.setItemAsync('show_course_selector', showCourseSelector.toString());
+      await SecureStore.setItemAsync('attendance_tracking_enabled', attendanceTrackingEnabled.toString());
+      await SecureStore.setItemAsync('free_auditories_enabled', freeAuditoriesEnabled.toString());
       
       if (onSettingsChange) {
         onSettingsChange({
@@ -142,7 +150,9 @@ const ScheduleFormatModal = ({ theme, accentColor, onSettingsChange, onSave }) =
           course: selectedCourse,
           teacher: teacherName.trim(),
           auditory: auditoryName.trim(),
-          showSelector: showCourseSelector
+          showSelector: showCourseSelector,
+          attendanceTrackingEnabled,
+          freeAuditoriesEnabled,
         });
       }
       
@@ -458,6 +468,70 @@ const ScheduleFormatModal = ({ theme, accentColor, onSettingsChange, onSave }) =
                   При скрытом селекторе будет показано расписание для группы {defaultGroup} ({availableCourses.find(c => c.id === selectedCourse)?.label || `Курс ${selectedCourse}`})
                 </Text>
               )}
+            </View>
+
+            <View style={styles.section}>
+              <Text style={[styles.sectionTitle, { color: textColor }]}>Посещаемость</Text>
+              <TouchableOpacity
+                style={[styles.selectorOption, { borderColor }]}
+                onPress={() => setAttendanceTrackingEnabled(!attendanceTrackingEnabled)}
+              >
+                <View style={styles.selectorOptionHeader}>
+                  <Icon
+                    name="checkmark-done-outline"
+                    size={24}
+                    color={attendanceTrackingEnabled ? colors.primary : placeholderColor}
+                  />
+                  <View style={styles.selectorTextContainer}>
+                    <Text style={[styles.selectorOptionTitle, { color: textColor }]}>
+                      Отмечать свою посещаемость
+                    </Text>
+                    <Text style={[styles.selectorOptionDescription, { color: placeholderColor }]}>
+                      {attendanceTrackingEnabled
+                        ? 'В карточках пар и в панели будет доступна отметка посещаемости'
+                        : 'Функции отметки посещаемости и статистики будут скрыты'}
+                    </Text>
+                  </View>
+                </View>
+                <Switch
+                  value={attendanceTrackingEnabled}
+                  onValueChange={setAttendanceTrackingEnabled}
+                  trackColor={{ false: borderColor, true: colors.light }}
+                  thumbColor={attendanceTrackingEnabled ? colors.primary : placeholderColor}
+                />
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.section}>
+              <Text style={[styles.sectionTitle, { color: textColor }]}>Свободные аудитории</Text>
+              <TouchableOpacity
+                style={[styles.selectorOption, { borderColor }]}
+                onPress={() => setFreeAuditoriesEnabled(!freeAuditoriesEnabled)}
+              >
+                <View style={styles.selectorOptionHeader}>
+                  <Icon
+                    name="grid-outline"
+                    size={24}
+                    color={freeAuditoriesEnabled ? colors.primary : placeholderColor}
+                  />
+                  <View style={styles.selectorTextContainer}>
+                    <Text style={[styles.selectorOptionTitle, { color: textColor }]}>
+                      Показывать поиск свободных аудиторий
+                    </Text>
+                    <Text style={[styles.selectorOptionDescription, { color: placeholderColor }]}>
+                      {freeAuditoriesEnabled
+                        ? 'Кнопка поиска свободных аудиторий отображается в расписании'
+                        : 'Кнопка поиска свободных аудиторий скрыта'}
+                    </Text>
+                  </View>
+                </View>
+                <Switch
+                  value={freeAuditoriesEnabled}
+                  onValueChange={setFreeAuditoriesEnabled}
+                  trackColor={{ false: borderColor, true: colors.light }}
+                  thumbColor={freeAuditoriesEnabled ? colors.primary : placeholderColor}
+                />
+              </TouchableOpacity>
             </View>
           </>
         )}

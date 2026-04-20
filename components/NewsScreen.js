@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, StyleSheet, RefreshControl, Animated, StatusBar } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, StyleSheet, RefreshControl, Animated, StatusBar, TextInput } from 'react-native';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import { ACCENT_COLORS, LIQUID_GLASS } from '../utils/constants';
 import ConnectionError from './ConnectionError';
@@ -22,6 +22,7 @@ const NewsScreen = ({ theme, accentColor, isNewYearMode, onCacheStatusChange }) 
   const [cacheInfo, setCacheInfo] = useState(null);
   const [hasMoreNews, setHasMoreNews] = useState(true);
   const [lastNewsCheck, setLastNewsCheck] = useState(null);
+  const [searchQuery, setSearchQuery] = useState('');
   
   // Анимация появления
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -96,6 +97,15 @@ const NewsScreen = ({ theme, accentColor, isNewYearMode, onCacheStatusChange }) 
       .sort((a, b) => new Date(b.normalizedDate) - new Date(a.normalizedDate));
   };
 
+  const extractNewsList = (payload) => {
+    if (payload == null) return [];
+    if (Array.isArray(payload)) return payload;
+    if (Array.isArray(payload?.news)) return payload.news;
+    if (Array.isArray(payload?.items)) return payload.items;
+    if (Array.isArray(payload?.data)) return payload.data;
+    return [];
+  };
+
   // Создание уникального ID для новости
   const createNewsId = (newsItem) => {
     const contentHash = newsItem.content.substring(0, 100).replace(/\s+/g, '_');
@@ -162,13 +172,10 @@ const NewsScreen = ({ theme, accentColor, isNewYearMode, onCacheStatusChange }) 
     
     try {
       const result = await ApiService.getNews(currentFrom, 10);
-      
-      if (!result.data || !Array.isArray(result.data)) {
-        throw new Error('INVALID_RESPONSE');
-      }
+      const newsList = extractNewsList(result.data);
       
       // Фильтрация пустого контента и дубликатов
-      const filteredData = filterAndProcessNews(result.data);
+      const filteredData = filterAndProcessNews(newsList);
       
       if (filteredData.length === 0 && currentFrom === 0) {
         setHasMoreNews(false);
@@ -297,16 +304,90 @@ return (
         contentContainerStyle={{ paddingTop: 16, paddingHorizontal: 16, paddingBottom: 100 }}
         refreshControl={
           <RefreshControl
-            refreshing={refreshing}
-            onRefresh={handleRefresh}
+            refreshing={refreshing}            onRefresh={handleRefresh}
             colors={[colors.primary]}
             tintColor={colors.primary}
           />
         }
       >
         {/* ВСЕ содержимое новостей */}
-        
-        {news.map((item) => (
+
+        {/* Поиск по новостям */}
+        <View style={{
+          flexDirection: 'row',
+          alignItems: 'center',
+          backgroundColor: glass.surfaceSecondary,
+          borderRadius: 14,
+          borderWidth: StyleSheet.hairlineWidth,
+          borderColor: glass.border,
+          paddingHorizontal: 12,
+          marginBottom: 16,
+          gap: 8,
+        }}>
+          <Icon name="search-outline" size={18} color={placeholderColor} />
+          <TextInput
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            placeholder="Поиск по новостям..."
+            placeholderTextColor={placeholderColor}
+            style={{
+              flex: 1,
+              paddingVertical: 12,
+              fontSize: 15,
+              fontFamily: 'Montserrat_400Regular',
+              color: textColor,
+            }}
+            clearButtonMode="while-editing"
+          />
+          {searchQuery.length > 0 && (
+            <TouchableOpacity onPress={() => setSearchQuery('')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              <Icon name="close-circle" size={18} color={placeholderColor} />
+            </TouchableOpacity>
+          )}
+        </View>
+
+        {(() => {
+          const filteredNews = searchQuery.trim()
+            ? news.filter(item =>
+                (item.content || '').toLowerCase().includes(searchQuery.toLowerCase())
+              )
+            : news;
+
+          if (searchQuery.trim() && filteredNews.length === 0) {
+            return (
+              <View style={{ alignItems: 'center', marginTop: 24, marginBottom: 16 }}>
+                <Icon name="search-outline" size={36} color={placeholderColor} style={{ marginBottom: 8 }} />
+                <Text style={{ color: placeholderColor, fontFamily: 'Montserrat_400Regular', fontSize: 14 }}>
+                  Ничего не найдено
+                </Text>
+              </View>
+            );
+          }
+
+            if (!loading && filteredNews.length === 0 && !searchQuery.trim()) {
+              return (
+                <View style={{
+                  backgroundColor: glass.surfaceSecondary,
+                  borderRadius: 16,
+                  borderWidth: StyleSheet.hairlineWidth,
+                  borderColor,
+                  paddingVertical: 22,
+                  paddingHorizontal: 16,
+                  alignItems: 'center',
+                  marginTop: 8,
+                }}>
+                  <Icon name="newspaper-outline" size={34} color={placeholderColor} style={{ marginBottom: 10 }} />
+                  <Text style={{ color: textColor, fontFamily: 'Montserrat_600SemiBold', fontSize: 14, textAlign: 'center' }}>
+                    Пока что новостей нет
+                  </Text>
+                  <Text style={{ color: placeholderColor, fontFamily: 'Montserrat_400Regular', fontSize: 13, marginTop: 6, textAlign: 'center' }}>
+                    Попробуйте заглянуть позже :)
+                  </Text>
+                </View>
+              );
+            }
+
+          return filteredNews.map((item) => (
           <View 
             key={item.id} 
             style={{ 
@@ -357,7 +438,8 @@ return (
               </Text>
             </View>
           </View>
-        ))}
+          ));
+        })()}
         
         {loadingMore && (
           <View style={{ padding: 16, alignItems: 'center' }}>
