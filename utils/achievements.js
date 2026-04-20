@@ -210,6 +210,11 @@ export const getAchievementsCount = async () => {
   return { unlocked, total };
 };
 
+export const hasUnlockedAllAchievements = async () => {
+  const { unlocked, total } = await getAchievementsCount();
+  return total > 0 && unlocked >= total;
+};
+
 // Инкремент счётчиков для трекинга прогресса
 const COUNTERS_KEY = 'achievement_counters';
 

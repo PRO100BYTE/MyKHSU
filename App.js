@@ -24,6 +24,7 @@ import { getBlurConfig } from './utils/liquidGlass';
 import * as Sentry from '@sentry/react-native';
 import notificationService from './utils/notificationService';
 import backgroundService from './utils/backgroundService';
+import { hasUnlockedAllAchievements } from './utils/achievements';
 
 Sentry.init({
   dsn: 'https://9954c52fe80999a51a6905e3ee180d11@sentry.sculkmetrics.com/5',
@@ -146,6 +147,7 @@ export default Sentry.wrap(function App() {
   const [systemTheme, setSystemTheme] = useState(Appearance.getColorScheme() || 'light');
   const [refresh, setRefresh] = useState(0);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [legendUnlocked, setLegendUnlocked] = useState(false);
   const insets = useSafeAreaInsets();
 
   // Refs для дочерних экранов (для управления из хедера)
@@ -462,8 +464,16 @@ const handleNewYearModeChange = async (enabled) => {
     try {
       const savedTheme = await SecureStore.getItemAsync('theme');
       const savedAccentColor = await SecureStore.getItemAsync('accentColor');
+      const allUnlocked = await hasUnlockedAllAchievements().catch(() => false);
+
+      setLegendUnlocked(allUnlocked);
       
-      if (savedTheme) setTheme(savedTheme);
+      if (savedTheme === 'legend' && !allUnlocked) {
+        setTheme('dark');
+        await SecureStore.setItemAsync('theme', 'dark');
+      } else if (savedTheme) {
+        setTheme(savedTheme);
+      }
       if (savedAccentColor) setAccentColor(savedAccentColor);
     } catch (error) {
       console.error('Error loading settings:', error);
@@ -506,6 +516,7 @@ const handleNewYearModeChange = async (enabled) => {
       accentColor={accentColor} 
       theme={getEffectiveTheme()} 
       holidayInfo={holidayInfo}
+      legendUnlocked={legendUnlocked}
     />;
   }
   
@@ -993,6 +1004,7 @@ const handleNewYearModeChange = async (enabled) => {
             ref={settingsScreenRef}
             theme={effectiveTheme} 
             accentColor={accentColor} 
+            legendUnlocked={legendUnlocked}
             setTheme={setTheme} 
             setAccentColor={setAccentColor} 
             key={`settings-${refreshKey}`}

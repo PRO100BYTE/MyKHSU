@@ -192,7 +192,7 @@ const Confetti = ({ show, theme, colors }) => {
 };
 
 const SettingsScreen = forwardRef(({ 
-  theme, accentColor, setTheme, setAccentColor, 
+  theme, accentColor, legendUnlocked, setTheme, setAccentColor, 
   onScheduleSettingsChange, onTabbarSettingsChange, 
   isNewYearMode, onNewYearModeChange, onNavigationChange 
 }, ref) => {
@@ -753,6 +753,7 @@ const SettingsScreen = forwardRef(({
             <AppearanceSettingsSheet
               theme={theme}
               accentColor={accentColor}
+              legendUnlocked={legendUnlocked}
               setTheme={setTheme}
               setAccentColor={setAccentColor}
               onTabbarSettingsChange={handleTabbarSettingsChange}

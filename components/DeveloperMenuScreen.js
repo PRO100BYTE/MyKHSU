@@ -1198,7 +1198,7 @@ const DeveloperMenuScreen = ({ theme, accentColor, onResetDeveloperMode }) => {
         </View>
 
         {/* Информация */}
-        <View style={[styles.infoBox, { backgroundColor: inputBgColor }]}>
+        <View style={[styles.infoBox, { backgroundColor: inputBgColor, marginBottom: 16 }]}>
           <Icon name="information-circle-outline" size={16} color={colors.primary} />
           <Text style={[styles.infoText, { color: placeholderColor }]}>
             Некоторые изменения требуют перезапуска приложения

@@ -6,17 +6,27 @@ import MatrixRain from './MatrixRain';
 
 const { width, height } = Dimensions.get('window');
 
-const SplashScreen = ({ accentColor, theme, holidayInfo }) => {
+const SplashScreen = ({ accentColor, theme, holidayInfo, legendUnlocked = false }) => {
   const safeAccentColor = accentColor || 'green';
   const colors = ACCENT_COLORS[safeAccentColor] || ACCENT_COLORS.green;
   const safeColors = colors || { primary: '#10b981', light: '#d1fae5' };
   
   const glass = LIQUID_GLASS[theme] || LIQUID_GLASS.light;
   const isMatrix = theme === 'matrix';
-  const backgroundColor = isMatrix ? (glass.backgroundSolid || '#0D0208') : glass.background;
-  const iconColor = (theme === 'dark' || isMatrix) ? safeColors.light : safeColors.primary;
-  const textColor = (theme === 'dark' || isMatrix) ? '#ffffff' : '#1c1c1e';
-  const subtextColor = (theme === 'dark' || isMatrix) ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.4)';
+  const isLegendSplash = legendUnlocked;
+  const legendPrimary = '#FFD666';
+  const backgroundColor = isLegendSplash
+    ? '#140E05'
+    : (isMatrix ? (glass.backgroundSolid || '#0D0208') : glass.background);
+  const iconColor = isLegendSplash
+    ? legendPrimary
+    : ((theme === 'dark' || isMatrix) ? safeColors.light : safeColors.primary);
+  const textColor = isLegendSplash
+    ? '#F6E7C1'
+    : ((theme === 'dark' || isMatrix) ? '#ffffff' : '#1c1c1e');
+  const subtextColor = isLegendSplash
+    ? 'rgba(255,214,102,0.72)'
+    : ((theme === 'dark' || isMatrix) ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.4)');
 
   // Цвета праздников
   const getHolidayColors = (type) => {
@@ -266,7 +276,7 @@ const SplashScreen = ({ accentColor, theme, holidayInfo }) => {
               width: blob.size,
               height: blob.size,
               borderRadius: blob.size / 2,
-              backgroundColor: safeColors.primary,
+              backgroundColor: isLegendSplash ? legendPrimary : safeColors.primary,
               opacity: blob.opacity,
               transform: [
                 { translateX: blobAnims[index].translateX },
@@ -378,7 +388,7 @@ const SplashScreen = ({ accentColor, theme, holidayInfo }) => {
                 elevation: 8,
               }}
             >
-              <Icon name="school" size={56} color={iconColor} />
+              <Icon name={isLegendSplash ? 'trophy' : 'school'} size={56} color={iconColor} />
             </View>
           </Animated.View>
         </Animated.View>
@@ -421,13 +431,30 @@ const SplashScreen = ({ accentColor, theme, holidayInfo }) => {
               },
             ]}
           >
-            Твой университет в кармане
+            {isLegendSplash ? 'Легенда кампуса' : 'Твой университет в кармане'}
           </Text>
         </Animated.View>
 
+        {isLegendSplash && (
+          <Animated.View style={{ marginTop: 10, opacity: subtitleOpacity }}>
+            <Text
+              style={{
+                color: '#FFD666',
+                fontSize: 12,
+                fontFamily: 'Montserrat_600SemiBold',
+                letterSpacing: 0.6,
+                textTransform: 'uppercase',
+                textAlign: 'center',
+              }}
+            >
+              Все достижения собраны
+            </Text>
+          </Animated.View>
+        )}
+
         {/* Индикатор загрузки */}
         <Animated.View style={{ marginTop: 40, opacity: loaderOpacity }}>
-          <ActivityIndicator size="small" color={safeColors.primary} />
+          <ActivityIndicator size="small" color={isLegendSplash ? legendPrimary : safeColors.primary} />
         </Animated.View>
       </View>
 
