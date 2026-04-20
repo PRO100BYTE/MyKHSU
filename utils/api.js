@@ -1,5 +1,6 @@
 import { API_BASE_URL, CORS_PROXY } from './constants';
 import { getWithExpiry, setWithExpiry } from './cache';
+import { getWeekNumber } from './dateUtils';
 import NetInfo from '@react-native-community/netinfo';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as SecureStore from 'expo-secure-store';
@@ -42,6 +43,7 @@ class ApiService {
     const finalTTL = cacheTTL || (this.cacheSettings.ttl * 24 * 60 * 60 * 1000);
     
     // Пытаемся получить данные из кэша
+    let cachedItem = null;
     if (useCache) {
       try {
         const itemStr = await AsyncStorage.getItem(finalCacheKey);
@@ -49,38 +51,30 @@ class ApiService {
           const item = JSON.parse(itemStr);
           const now = Date.now();
           
-          // Проверяем срок действия
-          if (now - item.timestamp > finalTTL) {
-            await AsyncStorage.removeItem(finalCacheKey);
-          } else {
+          if (now - item.timestamp <= finalTTL) {
+            // Кэш ещё свежий — возвращаем сразу
             return {
               data: item.data,
               source: 'cache',
               cacheInfo: { cacheDate: new Date(item.timestamp).toISOString() }
             };
           }
+          // Кэш просрочен — сохраняем на случай оффлайна, НЕ удаляем
+          cachedItem = item;
         }
       } catch (cacheError) {
         console.error('Cache read error:', cacheError);
       }
     }
     
-    // Если нет интернета, возвращаем ошибку или пытаемся найти старый кэш
+    // Если нет интернета, возвращаем просроченный кэш если есть
     if (!isOnline) {
-      if (useCache) {
-        try {
-          const itemStr = await AsyncStorage.getItem(finalCacheKey);
-          if (itemStr) {
-            const item = JSON.parse(itemStr);
-            return {
-              data: item.data,
-              source: 'stale_cache',
-              cacheInfo: { cacheDate: new Date(item.timestamp).toISOString() }
-            };
-          }
-        } catch (cacheError) {
-          console.error('Stale cache read error:', cacheError);
-        }
+      if (cachedItem) {
+        return {
+          data: cachedItem.data,
+          source: 'stale_cache',
+          cacheInfo: { cacheDate: new Date(cachedItem.timestamp).toISOString() }
+        };
       }
       throw new Error('NO_INTERNET');
     }
@@ -145,20 +139,12 @@ class ApiService {
         console.log('CORS proxy also failed');
         
         // Если всё провалилось, пробуем вернуть старый кэш
-        if (useCache) {
-          try {
-            const itemStr = await AsyncStorage.getItem(finalCacheKey);
-            if (itemStr) {
-              const item = JSON.parse(itemStr);
-              return {
-                data: item.data,
-                source: 'stale_cache',
-                cacheInfo: { cacheDate: new Date(item.timestamp).toISOString() }
-              };
-            }
-          } catch (cacheError) {
-            console.error('Stale cache read error:', cacheError);
-          }
+        if (cachedItem) {
+          return {
+            data: cachedItem.data,
+            source: 'stale_cache',
+            cacheInfo: { cacheDate: new Date(cachedItem.timestamp).toISOString() }
+          };
         }
         
         throw new Error('API_UNAVAILABLE');
@@ -331,6 +317,12 @@ class ApiService {
     return this.makeRequest(url, {}, true, 'available_courses', 24 * 60 * 60 * 1000); // кэш на 1 день
   }
 
+  // Метод для получения номеров недель
+  async getWeekNumbers() {
+    const url = `${API_BASE_URL}/weeknumbers`;
+    return this.makeRequest(url, {}, true, 'week_numbers', 6 * 60 * 60 * 1000); // кэш на 6 часов
+  }
+
   // Вспомогательный метод для форматирования даты
   formatDate(date) {
     return date.toLocaleDateString('ru-RU', {
@@ -415,6 +407,34 @@ class ApiService {
     
     return this.makeRequest(url, {}, true, cacheKey, 60 * 60 * 1000);
 }
+
+  // Метод для загрузки расписания аудитории
+  async getAuditorySchedule(auditory, week = null) {
+    const encodedAuditory = encodeURIComponent(auditory);
+    let url;
+    let cacheKey;
+    
+    if (week) {
+      url = `${API_BASE_URL}/getpairsweek?type=auditory&data=${encodedAuditory}&week=${week}`;
+      cacheKey = `auditory_schedule_${encodedAuditory}_week_${week}`;
+    } else {
+      const currentWeek = getWeekNumber(new Date());
+      url = `${API_BASE_URL}/getpairsweek?type=auditory&data=${encodedAuditory}&week=${currentWeek}`;
+      cacheKey = `auditory_schedule_${encodedAuditory}_week_${currentWeek}`;
+    }
+    
+    return this.makeRequest(url, {}, true, cacheKey, 60 * 60 * 1000);
+  }
+
+  // Метод для поиска (преподаватели, аудитории, группы)
+  async search(query) {
+    if (!query || query.trim().length < 1) {
+      return { data: { names: [], courses: [], tnames: [], auditories: [] }, source: 'local' };
+    }
+    const encodedQuery = encodeURIComponent(query.trim());
+    const url = `${API_BASE_URL}/search/${encodedQuery}`;
+    return this.makeRequest(url, {}, false, null, null);
+  }
 
 }
 

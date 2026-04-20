@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react';
 import NetInfo from '@react-native-community/netinfo';
 import ApiService from '../utils/api';
 import notificationService from '../utils/notificationService';
-import { getWeekNumber } from '../utils/dateUtils';
+import { getWeekNumber, setServerWeekNumber } from '../utils/dateUtils';
+import { unlockAchievement } from '../utils/achievements';
 import * as SecureStore from 'expo-secure-store';
 
 export const useScheduleLogic = () => {
@@ -20,6 +21,7 @@ export const useScheduleLogic = () => {
   const [viewMode, setViewMode] = useState('day');
   const [currentDate, setCurrentDate] = useState(new Date());
   const [currentWeek, setCurrentWeek] = useState(getWeekNumber(new Date()));
+  const [availableWeeks, setAvailableWeeks] = useState([]);
   const [error, setError] = useState(null);
   const [isOnline, setIsOnline] = useState(true);
   const [showCachedData, setShowCachedData] = useState(false);
@@ -50,6 +52,7 @@ export const useScheduleLogic = () => {
   // Загрузка начальных настроек при монтировании
   useEffect(() => {
     loadInitialSettings();
+    fetchWeekNumbers();
   }, []);
 
   // Загрузка групп при изменении курса
@@ -68,6 +71,26 @@ export const useScheduleLogic = () => {
       fetchScheduleData(selectedGroup);
     }
   }, [viewMode, currentDate, currentWeek, selectedGroup]);
+
+  const fetchWeekNumbers = async () => {
+    try {
+      const result = await ApiService.getWeekNumbers();
+      if (result && result.data && result.data.current_week_number) {
+        setServerWeekNumber(result.data.current_week_number);
+        setCurrentWeek(result.data.current_week_number);
+        if (result.data.week_numbers) {
+          setAvailableWeeks(result.data.week_numbers);
+        }
+      } else {
+        // Fallback to local calculation
+        setCurrentWeek(getWeekNumber(new Date()));
+      }
+    } catch (error) {
+      console.error('Error fetching week numbers:', error);
+      // Fallback to local calculation
+      setCurrentWeek(getWeekNumber(new Date()));
+    }
+  };
 
   const loadInitialSettings = async () => {
     try {
@@ -195,6 +218,22 @@ export const useScheduleLogic = () => {
       } catch (notifyError) {
         console.error('Error scheduling notifications:', notifyError);
       }
+
+      // Проверяем изменения в расписании и уведомляем пользователя
+      try {
+        const d = new Date(currentDate);
+        const localDateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        const scopeSuffix = viewMode === 'day'
+          ? `day_${localDateStr}`
+          : `week_${processedSchedule?.week_number || currentWeek}`;
+        await notificationService.checkScheduleChanges(
+          processedSchedule,
+          `${group}__${scopeSuffix}`,
+          { source: result.source }
+        );
+      } catch (changeError) {
+        console.error('Error checking schedule changes:', changeError);
+      }
       
       console.log('Загружено расписание для группы', group, 'на', viewMode === 'day' ? currentDate.toDateString() : `неделю ${currentWeek}`);
     } catch (error) {
@@ -205,6 +244,7 @@ export const useScheduleLogic = () => {
         setScheduleData(cachedScheduleData);
         setShowCachedData(true);
         setCacheInfo({ source: 'stale_cache', cacheInfo: { cacheDate: new Date().toISOString() } });
+        unlockAchievement('offline_hero').catch(() => {});
       }
     } finally {
       setLoadingSchedule(false);
@@ -263,9 +303,9 @@ export const useScheduleLogic = () => {
   const onRefresh = () => {
     setRefreshing(true);
     if (selectedGroup) {
-      fetchScheduleData(selectedGroup);
+      return fetchScheduleData(selectedGroup);
     } else {
-      fetchGroupsForCourse(course);
+      return fetchGroupsForCourse(course);
     }
   };
 
@@ -297,18 +337,21 @@ export const useScheduleLogic = () => {
     viewMode,
     currentDate,
     currentWeek,
+    availableWeeks,
     
     // Setters
     setCourse,
     setSelectedGroup,
     setViewMode,
     setCurrentWeek,
+    setRefreshing,
     
     // Functions
     handleRetry,
     handleViewCache,
     onRefresh,
     navigateDate,
-    setError
+    setError,
+    fetchWeekNumbers
   };
 };

@@ -2,7 +2,14 @@ import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
 import { Platform } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getWithExpiry, setWithExpiry } from './cache';
+import { getDateByWeekAndDay } from './dateUtils';
+
+const SCHEDULE_CHANGES_HISTORY_KEY = 'schedule_changes_history_v1';
+const SCHEDULE_CHANGES_HISTORY_DAYS = 7;
+const SCHEDULE_CHANGES_HISTORY_LIMIT = 200;
+const SCHEDULE_NOTIFICATION_IDS_KEY = 'schedule_notification_ids';
 
 // Конфигурация уведомлений
 Notifications.setNotificationHandler({
@@ -36,6 +43,7 @@ class NotificationService {
       enabled: false,
       news: false,
       schedule: false,
+      scheduleChanges: true,
       beforeLesson: true,
       lessonStart: true,
       beforeLessonEnd: true,
@@ -45,11 +53,18 @@ class NotificationService {
 
   async requestPermissions() {
     if (Platform.OS === 'android') {
-      await Notifications.setNotificationChannelAsync('default', {
-        name: 'default',
-        importance: Notifications.AndroidImportance.MAX,
+      await Notifications.setNotificationChannelAsync('schedule', {
+        name: 'Расписание',
+        description: 'Уведомления о парах',
+        importance: Notifications.AndroidImportance.HIGH,
         vibrationPattern: [0, 250, 250, 250],
-        lightColor: '#FF231F7C',
+        lightColor: '#10B981',
+      });
+
+      await Notifications.setNotificationChannelAsync('news', {
+        name: 'Новости',
+        description: 'Уведомления о новостях',
+        importance: Notifications.AndroidImportance.DEFAULT,
       });
     }
 
@@ -75,7 +90,7 @@ class NotificationService {
 
   async scheduleLessonNotifications(scheduleData, pairsTime) {
     try {
-      if (!scheduleData || !pairsTime) {
+      if (!scheduleData || !pairsTime || pairsTime.length === 0) {
         return;
       }
 
@@ -84,106 +99,181 @@ class NotificationService {
         return;
       }
 
-      // Отменяем предыдущие уведомления
-      await Notifications.cancelAllScheduledNotificationsAsync();
+      // Запрашиваем разрешения если не настроены
+      if (!this.isConfigured) {
+        const granted = await this.requestPermissions();
+        if (!granted) {
+          console.log('Notification permissions not granted');
+          return;
+        }
+      }
+
+      // Отменяем предыдущие уведомления о парах (только schedule-уведомления, не трогая homework_deadline/academic_event)
+      try {
+        const prevIdsRaw = await AsyncStorage.getItem(SCHEDULE_NOTIFICATION_IDS_KEY);
+        const prevIds = prevIdsRaw ? JSON.parse(prevIdsRaw) : [];
+        for (const id of prevIds) {
+          try { await Notifications.cancelScheduledNotificationAsync(id); } catch {}
+        }
+      } catch {}
 
       const notifications = [];
+      const now = new Date();
 
-      if (scheduleData.lessons && scheduleData.lessons.length > 0) {
+      // Недельный режим: scheduleData.days — массив { weekday, lessons }
+      if (scheduleData.days && Array.isArray(scheduleData.days)) {
+        const weekNumber = scheduleData.week_number;
+        
+        for (const day of scheduleData.days) {
+          if (!day || !day.lessons || !day.weekday) continue;
+
+          // Вычисляем реальную дату для этого дня недели
+          let dayDate;
+          if (weekNumber) {
+            dayDate = getDateByWeekAndDay(weekNumber, day.weekday);
+          } else {
+            continue;
+          }
+
+          for (const lesson of day.lessons) {
+            if (!lesson) continue;
+            const pairTime = pairsTime.find(p => 
+              p.time === String(lesson.time) || p.time === lesson.time
+            );
+            if (!pairTime) continue;
+
+            const lessonNotifications = this.createLessonNotificationsForDate(
+              lesson, pairTime, settings, dayDate, now
+            );
+            notifications.push(...lessonNotifications);
+          }
+        }
+      }
+
+      // Дневной режим: scheduleData.lessons — прямой массив уроков
+      if (scheduleData.lessons && Array.isArray(scheduleData.lessons)) {
+        const dayDate = scheduleData.currentDate || new Date();
+
         for (const lesson of scheduleData.lessons) {
-          const pairTime = pairsTime.find(p => p.time === lesson.time.toString());
+          if (!lesson) continue;
+          const pairTime = pairsTime.find(p => 
+            p.time === String(lesson.time) || p.time === lesson.time
+          );
           if (!pairTime) continue;
 
-          const lessonNotifications = this.createLessonNotifications(lesson, pairTime, settings);
+          const lessonNotifications = this.createLessonNotificationsForDate(
+            lesson, pairTime, settings, dayDate, now
+          );
           notifications.push(...lessonNotifications);
         }
       }
 
+      // Планируем все уведомления и сохраняем их ID
+      let scheduled = 0;
+      const newNotificationIds = [];
       for (const notification of notifications) {
-        await Notifications.scheduleNotificationAsync(notification);
+        try {
+          const notifId = await Notifications.scheduleNotificationAsync(notification);
+          newNotificationIds.push(notifId);
+          scheduled++;
+        } catch (e) {
+          console.error('Error scheduling notification:', e);
+        }
       }
+      try {
+        await AsyncStorage.setItem(SCHEDULE_NOTIFICATION_IDS_KEY, JSON.stringify(newNotificationIds));
+      } catch {}
 
+      console.log(`Запланировано ${scheduled} уведомлений о парах`);
     } catch (error) {
       console.error('Error scheduling lesson notifications:', error);
     }
   }
 
-  createLessonNotifications(lesson, pairTime, settings) {
+  createLessonNotificationsForDate(lesson, pairTime, settings, lessonDate, now) {
     const notifications = [];
-    const today = new Date();
-    
+
     const startTimeStr = pairTime.time_start || pairTime.start;
     const endTimeStr = pairTime.time_end || pairTime.end;
-    
+
     if (!startTimeStr || !endTimeStr) return notifications;
 
     const [startHours, startMinutes] = startTimeStr.split(':').map(Number);
     const [endHours, endMinutes] = endTimeStr.split(':').map(Number);
-    
-    const startTime = new Date(today);
+
+    // Используем реальную дату урока
+    const startTime = new Date(lessonDate);
     startTime.setHours(startHours, startMinutes, 0, 0);
-    
-    const endTime = new Date(today);
+
+    const endTime = new Date(lessonDate);
     endTime.setHours(endHours, endMinutes, 0, 0);
 
-    // Пропускаем уведомления, если время уже прошло
-    if (startTime < today) return notifications;
+    const subjectName = lesson.subject || 'Пара';
+    const auditory = lesson.auditory || '';
+    const channelId = Platform.OS === 'android' ? 'schedule' : undefined;
+
+    // Пропускаем полностью прошедшие пары
+    if (endTime <= now) return notifications;
 
     // Уведомление за 5 минут до начала
     if (settings.beforeLesson) {
       const beforeStartTime = new Date(startTime.getTime() - 5 * 60 * 1000);
-      if (beforeStartTime > today) {
+      if (beforeStartTime > now) {
         notifications.push({
           content: {
-            title: 'Скоро пара',
-            body: `Через 5 минут: ${lesson.subject} (${lesson.auditory})`,
-            data: { type: 'lesson_reminder', lessonId: lesson.id },
+            title: '⏰ Скоро пара',
+            body: `Через 5 минут: ${subjectName}${auditory ? ` (${auditory})` : ''}`,
+            data: { type: 'lesson_reminder' },
             sound: true,
+            ...(channelId && { channelId }),
           },
-          trigger: { date: beforeStartTime }
+          trigger: { type: 'date', date: beforeStartTime }
         });
       }
     }
 
     // Уведомление в начале пары
-    if (settings.lessonStart) {
+    if (settings.lessonStart && startTime > now) {
       notifications.push({
         content: {
-          title: 'Началась пара',
-          body: `${lesson.subject} в ${lesson.auditory}`,
-          data: { type: 'lesson_start', lessonId: lesson.id },
+          title: '📚 Началась пара',
+          body: `${subjectName}${auditory ? ` в ${auditory}` : ''}`,
+          data: { type: 'lesson_start' },
           sound: true,
+          ...(channelId && { channelId }),
         },
-        trigger: { date: startTime }
+        trigger: { type: 'date', date: startTime }
       });
     }
 
     // Уведомление за 5 минут до конца
     if (settings.beforeLessonEnd) {
       const beforeEndTime = new Date(endTime.getTime() - 5 * 60 * 1000);
-      if (beforeEndTime > today) {
+      if (beforeEndTime > now) {
         notifications.push({
           content: {
-            title: 'Скоро конец пары',
-            body: `Через 5 минут закончится: ${lesson.subject}`,
-            data: { type: 'lesson_end_reminder', lessonId: lesson.id },
+            title: '⏳ Скоро конец пары',
+            body: `Через 5 минут закончится: ${subjectName}`,
+            data: { type: 'lesson_end_reminder' },
             sound: true,
+            ...(channelId && { channelId }),
           },
-          trigger: { date: beforeEndTime }
+          trigger: { type: 'date', date: beforeEndTime }
         });
       }
     }
 
     // Уведомление в конце пары
-    if (settings.lessonEnd) {
+    if (settings.lessonEnd && endTime > now) {
       notifications.push({
         content: {
-          title: 'Пара закончилась',
-          body: `${lesson.subject} завершена`,
-          data: { type: 'lesson_end', lessonId: lesson.id },
+          title: '✅ Пара закончилась',
+          body: `${subjectName} завершена`,
+          data: { type: 'lesson_end' },
           sound: true,
+          ...(channelId && { channelId }),
         },
-        trigger: { date: endTime }
+        trigger: { type: 'date', date: endTime }
       });
     }
 
@@ -259,13 +349,18 @@ class NotificationService {
 
   async showNewsNotification(newNews) {
     try {
-      // Ограничиваем 3 уведомлениями
+      if (!this.isConfigured) {
+        const granted = await this.requestPermissions();
+        if (!granted) return;
+      }
+
       const newsToNotify = newNews.slice(0, 3);
+      const channelId = Platform.OS === 'android' ? 'news' : undefined;
       
       for (const news of newsToNotify) {
         await Notifications.scheduleNotificationAsync({
           content: {
-            title: 'Новая новость',
+            title: '📰 Новая новость',
             body: this.formatNewsContent(news.content),
             data: { 
               type: 'new_news', 
@@ -273,8 +368,9 @@ class NotificationService {
               newsDate: news.date
             },
             sound: true,
+            ...(channelId && { channelId }),
           },
-          trigger: null, // Немедленно
+          trigger: null,
         });
       }
     } catch (error) {
@@ -292,6 +388,202 @@ class NotificationService {
   createNewsId(newsItem) {
     // Используем дату публикации для создания уникального ID
     return newsItem.date;
+  }
+
+  /**
+   * Проверяет изменения в расписании относительно предыдущего сохранённого снимка.
+   * При обнаружении изменений отправляет push-уведомление.
+   * @param {object} newScheduleData — обработанные данные расписания
+   * @param {string} scheduleKey — уникальный ключ (имя группы / преподавателя / аудитории)
+   */
+  async checkScheduleChanges(newScheduleData, scheduleKey, options = {}) {
+    try {
+      if (!newScheduleData || !scheduleKey) return;
+
+      const settings = await this.getNotificationSettings();
+      const scheduleChangesEnabled = settings.scheduleChanges !== false;
+      if (!settings.enabled || !settings.schedule || !scheduleChangesEnabled) return;
+
+      // Для кэша и устаревшего кэша не проверяем изменения, чтобы не спамить уведомлениями.
+      if (options.source === 'cache' || options.source === 'stale_cache') return;
+
+      // Формируем компактный снимок занятий
+      const days = newScheduleData.days || (newScheduleData.lessons ? [{ weekday: 0, lessons: newScheduleData.lessons }] : []);
+      if (days.length === 0) return;
+
+      const normalizedDays = days
+        .map(d => ({
+          weekday: d.weekday,
+          lessons: (d.lessons || [])
+            .map(l => l ? {
+              time: String(l.time ?? ''),
+              subject: l.subject || '',
+              teacher: l.teacher || '',
+              auditory: l.auditory || '',
+            } : null)
+            .filter(Boolean)
+            .sort((a, b) => Number(a.time) - Number(b.time)),
+        }))
+        .filter(d => d.weekday != null)
+        .sort((a, b) => a.weekday - b.weekday);
+
+      const newSnapshot = JSON.stringify(normalizedDays);
+
+      const snapshotKey = `schedule_snapshot_${scheduleKey}`;
+      const prevSnapshot = await AsyncStorage.getItem(snapshotKey);
+
+      // Всегда сохраняем актуальный снимок
+      await AsyncStorage.setItem(snapshotKey, newSnapshot);
+
+      if (!prevSnapshot) return; // первая загрузка — не с чем сравнивать
+      if (prevSnapshot === newSnapshot) return; // изменений нет
+
+      const prevDays = JSON.parse(prevSnapshot);
+      const newDays = JSON.parse(newSnapshot);
+      const changes = this.detectScheduleChanges(prevDays, newDays);
+
+      if (changes.length > 0) {
+        await this.appendScheduleChangeHistory(changes, scheduleKey);
+        await this.sendScheduleChangeNotification(changes);
+      }
+    } catch (error) {
+      console.error('Error checking schedule changes:', error);
+    }
+  }
+
+  async appendScheduleChangeHistory(changes, scheduleKey) {
+    try {
+      const now = Date.now();
+      const raw = await AsyncStorage.getItem(SCHEDULE_CHANGES_HISTORY_KEY);
+      const current = raw ? JSON.parse(raw) : [];
+      const nextEntries = (changes || []).map((change) => ({
+        id: `${now}_${Math.random().toString(16).slice(2, 8)}`,
+        timestamp: now,
+        scheduleKey,
+        type: change.type,
+        weekday: change.weekday,
+        lesson: change.lesson || null,
+        prev: change.prev || null,
+      }));
+
+      const minTs = now - SCHEDULE_CHANGES_HISTORY_DAYS * 24 * 60 * 60 * 1000;
+      const merged = [...nextEntries, ...(Array.isArray(current) ? current : [])]
+        .filter((entry) => Number(entry?.timestamp || 0) >= minTs)
+        .slice(0, SCHEDULE_CHANGES_HISTORY_LIMIT);
+
+      await AsyncStorage.setItem(SCHEDULE_CHANGES_HISTORY_KEY, JSON.stringify(merged));
+    } catch (error) {
+      console.error('Error appending schedule history:', error);
+    }
+  }
+
+  async getScheduleChangesHistory(days = SCHEDULE_CHANGES_HISTORY_DAYS) {
+    try {
+      const raw = await AsyncStorage.getItem(SCHEDULE_CHANGES_HISTORY_KEY);
+      if (!raw) return [];
+      const parsed = JSON.parse(raw);
+      if (!Array.isArray(parsed)) return [];
+      const minTs = Date.now() - Number(days || SCHEDULE_CHANGES_HISTORY_DAYS) * 24 * 60 * 60 * 1000;
+      return parsed
+        .filter((entry) => Number(entry?.timestamp || 0) >= minTs)
+        .sort((a, b) => Number(b?.timestamp || 0) - Number(a?.timestamp || 0));
+    } catch {
+      return [];
+    }
+  }
+
+  detectScheduleChanges(prevDays, newDays) {
+    const changes = [];
+    const buildDayMap = (days) => {
+      const map = new Map();
+      for (const day of days || []) {
+        if (!day || day.weekday == null) continue;
+        const lessonsMap = new Map();
+        for (const lesson of (day.lessons || [])) {
+          if (!lesson || lesson.time == null) continue;
+          lessonsMap.set(String(lesson.time), lesson);
+        }
+        map.set(day.weekday, lessonsMap);
+      }
+      return map;
+    };
+
+    const prevByDay = buildDayMap(prevDays);
+    const nextByDay = buildDayMap(newDays);
+
+    // Сравниваем только общие дни, чтобы переключение между днями не считалось изменением расписания.
+    const commonWeekdays = [...nextByDay.keys()].filter(weekday => prevByDay.has(weekday));
+    if (commonWeekdays.length === 0) return changes;
+
+    for (const weekday of commonWeekdays) {
+      const prevLessons = prevByDay.get(weekday);
+      const nextLessons = nextByDay.get(weekday);
+
+      for (const [time, nextLesson] of nextLessons.entries()) {
+        const prevLesson = prevLessons.get(time);
+        if (!prevLesson) {
+          changes.push({ type: 'added', lesson: nextLesson, weekday });
+          continue;
+        }
+
+        if (
+          (prevLesson.subject || '') !== (nextLesson.subject || '') ||
+          (prevLesson.teacher || '') !== (nextLesson.teacher || '') ||
+          (prevLesson.auditory || '') !== (nextLesson.auditory || '')
+        ) {
+          changes.push({ type: 'changed', lesson: nextLesson, prev: prevLesson, weekday });
+        }
+      }
+
+      for (const [time, prevLesson] of prevLessons.entries()) {
+        if (!nextLessons.has(time)) {
+          changes.push({ type: 'removed', lesson: prevLesson, weekday });
+        }
+      }
+    }
+
+    return changes;
+  }
+
+  async sendScheduleChangeNotification(changes) {
+    try {
+      if (!this.isConfigured) {
+        const granted = await this.requestPermissions();
+        if (!granted) return;
+      }
+      const channelId = Platform.OS === 'android' ? 'schedule' : undefined;
+      const wdays = ['', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
+      const change = changes[0];
+      let body = '';
+      if (change.type === 'changed') {
+        const parts = [];
+        if (change.prev.auditory !== change.lesson.auditory)
+          parts.push(`ауд. ${change.lesson.auditory || 'не указана'}`);
+        if (change.prev.teacher !== change.lesson.teacher)
+          parts.push(`преп. ${change.lesson.teacher || 'не указан'}`);
+        if (change.prev.subject !== change.lesson.subject)
+          parts.push(`предмет изменён`);
+        body = `Пара ${change.lesson.time} (${wdays[change.weekday] || ''}): ${change.lesson.subject}. Изм.: ${parts.join(', ')}.`;
+      } else if (change.type === 'added') {
+        body = `Добавлена пара ${change.lesson.time} (${wdays[change.weekday] || ''}): ${change.lesson.subject}.`;
+      } else if (change.type === 'removed') {
+        body = `Отменена пара ${change.lesson.time} (${wdays[change.weekday] || ''}): ${change.lesson.subject}.`;
+      }
+      if (!body) return;
+      const suffix = changes.length > 1 ? ` (+${changes.length - 1} др.)` : '';
+      await Notifications.scheduleNotificationAsync({
+        content: {
+          title: '📋 Изменение в расписании',
+          body: body + suffix,
+          data: { type: 'schedule_change' },
+          sound: true,
+          ...(channelId && { channelId }),
+        },
+        trigger: null,
+      });
+    } catch (error) {
+      console.error('Error sending schedule change notification:', error);
+    }
   }
 
   async initialize() {
