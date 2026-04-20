@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
+import { LIQUID_GLASS } from '../utils/constants';
 
 const PlaceholderScreen = ({ title, theme }) => {
   const messages = {
@@ -7,9 +8,10 @@ const PlaceholderScreen = ({ title, theme }) => {
     'Первокурснику': 'Полезная информация для первокурсников появится здесь в ближайшее время.'
   };
 
-  const bgColor = theme === 'light' ? '#f3f4f6' : '#111827';
-  const textColor = theme === 'light' ? '#111827' : '#ffffff';
-  const placeholderColor = theme === 'light' ? '#6b7280' : '#9ca3af';
+  const glass = LIQUID_GLASS[theme] || LIQUID_GLASS.light;
+  const bgColor = glass.background;
+  const textColor = glass.text;
+  const placeholderColor = glass.textSecondary;
 
   return (
     <View style={[styles.flexCenter, { backgroundColor: bgColor, padding: 20 }]}>

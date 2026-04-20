@@ -1,5 +1,5 @@
+import { Platform } from 'react-native';
 import * as TaskManager from 'expo-task-manager';
-import * as Notifications from 'expo-notifications';
 import * as BackgroundFetch from 'expo-background-fetch';
 import ApiService from './api';
 import notificationService from './notificationService';
@@ -36,33 +36,30 @@ TaskManager.defineTask(BACKGROUND_NEWS_CHECK, async () => {
 // Регистрация периодической фоновой задачи
 export const registerBackgroundNewsCheck = async () => {
   try {
-    // Для Android используем BackgroundFetch
-    if (Platform.OS === 'android') {
-      await BackgroundFetch.registerTaskAsync(BACKGROUND_NEWS_CHECK, {
-        minimumInterval: 15 * 60, // 15 минут
-        stopOnTerminate: false,
-        startOnBoot: true,
-      });
+    // Проверяем доступность Background Fetch на устройстве
+    const status = await BackgroundFetch.getStatusAsync();
+    if (status === BackgroundFetch.BackgroundFetchStatus.Restricted ||
+        status === BackgroundFetch.BackgroundFetchStatus.Denied) {
+      console.log('Background fetch is not available on this device, status:', status);
+      return;
     }
-    
-    // Для iOS используем Notifications
-    if (Platform.OS === 'ios') {
-      await Notifications.scheduleNotificationAsync({
-        content: {
-          title: 'Фоновая проверка новостей',
-          body: 'Приложение будет проверять новости в фоне',
-        },
-        trigger: {
-          type: 'timeInterval',
-          seconds: 15 * 60, // 15 минут
-          repeats: true,
-        },
-      });
+
+    const isRegistered = await TaskManager.isTaskRegisteredAsync(BACKGROUND_NEWS_CHECK);
+    if (isRegistered) {
+      console.log('Background news check already registered');
+      return;
     }
+
+    await BackgroundFetch.registerTaskAsync(BACKGROUND_NEWS_CHECK, {
+      minimumInterval: 15 * 60, // 15 минут
+      stopOnTerminate: false,
+      startOnBoot: true,
+    });
     
     console.log('Background news check registered');
   } catch (error) {
-    console.error('Error registering background news check:', error);
+    // Ошибка в Expo Go или при отсутствии нативной поддержки — не критично
+    console.log('Background fetch registration skipped:', error.message || error);
   }
 };
 
