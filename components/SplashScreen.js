@@ -1,262 +1,482 @@
 import React, { useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, StatusBar, Animated, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, StatusBar, Animated, Dimensions, ActivityIndicator } from 'react-native';
 import { Ionicons as Icon } from '@expo/vector-icons';
-import { ACCENT_COLORS } from '../utils/constants';
+import { ACCENT_COLORS, LIQUID_GLASS, APP_VERSION } from '../utils/constants';
+import MatrixRain from './MatrixRain';
 
 const { width, height } = Dimensions.get('window');
 
-const SplashScreen = ({ accentColor, theme, isNewYearMode, newYearText }) => {
+const SplashScreen = ({ accentColor, theme, holidayInfo }) => {
   const safeAccentColor = accentColor || 'green';
   const colors = ACCENT_COLORS[safeAccentColor] || ACCENT_COLORS.green;
-  
   const safeColors = colors || { primary: '#10b981', light: '#d1fae5' };
   
-  const backgroundColor = theme === 'dark' ? '#111827' : '#f3f4f6';
-  const iconColor = theme === 'dark' ? safeColors.light : safeColors.primary;
-  const textColor = theme === 'dark' ? '#ffffff' : safeColors.primary;
-  const bgIconColor = theme === 'dark' ? safeColors.light + '40' : safeColors.primary + '40';
-  const newYearTextColor = theme === 'dark' ? '#FFD700' : '#D32F2F';
-  
-  // Анимации для основного логотипа
-  const logoScale = useRef(new Animated.Value(0.8)).current;
+  const glass = LIQUID_GLASS[theme] || LIQUID_GLASS.light;
+  const isMatrix = theme === 'matrix';
+  const backgroundColor = isMatrix ? (glass.backgroundSolid || '#0D0208') : glass.background;
+  const iconColor = (theme === 'dark' || isMatrix) ? safeColors.light : safeColors.primary;
+  const textColor = (theme === 'dark' || isMatrix) ? '#ffffff' : '#1c1c1e';
+  const subtextColor = (theme === 'dark' || isMatrix) ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.4)';
+
+  // Цвета праздников
+  const getHolidayColors = (type) => {
+    const isDark = theme === 'dark';
+    const holidayColorMap = {
+      'new-year':         { text: isDark ? '#FFD700' : '#D32F2F', icons: ['#FFD700', '#FF5722', '#2196F3'] },
+      'student-day':      { text: isDark ? '#64B5F6' : '#1565C0', icons: ['#1565C0', '#FFD700', '#1565C0'] },
+      'valentines-day':   { text: isDark ? '#F48FB1' : '#C62828', icons: ['#E91E63', '#FF5252', '#E91E63'] },
+      'defender-day':     { text: isDark ? '#81C784' : '#2E7D32', icons: ['#2E7D32', '#FF8F00', '#2E7D32'] },
+      'womens-day':       { text: isDark ? '#F48FB1' : '#AD1457', icons: ['#E91E63', '#FF80AB', '#E91E63'] },
+      'cosmonautics-day': { text: isDark ? '#90CAF9' : '#1A237E', icons: ['#1A237E', '#FFD700', '#1A237E'] },
+      'may-day':          { text: isDark ? '#A5D6A7' : '#2E7D32', icons: ['#FFD700', '#2E7D32', '#FFD700'] },
+      'victory-day':      { text: isDark ? '#FFCC80' : '#BF360C', icons: ['#FF6F00', '#212121', '#FF6F00'] },
+      'children-day':     { text: isDark ? '#FFF176' : '#F57F17', icons: ['#FF5722', '#4CAF50', '#2196F3'] },
+      'knowledge-day':    { text: isDark ? '#90CAF9' : '#1565C0', icons: ['#FF6F00', '#1565C0', '#FF6F00'] },
+      'september-3':      { text: isDark ? '#FFCC80' : '#BF360C', icons: ['#FF8F00', '#D84315', '#FF8F00'] },
+      'programmer-day':   { text: isDark ? '#A5D6A7' : '#1B5E20', icons: ['#4CAF50', '#00E676', '#4CAF50'] },
+      'sysadmin-day':     { text: isDark ? '#90CAF9' : '#0D47A1', icons: ['#0D47A1', '#2196F3', '#0D47A1'] },
+      'teacher-day':      { text: isDark ? '#FFF176' : '#E65100', icons: ['#FF6F00', '#FFD700', '#FF6F00'] },
+      'unity-day':        { text: isDark ? '#EF9A9A' : '#B71C1C', icons: ['#FFFFFF', '#1565C0', '#D32F2F'] },
+      'intl-student-day': { text: isDark ? '#90CAF9' : '#1565C0', icons: ['#1565C0', '#FFD700', '#1565C0'] },
+    };
+    return holidayColorMap[type] || { text: isDark ? '#FFD700' : '#D32F2F', icons: ['#FFD700', '#FF5722', '#2196F3'] };
+  };
+
+  // Декоративные иконки для праздников
+  const getHolidayDecorIcons = (type) => {
+    const decorMap = {
+      'new-year':         [{ name: 'sparkles', size: 18 }, { name: 'sparkles', size: 14 }, { name: 'sparkles', size: 16 }],
+      'student-day':      [{ name: 'school', size: 16 }, { name: 'star', size: 14 }, { name: 'school', size: 16 }],
+      'valentines-day':   [{ name: 'heart', size: 16 }, { name: 'heart', size: 12 }, { name: 'heart', size: 16 }],
+      'defender-day':     [{ name: 'shield', size: 16 }, { name: 'star', size: 14 }, { name: 'shield', size: 16 }],
+      'womens-day':       [{ name: 'flower', size: 16 }, { name: 'heart', size: 14 }, { name: 'flower', size: 16 }],
+      'cosmonautics-day': [{ name: 'rocket', size: 16 }, { name: 'star', size: 14 }, { name: 'planet', size: 16 }],
+      'may-day':          [{ name: 'sunny', size: 16 }, { name: 'flower', size: 14 }, { name: 'sunny', size: 16 }],
+      'victory-day':      [{ name: 'star', size: 16 }, { name: 'ribbon', size: 14 }, { name: 'star', size: 16 }],
+      'children-day':     [{ name: 'balloon', size: 16 }, { name: 'happy', size: 14 }, { name: 'balloon', size: 16 }],
+      'knowledge-day':    [{ name: 'book', size: 16 }, { name: 'pencil', size: 14 }, { name: 'book', size: 16 }],
+      'september-3':      [{ name: 'musical-notes', size: 16 }, { name: 'calendar', size: 14, rotate: true }, { name: 'musical-notes', size: 16 }],
+      'programmer-day':   [{ name: 'code-slash', size: 16 }, { name: 'terminal', size: 14 }, { name: 'code-slash', size: 16 }],
+      'sysadmin-day':     [{ name: 'server', size: 16 }, { name: 'construct', size: 14 }, { name: 'server', size: 16 }],
+      'teacher-day':      [{ name: 'easel', size: 16 }, { name: 'book', size: 14 }, { name: 'easel', size: 16 }],
+      'unity-day':        [{ name: 'people', size: 16 }, { name: 'flag', size: 14 }, { name: 'people', size: 16 }],
+      'intl-student-day': [{ name: 'earth', size: 16 }, { name: 'school', size: 14 }, { name: 'earth', size: 16 }],
+    };
+    return decorMap[type] || [{ name: 'sparkles', size: 18 }, { name: 'sparkles', size: 14 }, { name: 'sparkles', size: 16 }];
+  };
+
+  // Анимации для плавающих блобов
+  const blobAnims = useRef(
+    Array.from({ length: 6 }, () => ({
+      translateX: new Animated.Value(0),
+      translateY: new Animated.Value(0),
+      scale: new Animated.Value(0),
+    }))
+  ).current;
+
+  // Анимации логотипа
+  const logoScale = useRef(new Animated.Value(0.3)).current;
   const logoOpacity = useRef(new Animated.Value(0)).current;
-  
-  // Анимации для новогодних элементов
-  const newYearTextAnim = useRef(new Animated.Value(0)).current;
+  const glowOpacity = useRef(new Animated.Value(0.3)).current;
 
-  // Обычные фоновые иконки
-  const regularIcons = [
-    { icon: 'calendar-outline', x: width * 0.15, y: height * 0.1, size: 40, delay: 0 },
-    { icon: 'newspaper-outline', x: width * 0.85, y: height * 0.25, size: 35, delay: 200 },
-    { icon: 'map-outline', x: width * 0.1, y: height * 0.4, size: 38, delay: 400 },
-    { icon: 'person-outline', x: width * 0.9, y: height * 0.55, size: 36, delay: 600 },
-    { icon: 'settings-outline', x: width * 0.2, y: height * 0.7, size: 34, delay: 800 },
-    { icon: 'information-circle-outline', x: width * 0.8, y: height * 0.8, size: 32, delay: 1000 },
-    { icon: 'book-outline', x: width * 0.9, y: height * 0.15, size: 37, delay: 1200 },
-    { icon: 'school-outline', x: width * 0.05, y: height * 0.85, size: 42, delay: 1400 },
+  // Анимации текста
+  const titleTranslateY = useRef(new Animated.Value(30)).current;
+  const titleOpacity = useRef(new Animated.Value(0)).current;
+  const subtitleTranslateY = useRef(new Animated.Value(20)).current;
+  const subtitleOpacity = useRef(new Animated.Value(0)).current;
+  const loaderOpacity = useRef(new Animated.Value(0)).current;
+  const versionOpacity = useRef(new Animated.Value(0)).current;
+
+  // Анимация праздничного текста
+  const holidayAnim = useRef(new Animated.Value(0)).current;
+
+  // Параметры блобов
+  const blobs = [
+    { x: width * 0.12, y: height * 0.12, size: 130, opacity: 0.07 },
+    { x: width * 0.75, y: height * 0.08, size: 170, opacity: 0.05 },
+    { x: width * 0.88, y: height * 0.42, size: 110, opacity: 0.07 },
+    { x: width * 0.05, y: height * 0.58, size: 150, opacity: 0.04 },
+    { x: width * 0.65, y: height * 0.78, size: 190, opacity: 0.06 },
+    { x: width * 0.18, y: height * 0.88, size: 120, opacity: 0.05 },
   ];
-
-  // Новогодние иконки
-  const holidayIcons = [
-    { icon: 'snow-outline', x: width * 0.2, y: height * 0.2, size: 35, delay: 0 },
-    { icon: 'star-outline', x: width * 0.8, y: height * 0.3, size: 40, delay: 300 },
-    { icon: 'gift-outline', x: width * 0.15, y: height * 0.6, size: 38, delay: 600 },
-    { icon: 'sparkles', x: width * 0.85, y: height * 0.5, size: 32, delay: 900 },
-    { icon: 'happy-outline', x: width * 0.3, y: height * 0.75, size: 36, delay: 1200 },
-    { icon: 'wine-outline', x: width * 0.7, y: height * 0.7, size: 34, delay: 1500 },
-  ];
-
-  const iconsToShow = isNewYearMode ? holidayIcons : regularIcons;
-  const iconAnimations = useRef(iconsToShow.map(() => ({
-    scale: new Animated.Value(0),
-    opacity: new Animated.Value(0),
-    rotate: new Animated.Value(0)
-  }))).current;
 
   useEffect(() => {
-    // Анимация фоновых иконок
-    const iconAnimationsArray = iconsToShow.map((icon, index) => {
-      const anim = iconAnimations[index];
-      return Animated.sequence([
-        Animated.delay(icon.delay),
-        Animated.parallel([
-          Animated.spring(anim.scale, {
+    // Запускаем плавающие анимации блобов
+    blobAnims.forEach((blob, index) => {
+      const duration = 3000 + Math.random() * 4000;
+      const amplitude = 15 + Math.random() * 25;
+
+      // Появление блоба
+      Animated.timing(blob.scale, {
+        toValue: 1,
+        duration: 800 + index * 150,
+        useNativeDriver: true,
+      }).start();
+
+      // Плавное дрейфование по Y
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(blob.translateY, {
+            toValue: -amplitude,
+            duration,
+            useNativeDriver: true,
+          }),
+          Animated.timing(blob.translateY, {
+            toValue: amplitude,
+            duration,
+            useNativeDriver: true,
+          }),
+        ])
+      ).start();
+
+      // Плавное дрейфование по X
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(blob.translateX, {
+            toValue: amplitude * 0.6,
+            duration: duration * 1.2,
+            useNativeDriver: true,
+          }),
+          Animated.timing(blob.translateX, {
+            toValue: -amplitude * 0.6,
+            duration: duration * 1.2,
+            useNativeDriver: true,
+          }),
+        ])
+      ).start();
+    });
+
+    // Пульсирующее свечение
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(glowOpacity, {
+          toValue: 1,
+          duration: 1800,
+          useNativeDriver: true,
+        }),
+        Animated.timing(glowOpacity, {
+          toValue: 0.4,
+          duration: 1800,
+          useNativeDriver: true,
+        }),
+      ])
+    ).start();
+
+    // Появление логотипа
+    const logoAnimation = Animated.parallel([
+      Animated.spring(logoScale, {
+        toValue: 1,
+        tension: 18,
+        friction: 5,
+        useNativeDriver: true,
+      }),
+      Animated.timing(logoOpacity, {
+        toValue: 1,
+        duration: 600,
+        useNativeDriver: true,
+      }),
+    ]);
+
+    // Появление заголовка
+    const titleAnimation = Animated.parallel([
+      Animated.spring(titleTranslateY, {
+        toValue: 0,
+        tension: 40,
+        friction: 8,
+        useNativeDriver: true,
+      }),
+      Animated.timing(titleOpacity, {
+        toValue: 1,
+        duration: 500,
+        useNativeDriver: true,
+      }),
+    ]);
+
+    // Появление подзаголовка
+    const subtitleAnimation = Animated.parallel([
+      Animated.spring(subtitleTranslateY, {
+        toValue: 0,
+        tension: 40,
+        friction: 8,
+        useNativeDriver: true,
+      }),
+      Animated.timing(subtitleOpacity, {
+        toValue: 1,
+        duration: 500,
+        useNativeDriver: true,
+      }),
+    ]);
+
+    // Loader
+    const loaderAnimation = Animated.timing(loaderOpacity, {
+      toValue: 1,
+      duration: 600,
+      useNativeDriver: true,
+    });
+
+    // Версия
+    const versionAnimation = Animated.timing(versionOpacity, {
+      toValue: 0.4,
+      duration: 800,
+      useNativeDriver: true,
+    });
+
+    // Праздничный текст
+    const holidayAnimation = holidayInfo
+      ? Animated.sequence([
+          Animated.delay(600),
+          Animated.spring(holidayAnim, {
             toValue: 1,
             tension: 50,
             friction: 7,
             useNativeDriver: true,
           }),
-          Animated.timing(anim.opacity, {
-            toValue: 0.6,
-            duration: 500,
-            useNativeDriver: true,
-          }),
-          Animated.timing(anim.rotate, {
-            toValue: 1,
-            duration: 2000 + Math.random() * 2000,
-            useNativeDriver: true,
-          })
         ])
-      ]);
-    });
+      : Animated.delay(0);
 
-    // Анимация новогоднего текста (если есть)
-    const newYearTextAnimation = isNewYearMode && newYearText ? 
-      Animated.sequence([
-        Animated.delay(2000),
-        Animated.spring(newYearTextAnim, {
-          toValue: 1,
-          tension: 50,
-          friction: 7,
-          useNativeDriver: true,
-        })
-      ]) : Animated.delay(0);
-
-    // Анимация основного логотипа
-    const logoAnimation = Animated.parallel([
-      Animated.spring(logoScale, {
-        toValue: 1,
-        tension: 10,
-        friction: 3,
-        useNativeDriver: true,
-      }),
-      Animated.timing(logoOpacity, {
-        toValue: 1,
-        duration: 800,
-        useNativeDriver: true,
-      })
-    ]);
-
-    // Запускаем все анимации
-    Animated.stagger(100, [
-      ...iconAnimationsArray,
-      newYearTextAnimation,
-      Animated.delay(500),
-      logoAnimation
+    // Последовательный запуск анимаций
+    Animated.stagger(180, [
+      logoAnimation,
+      titleAnimation,
+      subtitleAnimation,
+      loaderAnimation,
+      versionAnimation,
+      holidayAnimation,
     ]).start();
-  }, [isNewYearMode]);
+  }, [holidayInfo]);
 
   return (
-    <View style={[styles.flexCenter, { backgroundColor }]}>
-      <StatusBar 
+    <View style={[styles.container, { backgroundColor }]}>
+      <StatusBar
         barStyle={theme === 'light' ? 'dark-content' : 'light-content'}
         backgroundColor={backgroundColor}
       />
-      
-      {/* Фоновые иконки */}
-      {iconsToShow.map((icon, index) => {
-        const anim = iconAnimations[index];
-        const rotate = anim.rotate.interpolate({
-          inputRange: [0, 1],
-          outputRange: ['0deg', '360deg']
-        });
-        
-        return (
+
+      {/* Плавающие блобы / Matrix Rain */}
+      {isMatrix ? (
+        <MatrixRain intensity={0.85} />
+      ) : (
+        blobs.map((blob, index) => (
           <Animated.View
-            key={`icon-${index}`}
-            style={[
-              styles.backgroundIcon,
-              {
-                left: icon.x,
-                top: icon.y,
-                transform: [
-                  { scale: anim.scale },
-                  { rotate }
-                ],
-                opacity: anim.opacity
-              }
-            ]}
-          >
-            <Icon 
-              name={icon.icon} 
-              size={icon.size} 
-              color={bgIconColor} 
-            />
-          </Animated.View>
-        );
-      })}
-      
-      {/* Основной логотип */}
-      <Animated.View style={{
-        transform: [{ scale: logoScale }],
-        opacity: logoOpacity,
-        alignItems: 'center',
-        zIndex: 2,
-      }}>
-        <Icon name="school-outline" size={120} color={iconColor} />
-        <Text style={[styles.title, { color: textColor, marginTop: 20, fontFamily: 'Montserrat_700Bold' }]}>
-          Мой ИТИ ХГУ
-        </Text>
-        <Text style={[styles.subtitle, { color: textColor, opacity: 0.8, fontFamily: 'Montserrat_500Medium' }]}>
-          Твой университет в кармане
-        </Text>
-      </Animated.View>
-      
-      {/* Новогодний текст (только в новогоднем режиме и если есть текст) */}
-      {isNewYearMode && newYearText && (
-        <Animated.View
-          style={[
-            styles.newYearContainer,
-            {
-              opacity: newYearTextAnim,
+            key={`blob-${index}`}
+            style={{
+              position: 'absolute',
+              left: blob.x - blob.size / 2,
+              top: blob.y - blob.size / 2,
+              width: blob.size,
+              height: blob.size,
+              borderRadius: blob.size / 2,
+              backgroundColor: safeColors.primary,
+              opacity: blob.opacity,
               transform: [
-                { 
-                  scale: newYearTextAnim.interpolate({
+                { translateX: blobAnims[index].translateX },
+                { translateY: blobAnims[index].translateY },
+                { scale: blobAnims[index].scale },
+              ],
+            }}
+          />
+        ))
+      )}
+
+      {/* Центральный контент */}
+      <View style={styles.contentContainer}>
+        {/* Праздничный текст (над логотипом) */}
+        {holidayInfo && (
+          <Animated.View
+            style={{
+              marginBottom: 24,
+              opacity: holidayAnim,
+              transform: [
+                {
+                  scale: holidayAnim.interpolate({
                     inputRange: [0, 1],
-                    outputRange: [0.5, 1]
-                  }) 
+                    outputRange: [0.5, 1],
+                  }),
                 },
                 {
-                  translateY: newYearTextAnim.interpolate({
+                  translateY: holidayAnim.interpolate({
                     inputRange: [0, 1],
-                    outputRange: [50, 0]
-                  })
-                }
-              ]
-            }
-          ]}
+                    outputRange: [30, 0],
+                  }),
+                },
+              ],
+            }}
+          >
+            <Text
+              style={{
+                fontSize: 22,
+                fontWeight: 'bold',
+                fontFamily: 'Montserrat_700Bold',
+                color: getHolidayColors(holidayInfo.type).text,
+                textAlign: 'center',
+                textShadowColor: 'rgba(0, 0, 0, 0.15)',
+                textShadowOffset: { width: 0, height: 1 },
+                textShadowRadius: 4,
+              }}
+            >
+              {holidayInfo.text}
+            </Text>
+            <View style={{ flexDirection: 'row', justifyContent: 'center', marginTop: 8 }}>
+              {getHolidayDecorIcons(holidayInfo.type).map((icon, idx) => (
+                <Icon
+                  key={idx}
+                  name={icon.name}
+                  size={icon.size}
+                  color={getHolidayColors(holidayInfo.type).icons[idx]}
+                  style={{
+                    marginHorizontal: 4,
+                    ...(icon.rotate ? { transform: [{ rotate: '180deg' }] } : {}),
+                  }}
+                />
+              ))}
+            </View>
+          </Animated.View>
+        )}
+
+        {/* Логотип с кольцом свечения */}
+        <Animated.View
+          style={{
+            alignItems: 'center',
+            justifyContent: 'center',
+            transform: [{ scale: logoScale }],
+            opacity: logoOpacity,
+          }}
         >
-          <Text style={[styles.newYearText, { color: newYearTextColor }]}>
-            {newYearText}
-          </Text>
-          <View style={styles.fireworks}>
-            <Icon name="sparkles" size={24} color="#FFD700" style={styles.firework1} />
-            <Icon name="sparkles" size={20} color="#FF5722" style={styles.firework2} />
-            <Icon name="sparkles" size={18} color="#2196F3" style={styles.firework3} />
-          </View>
+          {/* Внешнее кольцо свечения */}
+          <Animated.View
+            style={{
+              width: 160,
+              height: 160,
+              borderRadius: 42,
+              backgroundColor: safeColors.primary + '0A',
+              borderWidth: 1,
+              borderColor: safeColors.primary + '15',
+              justifyContent: 'center',
+              alignItems: 'center',
+              opacity: glowOpacity,
+            }}
+          >
+            {/* Внутренняя стеклянная карточка */}
+            <View
+              style={{
+                width: 120,
+                height: 120,
+                borderRadius: 32,
+                backgroundColor: theme === 'dark'
+                  ? 'rgba(255,255,255,0.06)'
+                  : 'rgba(255,255,255,0.7)',
+                borderWidth: 1,
+                borderColor: theme === 'dark'
+                  ? 'rgba(255,255,255,0.12)'
+                  : safeColors.primary + '20',
+                justifyContent: 'center',
+                alignItems: 'center',
+                shadowColor: safeColors.primary,
+                shadowOffset: { width: 0, height: 4 },
+                shadowOpacity: 0.15,
+                shadowRadius: 20,
+                elevation: 8,
+              }}
+            >
+              <Icon name="school" size={56} color={iconColor} />
+            </View>
+          </Animated.View>
         </Animated.View>
-      )}
+
+        {/* Заголовок */}
+        <Animated.View
+          style={{
+            marginTop: 28,
+            opacity: titleOpacity,
+            transform: [{ translateY: titleTranslateY }],
+          }}
+        >
+          <Text
+            style={[
+              styles.title,
+              {
+                color: textColor,
+                fontFamily: 'Montserrat_700Bold',
+              },
+            ]}
+          >
+            Мой ИТИ ХГУ
+          </Text>
+        </Animated.View>
+
+        {/* Подзаголовок */}
+        <Animated.View
+          style={{
+            marginTop: 6,
+            opacity: subtitleOpacity,
+            transform: [{ translateY: subtitleTranslateY }],
+          }}
+        >
+          <Text
+            style={[
+              styles.subtitle,
+              {
+                color: subtextColor,
+                fontFamily: 'Montserrat_500Medium',
+              },
+            ]}
+          >
+            Твой университет в кармане
+          </Text>
+        </Animated.View>
+
+        {/* Индикатор загрузки */}
+        <Animated.View style={{ marginTop: 40, opacity: loaderOpacity }}>
+          <ActivityIndicator size="small" color={safeColors.primary} />
+        </Animated.View>
+      </View>
+
+      {/* Версия внизу */}
+      <Animated.View
+        style={{
+          position: 'absolute',
+          bottom: 50,
+          alignSelf: 'center',
+          opacity: versionOpacity,
+        }}
+      >
+        <Text
+          style={{
+            color: subtextColor,
+            fontSize: 12,
+            fontFamily: 'Montserrat_400Regular',
+            letterSpacing: 0.5,
+          }}
+        >
+          v{APP_VERSION}
+        </Text>
+      </Animated.View>
     </View>
   );
 };
 
 const styles = StyleSheet.create({
-  flexCenter: {
+  container: {
+    flex: 1,
+    overflow: 'hidden',
+  },
+  contentContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    overflow: 'hidden',
+    zIndex: 2,
+    paddingBottom: 40,
   },
   title: {
-    fontSize: 30,
+    fontSize: 32,
     fontWeight: 'bold',
-    letterSpacing: 0.5,
+    letterSpacing: 0.3,
+    textAlign: 'center',
   },
   subtitle: {
-    fontSize: 14,
-    marginTop: 8,
+    fontSize: 15,
     letterSpacing: 0.3,
-  },
-  backgroundIcon: {
-    position: 'absolute',
-    zIndex: 1,
-  },
-  newYearContainer: {
-    position: 'absolute',
-    top: '15%',
-    alignItems: 'center',
-    zIndex: 3,
-  },
-  newYearText: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    fontFamily: 'Montserrat_700Bold',
-    textShadowColor: 'rgba(0, 0, 0, 0.3)',
-    textShadowOffset: { width: 1, height: 1 },
-    textShadowRadius: 3,
-  },
-  fireworks: {
-    flexDirection: 'row',
-    marginTop: 10,
-  },
-  firework1: {
-    marginHorizontal: 5,
-  },
-  firework2: {
-    marginHorizontal: 5,
-  },
-  firework3: {
-    marginHorizontal: 5,
+    textAlign: 'center',
   },
 });
 

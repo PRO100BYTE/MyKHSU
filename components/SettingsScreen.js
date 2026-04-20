@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, forwardRef, useImperativeHandle } from 'react';
 import { 
   View, 
   Text, 
@@ -18,8 +18,14 @@ import AppearanceSettingsSheet from './AppearanceSettingsSheet';
 import AboutModal from './AboutModal';
 import NotificationSettingsModal from './NotificationSettingsModal';
 import ScheduleFormatModal from './ScheduleFormatModal';
-import { ACCENT_COLORS, APP_VERSION, APP_DEVELOPERS, APP_SUPPORTERS, GITHUB_REPO_URL, BUILD_VER, BUILD_DATE } from '../utils/constants';
+import DeveloperMenuScreen from './DeveloperMenuScreen';
+import AchievementsScreen from './AchievementsScreen';
+import { ACCENT_COLORS, APP_VERSION, APP_DEVELOPERS, APP_SUPPORTERS, GITHUB_REPO_URL, BUILD_VER, BUILD_DATE, LIQUID_GLASS } from '../utils/constants';
+import { getAchievementsCount, unlockAchievement } from '../utils/achievements';
+import { showAchievementToast } from './AchievementToast';
+import { getGlassSettingsCardStyle, getGlassIconBadgeStyle } from '../utils/liquidGlass';
 import Snowfall from './Snowfall';
+import { clearAllNotes, getNotesCount } from '../utils/notesStorage';
 
 const { width, height } = Dimensions.get('window');
 
@@ -37,7 +43,6 @@ const ConfettiParticle = ({ particle, theme, colors }) => {
     startDelay 
   } = particle;
 
-  // Интерполяции для анимаций
   const rotateInterpolate = rotateAnim.interpolate({
     inputRange: [0, 1],
     outputRange: ['0deg', '1080deg']
@@ -96,18 +101,13 @@ const Confetti = ({ show, theme, colors }) => {
   const createConfetti = () => {
     const emojis = ['🎉', '✨', '🌟', '⭐', '🎊', '🥳', '🎁', '🎈', '💫', '🔥', '💥', '🎇', '🎆', '🪅', '🪩'];
     const newParticles = [];
-    const particleCount = 80; // Увеличим количество частиц
+    const particleCount = 80;
     
     for (let i = 0; i < particleCount; i++) {
-      // Случайная позиция по X (по всей ширине экрана)
       const x = Math.random() * width;
-      // Начальная позиция Y (выше видимой области)
       const y = -Math.random() * 100 - 50;
-      // Случайный размер
-      const size = Math.random() * 20 + 20; // 20-40px
-      // Случайная задержка
+      const size = Math.random() * 20 + 20;
       const startDelay = Math.random() * 1000;
-      // Случайная эмодзи
       const emoji = emojis[Math.floor(Math.random() * emojis.length)];
       
       const particle = {
@@ -125,47 +125,39 @@ const Confetti = ({ show, theme, colors }) => {
       
       newParticles.push(particle);
       
-      // Запускаем анимации с задержкой
       setTimeout(() => {
-        // Анимация вращения
         Animated.timing(particle.rotateAnim, {
           toValue: 1,
-          duration: Math.random() * 2000 + 3000, // 3-5 секунд
+          duration: Math.random() * 2000 + 3000,
           useNativeDriver: true,
         }).start();
         
-        // Анимация падения
         Animated.timing(particle.fallAnim, {
           toValue: 1,
-          duration: Math.random() * 2000 + 3000, // 3-5 секунд
+          duration: Math.random() * 2000 + 3000,
           useNativeDriver: true,
-          easing: Animated.quad, // Более естественное падение
         }).start();
         
-        // Анимация качания (свинга)
         Animated.sequence([
           Animated.timing(particle.swingAnim, {
             toValue: 0.5,
             duration: Math.random() * 1000 + 1000,
             useNativeDriver: true,
-            easing: Animated.ease,
           }),
           Animated.timing(particle.swingAnim, {
             toValue: 1,
             duration: Math.random() * 1000 + 1000,
             useNativeDriver: true,
-            easing: Animated.ease,
           })
         ]).start();
         
-        // Анимация исчезновения
         setTimeout(() => {
           Animated.timing(particle.opacityAnim, {
             toValue: 0,
             duration: 500,
             useNativeDriver: true,
           }).start();
-        }, Math.random() * 1000 + 2000); // Исчезают через 2-3 секунды
+        }, Math.random() * 1000 + 2000);
       }, startDelay);
     }
     
@@ -196,29 +188,33 @@ const Confetti = ({ show, theme, colors }) => {
   );
 };
 
-const SettingsScreen = ({ theme, accentColor, setTheme, setAccentColor, onScheduleSettingsChange, onTabbarSettingsChange, isNewYearMode }) => {
-  const [appearanceSheetVisible, setAppearanceSheetVisible] = useState(false);
-  const [aboutModalVisible, setAboutModalVisible] = useState(false);
-  const [notificationModalVisible, setNotificationModalVisible] = useState(false);
-  const [scheduleFormatModalVisible, setScheduleFormatModalVisible] = useState(false);
+const SettingsScreen = forwardRef(({ 
+  theme, accentColor, setTheme, setAccentColor, 
+  onScheduleSettingsChange, onTabbarSettingsChange, 
+  isNewYearMode, onNewYearModeChange, onNavigationChange 
+}, ref) => {
+  const [currentScreen, setCurrentScreen] = useState(null);
   const [scheduleSettings, setScheduleSettings] = useState(null);
   const [versionTapCount, setVersionTapCount] = useState(0);
   const [easterEggActive, setEasterEggActive] = useState(false);
   const [secretMessage, setSecretMessage] = useState('');
   const [showConfetti, setShowConfetti] = useState(false);
+  const [developerMode, setDeveloperMode] = useState(false);
+  const [achievementsStats, setAchievementsStats] = useState({ unlocked: 0, total: 0 });
   
-  // Анимация появления
   const fadeAnim = useRef(new Animated.Value(0)).current;
+  const screenFadeAnim = useRef(new Animated.Value(1)).current;
 
-  const bgColor = theme === 'light' ? '#f3f4f6' : '#111827';
-  const cardBg = theme === 'light' ? '#ffffff' : '#1f2937';
-  const textColor = theme === 'light' ? '#111827' : '#ffffff';
-  const placeholderColor = theme === 'light' ? '#6b7280' : '#9ca3af';
+  const glass = LIQUID_GLASS[theme] || LIQUID_GLASS.light;
+  const bgColor = glass.background;
+  const textColor = glass.text;
+  const placeholderColor = glass.textSecondary;
   const colors = ACCENT_COLORS[accentColor];
-  const borderColor = theme === 'light' ? '#e5e7eb' : '#374151';
-  const hintBgColor = theme === 'light' ? '#f9fafb' : '#2d3748';
+  const borderColor = glass.border;
+  const hintBgColor = glass.surfaceTertiary;
+  const glassCardStyle = getGlassSettingsCardStyle(theme);
+  const glassIconBadge = getGlassIconBadgeStyle(theme, accentColor);
 
-  // Сообщения для пасхалки
   const easterEggMessages = [
     'Секретный уровень разблокирован! 🎉',
     'ХГУ - лучший университет! 💻',
@@ -232,72 +228,129 @@ const SettingsScreen = ({ theme, accentColor, setTheme, setAccentColor, onSchedu
     'Ты заслужил виртуальное печенье! 🍪'
   ];
 
-  // Запуск анимации при монтировании
-  useEffect(() => {
-    Animated.timing(fadeAnim, {
-      toValue: 1,
-      duration: 300,
-      useNativeDriver: true,
-    }).start();
-  }, []);
+  // Навигация из хедера
+  useImperativeHandle(ref, () => ({
+    goBack: () => {
+      if (currentScreen) {
+        navigateTo(null);
+      }
+    }
+  }));
 
-  // Загружаем настройки при монтировании
+  const navigateTo = (screen) => {
+    Animated.timing(screenFadeAnim, {
+      toValue: 0, duration: 120, useNativeDriver: true
+    }).start(() => {
+      setCurrentScreen(screen);
+      Animated.timing(screenFadeAnim, {
+        toValue: 1, duration: 200, useNativeDriver: true
+      }).start();
+    });
+  };
+
   useEffect(() => {
+    const titles = {
+      schedule: 'Формат расписания',
+      appearance: 'Внешний вид',
+      notifications: 'Уведомления',
+      achievements: 'Достижения',
+      about: 'О приложении',
+      developer: 'Меню разработчика',
+    };
+    if (onNavigationChange) onNavigationChange(titles[currentScreen] || null);
+  }, [currentScreen]);
+
+  const loadAchievementsStats = async () => {
+    try {
+      const stats = await getAchievementsCount();
+      setAchievementsStats(stats);
+    } catch {}
+  };
+
+  useEffect(() => {
+    loadDeveloperMode();
     loadScheduleSettings();
+    loadAchievementsStats();
+    Animated.timing(fadeAnim, { toValue: 1, duration: 300, useNativeDriver: true }).start();
   }, []);
 
-  // Обработчик нажатия на версию
+  const loadDeveloperMode = async () => {
+    try {
+      const saved = await SecureStore.getItemAsync('developer_mode');
+      if (saved === 'true') setDeveloperMode(true);
+    } catch (e) {}
+  };
+
   const handleVersionPress = () => {
     const newCount = versionTapCount + 1;
     setVersionTapCount(newCount);
     
-    // Активируем пасхалку при 5 нажатиях
     if (newCount >= 5 && !easterEggActive) {
       setEasterEggActive(true);
-      
-      // Выбираем случайное сообщение
       const randomMessage = easterEggMessages[Math.floor(Math.random() * easterEggMessages.length)];
       setSecretMessage(randomMessage);
-      
-      // Запускаем конфетти
       setShowConfetti(true);
+      setTimeout(() => setShowConfetti(false), 3500);
       
-      // Автоматически скрываем конфетти через 3.5 секунды
-      setTimeout(() => {
-        setShowConfetti(false);
-      }, 3500);
-      
-      // Показываем алерт с секретным сообщением
-      Alert.alert(
-        '🎉 Пасхалка обнаружена!',
-        randomMessage,
-        [
-          {
-            text: 'Круто!',
-            onPress: () => {
-              // Сбрасываем счетчик через 5 секунд
-              setTimeout(() => {
-                setVersionTapCount(0);
-                setEasterEggActive(false);
-                setSecretMessage('');
-              }, 3000);
-            }
-          }
-        ]
-      );
-      
-      // Сбрасываем счетчик
-      setVersionTapCount(0);
+      if (!developerMode) {
+        Alert.alert(
+          '🎉 Пасхалка обнаружена!',
+          randomMessage + '\n\nПродолжай нажимать для ещё большего сюрприза...',
+          [{ text: 'Круто!' }]
+        );
+      } else {
+        Alert.alert('🎉 Пасхалка!', randomMessage, [{ text: 'Круто!' }]);
+        setVersionTapCount(0);
+        setTimeout(() => { setEasterEggActive(false); setSecretMessage(''); }, 3000);
+      }
     }
     
-    // Если нажали 3 раза, показываем подсказку
-    if (newCount === 3 && !easterEggActive) {
+    if (newCount >= 7 && !developerMode) {
+      setDeveloperMode(true);
+      SecureStore.setItemAsync('developer_mode', 'true');
+      
+      // Ачивка за режим разработчика
+      unlockAchievement('developer_mode').then(result => {
+        if (result) showAchievementToast(result);
+      });
+      
       Alert.alert(
-        'Ого!',
-        'Ты уже нажал 3 раза! Попробуй ещё пару раз 😉',
-        [{ text: 'Интересно...' }]
+        '🛠 Режим разработчика',
+        'Вы активировали скрытый режим разработчика! В настройках внешнего вида появился секретный акцентный цвет, а в настройках — новый раздел.',
+        [{ text: 'Отлично!' }]
       );
+      setVersionTapCount(0);
+      setEasterEggActive(false);
+      setSecretMessage('');
+      return;
     }
+    
+    if (newCount === 3 && !easterEggActive) {
+      Alert.alert('Ого!', 'Ты уже нажал 3 раза! Попробуй ещё пару раз 😉', [{ text: 'Интересно...' }]);
+    }
+  };
+
+  const resetDeveloperMode = async () => {
+    Alert.alert(
+      'Сбросить режим разработчика?',
+      'Скрытые настройки будут недоступны. Активировать режим снова можно через пасхалку.',
+      [
+        { text: 'Отмена', style: 'cancel' },
+        { text: 'Сбросить', style: 'destructive', onPress: async () => {
+          setDeveloperMode(false);
+          await SecureStore.setItemAsync('developer_mode', 'false');
+          if (accentColor === 'orange' || accentColor === 'matrix') {
+            setAccentColor('green');
+            await SecureStore.setItemAsync('accentColor', 'green');
+          }
+          if (theme === 'matrix') {
+            setTheme('dark');
+            await SecureStore.setItemAsync('theme', 'dark');
+          }
+          navigateTo(null);
+        }}
+      ]
+    );
   };
 
   const loadScheduleSettings = async () => {
@@ -306,19 +359,10 @@ const SettingsScreen = ({ theme, accentColor, setTheme, setAccentColor, onSchedu
       const group = await SecureStore.getItemAsync('default_group') || '';
       const course = await SecureStore.getItemAsync('default_course') || '1';
       const teacher = await SecureStore.getItemAsync('teacher_name') || '';
+      const auditory = await SecureStore.getItemAsync('auditory_name') || '';
       const showSelector = await SecureStore.getItemAsync('show_course_selector') !== 'false';
       
-      const settings = {
-        format,
-        group,
-        course: parseInt(course),
-        teacher,
-        showSelector
-      };
-      
-      setScheduleSettings(settings);
-      
-      console.log('Настройки расписания загружены:', settings);
+      setScheduleSettings({ format, group, course: parseInt(course), teacher, auditory, showSelector });
     } catch (error) {
       console.error('Error loading schedule settings:', error);
     }
@@ -326,19 +370,11 @@ const SettingsScreen = ({ theme, accentColor, setTheme, setAccentColor, onSchedu
 
   const handleScheduleSettingsChange = (newSettings) => {
     setScheduleSettings(newSettings);
-    console.log('Schedule settings updated in SettingsScreen:', newSettings);
-    
-    // Передаем изменения в родительский компонент для немедленного применения
-    if (onScheduleSettingsChange) {
-      onScheduleSettingsChange(newSettings);
-    }
+    if (onScheduleSettingsChange) onScheduleSettingsChange(newSettings);
   };
 
   const handleTabbarSettingsChange = (newSettings) => {
-    // Передаем изменения в родительский компонент для немедленного применения
-    if (onTabbarSettingsChange) {
-      onTabbarSettingsChange(newSettings);
-    }
+    if (onTabbarSettingsChange) onTabbarSettingsChange(newSettings);
   };
 
   const clearAppCache = () => {
@@ -346,10 +382,7 @@ const SettingsScreen = ({ theme, accentColor, setTheme, setAccentColor, onSchedu
       'Очистка кэша',
       'После очистки кэша вы не сможете просматривать расписание и новости в оффлайн-режиме, пока не загрузите их повторно. Продолжить?',
       [
-        {
-          text: 'Отмена',
-          style: 'cancel'
-        },
+        { text: 'Отмена', style: 'cancel' },
         {
           text: 'Очистить',
           onPress: async () => {
@@ -375,13 +408,304 @@ const SettingsScreen = ({ theme, accentColor, setTheme, setAccentColor, onSchedu
     );
   };
 
+  const clearNotesHandler = async () => {
+    try {
+      const count = await getNotesCount();
+      if (count === 0) {
+        Alert.alert('Заметки', 'Заметок и домашних заданий нет');
+        return;
+      }
+      Alert.alert(
+        'Очистить заметки',
+        `Будет удалено заметок и ДЗ: ${count}. Это действие необратимо. Продолжить?`,
+        [
+          { text: 'Отмена', style: 'cancel' },
+          {
+            text: 'Удалить',
+            style: 'destructive',
+            onPress: async () => {
+              const deleted = await clearAllNotes();
+              Alert.alert('Готово', `Удалено заметок: ${deleted}`);
+            },
+          },
+        ],
+      );
+    } catch (e) {
+      Alert.alert('Ошибка', 'Не удалось очистить заметки');
+    }
+  };
+
   const openGitHub = () => {
     Linking.openURL(GITHUB_REPO_URL);
   };
 
+  // Заголовок секции настроек
+  const SectionHeader = ({ title }) => (
+    <Text style={{ 
+      color: placeholderColor, 
+      fontSize: 13, 
+      fontFamily: 'Montserrat_600SemiBold', 
+      textTransform: 'uppercase', 
+      letterSpacing: 0.5,
+      marginTop: 24, 
+      marginBottom: 8, 
+      paddingHorizontal: 4,
+    }}>
+      {title}
+    </Text>
+  );
+
+  // Группировка настроек в карточку
+  const SettingsGroup = ({ children }) => (
+    <View style={{
+      borderRadius: 14,
+      overflow: 'hidden',
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: glass.border,
+      shadowColor: glass.shadowColor,
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.08,
+      shadowRadius: 6,
+      elevation: 2,
+    }}>
+      {children}
+    </View>
+  );
+
+  // Строка настройки в группе
+  const SettingsRow = ({ icon, title, subtitle, onPress, isFirst, isLast, rightElement, destructive }) => (
+    <TouchableOpacity
+      onPress={onPress}
+      activeOpacity={0.7}
+      style={{
+        flexDirection: 'row',
+        alignItems: 'center',
+        padding: 14,
+        backgroundColor: glass.surfaceSecondary,
+        borderTopLeftRadius: isFirst ? 14 : 0,
+        borderTopRightRadius: isFirst ? 14 : 0,
+        borderBottomLeftRadius: isLast ? 14 : 0,
+        borderBottomRightRadius: isLast ? 14 : 0,
+        borderBottomWidth: isLast ? 0 : StyleSheet.hairlineWidth,
+        borderBottomColor: glass.border,
+      }}
+    >
+      <View style={glassIconBadge}>
+        <Icon name={icon} size={20} color={destructive ? '#ef4444' : colors.primary} />
+      </View>
+      <View style={{ flex: 1, marginLeft: 2 }}>
+        <Text style={{ color: destructive ? '#ef4444' : textColor, fontSize: 15, fontFamily: 'Montserrat_500Medium' }}>{title}</Text>
+        {subtitle && (
+          <Text style={{ color: placeholderColor, fontSize: 12, marginTop: 2, fontFamily: 'Montserrat_400Regular', lineHeight: 17 }}>{subtitle}</Text>
+        )}
+      </View>
+      {rightElement || <Icon name="chevron-forward" size={18} color={placeholderColor} />}
+    </TouchableOpacity>
+  );
+
+  const getScheduleLabel = () => {
+    if (!scheduleSettings) return 'Настроить отображение расписания';
+    if (scheduleSettings.format === 'teacher') return `Преподаватель: ${scheduleSettings.teacher || 'не указан'}`;
+    if (scheduleSettings.format === 'auditory') return `Аудитория: ${scheduleSettings.auditory || 'не указана'}`;
+    return `Группа: ${scheduleSettings.group || 'не выбрана'}`;
+  };
+
+  const renderMainScreen = () => (
+    <ScrollView 
+      style={{ padding: 16 }} 
+      contentContainerStyle={{ paddingBottom: 100 }}
+      showsVerticalScrollIndicator={false}
+    >
+      {/* РАСПИСАНИЕ */}
+      <SectionHeader title="Расписание" />
+      <SettingsGroup>
+        <SettingsRow 
+          icon="calendar-outline" 
+          title="Формат расписания" 
+          subtitle={getScheduleLabel()}
+          onPress={() => navigateTo('schedule')} 
+          isFirst isLast 
+        />
+      </SettingsGroup>
+
+      {/* УВЕДОМЛЕНИЯ */}
+      <SectionHeader title="Уведомления" />
+      <SettingsGroup>
+        <SettingsRow 
+          icon="notifications-outline" 
+          title="Настройки уведомлений" 
+          subtitle="Уведомления о новостях и расписании" 
+          onPress={() => navigateTo('notifications')} 
+          isFirst isLast 
+        />
+      </SettingsGroup>
+
+      {/* ОФОРМЛЕНИЕ */}
+      <SectionHeader title="Оформление" />
+      <SettingsGroup>
+        <SettingsRow 
+          icon="color-palette-outline" 
+          title="Внешний вид" 
+          subtitle="Тема, акцентный цвет, панель навигации" 
+          onPress={() => navigateTo('appearance')} 
+          isFirst isLast 
+        />
+      </SettingsGroup>
+
+      {/* ДАННЫЕ И ХРАНИЛИЩЕ */}
+      <SectionHeader title="Данные и хранилище" />
+      <SettingsGroup>
+        <SettingsRow 
+          icon="trash-outline" 
+          title="Очистить кэш" 
+          subtitle="Удалить сохранённые данные" 
+          onPress={clearAppCache} 
+          isFirst 
+          rightElement={<Icon name="trash-outline" size={18} color={placeholderColor} />}
+        />
+        <SettingsRow 
+          icon="map-outline" 
+          title="Очистить кэш карты" 
+          subtitle="Удалить картографические данные" 
+          onPress={clearMapCacheHandler} 
+          rightElement={<Icon name="trash-outline" size={18} color={placeholderColor} />}
+        />
+        <SettingsRow 
+          icon="document-text-outline" 
+          title="Очистить заметки и ДЗ" 
+          subtitle="Удалить все заметки к парам" 
+          onPress={clearNotesHandler} 
+          isLast 
+          rightElement={<Icon name="trash-outline" size={18} color={placeholderColor} />}
+        />
+      </SettingsGroup>
+
+      {/* ДОСТИЖЕНИЯ */}
+      <SectionHeader title="Достижения" />
+      <SettingsGroup>
+        <SettingsRow 
+          icon="trophy-outline" 
+          title="Достижения" 
+          subtitle={`Получено ${achievementsStats.unlocked} из ${achievementsStats.total}`}
+          onPress={() => { loadAchievementsStats(); navigateTo('achievements'); }} 
+          isFirst isLast 
+        />
+      </SettingsGroup>
+
+      {/* О ПРИЛОЖЕНИИ */}
+      <SectionHeader title="О приложении" />
+      <SettingsGroup>
+        <SettingsRow 
+          icon="information-circle-outline" 
+          title="О приложении" 
+          subtitle="Информация и возможности" 
+          onPress={() => navigateTo('about')} 
+          isFirst 
+        />
+        <SettingsRow 
+          icon="logo-github" 
+          title="GitHub репозиторий" 
+          subtitle="Исходный код проекта" 
+          onPress={openGitHub} 
+          isLast 
+          rightElement={<Icon name="open-outline" size={18} color={placeholderColor} />}
+        />
+      </SettingsGroup>
+
+      {/* РЕЖИМ РАЗРАБОТЧИКА */}
+      {developerMode && (
+        <>
+          <SectionHeader title="🛠 Режим разработчика" />
+          <SettingsGroup>
+            <SettingsRow 
+              icon="construct-outline" 
+              title="Меню разработчика" 
+              subtitle="API, отладка, тестирование"
+              onPress={() => navigateTo('developer')} 
+              isFirst isLast 
+            />
+          </SettingsGroup>
+        </>
+      )}
+
+      {/* ВЕРСИЯ */}
+      <TouchableOpacity 
+        style={[glassCardStyle, { 
+          flexDirection: 'column',
+          alignItems: 'center',
+          marginTop: 24,
+          borderWidth: easterEggActive ? 1.5 : glassCardStyle.borderWidth,
+          borderColor: easterEggActive ? colors.primary : glassCardStyle.borderColor,
+          shadowColor: easterEggActive ? colors.primary : glassCardStyle.shadowColor,
+          shadowOpacity: easterEggActive ? 0.4 : 1,
+          shadowRadius: easterEggActive ? 12 : 8,
+        }]}
+        onPress={handleVersionPress}
+        activeOpacity={0.7}
+      >
+        <Text style={{ color: placeholderColor, fontSize: 12, fontFamily: 'Montserrat_400Regular', textAlign: 'center' }}>
+          Версия: {APP_VERSION}
+        </Text>
+        <Text style={{ color: placeholderColor, fontSize: 12, marginTop: 4, fontFamily: 'Montserrat_400Regular', textAlign: 'center' }}>
+          Сборка {BUILD_VER} от {BUILD_DATE}
+        </Text>
+        <Text style={{ color: placeholderColor, fontSize: 12, marginTop: 4, fontFamily: 'Montserrat_400Regular', textAlign: 'center' }}>
+          Разработано с  ❤️  {APP_DEVELOPERS}
+        </Text>
+        <Text style={{ color: placeholderColor, fontSize: 12, marginTop: 4, fontFamily: 'Montserrat_400Regular', textAlign: 'center' }}>
+          При поддержке {APP_SUPPORTERS}
+        </Text>
+        
+        {easterEggActive && secretMessage && (
+          <View style={{ 
+            marginTop: 12, 
+            padding: 12, 
+            backgroundColor: hintBgColor, 
+            borderRadius: 12,
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'center',
+            borderWidth: 1,
+            borderColor: borderColor,
+            width: '100%'
+          }}>
+            <Icon name="sparkles" size={16} color={colors.primary} />
+            <Text style={{ 
+              color: colors.primary, 
+              marginLeft: 8, 
+              fontFamily: 'Montserrat_400Regular', 
+              textAlign: 'center',
+              flex: 1,
+              fontSize: 12
+            }}>
+              {secretMessage}
+            </Text>
+          </View>
+        )}
+        
+        {versionTapCount > 0 && versionTapCount < 5 && (
+          <Text style={{ 
+            color: colors.primary, fontSize: 10, marginTop: 4,
+            fontFamily: 'Montserrat_400Regular', textAlign: 'center', opacity: 0.7
+          }}>
+            Нажатий: {versionTapCount}/5
+          </Text>
+        )}
+        
+        {versionTapCount >= 5 && versionTapCount < 7 && !developerMode && (
+          <Text style={{ 
+            color: colors.primary, fontSize: 10, marginTop: 4,
+            fontFamily: 'Montserrat_400Regular', textAlign: 'center', opacity: 0.7
+          }}>
+            Не останавливайся... ещё {7 - versionTapCount}
+          </Text>
+        )}
+      </TouchableOpacity>
+    </ScrollView>
+  );
+
   return (
     <View style={{ flex: 1, backgroundColor: bgColor }}>
-      {/* Снегопад для новогоднего режима */}
       {isNewYearMode && <Snowfall key={`snowfall-${isNewYearMode}`} theme={theme} intensity={0.8} />}
       
       <Animated.View style={{ flex: 1, opacity: fadeAnim, zIndex: 2 }}>
@@ -389,298 +713,68 @@ const SettingsScreen = ({ theme, accentColor, setTheme, setAccentColor, onSchedu
           barStyle={theme === 'light' ? 'dark-content' : 'light-content'}
           backgroundColor={bgColor}
         />
-
-        {/* Компонент конфетти */}
         <Confetti show={showConfetti} theme={theme} colors={colors} />
-      
-      <ScrollView style={{ padding: 16 }}>
-        {/* Формат расписания */}
-        <TouchableOpacity 
-          style={{ 
-            backgroundColor: cardBg, 
-            borderRadius: 12, 
-            padding: 16, 
-            marginBottom: 16,
-            flexDirection: 'row',
-            alignItems: 'center'
-          }}
-          onPress={() => setScheduleFormatModalVisible(true)}
-        >
-          <View style={{ backgroundColor: colors.light, borderRadius: 8, padding: 8, marginRight: 12 }}>
-            <Icon name="calendar-outline" size={24} color={colors.primary} />
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text style={{ color: textColor, fontSize: 16, fontFamily: 'Montserrat_500Medium' }}>
-              Формат расписания
-            </Text>
-            <Text style={{ color: placeholderColor, fontSize: 14, marginTop: 4, fontFamily: 'Montserrat_400Regular' }}>
-              Настройте отображение расписания для студентов или преподавателей
-            </Text>
-          </View>
-          <Icon name="chevron-forward" size={20} color={placeholderColor} />
-        </TouchableOpacity>
-
-        {/* Настройки уведомлений */}
-        <TouchableOpacity 
-          style={{ 
-            backgroundColor: cardBg, 
-            borderRadius: 12, 
-            padding: 16, 
-            marginBottom: 16,
-            flexDirection: 'row',
-            alignItems: 'center'
-          }}
-          onPress={() => setNotificationModalVisible(true)}
-        >
-          <View style={{ backgroundColor: colors.light, borderRadius: 8, padding: 8, marginRight: 12 }}>
-            <Icon name="notifications-outline" size={24} color={colors.primary} />
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text style={{ color: textColor, fontSize: 16, fontFamily: 'Montserrat_500Medium' }}>Уведомления</Text>
-            <Text style={{ color: placeholderColor, fontSize: 14, marginTop: 4, fontFamily: 'Montserrat_400Regular' }}>
-              Настройте уведомления о новостях и расписании
-            </Text>
-          </View>
-          <Icon name="chevron-forward" size={20} color={placeholderColor} />
-        </TouchableOpacity>
-
-        {/* Настройки внешнего вида */}
-        <TouchableOpacity 
-          style={{ 
-            backgroundColor: cardBg, 
-            borderRadius: 12, 
-            padding: 16, 
-            marginBottom: 16,
-            flexDirection: 'row',
-            alignItems: 'center'
-          }}
-          onPress={() => setAppearanceSheetVisible(true)}
-        >
-          <View style={{ backgroundColor: colors.light, borderRadius: 8, padding: 8, marginRight: 12 }}>
-            <Icon name="color-palette-outline" size={24} color={colors.primary} />
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text style={{ color: textColor, fontSize: 16, fontFamily: 'Montserrat_500Medium' }}>Внешний вид</Text>
-            <Text style={{ color: placeholderColor, fontSize: 14, marginTop: 4, fontFamily: 'Montserrat_400Regular' }}>
-              Настройте тему и цветовую схему приложения
-            </Text>
-          </View>
-          <Icon name="chevron-forward" size={20} color={placeholderColor} />
-        </TouchableOpacity>
-
-        {/* О приложении */}
-        <TouchableOpacity 
-          style={{ 
-            backgroundColor: cardBg, 
-            borderRadius: 12, 
-            padding: 16, 
-            marginBottom: 16,
-            flexDirection: 'row',
-            alignItems: 'center'
-          }}
-          onPress={() => setAboutModalVisible(true)}
-        >
-          <View style={{ backgroundColor: colors.light, borderRadius: 8, padding: 8, marginRight: 12 }}>
-            <Icon name="information-circle-outline" size={24} color={colors.primary} />
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text style={{ color: textColor, fontSize: 16, fontFamily: 'Montserrat_500Medium' }}>О приложении</Text>
-            <Text style={{ color: placeholderColor, fontSize: 14, marginTop: 4, fontFamily: 'Montserrat_400Regular' }}>
-              Информация о приложении и его возможностях
-            </Text>
-          </View>
-          <Icon name="chevron-forward" size={20} color={placeholderColor} />
-        </TouchableOpacity>
-
-        {/* GitHub репозиторий */}
-        <TouchableOpacity 
-          style={{ 
-            backgroundColor: cardBg, 
-            borderRadius: 12, 
-            padding: 16, 
-            marginBottom: 16,
-            flexDirection: 'row',
-            alignItems: 'center'
-          }}
-          onPress={openGitHub}
-        >
-          <View style={{ backgroundColor: colors.light, borderRadius: 8, padding: 8, marginRight: 12 }}>
-            <Icon name="logo-github" size={24} color={colors.primary} />
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text style={{ color: textColor, fontSize: 16, fontFamily: 'Montserrat_500Medium' }}>GitHub репозиторий</Text>
-            <Text style={{ color: placeholderColor, fontSize: 14, marginTop: 4, fontFamily: 'Montserrat_400Regular' }}>
-              Исходный код проекта на GitHub
-            </Text>
-          </View>
-          <Icon name="chevron-forward" size={20} color={placeholderColor} />
-        </TouchableOpacity>
-
-        {/* Очистка кэша приложения */}
-        <TouchableOpacity 
-          style={{ 
-            backgroundColor: cardBg, 
-            borderRadius: 12, 
-            padding: 16, 
-            marginBottom: 16,
-            flexDirection: 'row',
-            alignItems: 'center'
-          }}
-          onPress={clearAppCache}
-        >
-          <View style={{ backgroundColor: colors.light, borderRadius: 8, padding: 8, marginRight: 12 }}>
-            <Icon name="trash-outline" size={24} color={colors.primary} />
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text style={{ color: textColor, fontSize: 16, fontFamily: 'Montserrat_500Medium' }}>Очистка кэша приложения</Text>
-            <Text style={{ color: placeholderColor, fontSize: 14, marginTop: 4, fontFamily: 'Montserrat_400Regular' }}>
-              Удалить все сохраненные данные приложения
-            </Text>
-          </View>
-          <Icon name="chevron-forward" size={20} color={placeholderColor} />
-        </TouchableOpacity>
-
-        {/* Очистка кэша карты */}
-        <TouchableOpacity 
-          style={{ 
-            backgroundColor: cardBg, 
-            borderRadius: 12, 
-            padding: 16, 
-            marginBottom: 16,
-            flexDirection: 'row',
-            alignItems: 'center'
-          }}
-          onPress={clearMapCacheHandler}
-        >
-          <View style={{ backgroundColor: colors.light, borderRadius: 8, padding: 8, marginRight: 12 }}>
-            <Icon name="map-outline" size={24} color={colors.primary} />
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text style={{ color: textColor, fontSize: 16, fontFamily: 'Montserrat_500Medium' }}>Очистка кэша карты</Text>
-            <Text style={{ color: placeholderColor, fontSize: 14, marginTop: 4, fontFamily: 'Montserrat_400Regular' }}>
-              Удалить сохраненные картографические данные
-            </Text>
-          </View>
-          <Icon name="chevron-forward" size={20} color={placeholderColor} />
-        </TouchableOpacity>
-
-        {/* Информация о версии (пасхалка) */}
-        <TouchableOpacity 
-          style={{ 
-            backgroundColor: cardBg, 
-            borderRadius: 12, 
-            padding: 16, 
-            marginBottom: 16,
-            alignItems: 'center',
-            borderWidth: easterEggActive ? 2 : 0,
-            borderColor: easterEggActive ? colors.primary : 'transparent',
-            shadowColor: easterEggActive ? colors.primary : 'transparent',
-            shadowOffset: { width: 0, height: 0 },
-            shadowOpacity: easterEggActive ? 0.5 : 0,
-            shadowRadius: 10,
-          }}
-          onPress={handleVersionPress}
-          activeOpacity={0.7}
-        >
-          <Text style={{ color: placeholderColor, fontSize: 12, fontFamily: 'Montserrat_400Regular', textAlign: 'center' }}>
-            Версия: {APP_VERSION}
-          </Text>
-          <Text style={{ color: placeholderColor, fontSize: 12, marginTop: 4, fontFamily: 'Montserrat_400Regular', textAlign: 'center' }}>
-            Сборка {BUILD_VER} от {BUILD_DATE}
-          </Text>
-          <Text style={{ color: placeholderColor, fontSize: 12, marginTop: 4, fontFamily: 'Montserrat_400Regular', textAlign: 'center' }}>
-            Разработано с  ❤️  {APP_DEVELOPERS}
-          </Text>
-          <Text style={{ color: placeholderColor, fontSize: 12, marginTop: 4, fontFamily: 'Montserrat_400Regular', textAlign: 'center' }}>
-            При поддержке {APP_SUPPORTERS}
-          </Text>
+        
+        <Animated.View style={{ flex: 1, opacity: screenFadeAnim }}>
+          {currentScreen === null && renderMainScreen()}
           
-          {/* Секретное сообщение при активированной пасхалке */}
-          {easterEggActive && secretMessage && (
-            <View style={{ 
-              marginTop: 12, 
-              padding: 12, 
-              backgroundColor: hintBgColor, 
-              borderRadius: 8,
-              flexDirection: 'row',
-              alignItems: 'center',
-              justifyContent: 'center',
-              marginBottom: 16,
-              borderWidth: 1,
-              borderColor: borderColor,
-              shadowColor: '#000',
-              shadowOffset: { width: 0, height: 1 },
-              shadowOpacity: theme === 'light' ? 0.05 : 0.2,
-              shadowRadius: 2,
-              elevation: 2,
-              width: '100%'
-            }}>
-              <Icon name="sparkles" size={16} color={colors.primary} />
-              <Text style={{ 
-                color: colors.primary, 
-                marginLeft: 8, 
-                fontFamily: 'Montserrat_400Regular', 
-                textAlign: 'center',
-                flex: 1,
-                fontSize: 12
-              }}>
-                {secretMessage}
-              </Text>
-            </View>
+          {currentScreen === 'appearance' && (
+            <AppearanceSettingsSheet
+              theme={theme}
+              accentColor={accentColor}
+              setTheme={setTheme}
+              setAccentColor={setAccentColor}
+              onTabbarSettingsChange={handleTabbarSettingsChange}
+              isNewYearMode={isNewYearMode}
+              onNewYearModeChange={onNewYearModeChange}
+              developerMode={developerMode}
+            />
           )}
           
-          {/* Индикатор нажатий (для отладки) */}
-          {versionTapCount > 0 && versionTapCount < 5 && (
-            <Text style={{ 
-              color: colors.primary, 
-              fontSize: 10, 
-              marginTop: 4,
-              fontFamily: 'Montserrat_400Regular',
-              textAlign: 'center',
-              opacity: 0.7
-            }}>
-              Нажатий: {versionTapCount}/5
-            </Text>
+          {currentScreen === 'schedule' && (
+            <ScheduleFormatModal
+              theme={theme}
+              accentColor={accentColor}
+              onSettingsChange={handleScheduleSettingsChange}
+              onSave={() => {
+                loadScheduleSettings();
+                navigateTo(null);
+              }}
+            />
           )}
-        </TouchableOpacity>
 
-      </ScrollView>
+          {currentScreen === 'notifications' && (
+            <NotificationSettingsModal
+              theme={theme}
+              accentColor={accentColor}
+            />
+          )}
 
-      {/* Модальные окна */}
-      <AppearanceSettingsSheet
-        visible={appearanceSheetVisible}
-        onClose={() => setAppearanceSheetVisible(false)}
-        theme={theme}
-        accentColor={accentColor}
-        setTheme={setTheme}
-        setAccentColor={setAccentColor}
-        onTabbarSettingsChange={handleTabbarSettingsChange}
-      />
+          {currentScreen === 'achievements' && (
+            <AchievementsScreen
+              theme={theme}
+              accentColor={accentColor}
+            />
+          )}
 
-      <AboutModal
-        visible={aboutModalVisible}
-        onClose={() => setAboutModalVisible(false)}
-        theme={theme}
-        accentColor={accentColor}
-      />
+          {currentScreen === 'about' && (
+            <AboutModal
+              theme={theme}
+              accentColor={accentColor}
+            />
+          )}
 
-      <NotificationSettingsModal
-        visible={notificationModalVisible}
-        onClose={() => setNotificationModalVisible(false)}
-        theme={theme}
-        accentColor={accentColor}
-      />
-
-      <ScheduleFormatModal
-        visible={scheduleFormatModalVisible}
-        onClose={() => setScheduleFormatModalVisible(false)}
-        theme={theme}
-        accentColor={accentColor}
-        onSettingsChange={handleScheduleSettingsChange}
-      />
-    </Animated.View>
-  </View>
+          {currentScreen === 'developer' && (
+            <DeveloperMenuScreen
+              theme={theme}
+              accentColor={accentColor}
+              onResetDeveloperMode={resetDeveloperMode}
+            />
+          )}
+        </Animated.View>
+      </Animated.View>
+    </View>
   );
-};
+});
 
 export default SettingsScreen;

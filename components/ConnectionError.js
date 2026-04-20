@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, Platform, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { Ionicons as Icon } from '@expo/vector-icons';
-import { ACCENT_COLORS } from '../utils/constants';
+import { ACCENT_COLORS, LIQUID_GLASS } from '../utils/constants';
 import Snowfall from './Snowfall';
 
 const ConnectionError = ({ 
@@ -20,10 +20,11 @@ const ConnectionError = ({
   isNewYearMode = false
 }) => {
   const colors = ACCENT_COLORS[accentColor];
-  const bgColor = theme === 'light' ? '#f3f4f6' : '#111827';
-  const textColor = theme === 'light' ? '#111827' : '#ffffff';
-  const cardBg = theme === 'light' ? '#ffffff' : '#1f2937';
-  const placeholderColor = theme === 'light' ? '#6b7280' : '#9ca3af';
+  const glass = LIQUID_GLASS[theme] || LIQUID_GLASS.light;
+  const bgColor = glass.background;
+  const textColor = glass.text;
+  const cardBg = glass.surfaceCard;
+  const placeholderColor = glass.textSecondary;
 
   // Конфигурация для разных типов контента
   const contentConfigs = {
