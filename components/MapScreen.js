@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useImperativeHandle, forwardRef } from 'react';
 import { 
   View, 
   Text, 
@@ -8,6 +8,7 @@ import {
   Platform,
   Dimensions, 
   TouchableOpacity, 
+  TouchableWithoutFeedback,
   Animated, 
   StatusBar, 
   ActivityIndicator,
@@ -17,7 +18,7 @@ import MapView, { Marker, PROVIDER_DEFAULT, UrlTile } from 'react-native-maps';
 import NetInfo from '@react-native-community/netinfo';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import Constants from 'expo-constants';
-import { ACCENT_COLORS } from '../utils/constants';
+import { ACCENT_COLORS, LIQUID_GLASS } from '../utils/constants';
 import ConnectionError from './ConnectionError';
 import { buildings, initialRegion } from '../utils/buildingCoordinates';
 import BuildingsListScreen from './BuildingsListScreen';
@@ -26,7 +27,7 @@ import Snowfall from './Snowfall';
 
 const { width, height } = Dimensions.get('window');
 
-const MapScreen = ({ theme, accentColor, isNewYearMode }) => {
+const MapScreen = forwardRef(({ theme, accentColor, isNewYearMode, onFilterCountChange, onNavigationChange }, ref) => {
   const [isOnline, setIsOnline] = useState(true);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -40,10 +41,11 @@ const MapScreen = ({ theme, accentColor, isNewYearMode }) => {
   const [mapError, setMapError] = useState(false);
   
   const colors = ACCENT_COLORS[accentColor];
-  const bgColor = theme === 'light' ? '#f3f4f6' : '#111827';
-  const textColor = theme === 'light' ? '#111827' : '#ffffff';
-  const placeholderColor = theme === 'light' ? '#6b7280' : '#9ca3af';
-  const cardBg = theme === 'light' ? '#ffffff' : '#1f2937';
+  const glass = LIQUID_GLASS[theme] || LIQUID_GLASS.light;
+  const bgColor = glass.background;
+  const textColor = glass.text;
+  const placeholderColor = glass.textSecondary;
+  const cardBg = glass.surfaceCard;
   
   // Получаем API ключи
   const dgApiKey = Constants.expoConfig?.extra?.dgApiKey || Constants.manifest?.extra?.dgApiKey;
@@ -55,6 +57,22 @@ const MapScreen = ({ theme, accentColor, isNewYearMode }) => {
   const filtersModalAnim = useRef(new Animated.Value(0)).current;
   const mapRef = useRef(null);
   const webViewRef = useRef(null);
+
+  // Expose methods to parent via ref
+  useImperativeHandle(ref, () => ({
+    openFilters: () => setShowFiltersModal(true),
+    goBack: () => setShowBuildingsList(false),
+  }));
+
+  // Notify parent about filter count changes
+  useEffect(() => {
+    if (onFilterCountChange) onFilterCountChange(selectedFilters.length);
+  }, [selectedFilters]);
+
+  // Notify parent about navigation state changes
+  useEffect(() => {
+    if (onNavigationChange) onNavigationChange(showBuildingsList ? 'Корпуса ХГУ' : null);
+  }, [showBuildingsList]);
 
   // Категории фильтров
   const filterCategories = [
@@ -361,22 +379,6 @@ const MapScreen = ({ theme, accentColor, isNewYearMode }) => {
             barStyle={theme === 'light' ? 'dark-content' : 'light-content'}
             backgroundColor={bgColor}
           />
-          <View style={{ flexDirection: 'row', alignItems: 'center', padding: 16, backgroundColor: cardBg }}>
-            <TouchableOpacity 
-              onPress={() => setShowBuildingsList(false)}
-              style={{ padding: 8, marginRight: 12 }}
-            >
-              <Icon name="arrow-back" size={24} color={colors.primary} />
-            </TouchableOpacity>
-            <Text style={{ 
-              color: textColor, 
-              fontSize: 20, 
-              fontWeight: 'bold',
-              fontFamily: 'Montserrat_600SemiBold'
-            }}>
-              Корпуса ХГУ
-            </Text>
-          </View>
           <BuildingsListScreen 
             theme={theme} 
             accentColor={accentColor} 
@@ -675,24 +677,7 @@ const MapScreen = ({ theme, accentColor, isNewYearMode }) => {
           backgroundColor={bgColor}
         />
         
-        {/* Заголовок с кнопкой фильтров */}
-      <View style={[styles.header, { backgroundColor: cardBg }]}>
-        <View style={styles.headerLeft}>
-          <Text style={[styles.headerTitle, { color: textColor }]}>Корпуса ХГУ</Text>
-          {selectedFilters.length > 0 && (
-            <View style={[styles.activeFiltersBadge, { backgroundColor: colors.primary }]}>
-              <Text style={styles.activeFiltersText}>{selectedFilters.length}</Text>
-            </View>
-          )}
-        </View>
-        <TouchableOpacity 
-          style={[styles.filtersButton, { backgroundColor: colors.light }]}
-          onPress={() => setShowFiltersModal(true)}
-        >
-          <Icon name="filter-outline" size={20} color={colors.primary} />
-          <Text style={[styles.filtersButtonText, { color: colors.primary }]}>Фильтры</Text>
-        </TouchableOpacity>
-      </View>
+        {/* Заголовок с кнопкой фильтров перенесён в хедер приложения (App.js) */}
       
       {/* ============================================ */}
       {/* КОД КАРТЫ ДЛЯ ANDROID (ЗАКОММЕНТИРОВАН ДЛЯ ВОЗМОЖНОГО ВОССТАНОВЛЕНИЯ) */}
@@ -760,8 +745,13 @@ const MapScreen = ({ theme, accentColor, isNewYearMode }) => {
               onPress={() => handleBuildingSelect(building)}
             >
               <View style={[styles.marker, { 
-                backgroundColor: theme === 'light' ? '#ffffff' : '#374151',
-                borderColor: colors.primary
+                backgroundColor: theme === 'light' ? '#ffffff' : '#2d3748',
+                borderColor: colors.primary,
+                shadowColor: colors.primary,
+                shadowOffset: { width: 0, height: 2 },
+                shadowOpacity: 0.3,
+                shadowRadius: 4,
+                elevation: 4,
               }]}>
                 <Icon name={getBuildingIcon(building.type)} size={16} color={colors.primary} />
               </View>
@@ -781,10 +771,15 @@ const MapScreen = ({ theme, accentColor, isNewYearMode }) => {
       
       {!mapLoaded && Platform.OS === 'ios' && (
         <View style={styles.loadingOverlay}>
-          <View style={[styles.loadingContent, { backgroundColor: theme === 'dark' ? '#1f2937' : '#ffffff' }]}>
-            <ActivityIndicator size="large" color={colors.primary} />
-            <Text style={[styles.loadingText, { color: textColor, marginTop: 12 }]}>
+          <View style={[styles.loadingContent, { backgroundColor: glass.backgroundElevated, borderColor: glass.border, borderWidth: StyleSheet.hairlineWidth }]}>
+            <View style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: colors.glass, justifyContent: 'center', alignItems: 'center', marginBottom: 12, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.glassBorder }}>
+              <ActivityIndicator size="small" color={colors.primary} />
+            </View>
+            <Text style={[styles.loadingText, { color: textColor }]}>
               Загрузка карты...
+            </Text>
+            <Text style={{ color: placeholderColor, fontSize: 12, fontFamily: 'Montserrat_400Regular', marginTop: 4 }}>
+              Пожалуйста, подождите
             </Text>
           </View>
         </View>
@@ -801,11 +796,17 @@ const MapScreen = ({ theme, accentColor, isNewYearMode }) => {
             }
           ]}
         >
+          <TouchableWithoutFeedback onPress={handleCloseFiltersModal}>
+            <View style={{ flex: 1 }} />
+          </TouchableWithoutFeedback>
           <Animated.View 
             style={[
               styles.filtersModal,
               { 
-                backgroundColor: cardBg,
+                backgroundColor: glass.backgroundElevated,
+                borderColor: glass.border,
+                borderWidth: StyleSheet.hairlineWidth,
+                borderBottomWidth: 0,
                 transform: [{
                   translateY: filtersModalAnim.interpolate({
                     inputRange: [0, 1],
@@ -815,12 +816,18 @@ const MapScreen = ({ theme, accentColor, isNewYearMode }) => {
               }
             ]}
           >
+            {/* Drag handle */}
+            <View style={{ width: 36, height: 4, borderRadius: 2, backgroundColor: glass.textSecondary + '40', alignSelf: 'center', marginBottom: 16 }} />
+            
             <View style={styles.filtersHeader}>
               <Text style={[styles.filtersTitle, { color: textColor, fontFamily: 'Montserrat_600SemiBold' }]}>
                 Фильтры
               </Text>
-              <TouchableOpacity onPress={handleCloseFiltersModal}>
-                <Icon name="close" size={24} color={placeholderColor} />
+              <TouchableOpacity 
+                onPress={handleCloseFiltersModal}
+                style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: glass.surfaceTertiary, justifyContent: 'center', alignItems: 'center' }}
+              >
+                <Icon name="close" size={18} color={placeholderColor} />
               </TouchableOpacity>
             </View>
 
@@ -831,37 +838,52 @@ const MapScreen = ({ theme, accentColor, isNewYearMode }) => {
                   style={[
                     styles.filterItem,
                     { 
-                      backgroundColor: selectedFilters.includes(category.id) ? colors.light + '40' : 'transparent',
-                      borderBottomWidth: index === filterCategories.length - 1 ? 0 : 1,
-                      borderBottomColor: theme === 'light' ? '#f3f4f6' : '#374151',
+                      backgroundColor: selectedFilters.includes(category.id) ? colors.glass : 'transparent',
+                      borderColor: selectedFilters.includes(category.id) ? colors.glassBorder : 'transparent',
+                      borderWidth: StyleSheet.hairlineWidth,
+                      borderRadius: 14,
+                      marginBottom: 6,
                     }
                   ]}
                   onPress={() => handleToggleFilter(category.id)}
                 >
                   <View style={styles.filterItemLeft}>
-                    <View style={[styles.filterIcon, { backgroundColor: selectedFilters.includes(category.id) ? colors.primary : colors.light }]}>
+                    <View style={[styles.filterIcon, { 
+                      backgroundColor: selectedFilters.includes(category.id) ? colors.primary : colors.glass,
+                      borderRadius: 12,
+                      borderWidth: selectedFilters.includes(category.id) ? 0 : StyleSheet.hairlineWidth,
+                      borderColor: colors.glassBorder,
+                    }]}>
                       <Icon name={category.icon} size={18} color={selectedFilters.includes(category.id) ? '#ffffff' : colors.primary} />
                     </View>
                     <Text style={[styles.filterName, { 
                       color: selectedFilters.includes(category.id) ? colors.primary : textColor, 
-                      fontFamily: 'Montserrat_500Medium' 
+                      fontFamily: selectedFilters.includes(category.id) ? 'Montserrat_600SemiBold' : 'Montserrat_500Medium' 
                     }]}>
                       {category.name}
                     </Text>
                   </View>
-                  {selectedFilters.includes(category.id) && (
-                    <Icon name="checkmark" size={20} color={colors.primary} />
-                  )}
+                  <View style={{ 
+                    width: 24, height: 24, borderRadius: 12, 
+                    backgroundColor: selectedFilters.includes(category.id) ? colors.primary : 'transparent',
+                    borderWidth: selectedFilters.includes(category.id) ? 0 : 1.5,
+                    borderColor: glass.border,
+                    justifyContent: 'center', alignItems: 'center',
+                  }}>
+                    {selectedFilters.includes(category.id) && (
+                      <Icon name="checkmark" size={14} color="#ffffff" />
+                    )}
+                  </View>
                 </TouchableOpacity>
               ))}
             </ScrollView>
 
             <View style={styles.filtersFooter}>
               <TouchableOpacity 
-                style={[styles.clearButton, { borderColor: colors.primary }]}
+                style={[styles.clearButton, { borderColor: glass.border, backgroundColor: glass.surfaceTertiary }]}
                 onPress={handleClearFilters}
               >
-                <Text style={[styles.clearButtonText, { color: colors.primary, fontFamily: 'Montserrat_500Medium' }]}>
+                <Text style={[styles.clearButtonText, { color: textColor, fontFamily: 'Montserrat_500Medium' }]}>
                   Сбросить
                 </Text>
               </TouchableOpacity>
@@ -869,7 +891,7 @@ const MapScreen = ({ theme, accentColor, isNewYearMode }) => {
                 style={[styles.applyButton, { backgroundColor: colors.primary }]}
                 onPress={handleCloseFiltersModal}
               >
-                <Text style={[styles.applyButtonText, { fontFamily: 'Montserrat_500Medium' }]}>
+                <Text style={[styles.applyButtonText, { fontFamily: 'Montserrat_600SemiBold' }]}>
                   Применить
                 </Text>
               </TouchableOpacity>
@@ -889,11 +911,17 @@ const MapScreen = ({ theme, accentColor, isNewYearMode }) => {
             }
           ]}
         >
+          <TouchableWithoutFeedback onPress={handleCloseRouteModal}>
+            <View style={{ flex: 1 }} />
+          </TouchableWithoutFeedback>
           <Animated.View 
             style={[
               styles.routeModal,
               { 
-                backgroundColor: cardBg,
+                backgroundColor: glass.backgroundElevated,
+                borderColor: glass.border,
+                borderWidth: StyleSheet.hairlineWidth,
+                borderBottomWidth: 0,
                 transform: [{
                   translateY: routeModalAnim.interpolate({
                     inputRange: [0, 1],
@@ -903,54 +931,65 @@ const MapScreen = ({ theme, accentColor, isNewYearMode }) => {
               }
             ]}
           >
-            <Text style={[styles.routeModalTitle, { color: textColor, fontFamily: 'Montserrat_600SemiBold' }]}>
-              Построить маршрут до {selectedBuilding?.name}
-            </Text>
-            <Text style={[styles.routeModalSubtitle, { color: placeholderColor, fontFamily: 'Montserrat_400Regular' }]}>
-              {selectedBuilding?.description}
+            {/* Header with close button */}
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 16 }}>
+              <View style={{ width: 44, height: 44, borderRadius: 14, backgroundColor: colors.glass, justifyContent: 'center', alignItems: 'center', marginRight: 12, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.glassBorder }}>
+                <Icon name="navigate-outline" size={22} color={colors.primary} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.routeModalTitle, { color: textColor, fontFamily: 'Montserrat_600SemiBold' }]}>
+                  {selectedBuilding?.name}
+                </Text>
+                <Text style={[styles.routeModalSubtitle, { color: placeholderColor, fontFamily: 'Montserrat_400Regular' }]}>
+                  {selectedBuilding?.description}
+                </Text>
+              </View>
+              <TouchableOpacity 
+                onPress={handleCloseRouteModal}
+                style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: glass.surfaceTertiary, justifyContent: 'center', alignItems: 'center' }}
+              >
+                <Icon name="close" size={18} color={placeholderColor} />
+              </TouchableOpacity>
+            </View>
+            
+            <Text style={{ color: placeholderColor, fontSize: 13, fontFamily: 'Montserrat_500Medium', marginBottom: 12 }}>
+              Выберите сервис навигации
             </Text>
             
             <TouchableOpacity 
-              style={[styles.routeOption, { backgroundColor: colors.light }]}
+              style={[styles.routeOption, { backgroundColor: colors.glass, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.glassBorder }]}
               onPress={() => handleRouteServiceSelect('yandex')}
             >
               <View style={[styles.routeIcon, { backgroundColor: colors.primary }]}>
                 <Text style={[styles.routeIconText, { fontFamily: 'Montserrat_700Bold' }]}>Я</Text>
               </View>
               <View style={styles.routeOptionText}>
-                <Text style={[styles.routeOptionTitle, { color: colors.primary, fontFamily: 'Montserrat_600SemiBold' }]}>
+                <Text style={[styles.routeOptionTitle, { color: textColor, fontFamily: 'Montserrat_600SemiBold' }]}>
                   Яндекс.Карты
                 </Text>
-                <Text style={[styles.routeOptionDesc, { color: colors.primary, fontFamily: 'Montserrat_400Regular' }]}>
-                  Веб-версия сервиса
+                <Text style={[styles.routeOptionDesc, { color: placeholderColor, fontFamily: 'Montserrat_400Regular' }]}>
+                  Откроется в браузере
                 </Text>
               </View>
+              <Icon name="open-outline" size={18} color={placeholderColor} />
             </TouchableOpacity>
 
             <TouchableOpacity 
-              style={[styles.routeOption, { backgroundColor: colors.light, marginTop: 12 }]}
+              style={[styles.routeOption, { backgroundColor: colors.glass, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.glassBorder, marginTop: 10 }]}
               onPress={() => handleRouteServiceSelect('2gis')}
             >
               <View style={[styles.routeIcon, { backgroundColor: colors.primary }]}>
                 <Text style={[styles.routeIconText, { fontFamily: 'Montserrat_700Bold' }]}>2</Text>
               </View>
               <View style={styles.routeOptionText}>
-                <Text style={[styles.routeOptionTitle, { color: colors.primary, fontFamily: 'Montserrat_600SemiBold' }]}>
+                <Text style={[styles.routeOptionTitle, { color: textColor, fontFamily: 'Montserrat_600SemiBold' }]}>
                   2ГИС
                 </Text>
-                <Text style={[styles.routeOptionDesc, { color: colors.primary, fontFamily: 'Montserrat_400Regular' }]}>
-                  Веб-версия сервиса
+                <Text style={[styles.routeOptionDesc, { color: placeholderColor, fontFamily: 'Montserrat_400Regular' }]}>
+                  Откроется в браузере
                 </Text>
               </View>
-            </TouchableOpacity>
-
-            <TouchableOpacity 
-              style={[styles.cancelButton, { marginTop: 16 }]}
-              onPress={handleCloseRouteModal}
-            >
-              <Text style={[styles.cancelButtonText, { color: placeholderColor, fontFamily: 'Montserrat_500Medium' }]}>
-                Отмена
-              </Text>
+              <Icon name="open-outline" size={18} color={placeholderColor} />
             </TouchableOpacity>
           </Animated.View>
         </Animated.View>
@@ -958,56 +997,11 @@ const MapScreen = ({ theme, accentColor, isNewYearMode }) => {
     </Animated.View>
     </View>
   );
-};
+});
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
-    elevation: 3,
-  },
-  headerLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontFamily: 'Montserrat_600SemiBold',
-  },
-  activeFiltersBadge: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginLeft: 8,
-  },
-  activeFiltersText: {
-    color: '#ffffff',
-    fontSize: 12,
-    fontFamily: 'Montserrat_600SemiBold',
-  },
-  filtersButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 8,
-    gap: 6,
-  },
-  filtersButtonText: {
-    fontSize: 14,
-    fontFamily: 'Montserrat_500Medium',
   },
   mapContainer: {
     flex: 1,
@@ -1019,12 +1013,12 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   marker: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 3,
+    borderWidth: 2.5,
   },
   loadingOverlay: {
     position: 'absolute',
@@ -1037,9 +1031,14 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.1)',
   },
   loadingContent: {
-    padding: 20,
-    borderRadius: 8,
+    padding: 28,
+    borderRadius: 20,
     alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.12,
+    shadowRadius: 16,
+    elevation: 6,
   },
   loadingText: {
     fontSize: 16,
@@ -1055,16 +1054,16 @@ const styles = StyleSheet.create({
     zIndex: 1001,
   },
   filtersModal: {
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
     padding: 20,
-    paddingBottom: Platform.OS === 'ios' ? 34 : 20,
+    paddingBottom: Platform.OS === 'ios' ? 100 : 24,
     maxHeight: '80%',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: -2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 8,
-    elevation: 5,
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 16,
+    elevation: 8,
   },
   filtersHeader: {
     flexDirection: 'row',
@@ -1082,9 +1081,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 16,
-    paddingHorizontal: 8,
-    borderRadius: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
   },
   filterItemLeft: {
     flexDirection: 'row',
@@ -1092,9 +1090,9 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   filterIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 8,
+    width: 38,
+    height: 38,
+    borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
@@ -1111,8 +1109,8 @@ const styles = StyleSheet.create({
   clearButton: {
     flex: 1,
     paddingVertical: 14,
-    borderRadius: 12,
-    borderWidth: 1,
+    borderRadius: 14,
+    borderWidth: StyleSheet.hairlineWidth,
     alignItems: 'center',
   },
   clearButtonText: {
@@ -1121,7 +1119,7 @@ const styles = StyleSheet.create({
   applyButton: {
     flex: 1,
     paddingVertical: 14,
-    borderRadius: 12,
+    borderRadius: 14,
     alignItems: 'center',
   },
   applyButtonText: {
@@ -1138,29 +1136,28 @@ const styles = StyleSheet.create({
     zIndex: 1002,
   },
   routeModal: {
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
     padding: 20,
-    paddingBottom: Platform.OS === 'ios' ? 34 : 20,
+    paddingBottom: Platform.OS === 'ios' ? 100 : 24,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: -2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 8,
-    elevation: 5,
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 16,
+    elevation: 8,
   },
   routeModalTitle: {
-    fontSize: 18,
-    marginBottom: 4,
+    fontSize: 16,
+    marginBottom: 2,
   },
   routeModalSubtitle: {
-    fontSize: 14,
-    marginBottom: 16,
+    fontSize: 13,
   },
   routeOption: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 16,
-    borderRadius: 12,
+    padding: 14,
+    borderRadius: 14,
   },
   routeIcon: {
     width: 32,
