@@ -171,8 +171,8 @@ export const LIQUID_GLASS = {
 export const APP_VERSION = '2.3.2';
 export const APP_DEVELOPERS = 'студентами группы 125-1 в составе команды PRO100BYTE Team';
 export const APP_SUPPORTERS = 'ХГУ им. Н.Ф. Катанова и ООО "Скалк Софт"';
-export const BUILD_VER = 'git-09f4be9';
-export const BUILD_DATE = '21.04.2026';
+export const BUILD_VER = 'git-0d44c62';
+export const BUILD_DATE = '25.05.2026';
 
 // Дни недели
 export const WEEKDAYS = [
