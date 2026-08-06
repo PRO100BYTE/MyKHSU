@@ -198,172 +198,268 @@ const FreshmanScreen = forwardRef(({ theme, accentColor, isNewYearMode, onNaviga
       url: 'https://vk.com/club178703236',
       icon: 'barbell-outline',
       brandColor: '#0077FF',
+    },
+    {
+      id: 10,
+      name: 'ЭРЦИТ ИТИ ХГУ',
+      description: 'Экспериментальный центр информационных технологий',
+      url: 'https://vk.ru/club224936102',
+      icon: 'laptop-outline',
+      brandColor: '#0077FF',
     }
   ];
 
-  // Рендер карточки раздела
-  const renderSectionCard = (icon, title, description, onPress, isLast = false) => (
-    <TouchableOpacity 
-      style={{ 
-        flexDirection: 'row',
-        backgroundColor: glass.surfaceSecondary, 
-        borderRadius: 16, 
-        marginBottom: isLast ? 0 : 12,
-        alignItems: 'center',
-        borderWidth: StyleSheet.hairlineWidth,
-        borderColor: glass.border,
-        overflow: 'hidden',
-        shadowColor: glass.shadowColor,
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.08,
-        shadowRadius: 6,
-        elevation: 2,
-      }}
+  const telegramGroups = [
+    {
+      id: 1,
+      name: 'Новости ХГУ им. Н.Ф. Катанова',
+      description: 'Официальный Telegram-канал университета',
+      url: 'https://t.me/khsu_katanova',
+      icon: 'paper-plane-outline',
+      brandColor: '#0088cc',
+    }
+  ];
+
+  const maxGroups = [
+    {
+      id: 1,
+      name: 'ХГУ им. Н.Ф. Катанова',
+      description: 'Официальный канал университета',
+      url: 'https://max.ru/id1901021449_biz',
+      icon: 'school-outline',
+      brandColor: '#5B6DEF',
+    },
+    {
+      id: 2,
+      name: 'Совет обучающихся ХГУ',
+      description: 'Студенческое самоуправление',
+      url: 'https://max.ru/id1901021449_gos1',
+      icon: 'people-outline',
+      brandColor: '#5B6DEF',
+    },
+    {
+      id: 3,
+      name: 'ЭРЦИТ ИТИ ХГУ',
+      description: 'Экспериментальный центр информационных технологий',
+      url: 'https://max.ru/join/yBMcu9AYDOJjU0FEw7-kaTp7MrbkT7JG9fwZLeDrJjQ',
+      icon: 'laptop-outline',
+      brandColor: '#5B6DEF',
+    }
+  ];
+
+  const SectionHeader = ({ title }) => (
+    <Text style={{
+      color: placeholderColor,
+      fontSize: 13,
+      fontFamily: 'Montserrat_600SemiBold',
+      textTransform: 'uppercase',
+      letterSpacing: 0.5,
+      marginTop: 24,
+      marginBottom: 8,
+      paddingHorizontal: 4,
+    }}>
+      {title}
+    </Text>
+  );
+
+  const SectionGroup = ({ children }) => (
+    <View style={{
+      borderRadius: 14,
+      overflow: 'hidden',
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: glass.border,
+      shadowColor: glass.shadowColor,
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.08,
+      shadowRadius: 6,
+      elevation: 2,
+    }}>
+      {children}
+    </View>
+  );
+
+  const SectionRow = ({ icon, title, description, onPress, isFirst, isLast }) => (
+    <TouchableOpacity
       onPress={onPress}
+      activeOpacity={0.7}
+      style={{
+        flexDirection: 'row',
+        alignItems: 'center',
+        padding: 14,
+        backgroundColor: glass.surfaceSecondary,
+        borderTopLeftRadius: isFirst ? 14 : 0,
+        borderTopRightRadius: isFirst ? 14 : 0,
+        borderBottomLeftRadius: isLast ? 14 : 0,
+        borderBottomRightRadius: isLast ? 14 : 0,
+        borderBottomWidth: isLast ? 0 : StyleSheet.hairlineWidth,
+        borderBottomColor: glass.border,
+      }}
     >
-      <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', padding: 14 }}>
-        <View style={{ 
-          width: 42, 
-          height: 42, 
-          borderRadius: 12, 
-          backgroundColor: colors.glass, 
-          justifyContent: 'center', 
-          alignItems: 'center',
-          marginRight: 14,
-          borderWidth: StyleSheet.hairlineWidth, 
-          borderColor: colors.glassBorder,
-        }}>
-          <Icon name={icon} size={22} color={colors.primary} />
-        </View>
-        <View style={{ flex: 1 }}>
-          <Text style={{ color: textColor, fontSize: 15, fontFamily: 'Montserrat_500Medium' }}>
-            {title}
-          </Text>
-          <Text style={{ color: placeholderColor, fontSize: 13, marginTop: 3, fontFamily: 'Montserrat_400Regular', lineHeight: 18 }}>
+      <View style={{
+        width: 42,
+        height: 42,
+        borderRadius: 12,
+        backgroundColor: colors.glass,
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginRight: 14,
+        borderWidth: StyleSheet.hairlineWidth,
+        borderColor: colors.glassBorder,
+      }}>
+        <Icon name={icon} size={22} color={colors.primary} />
+      </View>
+      <View style={{ flex: 1 }}>
+        <Text style={{ color: textColor, fontSize: 15, fontFamily: 'Montserrat_500Medium' }}>
+          {title}
+        </Text>
+        {description && (
+          <Text style={{ color: placeholderColor, fontSize: 12, marginTop: 2, fontFamily: 'Montserrat_400Regular', lineHeight: 17 }}>
             {description}
           </Text>
-        </View>
-        <Icon name="chevron-forward" size={20} color={placeholderColor} />
+        )}
       </View>
+      <Icon name="chevron-forward" size={18} color={placeholderColor} />
     </TouchableOpacity>
   );
 
-  // Рендер карточки группы
-  const renderGroupCard = (group, isLast = false) => (
-    <TouchableOpacity 
+  const CommunityRow = ({ group, isFirst, isLast }) => (
+    <TouchableOpacity
       key={group.id}
-      style={{ 
-        flexDirection: 'row',
-        backgroundColor: glass.surfaceSecondary, 
-        borderRadius: 14, 
-        marginBottom: isLast ? 0 : 10,
-        alignItems: 'center',
-        borderWidth: StyleSheet.hairlineWidth,
-        borderColor: glass.border,
-        overflow: 'hidden',
-        shadowColor: glass.shadowColor,
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.06,
-        shadowRadius: 4,
-        elevation: 1,
-      }}
       onPress={() => openLink(group.url)}
+      activeOpacity={0.7}
+      style={{
+        flexDirection: 'row',
+        alignItems: 'center',
+        padding: 14,
+        backgroundColor: glass.surfaceSecondary,
+        borderTopLeftRadius: isFirst ? 14 : 0,
+        borderTopRightRadius: isFirst ? 14 : 0,
+        borderBottomLeftRadius: isLast ? 14 : 0,
+        borderBottomRightRadius: isLast ? 14 : 0,
+        borderBottomWidth: isLast ? 0 : StyleSheet.hairlineWidth,
+        borderBottomColor: glass.border,
+      }}
     >
-      <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', padding: 12 }}>
-        <View style={{ 
-          width: 40, 
-          height: 40, 
-          borderRadius: 12, 
-          backgroundColor: group.brandColor ? group.brandColor + '14' : colors.glass, 
-          justifyContent: 'center', 
-          alignItems: 'center',
-          marginRight: 12,
-          borderWidth: StyleSheet.hairlineWidth, 
-          borderColor: group.brandColor ? group.brandColor + '30' : colors.glassBorder,
-        }}>
-          <Icon name={group.icon} size={20} color={group.brandColor || colors.primary} />
-        </View>
-        <View style={{ flex: 1 }}>
-          <Text style={{ color: textColor, fontSize: 14, fontFamily: 'Montserrat_500Medium', lineHeight: 19 }}>
-            {group.name}
-          </Text>
-          {group.description && (
-            <Text style={{ color: placeholderColor, fontSize: 12, fontFamily: 'Montserrat_400Regular', marginTop: 2, lineHeight: 16 }}>
-              {group.description}
-            </Text>
-          )}
-        </View>
-        <Icon name="open-outline" size={16} color={placeholderColor} style={{ marginLeft: 8 }} />
+      <View style={{
+        width: 42,
+        height: 42,
+        borderRadius: 12,
+        backgroundColor: group.brandColor ? group.brandColor + '14' : colors.glass,
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginRight: 14,
+        borderWidth: StyleSheet.hairlineWidth,
+        borderColor: group.brandColor ? group.brandColor + '30' : colors.glassBorder,
+      }}>
+        <Icon name={group.icon} size={20} color={group.brandColor || colors.primary} />
       </View>
+      <View style={{ flex: 1 }}>
+        <Text style={{ color: textColor, fontSize: 15, fontFamily: 'Montserrat_500Medium' }}>
+          {group.name}
+        </Text>
+        {group.description && (
+          <Text style={{ color: placeholderColor, fontSize: 12, marginTop: 2, fontFamily: 'Montserrat_400Regular', lineHeight: 17 }}>
+            {group.description}
+          </Text>
+        )}
+      </View>
+      <Icon name="open-outline" size={16} color={placeholderColor} style={{ marginLeft: 8 }} />
     </TouchableOpacity>
   );
 
   // Главный экран разделов
+  const sectionCategories = [
+    {
+      title: 'Учеба',
+      items: [
+        {
+          icon: 'time-outline',
+          title: 'Расписание звонков',
+          description: 'Время начала и окончания занятий',
+          onPress: () => setCurrentGroupType('bells'),
+        },
+        {
+          icon: 'today-outline',
+          title: 'Календарь учебных событий',
+          description: 'Экзамены, зачеты, практика и экспорт в календарь',
+          onPress: () => setCurrentGroupType('academicCalendar'),
+        },
+        {
+          icon: 'book-outline',
+          title: 'Словарь аббревиатур',
+          description: 'Расшифровка университетских сокращений',
+          onPress: () => setCurrentGroupType('glossary'),
+        },
+      ],
+    },
+    {
+      title: 'Ресурсы и сервисы',
+      items: [
+        {
+          icon: 'globe-outline',
+          title: 'Сайт ИТИ ХГУ',
+          description: 'Официальный сайт Инженерно-технологического института',
+          onPress: openITIWebsite,
+        },
+        {
+          icon: 'laptop-outline',
+          title: 'Образовательный портал ХГУ',
+          description: 'Электронная образовательная среда университета',
+          onPress: openEduPortal,
+        },
+        {
+          icon: 'school-outline',
+          title: 'Новый образовательный портал ХГУ (Moodle)',
+          description: 'Современная платформа для дистанционного обучения',
+          onPress: openNewEduPortal,
+        },
+        {
+          icon: 'people-outline',
+          title: 'Преподаватели',
+          description: 'Информация о преподавателях ИТИ ХГУ',
+          onPress: () => setModalVisible(true),
+        },
+      ],
+    },
+    {
+      title: 'Кампус и сообщества',
+      items: [
+        {
+          icon: 'business-outline',
+          title: 'Корпуса ХГУ',
+          description: 'Список всех корпусов университета с маршрутами',
+          onPress: () => setShowBuildingsList(true),
+        },
+        {
+          icon: 'chatbubbles-outline',
+          title: 'Полезные группы (сообщества)',
+          description: 'Группы и сообщества ВКонтакте и Telegram',
+          onPress: () => setCurrentGroupType('main'),
+        },
+      ],
+    },
+  ];
+
   const renderMainSections = () => (
     <ScrollView style={{ flex: 1, padding: 16 }} contentContainerStyle={{ paddingBottom: 100 }}>
-      {renderSectionCard(
-        'people-outline',
-        'Преподаватели',
-        'Информация о преподавателях ИТИ ХГУ',
-        () => setModalVisible(true)
-      )}
-      
-      {renderSectionCard(
-        'business-outline',
-        'Корпуса ХГУ',
-        'Список всех корпусов университета с маршрутами',
-        () => setShowBuildingsList(true)
-      )}
-      
-      {renderSectionCard(
-        'globe-outline',
-        'Сайт ИТИ ХГУ',
-        'Официальный сайт Инженерно-технологического института',
-        openITIWebsite
-      )}
-      
-      {renderSectionCard(
-        'laptop-outline',
-        'Образовательный портал ХГУ',
-        'Электронная образовательная среда университета',
-        openEduPortal
-      )}
-      
-      {renderSectionCard(
-        'school-outline',
-        'Новый образовательный портал ХГУ (Moodle)',
-        'Современная платформа для дистанционного обучения',
-        openNewEduPortal
-      )}
-      
-      {renderSectionCard(
-        'chatbubbles-outline',
-        'Полезные группы (сообщества)',
-        'Группы и сообщества ВКонтакте и Telegram',
-        () => setCurrentGroupType('main'),
-      )}
-
-      {renderSectionCard(
-        'time-outline',
-        'Расписание звонков',
-        'Время начала и окончания занятий',
-        () => setCurrentGroupType('bells'),
-      )}
-
-      {renderSectionCard(
-        'today-outline',
-        'Календарь учебных событий',
-        'Экзамены, зачеты, практика и экспорт в календарь',
-        () => setCurrentGroupType('academicCalendar'),
-      )}
-
-      {renderSectionCard(
-        'book-outline',
-        'Словарь аббревиатур',
-        'Расшифровка университетских сокращений',
-        () => setCurrentGroupType('glossary'),
-        true
-      )}
+      {sectionCategories.map(category => (
+        <View key={category.title}>
+          <SectionHeader title={category.title} />
+          <SectionGroup>
+            {category.items.map((item, index) => (
+              <SectionRow
+                key={item.title}
+                icon={item.icon}
+                title={item.title}
+                description={item.description}
+                onPress={item.onPress}
+                isFirst={index === 0}
+                isLast={index === category.items.length - 1}
+              />
+            ))}
+          </SectionGroup>
+        </View>
+      ))}
 
       {/* Скрытая пасхалка */}
       <TouchableOpacity
@@ -457,133 +553,43 @@ const FreshmanScreen = forwardRef(({ theme, accentColor, isNewYearMode, onNaviga
   // Единый экран сообществ с секциями
   const renderGroupTypeSelection = () => (
     <ScrollView style={{ flex: 1, padding: 16 }} contentContainerStyle={{ paddingBottom: 100 }} showsVerticalScrollIndicator={false}>
-      {/* Секция ВКонтакте */}
-      <View style={{
-        backgroundColor: colors.glass,
-        borderRadius: 16,
-        padding: 14,
-        marginBottom: 16,
-        flexDirection: 'row',
-        alignItems: 'center',
-        borderWidth: StyleSheet.hairlineWidth,
-        borderColor: colors.glassBorder,
-      }}>
-        <View style={{
-          width: 40, height: 40, borderRadius: 12,
-          backgroundColor: '#0077FF18',
-          justifyContent: 'center', alignItems: 'center', marginRight: 12,
-        }}>
-          <Icon name="logo-vk" size={22} color="#0077FF" />
-        </View>
-        <View style={{ flex: 1 }}>
-          <Text style={{ color: textColor, fontSize: 15, fontFamily: 'Montserrat_600SemiBold' }}>
-            ВКонтакте
-          </Text>
-          <Text style={{ color: placeholderColor, fontSize: 12, fontFamily: 'Montserrat_400Regular', marginTop: 2 }}>
-            Официальные группы и сообщества
-          </Text>
-        </View>
-      </View>
-
-      {vkGroups.map((group, index) => 
-        renderGroupCard(group, index === vkGroups.length - 1)
-      )}
+      <SectionHeader title="ВКонтакте" />
+      <SectionGroup>
+        {vkGroups.map((group, index) => (
+          <CommunityRow
+            key={`vk-${group.id}`}
+            group={group}
+            isFirst={index === 0}
+            isLast={index === vkGroups.length - 1}
+          />
+        ))}
+      </SectionGroup>
 
       {/* Секция Telegram */}
-      <View style={{
-        backgroundColor: colors.glass,
-        borderRadius: 16,
-        padding: 14,
-        marginTop: 24,
-        marginBottom: 16,
-        flexDirection: 'row',
-        alignItems: 'center',
-        borderWidth: StyleSheet.hairlineWidth,
-        borderColor: colors.glassBorder,
-      }}>
-        <View style={{
-          width: 40, height: 40, borderRadius: 12,
-          backgroundColor: '#0088cc18',
-          justifyContent: 'center', alignItems: 'center', marginRight: 12,
-        }}>
-          <Icon name="paper-plane-outline" size={22} color="#0088cc" />
-        </View>
-        <View style={{ flex: 1 }}>
-          <Text style={{ color: textColor, fontSize: 15, fontFamily: 'Montserrat_600SemiBold' }}>
-            Telegram
-          </Text>
-          <Text style={{ color: placeholderColor, fontSize: 12, fontFamily: 'Montserrat_400Regular', marginTop: 2 }}>
-            Каналы и чаты
-          </Text>
-        </View>
-      </View>
-
-      <View style={{ 
-        backgroundColor: glass.surfaceSecondary, 
-        borderRadius: 14, 
-        padding: 20, 
-        alignItems: 'center',
-        borderWidth: StyleSheet.hairlineWidth,
-        borderColor: glass.border,
-      }}>
-        <Text style={{ 
-          color: placeholderColor, 
-          fontSize: 14, 
-          fontFamily: 'Montserrat_400Regular',
-          textAlign: 'center',
-          lineHeight: 20,
-        }}>
-          Telegram-каналы и чаты будут добавлены в ближайшее время
-        </Text>
-      </View>
+      <SectionHeader title="Telegram" />
+      <SectionGroup>
+        {telegramGroups.map((group, index) => (
+          <CommunityRow
+            key={`tg-${group.id}`}
+            group={group}
+            isFirst={index === 0}
+            isLast={index === telegramGroups.length - 1}
+          />
+        ))}
+      </SectionGroup>
 
       {/* Секция MAX */}
-      <View style={{
-        backgroundColor: colors.glass,
-        borderRadius: 16,
-        padding: 14,
-        marginTop: 24,
-        marginBottom: 16,
-        flexDirection: 'row',
-        alignItems: 'center',
-        borderWidth: StyleSheet.hairlineWidth,
-        borderColor: colors.glassBorder,
-      }}>
-        <View style={{
-          width: 40, height: 40, borderRadius: 12,
-          backgroundColor: '#5B6DEF18',
-          justifyContent: 'center', alignItems: 'center', marginRight: 12,
-        }}>
-          <Icon name="chatbubble-ellipses-outline" size={22} color="#5B6DEF" />
-        </View>
-        <View style={{ flex: 1 }}>
-          <Text style={{ color: textColor, fontSize: 15, fontFamily: 'Montserrat_600SemiBold' }}>
-            MAX
-          </Text>
-          <Text style={{ color: placeholderColor, fontSize: 12, fontFamily: 'Montserrat_400Regular', marginTop: 2 }}>
-            Каналы в мессенджере
-          </Text>
-        </View>
-      </View>
-
-      <View style={{ 
-        backgroundColor: glass.surfaceSecondary, 
-        borderRadius: 14, 
-        padding: 20, 
-        alignItems: 'center',
-        borderWidth: StyleSheet.hairlineWidth,
-        borderColor: glass.border,
-      }}>
-        <Text style={{ 
-          color: placeholderColor, 
-          fontSize: 14, 
-          fontFamily: 'Montserrat_400Regular',
-          textAlign: 'center',
-          lineHeight: 20,
-        }}>
-          Каналы MAX будут добавлены в ближайшее время
-        </Text>
-      </View>
+      <SectionHeader title="MAX" />
+      <SectionGroup>
+        {maxGroups.map((group, index) => (
+          <CommunityRow
+            key={`max-${group.id}`}
+            group={group}
+            isFirst={index === 0}
+            isLast={index === maxGroups.length - 1}
+          />
+        ))}
+      </SectionGroup>
     </ScrollView>
   );
 

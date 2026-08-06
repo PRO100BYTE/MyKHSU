@@ -189,7 +189,7 @@ export const WEEKDAYS = [
 export const SCREENS = {
   SCHEDULE: 'Расписание',
   MAP: 'Карта',
-  FRESHMAN: 'Первокурснику / Студенту',
+  FRESHMAN: 'Студгородок',
   NEWS: 'Новости',
   SETTINGS: 'Настройки'
 };

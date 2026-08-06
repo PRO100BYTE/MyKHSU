@@ -6,6 +6,17 @@ import { getWeekNumber, setServerWeekNumber } from '../utils/dateUtils';
 import { unlockAchievement } from '../utils/achievements';
 import * as SecureStore from 'expo-secure-store';
 
+const normalizeScheduleErrorCode = (error) => {
+  const raw = String(error?.message || error || 'load-error');
+
+  if (/NO_INTERNET/i.test(raw)) return 'NO_INTERNET';
+  if (/API_UNAVAILABLE/i.test(raw)) return 'API_UNAVAILABLE';
+  if (/INVALID_JSON/i.test(raw)) return 'INVALID_JSON';
+  if (/JSON\s*Parse\s*error/i.test(raw) || /Unexpected\s*character/i.test(raw)) return 'JSON_PARSE_ERROR';
+
+  return 'load-error';
+};
+
 export const useScheduleLogic = () => {
   const [course, setCourse] = useState(1);
   const [groups, setGroups] = useState([]);
@@ -130,7 +141,7 @@ export const useScheduleLogic = () => {
       
     } catch (error) {
       console.error('Error fetching groups:', error);
-      setError('load-error');
+      setError(normalizeScheduleErrorCode(error));
       
       if (cachedGroups.length > 0) {
         setGroups(cachedGroups);
@@ -181,10 +192,20 @@ export const useScheduleLogic = () => {
       
       setPairsTime(processedTime);
       setCachedPairsTime(processedTime);
+
+      if (result.source === 'stale_cache') {
+        setShowCachedData(true);
+        setCacheInfo(result);
+        setError(prevError => prevError || (isOnline ? 'API_UNAVAILABLE' : 'NO_INTERNET'));
+      }
     } catch (error) {
       console.error('Error fetching pairs time:', error);
       if (cachedPairsTime.length > 0) {
         setPairsTime(cachedPairsTime);
+        setShowCachedData(true);
+        setError(prevError => prevError || normalizeScheduleErrorCode(error));
+      } else {
+        setError(prevError => prevError || normalizeScheduleErrorCode(error));
       }
     }
   };
@@ -238,7 +259,7 @@ export const useScheduleLogic = () => {
       console.log('Загружено расписание для группы', group, 'на', viewMode === 'day' ? currentDate.toDateString() : `неделю ${currentWeek}`);
     } catch (error) {
       console.error('Error fetching schedule:', error);
-      setError('load-error');
+      setError(normalizeScheduleErrorCode(error));
       
       if (cachedScheduleData) {
         setScheduleData(cachedScheduleData);

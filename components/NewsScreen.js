@@ -9,6 +9,17 @@ import notificationService from '../utils/notificationService';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Snowfall from './Snowfall';
 
+const normalizeNewsErrorCode = (error) => {
+  const raw = String(error?.message || error || 'load-error');
+
+  if (/NO_INTERNET/i.test(raw)) return 'NO_INTERNET';
+  if (/API_UNAVAILABLE/i.test(raw)) return 'API_UNAVAILABLE';
+  if (/INVALID_JSON/i.test(raw)) return 'INVALID_JSON';
+  if (/JSON\s*Parse\s*error/i.test(raw) || /Unexpected\s*character/i.test(raw)) return 'JSON_PARSE_ERROR';
+
+  return 'load-error';
+};
+
 const NewsScreen = ({ theme, accentColor, isNewYearMode, onCacheStatusChange }) => {
   const [news, setNews] = useState([]);
   const [cachedNews, setCachedNews] = useState([]);
@@ -210,12 +221,16 @@ const NewsScreen = ({ theme, accentColor, isNewYearMode, onCacheStatusChange }) 
         setShowCachedData(true);
       }
 
+      if (result.source === 'stale_cache') {
+        setError(isOnline ? 'API_UNAVAILABLE' : 'NO_INTERNET');
+      }
+
       // Сохраняем время последней проверки
       setLastNewsCheck(new Date().toISOString());
       
     } catch (error) {
       console.error('Error fetching news:', error);
-      setError('load-error');
+      setError(normalizeNewsErrorCode(error));
       
       // При ошибке пытаемся показать кэшированные данные
       if (cachedNews.length > 0) {
@@ -273,7 +288,8 @@ if (error && !loading) {
       
       <Animated.View style={{ flex: 1, opacity: fadeAnim, zIndex: 2 }}>
         <ConnectionError 
-          type={error}
+          screen="news"
+          errorType={error}
           loading={false}
           onRetry={handleRetry}
           onViewCache={handleViewCache}
@@ -281,8 +297,6 @@ if (error && !loading) {
           cacheAvailable={cachedNews.length > 0}
           theme={theme}
           accentColor={accentColor}
-          contentType="news"
-          message={error === 'NO_INTERNET' ? 'Новости недоступны без подключения к интернету' : 'Не удалось загрузить новости'}
         />
       </Animated.View>
     </View>

@@ -62,7 +62,7 @@ const AboutModal = ({ theme, accentColor }) => {
               <View style={styles.featureItem}>
                 <Icon name="school-outline" size={16} color={colors.primary} style={styles.featureIcon} />
                 <Text style={[styles.featureText, { color: textColor }]}>
-                  Раздел «Первокурснику» с полезной информацией
+                  Раздел «Студгородок» с полезной информацией
                 </Text>
               </View>
               <View style={styles.featureItem}>

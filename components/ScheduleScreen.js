@@ -2247,7 +2247,8 @@ if (error && !loadingGroups && !loadingSchedule && !loadingTeacher && !loadingAu
         
         <Animated.View style={{ flex: 1, opacity: fadeAnim }}>
           <ConnectionError 
-            type={error}
+            screen="schedule"
+            errorType={error}
             loading={false}
             onRetry={isTeacherMode ? () => teacherName && fetchTeacherSchedule(teacherName) : isAuditoryMode ? () => auditoryName && fetchAuditorySchedule(auditoryName) : handleRetry}
             onViewCache={handleViewCache}
@@ -2255,8 +2256,6 @@ if (error && !loadingGroups && !loadingSchedule && !loadingTeacher && !loadingAu
             cacheAvailable={!!scheduleData || !!teacherSchedule || !!auditorySchedule}
             theme={theme}
             accentColor={accentColor}
-            contentType="schedule"
-            message={error === 'NO_INTERNET' ? 'Расписание недоступно без подключения к интернету' : 'Не удалось загрузить расписание'}
             isNewYearMode={isNewYearMode}
           />
         </Animated.View>
