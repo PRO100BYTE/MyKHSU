@@ -17,6 +17,29 @@ class ApiService {
     this.loadCacheSettings();
   }
 
+  // Формирует суффикс кэша из URL, чтобы кэш разных API-эндпоинтов не смешивался
+  getCacheScopeByUrl(url) {
+    try {
+      return btoa(url).replace(/[^a-zA-Z0-9]/g, '').slice(0, 24);
+    } catch {
+      return 'default';
+    }
+  }
+
+  // Получить актуальный базовый URL (кастомный или дефолтный)
+  async getBaseUrl() {
+    try {
+      const useCustom = await SecureStore.getItemAsync('use_custom_api');
+      if (useCustom === 'true') {
+        const customUrl = await SecureStore.getItemAsync('custom_api_url');
+        if (customUrl && customUrl.trim()) {
+          return customUrl.trim();
+        }
+      }
+    } catch (e) {}
+    return API_BASE_URL;
+  }
+
   // Загрузка настроек кэширования
   async loadCacheSettings() {
     try {
@@ -39,7 +62,8 @@ class ApiService {
     const netState = await NetInfo.fetch();
     const isOnline = netState.isConnected;
     
-    const finalCacheKey = cacheKey || `api_${btoa(url)}`;
+    const scope = this.getCacheScopeByUrl(url);
+    const finalCacheKey = cacheKey ? `${cacheKey}_${scope}` : `api_${scope}`;
     const finalTTL = cacheTTL || (this.cacheSettings.ttl * 24 * 60 * 60 * 1000);
     
     // Пытаемся получить данные из кэша
@@ -184,7 +208,8 @@ class ApiService {
 
   // Улучшенный метод для загрузки новостей с умным кэшированием
   async getNews(from = 0, amount = 10) {
-    const url = `${API_BASE_URL}/news?amount=${amount}&from=${from}`;
+    const baseUrl = await this.getBaseUrl();
+    const url = `${baseUrl}/news?amount=${amount}&from=${from}`;
     const cacheKey = `news_${from}_${amount}`;
     
     try {
@@ -284,7 +309,8 @@ class ApiService {
 
   // Метод для загрузки групп
   async getGroups(course) {
-    const url = `${API_BASE_URL}/getgroups/${course}`;
+    const baseUrl = await this.getBaseUrl();
+    const url = `${baseUrl}/getgroups/${course}`;
     return this.makeRequest(url, {}, true, `groups_${course}`, 24 * 60 * 60 * 1000);
   }
 
@@ -294,11 +320,13 @@ class ApiService {
     let cacheKey;
     
     if (week) {
-      url = `${API_BASE_URL}/getpairsweek?type=group&data=${group}&week=${week}`;
+      const baseUrl = await this.getBaseUrl();
+      url = `${baseUrl}/getpairsweek?type=group&data=${group}&week=${week}`;
       cacheKey = `schedule_${group}_week_${week}`;
     } else {
       const formattedDate = this.formatDate(date);
-      url = `${API_BASE_URL}/getpairs/date:${group}:${formattedDate}`;
+      const baseUrl = await this.getBaseUrl();
+      url = `${baseUrl}/getpairs/date:${group}:${formattedDate}`;
       cacheKey = `schedule_${group}_date_${formattedDate}`;
     }
     
@@ -307,19 +335,22 @@ class ApiService {
 
   // Метод для загрузки времени пар
   async getPairsTime() {
-    const url = `${API_BASE_URL}/getpairstime`;
+    const baseUrl = await this.getBaseUrl();
+    const url = `${baseUrl}/getpairstime`;
     return this.makeRequest(url, {}, true, 'pairs_time', 7 * 24 * 60 * 60 * 1000);
   }
 
   // Метод для загрузки доступных курсов
   async getCourses() {
-    const url = `${API_BASE_URL}/getcourses`;
+    const baseUrl = await this.getBaseUrl();
+    const url = `${baseUrl}/getcourses`;
     return this.makeRequest(url, {}, true, 'available_courses', 24 * 60 * 60 * 1000); // кэш на 1 день
   }
 
   // Метод для получения номеров недель
   async getWeekNumbers() {
-    const url = `${API_BASE_URL}/weeknumbers`;
+    const baseUrl = await this.getBaseUrl();
+    const url = `${baseUrl}/weeknumbers`;
     return this.makeRequest(url, {}, true, 'week_numbers', 6 * 60 * 60 * 1000); // кэш на 6 часов
   }
 
@@ -397,11 +428,13 @@ class ApiService {
     let cacheKey;
     
     if (week) {
-        url = `${API_BASE_URL}/getpairsweek?type=teacher&data=${encodedTeacherName}&week=${week}`;
+        const baseUrl = await this.getBaseUrl();
+        url = `${baseUrl}/getpairsweek?type=teacher&data=${encodedTeacherName}&week=${week}`;
         cacheKey = `teacher_schedule_${encodedTeacherName}_week_${week}`;
     } else {
         const currentWeek = getWeekNumber(new Date());
-        url = `${API_BASE_URL}/getpairsweek?type=teacher&data=${encodedTeacherName}&week=${currentWeek}`;
+        const baseUrl = await this.getBaseUrl();
+        url = `${baseUrl}/getpairsweek?type=teacher&data=${encodedTeacherName}&week=${currentWeek}`;
         cacheKey = `teacher_schedule_${encodedTeacherName}_week_${currentWeek}`;
     }
     
@@ -415,11 +448,13 @@ class ApiService {
     let cacheKey;
     
     if (week) {
-      url = `${API_BASE_URL}/getpairsweek?type=auditory&data=${encodedAuditory}&week=${week}`;
+      const baseUrl = await this.getBaseUrl();
+      url = `${baseUrl}/getpairsweek?type=auditory&data=${encodedAuditory}&week=${week}`;
       cacheKey = `auditory_schedule_${encodedAuditory}_week_${week}`;
     } else {
       const currentWeek = getWeekNumber(new Date());
-      url = `${API_BASE_URL}/getpairsweek?type=auditory&data=${encodedAuditory}&week=${currentWeek}`;
+      const baseUrl = await this.getBaseUrl();
+      url = `${baseUrl}/getpairsweek?type=auditory&data=${encodedAuditory}&week=${currentWeek}`;
       cacheKey = `auditory_schedule_${encodedAuditory}_week_${currentWeek}`;
     }
     
@@ -432,7 +467,8 @@ class ApiService {
       return { data: { names: [], courses: [], tnames: [], auditories: [] }, source: 'local' };
     }
     const encodedQuery = encodeURIComponent(query.trim());
-    const url = `${API_BASE_URL}/search/${encodedQuery}`;
+    const baseUrl = await this.getBaseUrl();
+    const url = `${baseUrl}/search/${encodedQuery}`;
     return this.makeRequest(url, {}, false, null, null);
   }
 
