@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect, useImperativeHandle, forwardRef } f
 import { View, Text, ScrollView, TouchableOpacity, Linking, StyleSheet, Platform, Animated, StatusBar, Alert, ActivityIndicator } from 'react-native';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import { ACCENT_COLORS, LIQUID_GLASS } from '../utils/constants';
+import ConnectionError from './ConnectionError';
 import UnderDevelopmentModal from './UnderDevelopmentModal';
 import BuildingsListScreen from './BuildingsListScreen';
 import AcademicCalendarScreen from './AcademicCalendarScreen';
@@ -17,6 +18,7 @@ const FreshmanScreen = forwardRef(({ theme, accentColor, isNewYearMode, onNaviga
   const [secretTapCount, setSecretTapCount] = useState(0);
   const [bellScheduleData, setBellScheduleData] = useState(null);
   const [bellScheduleLoading, setBellScheduleLoading] = useState(false);
+  const [bellScheduleError, setBellScheduleError] = useState(null);
   
   const fadeAnim = useRef(new Animated.Value(1)).current;
 
@@ -62,8 +64,18 @@ const FreshmanScreen = forwardRef(({ theme, accentColor, isNewYearMode, onNaviga
     }
   }, [currentGroupType]);
 
+  const normalizeErrorCode = (error) => {
+    const raw = String(error?.message || error || 'load-error');
+    if (/NO_INTERNET/i.test(raw)) return 'no-internet';
+    if (/API_UNAVAILABLE/i.test(raw)) return 'api-unavailable';
+    if (/INVALID_JSON/i.test(raw)) return 'invalid-json';
+    if (/JSON\s*Parse\s*error/i.test(raw)) return 'json-parse-error';
+    return 'load-error';
+  };
+
   const fetchBellSchedule = async () => {
     setBellScheduleLoading(true);
+      setBellScheduleError(null);
     try {
       const result = await ApiService.getPairsTime();
       const pairsTime = result?.data?.pairs_time || [];
@@ -89,6 +101,7 @@ const FreshmanScreen = forwardRef(({ theme, accentColor, isNewYearMode, onNaviga
         setBellScheduleData(schedule);
       }
     } catch (error) {
+      setBellScheduleError(normalizeErrorCode(error));
       console.error('Error fetching bell schedule:', error);
     } finally {
       setBellScheduleLoading(false);
@@ -610,6 +623,24 @@ const FreshmanScreen = forwardRef(({ theme, accentColor, isNewYearMode, onNaviga
   // Расписание звонков (загружается с сервера)
   const bellSchedule = bellScheduleData || [];
   const renderBellSchedule = () => {
+        if (bellScheduleError) {
+          return (
+            <View style={{ flex: 1 }}>
+              <ConnectionError
+                screen="schedule"
+                errorType={bellScheduleError}
+                loading={false}
+                onRetry={fetchBellSchedule}
+                onViewCache={() => {}}
+                showCacheButton={false}
+                theme={theme}
+                accentColor={accentColor}
+                isNewYearMode={false}
+              />
+            </View>
+          );
+        }
+
     if (bellScheduleLoading) {
       return (
         <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', paddingTop: 60 }}>
