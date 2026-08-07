@@ -22,6 +22,7 @@ import { SectionHeader, SettingsGroup } from './SettingsComponents';
 const DeveloperMenuScreen = ({ theme, accentColor, onResetDeveloperMode }) => {
   const [customApiUrl, setCustomApiUrl] = useState('');
   const [useCustomApi, setUseCustomApi] = useState(false);
+  const [effectiveApiUrl, setEffectiveApiUrl] = useState(API_BASE_URL);
   const [cacheKeys, setCacheKeys] = useState([]);
   const [secureKeys, setSecureKeys] = useState([]);
   const [showDebugInfo, setShowDebugInfo] = useState(false);
@@ -49,8 +50,28 @@ const DeveloperMenuScreen = ({ theme, accentColor, onResetDeveloperMode }) => {
       const savedUseCustom = await SecureStore.getItemAsync('use_custom_api');
       if (savedUrl) setCustomApiUrl(savedUrl);
       if (savedUseCustom === 'true') setUseCustomApi(true);
+      const isCustomEnabled = savedUseCustom === 'true';
+      setEffectiveApiUrl(isCustomEnabled && savedUrl ? savedUrl : API_BASE_URL);
     } catch (e) {
       console.error('Error loading dev settings:', e);
+    }
+  };
+
+  const clearApiRelatedCache = async () => {
+    const keys = await AsyncStorage.getAllKeys();
+    const apiKeys = keys.filter((key) =>
+      key.startsWith('api_') ||
+      key.startsWith('news_') ||
+      key.startsWith('groups_') ||
+      key.startsWith('schedule_') ||
+      key.startsWith('pairs_time') ||
+      key.startsWith('available_courses') ||
+      key.startsWith('week_numbers') ||
+      key.startsWith('teacher_schedule_') ||
+      key.startsWith('auditory_schedule_')
+    );
+    if (apiKeys.length > 0) {
+      await AsyncStorage.multiRemove(apiKeys);
     }
   };
 
@@ -66,9 +87,13 @@ const DeveloperMenuScreen = ({ theme, accentColor, onResetDeveloperMode }) => {
         }
         await SecureStore.setItemAsync('custom_api_url', customApiUrl.trim());
         await SecureStore.setItemAsync('use_custom_api', 'true');
-        Alert.alert('Сохранено', 'Кастомный API-эндпоинт сохранён. Перезапустите приложение для применения.');
+        await clearApiRelatedCache();
+        setEffectiveApiUrl(customApiUrl.trim());
+        Alert.alert('Сохранено', `Кастомный API-эндпоинт применён:\n${customApiUrl.trim()}`);
       } else {
         await SecureStore.setItemAsync('use_custom_api', 'false');
+        await clearApiRelatedCache();
+        setEffectiveApiUrl(API_BASE_URL);
         Alert.alert('Сохранено', 'Используется стандартный API-эндпоинт.');
       }
     } catch (e) {
@@ -80,6 +105,10 @@ const DeveloperMenuScreen = ({ theme, accentColor, onResetDeveloperMode }) => {
     setUseCustomApi(value);
     if (!value) {
       await SecureStore.setItemAsync('use_custom_api', 'false');
+      await clearApiRelatedCache();
+      setEffectiveApiUrl(API_BASE_URL);
+    } else {
+      setEffectiveApiUrl(customApiUrl.trim() || API_BASE_URL);
     }
   };
 
@@ -285,7 +314,7 @@ const DeveloperMenuScreen = ({ theme, accentColor, onResetDeveloperMode }) => {
         <SectionHeader title="API-эндпоинт" placeholderColor={placeholderColor} />
         <SettingsGroup glass={glass} style={styles.section}>
           <Text style={[styles.sectionDescription, { color: placeholderColor }]}>
-            Текущий: {API_BASE_URL}
+            Текущий: {effectiveApiUrl}
           </Text>
 
           <TouchableOpacity

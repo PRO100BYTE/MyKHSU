@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, StyleSheet, RefreshControl, Animated, StatusBar, TextInput } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, StyleSheet, RefreshControl, Animated, StatusBar, TextInput, Platform } from 'react-native';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import { ACCENT_COLORS, LIQUID_GLASS } from '../utils/constants';
 import ConnectionError from './ConnectionError';
+import { GlassCard } from './SettingsComponents';
 import NetInfo from '@react-native-community/netinfo';
 import ApiService from '../utils/api';
 import notificationService from '../utils/notificationService';
@@ -100,7 +101,7 @@ const NewsScreen = ({ theme, accentColor, isNewYearMode, onCacheStatusChange }) 
       .map(item => ({
         ...item,
         id: createNewsId(item),
-        normalizedDate: normalizeDate(item.date)
+        normalizedDate: normalizeDate(item.date || item.hr_date)
       }))
       .filter((item, index, self) => 
         index === self.findIndex(t => t.id === item.id)
@@ -120,7 +121,8 @@ const NewsScreen = ({ theme, accentColor, isNewYearMode, onCacheStatusChange }) 
   // Создание уникального ID для новости
   const createNewsId = (newsItem) => {
     const contentHash = newsItem.content.substring(0, 100).replace(/\s+/g, '_');
-    return `${newsItem.date}_${contentHash}`;
+    const baseDate = newsItem.date || newsItem.hr_date || 'no_date';
+    return `${baseDate}_${contentHash}`;
   };
 
   // Проверка, является ли новость той же самой
@@ -128,13 +130,22 @@ const NewsScreen = ({ theme, accentColor, isNewYearMode, onCacheStatusChange }) 
     return createNewsId(news1) === createNewsId(news2);
   };
 
-  // Нормализация даты
+  // Нормализация даты: поддержка ISO и формата "YYYY-MM-DD HH:mm:ss"
   const normalizeDate = (dateString) => {
-    try {
-      return new Date(dateString).toISOString();
-    } catch {
-      return dateString;
+    if (!dateString) return new Date(0).toISOString();
+
+    const raw = String(dateString).trim();
+    // Формат тестового API: "2026-04-22 07:50:10" (без 'T')
+    const normalizedInput = /^\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}$/.test(raw)
+      ? raw.replace(' ', 'T')
+      : raw;
+
+    const parsed = new Date(normalizedInput);
+    if (!Number.isNaN(parsed.getTime())) {
+      return parsed.toISOString();
     }
+
+    return new Date(0).toISOString();
   };
 
   // Проверка новых новостей для уведомлений
@@ -327,7 +338,7 @@ return (
         {/* ВСЕ содержимое новостей */}
 
         {/* Поиск по новостям */}
-        <View style={{
+        <GlassCard glass={glass} style={{
           flexDirection: 'row',
           alignItems: 'center',
           backgroundColor: glass.surfaceSecondary,
@@ -358,7 +369,7 @@ return (
               <Icon name="close-circle" size={18} color={placeholderColor} />
             </TouchableOpacity>
           )}
-        </View>
+        </GlassCard>
 
         {(() => {
           const filteredNews = searchQuery.trim()
@@ -402,8 +413,9 @@ return (
             }
 
           return filteredNews.map((item) => (
-          <View 
-            key={item.id} 
+          <GlassCard 
+            key={item.id}
+            glass={glass}
             style={{ 
               flexDirection: 'row',
               backgroundColor: glass.surfaceSecondary, 
@@ -437,7 +449,7 @@ return (
                   fontFamily: 'Montserrat_400Regular',
                   marginLeft: 5,
                 }}>
-                  {item.hr_date}
+                  {item.hr_date || item.date || 'Дата не указана'}
                 </Text>
               </View>
               
@@ -451,7 +463,7 @@ return (
                 {item.content}
               </Text>
             </View>
-          </View>
+          </GlassCard>
           ));
         })()}
         

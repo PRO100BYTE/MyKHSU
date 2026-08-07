@@ -10,6 +10,7 @@ import Snowfall from './Snowfall';
 import { unlockAchievement } from '../utils/achievements';
 import { showAchievementToast } from './AchievementToast';
 import ApiService from '../utils/api';
+import { GlassCard } from './SettingsComponents';
 
 const FreshmanScreen = forwardRef(({ theme, accentColor, isNewYearMode, onNavigationChange }, ref) => {
   const [modalVisible, setModalVisible] = useState(false);
@@ -276,7 +277,8 @@ const FreshmanScreen = forwardRef(({ theme, accentColor, isNewYearMode, onNaviga
   );
 
   const SectionGroup = ({ children }) => (
-    <View style={{
+    <GlassCard glass={glass} style={{
+      backgroundColor: glass.surfaceSecondary,
       borderRadius: 14,
       overflow: 'hidden',
       borderWidth: StyleSheet.hairlineWidth,
@@ -288,7 +290,7 @@ const FreshmanScreen = forwardRef(({ theme, accentColor, isNewYearMode, onNaviga
       elevation: 2,
     }}>
       {children}
-    </View>
+    </GlassCard>
   );
 
   const SectionRow = ({ icon, title, description, onPress, isFirst, isLast }) => (
@@ -299,7 +301,7 @@ const FreshmanScreen = forwardRef(({ theme, accentColor, isNewYearMode, onNaviga
         flexDirection: 'row',
         alignItems: 'center',
         padding: 14,
-        backgroundColor: glass.surfaceSecondary,
+        backgroundColor: Platform.OS === 'ios' ? 'transparent' : glass.surfaceSecondary,
         borderTopLeftRadius: isFirst ? 14 : 0,
         borderTopRightRadius: isFirst ? 14 : 0,
         borderBottomLeftRadius: isLast ? 14 : 0,
@@ -344,7 +346,7 @@ const FreshmanScreen = forwardRef(({ theme, accentColor, isNewYearMode, onNaviga
         flexDirection: 'row',
         alignItems: 'center',
         padding: 14,
-        backgroundColor: glass.surfaceSecondary,
+        backgroundColor: Platform.OS === 'ios' ? 'transparent' : glass.surfaceSecondary,
         borderTopLeftRadius: isFirst ? 14 : 0,
         borderTopRightRadius: isFirst ? 14 : 0,
         borderBottomLeftRadius: isLast ? 14 : 0,
@@ -709,49 +711,60 @@ const FreshmanScreen = forwardRef(({ theme, accentColor, isNewYearMode, onNaviga
 
         {bellSchedule.map((item, index) => {
           const isCurrent = isCurrentPair(item.start, item.end);
-          return (
-            <View key={item.pair}>
+          const pairCardStyle = {
+            flexDirection: 'row',
+            alignItems: 'center',
+            backgroundColor: isCurrent ? (colors.glass || colors.primary + '10') : glass.surfaceSecondary,
+            borderRadius: 16,
+            padding: 14,
+            marginBottom: item.breakAfter ? 4 : 0,
+            borderWidth: isCurrent ? 1.5 : StyleSheet.hairlineWidth,
+            borderColor: isCurrent ? colors.primary + '40' : glass.border,
+            overflow: 'hidden',
+          };
+
+          const pairContent = (
+            <>
               <View style={{
-                flexDirection: 'row',
-                alignItems: 'center',
-                backgroundColor: isCurrent ? (colors.glass || colors.primary + '10') : glass.surfaceSecondary,
-                borderRadius: 16,
-                padding: 14,
-                marginBottom: item.breakAfter ? 4 : 0,
-                borderWidth: isCurrent ? 1.5 : StyleSheet.hairlineWidth,
-                borderColor: isCurrent ? colors.primary + '40' : glass.border,
+                width: 40, height: 40, borderRadius: 12,
+                backgroundColor: isCurrent ? colors.primary : glass.surfaceTertiary,
+                justifyContent: 'center', alignItems: 'center', marginRight: 14,
               }}>
-                <View style={{
-                  width: 40, height: 40, borderRadius: 12,
-                  backgroundColor: isCurrent ? colors.primary : glass.surfaceTertiary,
-                  justifyContent: 'center', alignItems: 'center', marginRight: 14,
+                <Text style={{
+                  color: isCurrent ? '#fff' : textColor,
+                  fontSize: 16, fontFamily: 'Montserrat_700Bold',
                 }}>
-                  <Text style={{
-                    color: isCurrent ? '#fff' : textColor,
-                    fontSize: 16, fontFamily: 'Montserrat_700Bold',
-                  }}>
-                    {item.pair}
-                  </Text>
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={{
-                    color: textColor, fontSize: 16, fontFamily: 'Montserrat_600SemiBold',
-                  }}>
-                    {item.start} – {item.end}
-                  </Text>
-                  {isCurrent && (
-                    <Text style={{ color: colors.primary, fontSize: 12, fontFamily: 'Montserrat_500Medium', marginTop: 2 }}>
-                      Сейчас идёт
-                    </Text>
-                  )}
-                </View>
+                  {item.pair}
+                </Text>
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={{
+                  color: textColor, fontSize: 16, fontFamily: 'Montserrat_600SemiBold',
+                }}>
+                  {item.start} – {item.end}
+                </Text>
                 {isCurrent && (
-                  <View style={{
-                    width: 8, height: 8, borderRadius: 4,
-                    backgroundColor: colors.primary, marginLeft: 8,
-                  }} />
+                  <Text style={{ color: colors.primary, fontSize: 12, fontFamily: 'Montserrat_500Medium', marginTop: 2 }}>
+                    Сейчас идёт
+                  </Text>
                 )}
               </View>
+              {isCurrent && (
+                <View style={{
+                  width: 8, height: 8, borderRadius: 4,
+                  backgroundColor: colors.primary, marginLeft: 8,
+                }} />
+              )}
+            </>
+          );
+
+          return (
+            <View key={item.pair}>
+              {isCurrent ? (
+                <View style={pairCardStyle}>{pairContent}</View>
+              ) : (
+                <GlassCard glass={glass} style={pairCardStyle}>{pairContent}</GlassCard>
+              )}
               {item.breakAfter && (
                 <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, marginBottom: 4 }}>
                   <View style={{ flex: 1, height: StyleSheet.hairlineWidth, backgroundColor: glass.border }} />
