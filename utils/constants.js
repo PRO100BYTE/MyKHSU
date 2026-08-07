@@ -135,6 +135,8 @@ export const LIQUID_GLASS = {
     // Blur интенсивность
     blurIntensity: 80,
     blurTint: 'systemChromeMaterialDark',
+    // Карточки (tinted glass для спецтем)
+    isSpecialTheme: true,
   },
   legend: {
     // Поверхности
@@ -164,6 +166,8 @@ export const LIQUID_GLASS = {
     // Blur интенсивность
     blurIntensity: 80,
     blurTint: 'systemChromeMaterialDark',
+    // Карточки (tinted glass для спецтем)
+    isSpecialTheme: true,
   }
 };
 
