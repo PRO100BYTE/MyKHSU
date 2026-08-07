@@ -6,6 +6,7 @@ import * as SecureStore from 'expo-secure-store';
 import { ACCENT_COLORS, isNewYearPeriod, LIQUID_GLASS } from '../utils/constants';
 import { getAchievementsCount, unlockAchievement } from '../utils/achievements';
 import { showAchievementToast } from './AchievementToast';
+import { SectionHeader, SettingsGroup } from './SettingsComponents';
 
 const AppearanceSettingsSheet = ({ 
   theme, 
@@ -179,7 +180,8 @@ const AppearanceSettingsSheet = ({
     >
       {/* Секция темы */}
       <View style={styles.section}>
-        <Text style={[styles.sectionTitle, { color: textColor }]}>Тема</Text>
+        <SectionHeader title="Тема" placeholderColor={placeholderColor} />
+        <SettingsGroup glass={glass} style={{ backgroundColor: glass.surfaceSecondary, padding: 12 }}>
         <View style={styles.optionsContainer}>
           {themeOptions.map(opt => (
             <TouchableOpacity
@@ -205,11 +207,13 @@ const AppearanceSettingsSheet = ({
             </TouchableOpacity>
           ))}
         </View>
+        </SettingsGroup>
       </View>
       
       {/* Секция акцентного цвета */}
       <View style={styles.section}>
-        <Text style={[styles.sectionTitle, { color: textColor }]}>Акцентный цвет</Text>
+        <SectionHeader title="Акцентный цвет" placeholderColor={placeholderColor} />
+        <SettingsGroup glass={glass} style={{ backgroundColor: glass.surfaceSecondary, padding: 12 }}>
         <View style={styles.colorOptions}>
           {accentColorOptions.map(opt => (
             <TouchableOpacity
@@ -257,12 +261,14 @@ const AppearanceSettingsSheet = ({
             </Text>
           </View>
         )}
+        </SettingsGroup>
       </View>
 
       {/* Секция новогоднего настроения */}
       {showNewYearOption && (
         <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: textColor }]}>Новогоднее настроение</Text>
+          <SectionHeader title="Новогоднее настроение" placeholderColor={placeholderColor} />
+          <SettingsGroup glass={glass} style={{ backgroundColor: glass.surfaceSecondary, padding: 12 }}>
           <TouchableOpacity
             style={[styles.settingItem, { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: borderColor }]}
             onPress={() => handleNewYearModeChange(!newYearSetting)}
@@ -291,12 +297,14 @@ const AppearanceSettingsSheet = ({
               Новогоднее настроение доступно с 1 декабря по 31 января
             </Text>
           </View>
+          </SettingsGroup>
         </View>
       )}
 
       {/* Секция панели навигации */}
       <View style={styles.section}>
-        <Text style={[styles.sectionTitle, { color: textColor }]}>Панель навигации</Text>
+        <SectionHeader title="Панель навигации" placeholderColor={placeholderColor} />
+        <SettingsGroup glass={glass} style={{ backgroundColor: glass.surfaceSecondary, padding: 12 }}>
         <TouchableOpacity
           style={[styles.settingItem, { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: borderColor }]}
           onPress={() => handleShowLabelsChange(!showTabbarLabels)}
@@ -347,21 +355,25 @@ const AppearanceSettingsSheet = ({
             </View>
           </View>
         )}
+        </SettingsGroup>
       </View>
 
       {/* Информационная секция */}
+      <SectionHeader title="Информация" placeholderColor={placeholderColor} />
+      <SettingsGroup glass={glass} style={{ backgroundColor: glass.surfaceSecondary }}>
       <View style={[styles.infoSection, { backgroundColor: inputBgColor }]}>
         <Icon name="information-circle-outline" size={16} color={colors.primary} />
         <Text style={[styles.infoText, { color: placeholderColor, marginLeft: 8, flex: 1 }]}>
           Настройки оформления применяются автоматически
         </Text>
       </View>
+      </SettingsGroup>
     </ScrollView>
   );
 };
 
 const styles = StyleSheet.create({
-  section: { marginBottom: 24 },
+  section: { marginBottom: 12 },
   sectionTitle: { fontSize: 16, fontWeight: '600', marginBottom: 12, fontFamily: 'Montserrat_600SemiBold' },
   subSectionTitle: { fontSize: 14, fontWeight: '600', marginBottom: 4, fontFamily: 'Montserrat_600SemiBold' },
   subSectionDescription: { fontSize: 12, marginBottom: 12, fontFamily: 'Montserrat_400Regular' },

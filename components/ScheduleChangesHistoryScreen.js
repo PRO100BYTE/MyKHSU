@@ -3,6 +3,7 @@ import { RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native
 import { Ionicons as Icon } from '@expo/vector-icons';
 import { ACCENT_COLORS, LIQUID_GLASS } from '../utils/constants';
 import notificationService from '../utils/notificationService';
+import { SectionHeader, SettingsGroup } from './SettingsComponents';
 
 const WEEKDAY_SHORT = ['', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
 
@@ -68,17 +69,25 @@ const ScheduleChangesHistoryScreen = ({ theme, accentColor }) => {
       contentContainerStyle={{ paddingBottom: 64 }}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={colors.primary} />}
     >
+      <SectionHeader title="Лента изменений расписания" placeholderColor={glass.textSecondary} />
+      <SettingsGroup glass={glass}>
       <View style={[styles.card, { backgroundColor: glass.surfaceSecondary, borderColor: glass.border }]}> 
         <Text style={[styles.title, { color: glass.text }]}>Лента изменений расписания</Text>
         <Text style={{ color: glass.textSecondary, fontSize: 12, fontFamily: 'Montserrat_400Regular', marginTop: 4 }}>
           Изменения за 7 дней с детализацией по полям пары.
         </Text>
       </View>
+      </SettingsGroup>
 
       {history.length === 0 ? (
-        <View style={[styles.card, { marginTop: 12, backgroundColor: glass.surfaceSecondary, borderColor: glass.border }]}> 
-          <Text style={{ color: glass.textSecondary, fontFamily: 'Montserrat_400Regular' }}>Изменений пока нет.</Text>
-        </View>
+        <>
+          <SectionHeader title="Статус" placeholderColor={glass.textSecondary} />
+          <SettingsGroup glass={glass}>
+            <View style={[styles.card, { marginTop: 0, backgroundColor: glass.surfaceSecondary, borderColor: glass.border }]}> 
+              <Text style={{ color: glass.textSecondary, fontFamily: 'Montserrat_400Regular' }}>Изменений пока нет.</Text>
+            </View>
+          </SettingsGroup>
+        </>
       ) : null}
 
       {history.map((entry) => {

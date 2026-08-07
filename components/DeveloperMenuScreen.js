@@ -17,6 +17,7 @@ import notificationService from '../utils/notificationService';
 import backgroundService from '../utils/backgroundService';
 import { exportScheduleToCalendar } from '../utils/calendarExport';
 import SnakeGame from './SnakeGame';
+import { SectionHeader, SettingsGroup } from './SettingsComponents';
 
 const DeveloperMenuScreen = ({ theme, accentColor, onResetDeveloperMode }) => {
   const [customApiUrl, setCustomApiUrl] = useState('');
@@ -28,6 +29,7 @@ const DeveloperMenuScreen = ({ theme, accentColor, onResetDeveloperMode }) => {
   const [storageKeyInput, setStorageKeyInput] = useState('');
   const [storageKeyValue, setStorageKeyValue] = useState(null);
   const [apiPingResults, setApiPingResults] = useState(null);
+  const [smokeTestResults, setSmokeTestResults] = useState(null);
 
   const colors = ACCENT_COLORS[accentColor];
   const glass = LIQUID_GLASS[theme] || LIQUID_GLASS.light;
@@ -205,6 +207,73 @@ const DeveloperMenuScreen = ({ theme, accentColor, onResetDeveloperMode }) => {
     await AsyncStorage.removeItem('schedule_changes_history_v1');
   };
 
+  const runSmokeTest = async () => {
+    try {
+      setSmokeTestResults('Выполняется комплексная проверка...');
+
+      const [netState, newsResult, groupsResult, scheduleResult, permissions, scheduled, backgroundStatus] = await Promise.allSettled([
+        NetInfo.fetch(),
+        ApiService.getNews(0, 1),
+        ApiService.getGroups(1),
+        ApiService.getSchedule('125-1', new Date()),
+        Notifications.getPermissionsAsync(),
+        Notifications.getAllScheduledNotificationsAsync(),
+        BackgroundFetch.getStatusAsync(),
+      ]);
+
+      const lines = [];
+      if (netState.status === 'fulfilled') {
+        lines.push(`Сеть: ${netState.value.isConnected ? 'OK' : 'OFFLINE'} (${netState.value.type})`);
+      } else {
+        lines.push('Сеть: ошибка');
+      }
+
+      const pushLine = (label, result) => {
+        if (result.status === 'fulfilled') {
+          lines.push(`${label}: OK [${result.value?.source || '?'}]`);
+        } else {
+          lines.push(`${label}: ошибка`);
+        }
+      };
+
+      pushLine('Новости', newsResult);
+      pushLine('Группы', groupsResult);
+      pushLine('Расписание', scheduleResult);
+
+      if (permissions.status === 'fulfilled') {
+        lines.push(`Уведомления: ${permissions.value.status}`);
+      } else {
+        lines.push('Уведомления: ошибка');
+      }
+
+      if (scheduled.status === 'fulfilled') {
+        lines.push(`Запланировано уведомлений: ${scheduled.value.length}`);
+      } else {
+        lines.push('Запланированные уведомления: ошибка');
+      }
+
+      if (backgroundStatus.status === 'fulfilled') {
+        const statusMap = {
+          [BackgroundFetch.BackgroundFetchStatus.Restricted]: 'Ограничен',
+          [BackgroundFetch.BackgroundFetchStatus.Denied]: 'Запрещён',
+          [BackgroundFetch.BackgroundFetchStatus.Available]: 'Доступен',
+        };
+        lines.push(`BackgroundFetch: ${statusMap[backgroundStatus.value] || 'Неизвестно'}`);
+      } else {
+        lines.push('BackgroundFetch: ошибка');
+      }
+
+      const report = lines.join('\n');
+      setSmokeTestResults(report);
+      Clipboard.setString(report);
+      Alert.alert('Smoke-test', `${report}\n\nОтчёт скопирован в буфер обмена.`);
+    } catch (error) {
+      const report = `Smoke-test завершился с ошибкой: ${error?.message || 'unknown'}`;
+      setSmokeTestResults(report);
+      Alert.alert('Smoke-test', report);
+    }
+  };
+
   return (
     <View style={{ flex: 1, backgroundColor: bgColor }}>
       <ScrollView 
@@ -213,8 +282,8 @@ const DeveloperMenuScreen = ({ theme, accentColor, onResetDeveloperMode }) => {
         showsVerticalScrollIndicator={false}
       >
         {/* API-эндпоинт */}
-        <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: textColor }]}>API-эндпоинт</Text>
+        <SectionHeader title="API-эндпоинт" placeholderColor={placeholderColor} />
+        <SettingsGroup glass={glass} style={styles.section}>
           <Text style={[styles.sectionDescription, { color: placeholderColor }]}>
             Текущий: {API_BASE_URL}
           </Text>
@@ -261,11 +330,11 @@ const DeveloperMenuScreen = ({ theme, accentColor, onResetDeveloperMode }) => {
               </TouchableOpacity>
             </>
           )}
-        </View>
+        </SettingsGroup>
 
         {/* Отладочные инструменты */}
-        <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: textColor }]}>Отладка</Text>
+        <SectionHeader title="Отладка" placeholderColor={placeholderColor} />
+        <SettingsGroup glass={glass} style={styles.section}>
           
           <TouchableOpacity
             style={[styles.actionButton, { backgroundColor: inputBgColor, borderColor }]}
@@ -290,6 +359,34 @@ const DeveloperMenuScreen = ({ theme, accentColor, onResetDeveloperMode }) => {
             <Text style={[styles.actionButtonText, { color: textColor }]}>
               Перезагрузить приложение
             </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.actionButton, { backgroundColor: colors.primary + '12', borderColor: colors.primary + '35' }]}
+            onPress={runSmokeTest}
+          >
+            <Icon name="flask-outline" size={20} color={colors.primary} />
+            <Text style={[styles.actionButtonText, { color: textColor }]}>
+              Комплексный smoke-test
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.actionButton, { backgroundColor: inputBgColor, borderColor }]}
+            onPress={async () => {
+              try {
+                const permissions = await Notifications.getPermissionsAsync();
+                const scheduled = await Notifications.getAllScheduledNotificationsAsync();
+                const report = `Разрешение: ${permissions.status}\nЗапланировано: ${scheduled.length}`;
+                setSmokeTestResults(report);
+                Alert.alert('Уведомления', report);
+              } catch (e) {
+                Alert.alert('Ошибка', e.message);
+              }
+            }}
+          >
+            <Icon name="notifications-circle-outline" size={20} color={colors.primary} />
+            <Text style={[styles.actionButtonText, { color: textColor }]}>Проверить permissions уведомлений</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -336,11 +433,23 @@ const DeveloperMenuScreen = ({ theme, accentColor, onResetDeveloperMode }) => {
               ))}
             </View>
           )}
-        </View>
+
+          {smokeTestResults && (
+            <TouchableOpacity
+              style={[styles.actionButton, { backgroundColor: inputBgColor, borderColor }]}
+              onPress={() => Clipboard.setString(smokeTestResults)}
+            >
+              <Icon name="copy-outline" size={20} color={colors.primary} />
+              <Text style={[styles.actionButtonText, { color: textColor }]}>
+                Скопировать отчёт smoke-test
+              </Text>
+            </TouchableOpacity>
+          )}
+        </SettingsGroup>
 
         {/* Тестовые уведомления */}
-        <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: textColor }]}>Тестовые уведомления</Text>
+        <SectionHeader title="Тестовые уведомления" placeholderColor={placeholderColor} />
+        <SettingsGroup glass={glass} style={styles.section}>
 
           <TouchableOpacity
             style={[styles.actionButton, { backgroundColor: inputBgColor, borderColor }]}
@@ -444,11 +553,29 @@ const DeveloperMenuScreen = ({ theme, accentColor, onResetDeveloperMode }) => {
               Тестовое уведомление: конец пары
             </Text>
           </TouchableOpacity>
-        </View>
+        </SettingsGroup>
 
         {/* Уведомления и фоновые задачи */}
-        <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: textColor }]}>Уведомления и фоновые задачи</Text>
+        <SectionHeader title="Уведомления и фоновые задачи" placeholderColor={placeholderColor} />
+        <SettingsGroup glass={glass} style={styles.section}>
+
+          <TouchableOpacity
+            style={[styles.actionButton, { backgroundColor: inputBgColor, borderColor }]}
+            onPress={async () => {
+              try {
+                const permissions = await Notifications.getPermissionsAsync();
+                const scheduled = await Notifications.getAllScheduledNotificationsAsync();
+                const report = `Разрешение: ${permissions.status}\nЗапланировано: ${scheduled.length}`;
+                setSmokeTestResults(report);
+                Alert.alert('Уведомления', report);
+              } catch (e) {
+                Alert.alert('Ошибка', e.message);
+              }
+            }}
+          >
+            <Icon name="notifications-circle-outline" size={20} color={colors.primary} />
+            <Text style={[styles.actionButtonText, { color: textColor }]}>Проверить permissions уведомлений</Text>
+          </TouchableOpacity>
 
           <TouchableOpacity
             style={[styles.actionButton, { backgroundColor: inputBgColor, borderColor }]}
@@ -573,11 +700,11 @@ const DeveloperMenuScreen = ({ theme, accentColor, onResetDeveloperMode }) => {
               Отменить все запланированные уведомления
             </Text>
           </TouchableOpacity>
-        </View>
+        </SettingsGroup>
 
         {/* Экспорт */}
-        <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: textColor }]}>Экспорт</Text>
+        <SectionHeader title="Экспорт" placeholderColor={placeholderColor} />
+        <SettingsGroup glass={glass} style={styles.section}>
 
           <TouchableOpacity
             style={[styles.actionButton, { backgroundColor: inputBgColor, borderColor }]}
@@ -658,11 +785,11 @@ const DeveloperMenuScreen = ({ theme, accentColor, onResetDeveloperMode }) => {
               Тест экспорта в календарь (.ics)
             </Text>
           </TouchableOpacity>
-        </View>
+        </SettingsGroup>
 
         {/* Сеть и API */}
-        <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: textColor }]}>Сеть и API</Text>
+        <SectionHeader title="Сеть и API" placeholderColor={placeholderColor} />
+        <SettingsGroup glass={glass} style={styles.section}>
 
           <TouchableOpacity
             style={[styles.actionButton, { backgroundColor: inputBgColor, borderColor }]}
@@ -736,11 +863,11 @@ const DeveloperMenuScreen = ({ theme, accentColor, onResetDeveloperMode }) => {
               Тест API: Группы
             </Text>
           </TouchableOpacity>
-        </View>
+        </SettingsGroup>
 
         {/* Кэш */}
-        <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: textColor }]}>Кэш</Text>
+        <SectionHeader title="Кэш" placeholderColor={placeholderColor} />
+        <SettingsGroup glass={glass} style={styles.section}>
 
           <TouchableOpacity
             style={[styles.actionButton, { backgroundColor: inputBgColor, borderColor }]}
@@ -869,11 +996,11 @@ const DeveloperMenuScreen = ({ theme, accentColor, onResetDeveloperMode }) => {
               Очистить кэш расписания
             </Text>
           </TouchableOpacity>
-        </View>
+        </SettingsGroup>
 
         {/* Заметки и ДЗ */}
-        <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: textColor }]}>Заметки и ДЗ</Text>
+        <SectionHeader title="Заметки и ДЗ" placeholderColor={placeholderColor} />
+        <SettingsGroup glass={glass} style={styles.section}>
 
           <TouchableOpacity
             style={[styles.actionButton, { backgroundColor: inputBgColor, borderColor }]}
@@ -981,11 +1108,11 @@ const DeveloperMenuScreen = ({ theme, accentColor, onResetDeveloperMode }) => {
               Очистить все заметки
             </Text>
           </TouchableOpacity>
-        </View>
+        </SettingsGroup>
 
         {/* Учебный планер */}
-        <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: textColor }]}>Учебный планер</Text>
+        <SectionHeader title="Учебный планер" placeholderColor={placeholderColor} />
+        <SettingsGroup glass={glass} style={styles.section}>
 
           <TouchableOpacity
             style={[styles.actionButton, { backgroundColor: inputBgColor, borderColor }]}
@@ -1048,11 +1175,11 @@ const DeveloperMenuScreen = ({ theme, accentColor, onResetDeveloperMode }) => {
             <Icon name="trash-outline" size={20} color="#ef4444" />
             <Text style={[styles.actionButtonText, { color: '#ef4444' }]}>Очистить данные планера</Text>
           </TouchableOpacity>
-        </View>
+        </SettingsGroup>
 
         {/* Достижения */}
-        <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: textColor }]}>Достижения</Text>
+        <SectionHeader title="Достижения" placeholderColor={placeholderColor} />
+        <SettingsGroup glass={glass} style={styles.section}>
 
           <TouchableOpacity
             style={[styles.actionButton, { backgroundColor: inputBgColor, borderColor: borderColor }]}
@@ -1160,11 +1287,11 @@ const DeveloperMenuScreen = ({ theme, accentColor, onResetDeveloperMode }) => {
               Сбросить все ачивки
             </Text>
           </TouchableOpacity>
-        </View>
+        </SettingsGroup>
 
         {/* Опасные действия */}
-        <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: textColor }]}>Опасная зона</Text>
+        <SectionHeader title="Опасная зона" placeholderColor={placeholderColor} />
+        <SettingsGroup glass={glass} style={styles.section}>
 
           <TouchableOpacity
             style={[styles.actionButton, { backgroundColor: 'rgba(239, 68, 68, 0.1)', borderColor: 'rgba(239, 68, 68, 0.3)' }]}
@@ -1195,7 +1322,7 @@ const DeveloperMenuScreen = ({ theme, accentColor, onResetDeveloperMode }) => {
               Сбросить режим разработчика
             </Text>
           </TouchableOpacity>
-        </View>
+        </SettingsGroup>
 
         {/* Информация */}
         <View style={[styles.infoBox, { backgroundColor: inputBgColor, marginBottom: 16 }]}>
@@ -1292,9 +1419,11 @@ const DeveloperMenuScreen = ({ theme, accentColor, onResetDeveloperMode }) => {
 };
 
 const styles = StyleSheet.create({
-  section: { marginBottom: 24 },
-  sectionTitle: { fontSize: 16, fontWeight: '600', marginBottom: 8, fontFamily: 'Montserrat_600SemiBold' },
-  sectionDescription: { fontSize: 13, marginBottom: 12, fontFamily: 'Montserrat_400Regular' },
+  section: {
+    marginBottom: 10,
+    padding: 12,
+  },
+  sectionDescription: { fontSize: 12, marginBottom: 10, fontFamily: 'Montserrat_400Regular' },
   settingRow: {
     flexDirection: 'row',
     alignItems: 'center',

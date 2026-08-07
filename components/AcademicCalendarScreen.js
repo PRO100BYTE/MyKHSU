@@ -6,6 +6,7 @@ import { LIQUID_GLASS, ACCENT_COLORS } from '../utils/constants';
 import { exportAcademicEventsToCalendar } from '../utils/calendarExport';
 import notificationService from '../utils/notificationService';
 import AcademicEventModal from './AcademicEventModal';
+import { SectionHeader, SettingsGroup } from './SettingsComponents';
 import {
   ACADEMIC_EVENT_TYPES,
   addAcademicEvent,
@@ -175,8 +176,9 @@ const AcademicCalendarScreen = ({ theme, accentColor }) => {
   return (
     <View style={{ flex: 1 }}>
       <ScrollView style={{ flex: 1, padding: 16 }} contentContainerStyle={{ paddingBottom: 32 }}>
-      <Text style={[styles.title, { color: glass.text }]}>Календарь учебных событий</Text>
+      <SectionHeader title="Календарь учебных событий" placeholderColor={glass.textSecondary} />
 
+      <SettingsGroup glass={glass} style={{ marginBottom: 12 }}>
       <View style={[styles.heroCard, { backgroundColor: colors.glass, borderColor: colors.glassBorder || glass.border }]}>
         <View style={styles.heroBadge}>
           <Icon name="sparkles-outline" size={18} color={colors.primary} />
@@ -190,8 +192,11 @@ const AcademicCalendarScreen = ({ theme, accentColor }) => {
           </Text>
         </View>
       </View>
+      </SettingsGroup>
 
-      <View style={[styles.card, { marginTop: 14, backgroundColor: glass.surfaceSecondary, borderColor: glass.border }]}>
+      <SectionHeader title="Фильтры и события" placeholderColor={glass.textSecondary} />
+      <SettingsGroup glass={glass} style={{ marginTop: 2 }}>
+      <View style={[styles.card, { marginTop: 0, backgroundColor: glass.surfaceSecondary, borderColor: glass.border }]}>
         <View style={styles.filtersHeaderRow}>
           <Text style={[styles.label, { color: glass.textSecondary, marginTop: 0 }]}>Фильтры</Text>
           <View style={styles.topActions}>
@@ -300,6 +305,7 @@ const AcademicCalendarScreen = ({ theme, accentColor }) => {
 
         </View>
       </View>
+      </SettingsGroup>
 
       </ScrollView>
 

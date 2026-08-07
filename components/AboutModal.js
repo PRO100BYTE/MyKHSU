@@ -3,6 +3,7 @@ import React from 'react';
 import { View, Text, ScrollView, StyleSheet } from 'react-native';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import { ACCENT_COLORS, APP_VERSION, APP_DEVELOPERS, APP_SUPPORTERS, BUILD_VER, BUILD_DATE, LIQUID_GLASS } from '../utils/constants';
+import { SectionHeader, SettingsGroup } from './SettingsComponents';
 
 const AboutModal = ({ theme, accentColor }) => {
   const colors = ACCENT_COLORS[accentColor];
@@ -21,6 +22,8 @@ const AboutModal = ({ theme, accentColor }) => {
         showsVerticalScrollIndicator={false}
       >
             {/* Идентификация приложения */}
+            <SectionHeader title="О приложении" placeholderColor={placeholderColor} />
+            <SettingsGroup glass={glass}>
             <View style={[styles.appIdentity, { backgroundColor: colors.glass, borderColor: colors.glassBorder }]}>
               <View style={[styles.appIconCircle, { backgroundColor: colors.primary }]}>
                 <Icon name="school" size={32} color="#ffffff" />
@@ -33,8 +36,11 @@ const AboutModal = ({ theme, accentColor }) => {
                 Мобильное приложение для студентов и преподавателей Инженерно-технологического института ХГУ
               </Text>
             </View>
+            </SettingsGroup>
 
             {/* Основные возможности */}
+            <SectionHeader title="Возможности" placeholderColor={placeholderColor} />
+            <SettingsGroup glass={glass}>
             <View style={[styles.sectionCard, { backgroundColor: inputBgColor, borderColor }]}>
               <View style={styles.sectionHeader}>
                 <Icon name="sparkles-outline" size={18} color={colors.primary} />
@@ -84,8 +90,11 @@ const AboutModal = ({ theme, accentColor }) => {
                 </Text>
               </View>
             </View>
+            </SettingsGroup>
 
             {/* Для преподавателей */}
+            <SectionHeader title="Для преподавателей" placeholderColor={placeholderColor} />
+            <SettingsGroup glass={glass}>
             <View style={[styles.sectionCard, { backgroundColor: inputBgColor, borderColor }]}>
               <View style={styles.sectionHeader}>
                 <Icon name="person-outline" size={18} color={colors.primary} />
@@ -105,8 +114,11 @@ const AboutModal = ({ theme, accentColor }) => {
                 </Text>
               </View>
             </View>
+            </SettingsGroup>
 
             {/* Отслеживание ошибок */}
+            <SectionHeader title="Отслеживание ошибок" placeholderColor={placeholderColor} />
+            <SettingsGroup glass={glass}>
             <View style={[styles.sectionCard, { backgroundColor: inputBgColor, borderColor }]}>
               <View style={styles.sectionHeader}>
                 <Icon name="bug-outline" size={18} color={colors.primary} />
@@ -116,8 +128,11 @@ const AboutModal = ({ theme, accentColor }) => {
                 Приложение использует Self-hosted сервис Sentry (ООО «Скалк Софт» / Sculk Ltd.) для отслеживания ошибок. Собираемые данные включают техническую информацию об устройстве и контекст ошибки, но не содержат персональных данных.
               </Text>
             </View>
+            </SettingsGroup>
 
             {/* Информация о версии */}
+            <SectionHeader title="Версия и авторы" placeholderColor={placeholderColor} />
+            <SettingsGroup glass={glass}>
             <View style={[styles.infoSection, { backgroundColor: inputBgColor, borderColor }]}>
               <View style={styles.infoItem}>
                 <Icon name="calendar-outline" size={14} color={colors.primary} />
@@ -138,6 +153,7 @@ const AboutModal = ({ theme, accentColor }) => {
                 </Text>
               </View>
             </View>
+            </SettingsGroup>
           </ScrollView>
     </View>
   );
