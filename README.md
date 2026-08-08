@@ -7,7 +7,7 @@
 
   <p>
     <a href="https://github.com/PRO100BYTE/MyKHSU/releases">
-      <img src="https://img.shields.io/badge/версия-2.2.9-blue?style=for-the-badge" alt="Версия" />
+      <img src="https://img.shields.io/badge/версия-2.3.2-blue?style=for-the-badge" alt="Версия" />
     </a>
     <a href="https://www.gnu.org/licenses/lgpl-3.0.ru.html">
       <img src="https://img.shields.io/badge/лицензия-LGPL%20v3-green?style=for-the-badge" alt="Лицензия" />
@@ -16,7 +16,7 @@
       <img src="https://img.shields.io/badge/React%20Native-0.81.5-61DAFB?style=for-the-badge&logo=react" alt="React Native" />
     </a>
     <a href="https://expo.dev/">
-      <img src="https://img.shields.io/badge/Expo-54.0.25-000020?style=for-the-badge&logo=expo" alt="Expo" />
+      <img src="https://img.shields.io/badge/Expo-54.0.34-000020?style=for-the-badge&logo=expo" alt="Expo" />
     </a>
     <a href="https://developer.mozilla.org/ru/docs/Web/JavaScript">
       <img src="https://img.shields.io/badge/JavaScript-ES6+-F7DF1E?style=for-the-badge&logo=javascript&logoColor=black" alt="JavaScript" />
