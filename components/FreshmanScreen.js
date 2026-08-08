@@ -2,12 +2,15 @@ import React, { useState, useRef, useEffect, useImperativeHandle, forwardRef } f
 import { View, Text, ScrollView, TouchableOpacity, Linking, StyleSheet, Platform, Animated, StatusBar, Alert, ActivityIndicator } from 'react-native';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import { ACCENT_COLORS, LIQUID_GLASS } from '../utils/constants';
+import ConnectionError from './ConnectionError';
 import UnderDevelopmentModal from './UnderDevelopmentModal';
 import BuildingsListScreen from './BuildingsListScreen';
+import AcademicCalendarScreen from './AcademicCalendarScreen';
 import Snowfall from './Snowfall';
 import { unlockAchievement } from '../utils/achievements';
 import { showAchievementToast } from './AchievementToast';
 import ApiService from '../utils/api';
+import { GlassCard } from './SettingsComponents';
 
 const FreshmanScreen = forwardRef(({ theme, accentColor, isNewYearMode, onNavigationChange }, ref) => {
   const [modalVisible, setModalVisible] = useState(false);
@@ -16,6 +19,7 @@ const FreshmanScreen = forwardRef(({ theme, accentColor, isNewYearMode, onNaviga
   const [secretTapCount, setSecretTapCount] = useState(0);
   const [bellScheduleData, setBellScheduleData] = useState(null);
   const [bellScheduleLoading, setBellScheduleLoading] = useState(false);
+  const [bellScheduleError, setBellScheduleError] = useState(null);
   
   const fadeAnim = useRef(new Animated.Value(1)).current;
 
@@ -46,6 +50,8 @@ const FreshmanScreen = forwardRef(({ theme, accentColor, isNewYearMode, onNaviga
       title = 'Полезные группы';
     } else if (currentGroupType === 'bells') {
       title = 'Расписание звонков';
+    } else if (currentGroupType === 'academicCalendar') {
+      title = 'Календарь учебных событий';
     } else if (currentGroupType === 'glossary') {
       title = 'Словарь аббревиатур';
     }
@@ -59,8 +65,18 @@ const FreshmanScreen = forwardRef(({ theme, accentColor, isNewYearMode, onNaviga
     }
   }, [currentGroupType]);
 
+  const normalizeErrorCode = (error) => {
+    const raw = String(error?.message || error || 'load-error');
+    if (/NO_INTERNET/i.test(raw)) return 'no-internet';
+    if (/API_UNAVAILABLE/i.test(raw)) return 'api-unavailable';
+    if (/INVALID_JSON/i.test(raw)) return 'invalid-json';
+    if (/JSON\s*Parse\s*error/i.test(raw)) return 'json-parse-error';
+    return 'load-error';
+  };
+
   const fetchBellSchedule = async () => {
     setBellScheduleLoading(true);
+      setBellScheduleError(null);
     try {
       const result = await ApiService.getPairsTime();
       const pairsTime = result?.data?.pairs_time || [];
@@ -86,6 +102,7 @@ const FreshmanScreen = forwardRef(({ theme, accentColor, isNewYearMode, onNaviga
         setBellScheduleData(schedule);
       }
     } catch (error) {
+      setBellScheduleError(normalizeErrorCode(error));
       console.error('Error fetching bell schedule:', error);
     } finally {
       setBellScheduleLoading(false);
@@ -195,165 +212,269 @@ const FreshmanScreen = forwardRef(({ theme, accentColor, isNewYearMode, onNaviga
       url: 'https://vk.com/club178703236',
       icon: 'barbell-outline',
       brandColor: '#0077FF',
+    },
+    {
+      id: 10,
+      name: 'ЭРЦИТ ИТИ ХГУ',
+      description: 'Экспериментальный центр информационных технологий',
+      url: 'https://vk.ru/club224936102',
+      icon: 'laptop-outline',
+      brandColor: '#0077FF',
     }
   ];
 
-  // Рендер карточки раздела
-  const renderSectionCard = (icon, title, description, onPress, isLast = false) => (
-    <TouchableOpacity 
-      style={{ 
-        flexDirection: 'row',
-        backgroundColor: glass.surfaceSecondary, 
-        borderRadius: 16, 
-        marginBottom: isLast ? 0 : 12,
-        alignItems: 'center',
-        borderWidth: StyleSheet.hairlineWidth,
-        borderColor: glass.border,
-        overflow: 'hidden',
-        shadowColor: glass.shadowColor,
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.08,
-        shadowRadius: 6,
-        elevation: 2,
-      }}
+  const telegramGroups = [
+    {
+      id: 1,
+      name: 'Новости ХГУ им. Н.Ф. Катанова',
+      description: 'Официальный Telegram-канал университета',
+      url: 'https://t.me/khsu_katanova',
+      icon: 'paper-plane-outline',
+      brandColor: '#0088cc',
+    }
+  ];
+
+  const maxGroups = [
+    {
+      id: 1,
+      name: 'ХГУ им. Н.Ф. Катанова',
+      description: 'Официальный канал университета',
+      url: 'https://max.ru/id1901021449_biz',
+      icon: 'school-outline',
+      brandColor: '#5B6DEF',
+    },
+    {
+      id: 2,
+      name: 'Совет обучающихся ХГУ',
+      description: 'Студенческое самоуправление',
+      url: 'https://max.ru/id1901021449_gos1',
+      icon: 'people-outline',
+      brandColor: '#5B6DEF',
+    },
+    {
+      id: 3,
+      name: 'ЭРЦИТ ИТИ ХГУ',
+      description: 'Экспериментальный центр информационных технологий',
+      url: 'https://max.ru/join/yBMcu9AYDOJjU0FEw7-kaTp7MrbkT7JG9fwZLeDrJjQ',
+      icon: 'laptop-outline',
+      brandColor: '#5B6DEF',
+    }
+  ];
+
+  const SectionHeader = ({ title }) => (
+    <Text style={{
+      color: placeholderColor,
+      fontSize: 13,
+      fontFamily: 'Montserrat_600SemiBold',
+      textTransform: 'uppercase',
+      letterSpacing: 0.5,
+      marginTop: 24,
+      marginBottom: 8,
+      paddingHorizontal: 4,
+    }}>
+      {title}
+    </Text>
+  );
+
+  const SectionGroup = ({ children }) => (
+    <GlassCard glass={glass} style={{
+      backgroundColor: glass.surfaceSecondary,
+      borderRadius: 14,
+      overflow: 'hidden',
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: glass.border,
+      shadowColor: glass.shadowColor,
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.08,
+      shadowRadius: 6,
+      elevation: 2,
+    }}>
+      {children}
+    </GlassCard>
+  );
+
+  const SectionRow = ({ icon, title, description, onPress, isFirst, isLast }) => (
+    <TouchableOpacity
       onPress={onPress}
+      activeOpacity={0.7}
+      style={{
+        flexDirection: 'row',
+        alignItems: 'center',
+        padding: 14,
+        backgroundColor: Platform.OS === 'ios' ? 'transparent' : glass.surfaceSecondary,
+        borderTopLeftRadius: isFirst ? 14 : 0,
+        borderTopRightRadius: isFirst ? 14 : 0,
+        borderBottomLeftRadius: isLast ? 14 : 0,
+        borderBottomRightRadius: isLast ? 14 : 0,
+        borderBottomWidth: isLast ? 0 : StyleSheet.hairlineWidth,
+        borderBottomColor: glass.border,
+      }}
     >
-      <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', padding: 14 }}>
-        <View style={{ 
-          width: 42, 
-          height: 42, 
-          borderRadius: 12, 
-          backgroundColor: colors.glass, 
-          justifyContent: 'center', 
-          alignItems: 'center',
-          marginRight: 14,
-          borderWidth: StyleSheet.hairlineWidth, 
-          borderColor: colors.glassBorder,
-        }}>
-          <Icon name={icon} size={22} color={colors.primary} />
-        </View>
-        <View style={{ flex: 1 }}>
-          <Text style={{ color: textColor, fontSize: 15, fontFamily: 'Montserrat_500Medium' }}>
-            {title}
-          </Text>
-          <Text style={{ color: placeholderColor, fontSize: 13, marginTop: 3, fontFamily: 'Montserrat_400Regular', lineHeight: 18 }}>
+      <View style={{
+        width: 42,
+        height: 42,
+        borderRadius: 12,
+        backgroundColor: colors.glass,
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginRight: 14,
+        borderWidth: StyleSheet.hairlineWidth,
+        borderColor: colors.glassBorder,
+      }}>
+        <Icon name={icon} size={22} color={colors.primary} />
+      </View>
+      <View style={{ flex: 1 }}>
+        <Text style={{ color: textColor, fontSize: 15, fontFamily: 'Montserrat_500Medium' }}>
+          {title}
+        </Text>
+        {description && (
+          <Text style={{ color: placeholderColor, fontSize: 12, marginTop: 2, fontFamily: 'Montserrat_400Regular', lineHeight: 17 }}>
             {description}
           </Text>
-        </View>
-        <Icon name="chevron-forward" size={20} color={placeholderColor} />
+        )}
       </View>
+      <Icon name="chevron-forward" size={18} color={placeholderColor} />
     </TouchableOpacity>
   );
 
-  // Рендер карточки группы
-  const renderGroupCard = (group, isLast = false) => (
-    <TouchableOpacity 
+  const CommunityRow = ({ group, isFirst, isLast }) => (
+    <TouchableOpacity
       key={group.id}
-      style={{ 
-        flexDirection: 'row',
-        backgroundColor: glass.surfaceSecondary, 
-        borderRadius: 14, 
-        marginBottom: isLast ? 0 : 10,
-        alignItems: 'center',
-        borderWidth: StyleSheet.hairlineWidth,
-        borderColor: glass.border,
-        overflow: 'hidden',
-        shadowColor: glass.shadowColor,
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.06,
-        shadowRadius: 4,
-        elevation: 1,
-      }}
       onPress={() => openLink(group.url)}
+      activeOpacity={0.7}
+      style={{
+        flexDirection: 'row',
+        alignItems: 'center',
+        padding: 14,
+        backgroundColor: Platform.OS === 'ios' ? 'transparent' : glass.surfaceSecondary,
+        borderTopLeftRadius: isFirst ? 14 : 0,
+        borderTopRightRadius: isFirst ? 14 : 0,
+        borderBottomLeftRadius: isLast ? 14 : 0,
+        borderBottomRightRadius: isLast ? 14 : 0,
+        borderBottomWidth: isLast ? 0 : StyleSheet.hairlineWidth,
+        borderBottomColor: glass.border,
+      }}
     >
-      <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', padding: 12 }}>
-        <View style={{ 
-          width: 40, 
-          height: 40, 
-          borderRadius: 12, 
-          backgroundColor: group.brandColor ? group.brandColor + '14' : colors.glass, 
-          justifyContent: 'center', 
-          alignItems: 'center',
-          marginRight: 12,
-          borderWidth: StyleSheet.hairlineWidth, 
-          borderColor: group.brandColor ? group.brandColor + '30' : colors.glassBorder,
-        }}>
-          <Icon name={group.icon} size={20} color={group.brandColor || colors.primary} />
-        </View>
-        <View style={{ flex: 1 }}>
-          <Text style={{ color: textColor, fontSize: 14, fontFamily: 'Montserrat_500Medium', lineHeight: 19 }}>
-            {group.name}
-          </Text>
-          {group.description && (
-            <Text style={{ color: placeholderColor, fontSize: 12, fontFamily: 'Montserrat_400Regular', marginTop: 2, lineHeight: 16 }}>
-              {group.description}
-            </Text>
-          )}
-        </View>
-        <Icon name="open-outline" size={16} color={placeholderColor} style={{ marginLeft: 8 }} />
+      <View style={{
+        width: 42,
+        height: 42,
+        borderRadius: 12,
+        backgroundColor: group.brandColor ? group.brandColor + '14' : colors.glass,
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginRight: 14,
+        borderWidth: StyleSheet.hairlineWidth,
+        borderColor: group.brandColor ? group.brandColor + '30' : colors.glassBorder,
+      }}>
+        <Icon name={group.icon} size={20} color={group.brandColor || colors.primary} />
       </View>
+      <View style={{ flex: 1 }}>
+        <Text style={{ color: textColor, fontSize: 15, fontFamily: 'Montserrat_500Medium' }}>
+          {group.name}
+        </Text>
+        {group.description && (
+          <Text style={{ color: placeholderColor, fontSize: 12, marginTop: 2, fontFamily: 'Montserrat_400Regular', lineHeight: 17 }}>
+            {group.description}
+          </Text>
+        )}
+      </View>
+      <Icon name="open-outline" size={16} color={placeholderColor} style={{ marginLeft: 8 }} />
     </TouchableOpacity>
   );
 
   // Главный экран разделов
+  const sectionCategories = [
+    {
+      title: 'Учеба',
+      items: [
+        {
+          icon: 'time-outline',
+          title: 'Расписание звонков',
+          description: 'Время начала и окончания занятий',
+          onPress: () => setCurrentGroupType('bells'),
+        },
+        {
+          icon: 'today-outline',
+          title: 'Календарь учебных событий',
+          description: 'Экзамены, зачеты, практика и экспорт в календарь',
+          onPress: () => setCurrentGroupType('academicCalendar'),
+        },
+        {
+          icon: 'book-outline',
+          title: 'Словарь аббревиатур',
+          description: 'Расшифровка университетских сокращений',
+          onPress: () => setCurrentGroupType('glossary'),
+        },
+      ],
+    },
+    {
+      title: 'Ресурсы и сервисы',
+      items: [
+        {
+          icon: 'globe-outline',
+          title: 'Сайт ИТИ ХГУ',
+          description: 'Официальный сайт Инженерно-технологического института',
+          onPress: openITIWebsite,
+        },
+        {
+          icon: 'laptop-outline',
+          title: 'Образовательный портал ХГУ',
+          description: 'Электронная образовательная среда университета',
+          onPress: openEduPortal,
+        },
+        {
+          icon: 'school-outline',
+          title: 'Новый образовательный портал ХГУ (Moodle)',
+          description: 'Современная платформа для дистанционного обучения',
+          onPress: openNewEduPortal,
+        },
+        {
+          icon: 'people-outline',
+          title: 'Преподаватели',
+          description: 'Информация о преподавателях ИТИ ХГУ',
+          onPress: () => setModalVisible(true),
+        },
+      ],
+    },
+    {
+      title: 'Кампус и сообщества',
+      items: [
+        {
+          icon: 'business-outline',
+          title: 'Корпуса ХГУ',
+          description: 'Список всех корпусов университета с маршрутами',
+          onPress: () => setShowBuildingsList(true),
+        },
+        {
+          icon: 'chatbubbles-outline',
+          title: 'Полезные группы (сообщества)',
+          description: 'Группы и сообщества ВКонтакте и Telegram',
+          onPress: () => setCurrentGroupType('main'),
+        },
+      ],
+    },
+  ];
+
   const renderMainSections = () => (
     <ScrollView style={{ flex: 1, padding: 16 }} contentContainerStyle={{ paddingBottom: 100 }}>
-      {renderSectionCard(
-        'people-outline',
-        'Преподаватели',
-        'Информация о преподавателях ИТИ ХГУ',
-        () => setModalVisible(true)
-      )}
-      
-      {renderSectionCard(
-        'business-outline',
-        'Корпуса ХГУ',
-        'Список всех корпусов университета с маршрутами',
-        () => setShowBuildingsList(true)
-      )}
-      
-      {renderSectionCard(
-        'globe-outline',
-        'Сайт ИТИ ХГУ',
-        'Официальный сайт Инженерно-технологического института',
-        openITIWebsite
-      )}
-      
-      {renderSectionCard(
-        'laptop-outline',
-        'Образовательный портал ХГУ',
-        'Электронная образовательная среда университета',
-        openEduPortal
-      )}
-      
-      {renderSectionCard(
-        'school-outline',
-        'Новый образовательный портал ХГУ (Moodle)',
-        'Современная платформа для дистанционного обучения',
-        openNewEduPortal
-      )}
-      
-      {renderSectionCard(
-        'chatbubbles-outline',
-        'Полезные группы (сообщества)',
-        'Группы и сообщества ВКонтакте и Telegram',
-        () => setCurrentGroupType('main'),
-      )}
-
-      {renderSectionCard(
-        'time-outline',
-        'Расписание звонков',
-        'Время начала и окончания занятий',
-        () => setCurrentGroupType('bells'),
-      )}
-
-      {renderSectionCard(
-        'book-outline',
-        'Словарь аббревиатур',
-        'Расшифровка университетских сокращений',
-        () => setCurrentGroupType('glossary'),
-        true
-      )}
+      {sectionCategories.map(category => (
+        <View key={category.title}>
+          <SectionHeader title={category.title} />
+          <SectionGroup>
+            {category.items.map((item, index) => (
+              <SectionRow
+                key={item.title}
+                icon={item.icon}
+                title={item.title}
+                description={item.description}
+                onPress={item.onPress}
+                isFirst={index === 0}
+                isLast={index === category.items.length - 1}
+              />
+            ))}
+          </SectionGroup>
+        </View>
+      ))}
 
       {/* Скрытая пасхалка */}
       <TouchableOpacity
@@ -447,133 +568,43 @@ const FreshmanScreen = forwardRef(({ theme, accentColor, isNewYearMode, onNaviga
   // Единый экран сообществ с секциями
   const renderGroupTypeSelection = () => (
     <ScrollView style={{ flex: 1, padding: 16 }} contentContainerStyle={{ paddingBottom: 100 }} showsVerticalScrollIndicator={false}>
-      {/* Секция ВКонтакте */}
-      <View style={{
-        backgroundColor: colors.glass,
-        borderRadius: 16,
-        padding: 14,
-        marginBottom: 16,
-        flexDirection: 'row',
-        alignItems: 'center',
-        borderWidth: StyleSheet.hairlineWidth,
-        borderColor: colors.glassBorder,
-      }}>
-        <View style={{
-          width: 40, height: 40, borderRadius: 12,
-          backgroundColor: '#0077FF18',
-          justifyContent: 'center', alignItems: 'center', marginRight: 12,
-        }}>
-          <Icon name="logo-vk" size={22} color="#0077FF" />
-        </View>
-        <View style={{ flex: 1 }}>
-          <Text style={{ color: textColor, fontSize: 15, fontFamily: 'Montserrat_600SemiBold' }}>
-            ВКонтакте
-          </Text>
-          <Text style={{ color: placeholderColor, fontSize: 12, fontFamily: 'Montserrat_400Regular', marginTop: 2 }}>
-            Официальные группы и сообщества
-          </Text>
-        </View>
-      </View>
-
-      {vkGroups.map((group, index) => 
-        renderGroupCard(group, index === vkGroups.length - 1)
-      )}
+      <SectionHeader title="ВКонтакте" />
+      <SectionGroup>
+        {vkGroups.map((group, index) => (
+          <CommunityRow
+            key={`vk-${group.id}`}
+            group={group}
+            isFirst={index === 0}
+            isLast={index === vkGroups.length - 1}
+          />
+        ))}
+      </SectionGroup>
 
       {/* Секция Telegram */}
-      <View style={{
-        backgroundColor: colors.glass,
-        borderRadius: 16,
-        padding: 14,
-        marginTop: 24,
-        marginBottom: 16,
-        flexDirection: 'row',
-        alignItems: 'center',
-        borderWidth: StyleSheet.hairlineWidth,
-        borderColor: colors.glassBorder,
-      }}>
-        <View style={{
-          width: 40, height: 40, borderRadius: 12,
-          backgroundColor: '#0088cc18',
-          justifyContent: 'center', alignItems: 'center', marginRight: 12,
-        }}>
-          <Icon name="paper-plane-outline" size={22} color="#0088cc" />
-        </View>
-        <View style={{ flex: 1 }}>
-          <Text style={{ color: textColor, fontSize: 15, fontFamily: 'Montserrat_600SemiBold' }}>
-            Telegram
-          </Text>
-          <Text style={{ color: placeholderColor, fontSize: 12, fontFamily: 'Montserrat_400Regular', marginTop: 2 }}>
-            Каналы и чаты
-          </Text>
-        </View>
-      </View>
-
-      <View style={{ 
-        backgroundColor: glass.surfaceSecondary, 
-        borderRadius: 14, 
-        padding: 20, 
-        alignItems: 'center',
-        borderWidth: StyleSheet.hairlineWidth,
-        borderColor: glass.border,
-      }}>
-        <Text style={{ 
-          color: placeholderColor, 
-          fontSize: 14, 
-          fontFamily: 'Montserrat_400Regular',
-          textAlign: 'center',
-          lineHeight: 20,
-        }}>
-          Telegram-каналы и чаты будут добавлены в ближайшее время
-        </Text>
-      </View>
+      <SectionHeader title="Telegram" />
+      <SectionGroup>
+        {telegramGroups.map((group, index) => (
+          <CommunityRow
+            key={`tg-${group.id}`}
+            group={group}
+            isFirst={index === 0}
+            isLast={index === telegramGroups.length - 1}
+          />
+        ))}
+      </SectionGroup>
 
       {/* Секция MAX */}
-      <View style={{
-        backgroundColor: colors.glass,
-        borderRadius: 16,
-        padding: 14,
-        marginTop: 24,
-        marginBottom: 16,
-        flexDirection: 'row',
-        alignItems: 'center',
-        borderWidth: StyleSheet.hairlineWidth,
-        borderColor: colors.glassBorder,
-      }}>
-        <View style={{
-          width: 40, height: 40, borderRadius: 12,
-          backgroundColor: '#5B6DEF18',
-          justifyContent: 'center', alignItems: 'center', marginRight: 12,
-        }}>
-          <Icon name="chatbubble-ellipses-outline" size={22} color="#5B6DEF" />
-        </View>
-        <View style={{ flex: 1 }}>
-          <Text style={{ color: textColor, fontSize: 15, fontFamily: 'Montserrat_600SemiBold' }}>
-            MAX
-          </Text>
-          <Text style={{ color: placeholderColor, fontSize: 12, fontFamily: 'Montserrat_400Regular', marginTop: 2 }}>
-            Каналы в мессенджере
-          </Text>
-        </View>
-      </View>
-
-      <View style={{ 
-        backgroundColor: glass.surfaceSecondary, 
-        borderRadius: 14, 
-        padding: 20, 
-        alignItems: 'center',
-        borderWidth: StyleSheet.hairlineWidth,
-        borderColor: glass.border,
-      }}>
-        <Text style={{ 
-          color: placeholderColor, 
-          fontSize: 14, 
-          fontFamily: 'Montserrat_400Regular',
-          textAlign: 'center',
-          lineHeight: 20,
-        }}>
-          Каналы MAX будут добавлены в ближайшее время
-        </Text>
-      </View>
+      <SectionHeader title="MAX" />
+      <SectionGroup>
+        {maxGroups.map((group, index) => (
+          <CommunityRow
+            key={`max-${group.id}`}
+            group={group}
+            isFirst={index === 0}
+            isLast={index === maxGroups.length - 1}
+          />
+        ))}
+      </SectionGroup>
     </ScrollView>
   );
 
@@ -587,9 +618,31 @@ const FreshmanScreen = forwardRef(({ theme, accentColor, isNewYearMode, onNaviga
     </View>
   );
 
+  const renderAcademicCalendar = () => (
+    <AcademicCalendarScreen theme={theme} accentColor={accentColor} />
+  );
+
   // Расписание звонков (загружается с сервера)
   const bellSchedule = bellScheduleData || [];
   const renderBellSchedule = () => {
+        if (bellScheduleError) {
+          return (
+            <View style={{ flex: 1 }}>
+              <ConnectionError
+                screen="schedule"
+                errorType={bellScheduleError}
+                loading={false}
+                onRetry={fetchBellSchedule}
+                onViewCache={() => {}}
+                showCacheButton={false}
+                theme={theme}
+                accentColor={accentColor}
+                isNewYearMode={false}
+              />
+            </View>
+          );
+        }
+
     if (bellScheduleLoading) {
       return (
         <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', paddingTop: 60 }}>
@@ -658,49 +711,60 @@ const FreshmanScreen = forwardRef(({ theme, accentColor, isNewYearMode, onNaviga
 
         {bellSchedule.map((item, index) => {
           const isCurrent = isCurrentPair(item.start, item.end);
-          return (
-            <View key={item.pair}>
+          const pairCardStyle = {
+            flexDirection: 'row',
+            alignItems: 'center',
+            backgroundColor: isCurrent ? (colors.glass || colors.primary + '10') : glass.surfaceSecondary,
+            borderRadius: 16,
+            padding: 14,
+            marginBottom: item.breakAfter ? 4 : 0,
+            borderWidth: isCurrent ? 1.5 : StyleSheet.hairlineWidth,
+            borderColor: isCurrent ? colors.primary + '40' : glass.border,
+            overflow: 'hidden',
+          };
+
+          const pairContent = (
+            <>
               <View style={{
-                flexDirection: 'row',
-                alignItems: 'center',
-                backgroundColor: isCurrent ? (colors.glass || colors.primary + '10') : glass.surfaceSecondary,
-                borderRadius: 16,
-                padding: 14,
-                marginBottom: item.breakAfter ? 4 : 0,
-                borderWidth: isCurrent ? 1.5 : StyleSheet.hairlineWidth,
-                borderColor: isCurrent ? colors.primary + '40' : glass.border,
+                width: 40, height: 40, borderRadius: 12,
+                backgroundColor: isCurrent ? colors.primary : glass.surfaceTertiary,
+                justifyContent: 'center', alignItems: 'center', marginRight: 14,
               }}>
-                <View style={{
-                  width: 40, height: 40, borderRadius: 12,
-                  backgroundColor: isCurrent ? colors.primary : glass.surfaceTertiary,
-                  justifyContent: 'center', alignItems: 'center', marginRight: 14,
+                <Text style={{
+                  color: isCurrent ? '#fff' : textColor,
+                  fontSize: 16, fontFamily: 'Montserrat_700Bold',
                 }}>
-                  <Text style={{
-                    color: isCurrent ? '#fff' : textColor,
-                    fontSize: 16, fontFamily: 'Montserrat_700Bold',
-                  }}>
-                    {item.pair}
-                  </Text>
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={{
-                    color: textColor, fontSize: 16, fontFamily: 'Montserrat_600SemiBold',
-                  }}>
-                    {item.start} – {item.end}
-                  </Text>
-                  {isCurrent && (
-                    <Text style={{ color: colors.primary, fontSize: 12, fontFamily: 'Montserrat_500Medium', marginTop: 2 }}>
-                      Сейчас идёт
-                    </Text>
-                  )}
-                </View>
+                  {item.pair}
+                </Text>
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={{
+                  color: textColor, fontSize: 16, fontFamily: 'Montserrat_600SemiBold',
+                }}>
+                  {item.start} – {item.end}
+                </Text>
                 {isCurrent && (
-                  <View style={{
-                    width: 8, height: 8, borderRadius: 4,
-                    backgroundColor: colors.primary, marginLeft: 8,
-                  }} />
+                  <Text style={{ color: colors.primary, fontSize: 12, fontFamily: 'Montserrat_500Medium', marginTop: 2 }}>
+                    Сейчас идёт
+                  </Text>
                 )}
               </View>
+              {isCurrent && (
+                <View style={{
+                  width: 8, height: 8, borderRadius: 4,
+                  backgroundColor: colors.primary, marginLeft: 8,
+                }} />
+              )}
+            </>
+          );
+
+          return (
+            <View key={item.pair}>
+              {isCurrent ? (
+                <View style={pairCardStyle}>{pairContent}</View>
+              ) : (
+                <GlassCard glass={glass} style={pairCardStyle}>{pairContent}</GlassCard>
+              )}
               {item.breakAfter && (
                 <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, marginBottom: 4 }}>
                   <View style={{ flex: 1, height: StyleSheet.hairlineWidth, backgroundColor: glass.border }} />
@@ -827,6 +891,8 @@ const FreshmanScreen = forwardRef(({ theme, accentColor, isNewYearMode, onNaviga
       return renderGroupTypeSelection();
     } else if (currentGroupType === 'bells') {
       return renderBellSchedule();
+    } else if (currentGroupType === 'academicCalendar') {
+      return renderAcademicCalendar();
     } else if (currentGroupType === 'glossary') {
       return renderGlossary();
     }

@@ -7,7 +7,7 @@
 
   <p>
     <a href="https://github.com/PRO100BYTE/MyKHSU/releases">
-      <img src="https://img.shields.io/badge/версия-2.2.9-blue?style=for-the-badge" alt="Версия" />
+      <img src="https://img.shields.io/badge/версия-2.3.2-blue?style=for-the-badge" alt="Версия" />
     </a>
     <a href="https://www.gnu.org/licenses/lgpl-3.0.ru.html">
       <img src="https://img.shields.io/badge/лицензия-LGPL%20v3-green?style=for-the-badge" alt="Лицензия" />
@@ -16,7 +16,7 @@
       <img src="https://img.shields.io/badge/React%20Native-0.81.5-61DAFB?style=for-the-badge&logo=react" alt="React Native" />
     </a>
     <a href="https://expo.dev/">
-      <img src="https://img.shields.io/badge/Expo-54.0.25-000020?style=for-the-badge&logo=expo" alt="Expo" />
+      <img src="https://img.shields.io/badge/Expo-54.0.34-000020?style=for-the-badge&logo=expo" alt="Expo" />
     </a>
     <a href="https://developer.mozilla.org/ru/docs/Web/JavaScript">
       <img src="https://img.shields.io/badge/JavaScript-ES6+-F7DF1E?style=for-the-badge&logo=javascript&logoColor=black" alt="JavaScript" />
@@ -51,7 +51,7 @@
 
 - **Расписание**: Просмотр расписания занятий по группам.
 - **Режимы**: Дневной и недельный просмотр.
-- **Первокурснику**: Специальный раздел с полезной информацией, ссылками и гайдами.
+- **Студгородок**: Специальный раздел с полезной информацией, ссылками и гайдами.
 
 ### 👨‍🏫 Для преподавателей
 
@@ -266,7 +266,11 @@ npx eas build --platform ios --profile development --local
 ```
 
 > [!WARNING]
-> Для локальной сборки под iOS требуется macOS с установленным Xcode.
+> Для локальной сборки под iOS требуется macOS с установленным Xcode. Для development профиля требуется еще подключенное к Mac устройство iOS с активированным режимом разработчика (т. к. приложение будет устанавливаться непосредственно на него)
+
+> [!NOTE]
+> **Комментарий TheDayG0ne:**
+> *Лично я для сборки приложения под iOS использую MacBook Pro 16 2019 года (macOS Tahoe), либо - iMac 21,5 2012 года (macOS Sonoma), а для тестирования - iPhone 14 Pro Max (iOS 26), iPhone 6s (iOS 15). Иногда для тестирования используется iPad 10 поколения (iPadOS 26). На всех устройствах выполнен вход в мою учетную запись Apple Account (ранее - Apple ID), а также - активирован Режим разработчика.*
 
 ## 📚 Полезные ресурсы
 

@@ -1,13 +1,25 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, StyleSheet, RefreshControl, Animated, StatusBar } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, StyleSheet, RefreshControl, Animated, StatusBar, TextInput, Platform } from 'react-native';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import { ACCENT_COLORS, LIQUID_GLASS } from '../utils/constants';
 import ConnectionError from './ConnectionError';
+import { GlassCard } from './SettingsComponents';
 import NetInfo from '@react-native-community/netinfo';
 import ApiService from '../utils/api';
 import notificationService from '../utils/notificationService';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Snowfall from './Snowfall';
+
+const normalizeNewsErrorCode = (error) => {
+  const raw = String(error?.message || error || 'load-error');
+
+  if (/NO_INTERNET/i.test(raw)) return 'NO_INTERNET';
+  if (/API_UNAVAILABLE/i.test(raw)) return 'API_UNAVAILABLE';
+  if (/INVALID_JSON/i.test(raw)) return 'INVALID_JSON';
+  if (/JSON\s*Parse\s*error/i.test(raw) || /Unexpected\s*character/i.test(raw)) return 'JSON_PARSE_ERROR';
+
+  return 'load-error';
+};
 
 const NewsScreen = ({ theme, accentColor, isNewYearMode, onCacheStatusChange }) => {
   const [news, setNews] = useState([]);
@@ -22,6 +34,7 @@ const NewsScreen = ({ theme, accentColor, isNewYearMode, onCacheStatusChange }) 
   const [cacheInfo, setCacheInfo] = useState(null);
   const [hasMoreNews, setHasMoreNews] = useState(true);
   const [lastNewsCheck, setLastNewsCheck] = useState(null);
+  const [searchQuery, setSearchQuery] = useState('');
   
   // Анимация появления
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -88,7 +101,7 @@ const NewsScreen = ({ theme, accentColor, isNewYearMode, onCacheStatusChange }) 
       .map(item => ({
         ...item,
         id: createNewsId(item),
-        normalizedDate: normalizeDate(item.date)
+        normalizedDate: normalizeDate(item.date || item.hr_date)
       }))
       .filter((item, index, self) => 
         index === self.findIndex(t => t.id === item.id)
@@ -96,10 +109,20 @@ const NewsScreen = ({ theme, accentColor, isNewYearMode, onCacheStatusChange }) 
       .sort((a, b) => new Date(b.normalizedDate) - new Date(a.normalizedDate));
   };
 
+  const extractNewsList = (payload) => {
+    if (payload == null) return [];
+    if (Array.isArray(payload)) return payload;
+    if (Array.isArray(payload?.news)) return payload.news;
+    if (Array.isArray(payload?.items)) return payload.items;
+    if (Array.isArray(payload?.data)) return payload.data;
+    return [];
+  };
+
   // Создание уникального ID для новости
   const createNewsId = (newsItem) => {
     const contentHash = newsItem.content.substring(0, 100).replace(/\s+/g, '_');
-    return `${newsItem.date}_${contentHash}`;
+    const baseDate = newsItem.date || newsItem.hr_date || 'no_date';
+    return `${baseDate}_${contentHash}`;
   };
 
   // Проверка, является ли новость той же самой
@@ -107,13 +130,22 @@ const NewsScreen = ({ theme, accentColor, isNewYearMode, onCacheStatusChange }) 
     return createNewsId(news1) === createNewsId(news2);
   };
 
-  // Нормализация даты
+  // Нормализация даты: поддержка ISO и формата "YYYY-MM-DD HH:mm:ss"
   const normalizeDate = (dateString) => {
-    try {
-      return new Date(dateString).toISOString();
-    } catch {
-      return dateString;
+    if (!dateString) return new Date(0).toISOString();
+
+    const raw = String(dateString).trim();
+    // Формат тестового API: "2026-04-22 07:50:10" (без 'T')
+    const normalizedInput = /^\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}$/.test(raw)
+      ? raw.replace(' ', 'T')
+      : raw;
+
+    const parsed = new Date(normalizedInput);
+    if (!Number.isNaN(parsed.getTime())) {
+      return parsed.toISOString();
     }
+
+    return new Date(0).toISOString();
   };
 
   // Проверка новых новостей для уведомлений
@@ -162,13 +194,10 @@ const NewsScreen = ({ theme, accentColor, isNewYearMode, onCacheStatusChange }) 
     
     try {
       const result = await ApiService.getNews(currentFrom, 10);
-      
-      if (!result.data || !Array.isArray(result.data)) {
-        throw new Error('INVALID_RESPONSE');
-      }
+      const newsList = extractNewsList(result.data);
       
       // Фильтрация пустого контента и дубликатов
-      const filteredData = filterAndProcessNews(result.data);
+      const filteredData = filterAndProcessNews(newsList);
       
       if (filteredData.length === 0 && currentFrom === 0) {
         setHasMoreNews(false);
@@ -203,12 +232,16 @@ const NewsScreen = ({ theme, accentColor, isNewYearMode, onCacheStatusChange }) 
         setShowCachedData(true);
       }
 
+      if (result.source === 'stale_cache') {
+        setError(isOnline ? 'API_UNAVAILABLE' : 'NO_INTERNET');
+      }
+
       // Сохраняем время последней проверки
       setLastNewsCheck(new Date().toISOString());
       
     } catch (error) {
       console.error('Error fetching news:', error);
-      setError('load-error');
+      setError(normalizeNewsErrorCode(error));
       
       // При ошибке пытаемся показать кэшированные данные
       if (cachedNews.length > 0) {
@@ -266,7 +299,8 @@ if (error && !loading) {
       
       <Animated.View style={{ flex: 1, opacity: fadeAnim, zIndex: 2 }}>
         <ConnectionError 
-          type={error}
+          screen="news"
+          errorType={error}
           loading={false}
           onRetry={handleRetry}
           onViewCache={handleViewCache}
@@ -274,8 +308,6 @@ if (error && !loading) {
           cacheAvailable={cachedNews.length > 0}
           theme={theme}
           accentColor={accentColor}
-          contentType="news"
-          message={error === 'NO_INTERNET' ? 'Новости недоступны без подключения к интернету' : 'Не удалось загрузить новости'}
         />
       </Animated.View>
     </View>
@@ -297,18 +329,93 @@ return (
         contentContainerStyle={{ paddingTop: 16, paddingHorizontal: 16, paddingBottom: 100 }}
         refreshControl={
           <RefreshControl
-            refreshing={refreshing}
-            onRefresh={handleRefresh}
+            refreshing={refreshing}            onRefresh={handleRefresh}
             colors={[colors.primary]}
             tintColor={colors.primary}
           />
         }
       >
         {/* ВСЕ содержимое новостей */}
-        
-        {news.map((item) => (
-          <View 
-            key={item.id} 
+
+        {/* Поиск по новостям */}
+        <GlassCard glass={glass} style={{
+          flexDirection: 'row',
+          alignItems: 'center',
+          backgroundColor: glass.surfaceSecondary,
+          borderRadius: 14,
+          borderWidth: StyleSheet.hairlineWidth,
+          borderColor: glass.border,
+          paddingHorizontal: 12,
+          marginBottom: 16,
+          gap: 8,
+        }}>
+          <Icon name="search-outline" size={18} color={placeholderColor} />
+          <TextInput
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            placeholder="Поиск по новостям..."
+            placeholderTextColor={placeholderColor}
+            style={{
+              flex: 1,
+              paddingVertical: 12,
+              fontSize: 15,
+              fontFamily: 'Montserrat_400Regular',
+              color: textColor,
+            }}
+            clearButtonMode="while-editing"
+          />
+          {searchQuery.length > 0 && (
+            <TouchableOpacity onPress={() => setSearchQuery('')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              <Icon name="close-circle" size={18} color={placeholderColor} />
+            </TouchableOpacity>
+          )}
+        </GlassCard>
+
+        {(() => {
+          const filteredNews = searchQuery.trim()
+            ? news.filter(item =>
+                (item.content || '').toLowerCase().includes(searchQuery.toLowerCase())
+              )
+            : news;
+
+          if (searchQuery.trim() && filteredNews.length === 0) {
+            return (
+              <View style={{ alignItems: 'center', marginTop: 24, marginBottom: 16 }}>
+                <Icon name="search-outline" size={36} color={placeholderColor} style={{ marginBottom: 8 }} />
+                <Text style={{ color: placeholderColor, fontFamily: 'Montserrat_400Regular', fontSize: 14 }}>
+                  Ничего не найдено
+                </Text>
+              </View>
+            );
+          }
+
+            if (!loading && filteredNews.length === 0 && !searchQuery.trim()) {
+              return (
+                <View style={{
+                  backgroundColor: glass.surfaceSecondary,
+                  borderRadius: 16,
+                  borderWidth: StyleSheet.hairlineWidth,
+                  borderColor,
+                  paddingVertical: 22,
+                  paddingHorizontal: 16,
+                  alignItems: 'center',
+                  marginTop: 8,
+                }}>
+                  <Icon name="newspaper-outline" size={34} color={placeholderColor} style={{ marginBottom: 10 }} />
+                  <Text style={{ color: textColor, fontFamily: 'Montserrat_600SemiBold', fontSize: 14, textAlign: 'center' }}>
+                    Пока что новостей нет
+                  </Text>
+                  <Text style={{ color: placeholderColor, fontFamily: 'Montserrat_400Regular', fontSize: 13, marginTop: 6, textAlign: 'center' }}>
+                    Попробуйте заглянуть позже :)
+                  </Text>
+                </View>
+              );
+            }
+
+          return filteredNews.map((item) => (
+          <GlassCard 
+            key={item.id}
+            glass={glass}
             style={{ 
               flexDirection: 'row',
               backgroundColor: glass.surfaceSecondary, 
@@ -342,7 +449,7 @@ return (
                   fontFamily: 'Montserrat_400Regular',
                   marginLeft: 5,
                 }}>
-                  {item.hr_date}
+                  {item.hr_date || item.date || 'Дата не указана'}
                 </Text>
               </View>
               
@@ -356,8 +463,9 @@ return (
                 {item.content}
               </Text>
             </View>
-          </View>
-        ))}
+          </GlassCard>
+          ));
+        })()}
         
         {loadingMore && (
           <View style={{ padding: 16, alignItems: 'center' }}>

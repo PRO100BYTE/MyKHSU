@@ -8,7 +8,8 @@ import {
   StyleSheet, 
   Animated, 
   StatusBar,
-  Dimensions
+  Dimensions,
+  Platform
 } from 'react-native';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -20,10 +21,15 @@ import NotificationSettingsModal from './NotificationSettingsModal';
 import ScheduleFormatModal from './ScheduleFormatModal';
 import DeveloperMenuScreen from './DeveloperMenuScreen';
 import AchievementsScreen from './AchievementsScreen';
+import AcademicCalendarScreen from './AcademicCalendarScreen';
+import StudyProfileScreen from './StudyProfileScreen';
+import ScheduleChangesHistoryScreen from './ScheduleChangesHistoryScreen';
 import { ACCENT_COLORS, APP_VERSION, APP_DEVELOPERS, APP_SUPPORTERS, GITHUB_REPO_URL, BUILD_VER, BUILD_DATE, LIQUID_GLASS } from '../utils/constants';
 import { getAchievementsCount, unlockAchievement } from '../utils/achievements';
 import { showAchievementToast } from './AchievementToast';
 import { getGlassSettingsCardStyle, getGlassIconBadgeStyle } from '../utils/liquidGlass';
+import { GlassCard } from './SettingsComponents';
+import { BlurView } from 'expo-blur';
 import Snowfall from './Snowfall';
 import { clearAllNotes, getNotesCount } from '../utils/notesStorage';
 
@@ -189,7 +195,7 @@ const Confetti = ({ show, theme, colors }) => {
 };
 
 const SettingsScreen = forwardRef(({ 
-  theme, accentColor, setTheme, setAccentColor, 
+  theme, accentColor, legendUnlocked, setTheme, setAccentColor, 
   onScheduleSettingsChange, onTabbarSettingsChange, 
   isNewYearMode, onNewYearModeChange, onNavigationChange 
 }, ref) => {
@@ -251,6 +257,9 @@ const SettingsScreen = forwardRef(({
   useEffect(() => {
     const titles = {
       schedule: 'Формат расписания',
+      academicCalendar: 'Календарь событий',
+      studyProfile: 'Учебный профиль',
+      scheduleHistory: 'Лента изменений',
       appearance: 'Внешний вид',
       notifications: 'Уведомления',
       achievements: 'Достижения',
@@ -457,7 +466,8 @@ const SettingsScreen = forwardRef(({
 
   // Группировка настроек в карточку
   const SettingsGroup = ({ children }) => (
-    <View style={{
+    <GlassCard glass={glass} style={{
+      backgroundColor: glass.surfaceSecondary,
       borderRadius: 14,
       overflow: 'hidden',
       borderWidth: StyleSheet.hairlineWidth,
@@ -469,7 +479,7 @@ const SettingsScreen = forwardRef(({
       elevation: 2,
     }}>
       {children}
-    </View>
+    </GlassCard>
   );
 
   // Строка настройки в группе
@@ -481,7 +491,7 @@ const SettingsScreen = forwardRef(({
         flexDirection: 'row',
         alignItems: 'center',
         padding: 14,
-        backgroundColor: glass.surfaceSecondary,
+        backgroundColor: Platform.OS === 'ios' ? 'transparent' : glass.surfaceSecondary,
         borderTopLeftRadius: isFirst ? 14 : 0,
         borderTopRightRadius: isFirst ? 14 : 0,
         borderBottomLeftRadius: isLast ? 14 : 0,
@@ -524,7 +534,32 @@ const SettingsScreen = forwardRef(({
           title="Формат расписания" 
           subtitle={getScheduleLabel()}
           onPress={() => navigateTo('schedule')} 
-          isFirst isLast 
+          isFirst
+        />
+        <SettingsRow
+          icon="today-outline"
+          title="Календарь учебных событий"
+          subtitle="События, фильтры и локальные напоминания"
+          onPress={() => navigateTo('academicCalendar')}
+          isLast
+        />
+      </SettingsGroup>
+
+      <SectionHeader title="Учебный прогресс" />
+      <SettingsGroup>
+        <SettingsRow
+          icon="bar-chart-outline"
+          title="Персональный учебный профиль"
+          subtitle="Посещаемость, дедлайны и история изменений"
+          onPress={() => navigateTo('studyProfile')}
+          isFirst
+        />
+        <SettingsRow
+          icon="time-outline"
+          title="Лента изменений расписания"
+          subtitle="Отдельная история с деталями отличий"
+          onPress={() => navigateTo('scheduleHistory')}
+          isLast
         />
       </SettingsGroup>
 
@@ -722,6 +757,7 @@ const SettingsScreen = forwardRef(({
             <AppearanceSettingsSheet
               theme={theme}
               accentColor={accentColor}
+              legendUnlocked={legendUnlocked}
               setTheme={setTheme}
               setAccentColor={setAccentColor}
               onTabbarSettingsChange={handleTabbarSettingsChange}
@@ -740,6 +776,27 @@ const SettingsScreen = forwardRef(({
                 loadScheduleSettings();
                 navigateTo(null);
               }}
+            />
+          )}
+
+          {currentScreen === 'academicCalendar' && (
+            <AcademicCalendarScreen
+              theme={theme}
+              accentColor={accentColor}
+            />
+          )}
+
+          {currentScreen === 'studyProfile' && (
+            <StudyProfileScreen
+              theme={theme}
+              accentColor={accentColor}
+            />
+          )}
+
+          {currentScreen === 'scheduleHistory' && (
+            <ScheduleChangesHistoryScreen
+              theme={theme}
+              accentColor={accentColor}
             />
           )}
 
