@@ -8,7 +8,8 @@ import {
   StyleSheet, 
   Animated, 
   StatusBar,
-  Dimensions
+  Dimensions,
+  Platform
 } from 'react-native';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -27,6 +28,8 @@ import { ACCENT_COLORS, APP_VERSION, APP_DEVELOPERS, APP_SUPPORTERS, GITHUB_REPO
 import { getAchievementsCount, unlockAchievement } from '../utils/achievements';
 import { showAchievementToast } from './AchievementToast';
 import { getGlassSettingsCardStyle, getGlassIconBadgeStyle } from '../utils/liquidGlass';
+import { GlassCard } from './SettingsComponents';
+import { BlurView } from 'expo-blur';
 import Snowfall from './Snowfall';
 import { clearAllNotes, getNotesCount } from '../utils/notesStorage';
 
@@ -463,7 +466,8 @@ const SettingsScreen = forwardRef(({
 
   // Группировка настроек в карточку
   const SettingsGroup = ({ children }) => (
-    <View style={{
+    <GlassCard glass={glass} style={{
+      backgroundColor: glass.surfaceSecondary,
       borderRadius: 14,
       overflow: 'hidden',
       borderWidth: StyleSheet.hairlineWidth,
@@ -475,7 +479,7 @@ const SettingsScreen = forwardRef(({
       elevation: 2,
     }}>
       {children}
-    </View>
+    </GlassCard>
   );
 
   // Строка настройки в группе
@@ -487,7 +491,7 @@ const SettingsScreen = forwardRef(({
         flexDirection: 'row',
         alignItems: 'center',
         padding: 14,
-        backgroundColor: glass.surfaceSecondary,
+        backgroundColor: Platform.OS === 'ios' ? 'transparent' : glass.surfaceSecondary,
         borderTopLeftRadius: isFirst ? 14 : 0,
         borderTopRightRadius: isFirst ? 14 : 0,
         borderBottomLeftRadius: isLast ? 14 : 0,

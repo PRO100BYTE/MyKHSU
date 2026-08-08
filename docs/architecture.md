@@ -22,7 +22,7 @@
 
 - расписание;
 - карта;
-- первокурснику / студенту;
+- студгородок;
 - новости;
 - настройки.
 
@@ -67,7 +67,24 @@
 - `academicEventsStorage.js`: локальное хранилище учебных событий.
 - `studyProfileStorage.js`: локальное хранилище учебного профиля.
 - `dateUtils.js`, `scheduleUtils.js`: вспомогательные вычисления дат и состояний расписания.
-- `constants.js`: централизованные константы приложения.
+- `constants.js`: централизованные константы приложения, включая `LIQUID_GLASS` — палитру тем с `cardBlurTint` и `cardBlurIntensity` для нативного Liquid Glass на iOS.
+- `liquidGlass.js`: утилитарные функции стилей для glass-дизайна.
+
+## Liquid Glass (iOS)
+
+Приложение реализует нативный Liquid Glass на iOS через `expo-blur` (`BlurView`):
+
+- **Header и Tab Bar**: `BlurView` с `systemChromeMaterial` — уже реализовано в `App.js`.
+- **Карточки и группы настроек**: компонент `GlassCard` из `components/SettingsComponents.js`.
+  - На iOS рендерит `BlurView` с тинтом из `glass.cardBlurTint` и интенсивностью `glass.cardBlurIntensity`.
+  - Автоматически убирает `backgroundColor` из переданных стилей — фон обеспечивается blur-эффектом.
+  - На Android рендерит обычный `View` с сохранёнными стилями.
+- **Строки внутри GlassCard** (`SettingsRow`, `SectionRow`, `CommunityRow`) используют `backgroundColor: 'transparent'` на iOS.
+- **Карточки уроков** (`ScheduleScreen`): регулярные пары используют `GlassCard`; текущая пара — обычный `View` с акцентным фоном.
+- **Карточки новостей, строка поиска** (`NewsScreen`): `GlassCard`.
+- **Карточки зданий, заголовки категорий** (`BuildingsListScreen`): `GlassCard`.
+- **Карточки пар расписания звонков** (`FreshmanScreen`): `GlassCard` для обычных, `View` для текущей.
+- Android: все компоненты отображаются без изменений с прежними стилями.
 
 ## Потоки данных
 

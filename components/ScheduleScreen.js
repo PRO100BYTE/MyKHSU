@@ -20,6 +20,7 @@ import { Ionicons as Icon } from '@expo/vector-icons';
 import { getWeekNumber, formatDate, getDateByWeekAndDay } from '../utils/dateUtils';
 import { ACCENT_COLORS, COURSES, LIQUID_GLASS } from '../utils/constants';
 import ConnectionError from './ConnectionError';
+import { GlassCard } from './SettingsComponents';
 import ApiService from '../utils/api';
 import { useScheduleLogic } from '../hooks/useScheduleLogic';
 import { 
@@ -702,28 +703,27 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
   const renderLessonCard = (lesson, lessonIndex, pairTime, isCurrentLessonFlag, isTeacher = false, isAuditory = false, weekday = null, lessonDate = null) => {
     const typeInfo = getLessonTypeIcon(lesson.type_lesson);
     
-    return (
-      <View
-        key={lesson.id || lessonIndex}
-        style={{
-          flexDirection: 'row',
-          backgroundColor: isCurrentLessonFlag 
-            ? (colors.glass || colors.primary + '10') 
-            : glass.surfaceSecondary,
-          borderRadius: 16,
-          marginTop: lessonIndex === 0 ? 0 : 10,
-          borderWidth: isCurrentLessonFlag ? 1.5 : StyleSheet.hairlineWidth,
-          borderColor: isCurrentLessonFlag 
-            ? (colors.glassBorder || colors.primary) 
-            : glass.border,
-          overflow: 'hidden',
-          shadowColor: isCurrentLessonFlag ? colors.primary : glass.shadowColor,
-          shadowOffset: { width: 0, height: isCurrentLessonFlag ? 4 : 2 },
-          shadowOpacity: isCurrentLessonFlag ? 0.25 : 0.08,
-          shadowRadius: isCurrentLessonFlag ? 12 : 6,
-          elevation: isCurrentLessonFlag ? 6 : 2,
-        }}
-      >
+    const cardStyle = {
+      flexDirection: 'row',
+      backgroundColor: isCurrentLessonFlag 
+        ? (colors.glass || colors.primary + '10') 
+        : glass.surfaceSecondary,
+      borderRadius: 16,
+      marginTop: lessonIndex === 0 ? 0 : 10,
+      borderWidth: isCurrentLessonFlag ? 1.5 : StyleSheet.hairlineWidth,
+      borderColor: isCurrentLessonFlag 
+        ? (colors.glassBorder || colors.primary) 
+        : glass.border,
+      overflow: 'hidden',
+      shadowColor: isCurrentLessonFlag ? colors.primary : glass.shadowColor,
+      shadowOffset: { width: 0, height: isCurrentLessonFlag ? 4 : 2 },
+      shadowOpacity: isCurrentLessonFlag ? 0.25 : 0.08,
+      shadowRadius: isCurrentLessonFlag ? 12 : 6,
+      elevation: isCurrentLessonFlag ? 6 : 2,
+    };
+
+    const cardInner = (
+      <>
         {/* Цветная полоска-акцент слева */}
         <View style={{
           width: 4,
@@ -1042,7 +1042,20 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
             </View>
           )}
         </View>
-      </View>
+      </>
+    );
+
+    if (isCurrentLessonFlag) {
+      return (
+        <View key={lesson.id || lessonIndex} style={cardStyle}>
+          {cardInner}
+        </View>
+      );
+    }
+    return (
+      <GlassCard key={lesson.id || lessonIndex} glass={glass} style={cardStyle}>
+        {cardInner}
+      </GlassCard>
     );
   };
 
@@ -2247,7 +2260,8 @@ if (error && !loadingGroups && !loadingSchedule && !loadingTeacher && !loadingAu
         
         <Animated.View style={{ flex: 1, opacity: fadeAnim }}>
           <ConnectionError 
-            type={error}
+            screen="schedule"
+            errorType={error}
             loading={false}
             onRetry={isTeacherMode ? () => teacherName && fetchTeacherSchedule(teacherName) : isAuditoryMode ? () => auditoryName && fetchAuditorySchedule(auditoryName) : handleRetry}
             onViewCache={handleViewCache}
@@ -2255,8 +2269,6 @@ if (error && !loadingGroups && !loadingSchedule && !loadingTeacher && !loadingAu
             cacheAvailable={!!scheduleData || !!teacherSchedule || !!auditorySchedule}
             theme={theme}
             accentColor={accentColor}
-            contentType="schedule"
-            message={error === 'NO_INTERNET' ? 'Расписание недоступно без подключения к интернету' : 'Не удалось загрузить расписание'}
             isNewYearMode={isNewYearMode}
           />
         </Animated.View>

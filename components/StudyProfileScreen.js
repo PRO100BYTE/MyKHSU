@@ -6,6 +6,7 @@ import { loadAllAttendance, getAttendanceStats } from '../utils/attendanceStorag
 import { getAllHomeworkDeadlines, HOMEWORK_STATUSES } from '../utils/notesStorage';
 import notificationService from '../utils/notificationService';
 import { loadStudyProfile, saveStudyProfile } from '../utils/studyProfileStorage';
+import { SectionHeader, SettingsGroup } from './SettingsComponents';
 
 const formatDateTime = (timestamp) => {
   try {
@@ -88,8 +89,9 @@ const StudyProfileScreen = ({ theme, accentColor }) => {
 
   return (
     <ScrollView style={{ flex: 1, padding: 16 }} contentContainerStyle={{ paddingBottom: 64 }}>
-      <Text style={[styles.title, { color: glass.text }]}>Персональный учебный профиль</Text>
+      <SectionHeader title="Персональный учебный профиль" placeholderColor={glass.textSecondary} />
 
+      <SettingsGroup glass={glass}>
       <View style={[styles.card, { backgroundColor: glass.surfaceSecondary, borderColor: glass.border }]}>
         <Text style={[styles.sectionTitle, { color: glass.text }]}>Посещаемость</Text>
         <Text style={{ color: glass.textSecondary, fontFamily: 'Montserrat_400Regular', marginTop: 4 }}>
@@ -113,8 +115,11 @@ const StudyProfileScreen = ({ theme, accentColor }) => {
           {attendanceTotal.ratio >= profile.targetAttendance ? 'Цель выполняется' : 'Нужно усилить посещаемость'}
         </Text>
       </View>
+      </SettingsGroup>
 
-      <View style={[styles.card, { marginTop: 12, backgroundColor: glass.surfaceSecondary, borderColor: glass.border }]}>
+      <SectionHeader title="Дедлайны и ДЗ" placeholderColor={glass.textSecondary} />
+      <SettingsGroup glass={glass}>
+      <View style={[styles.card, { marginTop: 0, backgroundColor: glass.surfaceSecondary, borderColor: glass.border }]}>
         <Text style={[styles.sectionTitle, { color: glass.text }]}>Дедлайны и ДЗ</Text>
         <Text style={[styles.text, { color: glass.textSecondary }]}>К выполнению: {deadlinesStats.todo}</Text>
         <Text style={[styles.text, { color: glass.textSecondary }]}>В работе: {deadlinesStats.in_progress}</Text>
@@ -140,8 +145,11 @@ const StudyProfileScreen = ({ theme, accentColor }) => {
           </View>
         ))}
       </View>
+      </SettingsGroup>
 
-      <View style={[styles.card, { marginTop: 12, backgroundColor: glass.surfaceSecondary, borderColor: glass.border }]}>
+      <SectionHeader title="История изменений" placeholderColor={glass.textSecondary} />
+      <SettingsGroup glass={glass}>
+      <View style={[styles.card, { marginTop: 0, backgroundColor: glass.surfaceSecondary, borderColor: glass.border }]}>
         <Text style={[styles.sectionTitle, { color: glass.text }]}>История изменений расписания (7 дней)</Text>
         {history.length === 0 && (
           <Text style={[styles.text, { color: glass.textSecondary }]}>Изменений пока нет.</Text>
@@ -162,8 +170,11 @@ const StudyProfileScreen = ({ theme, accentColor }) => {
           </View>
         ))}
       </View>
+      </SettingsGroup>
 
-      <View style={[styles.card, { marginTop: 12, backgroundColor: glass.surfaceSecondary, borderColor: glass.border }]}>
+      <SectionHeader title="Риск-зоны" placeholderColor={glass.textSecondary} />
+      <SettingsGroup glass={glass}>
+      <View style={[styles.card, { marginTop: 0, backgroundColor: glass.surfaceSecondary, borderColor: glass.border }]}>
         <Text style={[styles.sectionTitle, { color: glass.text }]}>Риск-зоны по предметам</Text>
         {attendanceStats.slice(0, 5).map((item) => (
           <View key={item.subject} style={[styles.listRow, { borderColor: glass.border, backgroundColor: glass.surfaceTertiary }]}>
@@ -174,6 +185,7 @@ const StudyProfileScreen = ({ theme, accentColor }) => {
           </View>
         ))}
       </View>
+      </SettingsGroup>
     </ScrollView>
   );
 };

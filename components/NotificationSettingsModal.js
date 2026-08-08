@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity, Switch, ScrollView, StyleSheet } from 're
 import { Ionicons as Icon } from '@expo/vector-icons';
 import * as SecureStore from 'expo-secure-store';
 import { ACCENT_COLORS, LIQUID_GLASS } from '../utils/constants';
+import { SectionHeader, SettingsGroup } from './SettingsComponents';
 
 const NotificationSettingsModal = ({ theme, accentColor }) => {
   const [settings, setSettings] = useState({
@@ -77,7 +78,11 @@ const NotificationSettingsModal = ({ theme, accentColor }) => {
         showsVerticalScrollIndicator={false}
       >
             {/* Основные настройки */}
-            <View style={[styles.sectionCard, { backgroundColor: inputBgColor, borderColor }]}>
+            <SectionHeader 
+              title="Общие уведомления"
+              placeholderColor={placeholderColor}
+            />
+            <SettingsGroup glass={glass}>
             <View style={[styles.settingItem, { borderBottomColor: borderColor }]}>
               <View style={styles.settingInfo}>
                 <Icon name="notifications-outline" size={24} color={colors.primary} />
@@ -154,13 +159,15 @@ const NotificationSettingsModal = ({ theme, accentColor }) => {
                 disabled={!settings.enabled || !settings.schedule}
               />
             </View>
-            </View>
+            </SettingsGroup>
 
             {settings.schedule && settings.enabled && (
-              <View style={[styles.sectionCard, { backgroundColor: inputBgColor, borderColor, marginTop: 16 }]}>
-                <Text style={[styles.sectionTitle, { color: textColor, marginBottom: 8 }]}>
-                  Уведомления о начале пары
-                </Text>
+              <>
+              <SectionHeader 
+                title="Уведомления о парах"
+                placeholderColor={placeholderColor}
+              />
+              <SettingsGroup glass={glass}>
                 
                 <View style={[styles.settingItem, { borderBottomColor: borderColor }]}>
                   <View style={styles.settingInfo}>
@@ -198,9 +205,6 @@ const NotificationSettingsModal = ({ theme, accentColor }) => {
                   />
                 </View>
 
-                <Text style={[styles.sectionTitle, { color: textColor, marginTop: 8, marginBottom: 8 }]}>
-                  Уведомления о конце пары
-                </Text>
 
                 <View style={[styles.settingItem, { borderBottomColor: borderColor }]}>
                   <View style={styles.settingInfo}>
@@ -237,11 +241,12 @@ const NotificationSettingsModal = ({ theme, accentColor }) => {
                     thumbColor={settings.lessonEnd ? colors.primary : placeholderColor}
                   />
                 </View>
-              </View>
+              </SettingsGroup>
+              </>
             )}
 
             {/* Информация */}
-            <View style={[styles.infoSection, { backgroundColor: inputBgColor, borderColor }]}>
+            <View style={[styles.infoSection, { backgroundColor: glass?.surfaceTertiary, borderColor }]}>
               <Icon name="information-circle-outline" size={16} color={colors.primary} />
               <Text style={[styles.infoText, { color: placeholderColor, marginLeft: 8, flex: 1 }]}>
                 Настройки уведомлений применяются автоматически

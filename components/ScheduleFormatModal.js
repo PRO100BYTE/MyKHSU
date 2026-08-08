@@ -4,6 +4,7 @@ import { Ionicons as Icon } from '@expo/vector-icons';
 import * as SecureStore from 'expo-secure-store';
 import { ACCENT_COLORS, COURSES, LIQUID_GLASS } from '../utils/constants';
 import ApiService from '../utils/api';
+import { SectionHeader, SettingsGroup } from './SettingsComponents';
 
 const ScheduleFormatModal = ({ theme, accentColor, onSettingsChange, onSave }) => {
   const [scheduleFormat, setScheduleFormat] = useState('student');
@@ -275,7 +276,8 @@ const ScheduleFormatModal = ({ theme, accentColor, onSettingsChange, onSave }) =
       >
         {/* Выбор формата */}
         <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: textColor }]}>Режим отображения</Text>
+          <SectionHeader title="Режим отображения" placeholderColor={placeholderColor} />
+          <SettingsGroup glass={glass} style={{ backgroundColor: glass.surfaceSecondary, padding: 12 }}>
           
           <TouchableOpacity
             style={[styles.formatOption, { 
@@ -339,13 +341,15 @@ const ScheduleFormatModal = ({ theme, accentColor, onSettingsChange, onSave }) =
               <Icon name="checkmark-circle" size={20} color={colors.primary} style={styles.formatCheckmark} />
             )}
           </TouchableOpacity>
+          </SettingsGroup>
         </View>
 
         {/* Настройки для студента */}
         {scheduleFormat === 'student' && (
           <>
             <View style={styles.section}>
-              <Text style={[styles.sectionTitle, { color: textColor }]}>Группа по умолчанию</Text>
+              <SectionHeader title="Группа по умолчанию" placeholderColor={placeholderColor} />
+              <SettingsGroup glass={glass} style={{ backgroundColor: glass.surfaceSecondary, padding: 12 }}>
               <Text style={[styles.sectionDescription, { color: placeholderColor }]}>
                 Выберите курс и группу, которые будут автоматически загружаться при открытии расписания
               </Text>
@@ -423,10 +427,12 @@ const ScheduleFormatModal = ({ theme, accentColor, onSettingsChange, onSave }) =
                   </Text>
                 </View>
               )}
+              </SettingsGroup>
             </View>
 
             <View style={styles.section}>
-              <Text style={[styles.sectionTitle, { color: textColor }]}>Отображение селектора</Text>
+              <SectionHeader title="Отображение селектора" placeholderColor={placeholderColor} />
+              <SettingsGroup glass={glass} style={{ backgroundColor: glass.surfaceSecondary, padding: 12 }}>
               
               <TouchableOpacity
                 style={[styles.selectorOption, { borderColor }]}
@@ -468,10 +474,12 @@ const ScheduleFormatModal = ({ theme, accentColor, onSettingsChange, onSave }) =
                   При скрытом селекторе будет показано расписание для группы {defaultGroup} ({availableCourses.find(c => c.id === selectedCourse)?.label || `Курс ${selectedCourse}`})
                 </Text>
               )}
+              </SettingsGroup>
             </View>
 
             <View style={styles.section}>
-              <Text style={[styles.sectionTitle, { color: textColor }]}>Посещаемость</Text>
+              <SectionHeader title="Посещаемость" placeholderColor={placeholderColor} />
+              <SettingsGroup glass={glass} style={{ backgroundColor: glass.surfaceSecondary, padding: 12 }}>
               <TouchableOpacity
                 style={[styles.selectorOption, { borderColor }]}
                 onPress={() => setAttendanceTrackingEnabled(!attendanceTrackingEnabled)}
@@ -500,10 +508,12 @@ const ScheduleFormatModal = ({ theme, accentColor, onSettingsChange, onSave }) =
                   thumbColor={attendanceTrackingEnabled ? colors.primary : placeholderColor}
                 />
               </TouchableOpacity>
+              </SettingsGroup>
             </View>
 
             <View style={styles.section}>
-              <Text style={[styles.sectionTitle, { color: textColor }]}>Свободные аудитории</Text>
+              <SectionHeader title="Свободные аудитории" placeholderColor={placeholderColor} />
+              <SettingsGroup glass={glass} style={{ backgroundColor: glass.surfaceSecondary, padding: 12 }}>
               <TouchableOpacity
                 style={[styles.selectorOption, { borderColor }]}
                 onPress={() => setFreeAuditoriesEnabled(!freeAuditoriesEnabled)}
@@ -532,6 +542,7 @@ const ScheduleFormatModal = ({ theme, accentColor, onSettingsChange, onSave }) =
                   thumbColor={freeAuditoriesEnabled ? colors.primary : placeholderColor}
                 />
               </TouchableOpacity>
+              </SettingsGroup>
             </View>
           </>
         )}
@@ -539,7 +550,8 @@ const ScheduleFormatModal = ({ theme, accentColor, onSettingsChange, onSave }) =
         {/* Настройки для преподавателя */}
         {scheduleFormat === 'teacher' && (
           <View style={styles.section}>
-            <Text style={[styles.sectionTitle, { color: textColor }]}>ФИО преподавателя</Text>
+            <SectionHeader title="ФИО преподавателя" placeholderColor={placeholderColor} />
+            <SettingsGroup glass={glass} style={{ backgroundColor: glass.surfaceSecondary, padding: 12 }}>
             <Text style={[styles.sectionDescription, { color: placeholderColor }]}>
               Начните вводить фамилию преподавателя для поиска
             </Text>
@@ -594,13 +606,15 @@ const ScheduleFormatModal = ({ theme, accentColor, onSettingsChange, onSave }) =
                 </Text>
               </View>
             )}
+            </SettingsGroup>
           </View>
         )}
 
         {/* Настройки для аудитории */}
         {scheduleFormat === 'auditory' && (
           <View style={styles.section}>
-            <Text style={[styles.sectionTitle, { color: textColor }]}>Номер аудитории</Text>
+            <SectionHeader title="Номер аудитории" placeholderColor={placeholderColor} />
+            <SettingsGroup glass={glass} style={{ backgroundColor: glass.surfaceSecondary, padding: 12 }}>
             <Text style={[styles.sectionDescription, { color: placeholderColor }]}>
               Начните вводить номер аудитории для поиска
             </Text>
@@ -654,10 +668,13 @@ const ScheduleFormatModal = ({ theme, accentColor, onSettingsChange, onSave }) =
                 </Text>
               </View>
             )}
+            </SettingsGroup>
           </View>
         )}
 
         {/* Информация о режимах */}
+        <SectionHeader title="Информация о режимах" placeholderColor={placeholderColor} />
+        <SettingsGroup glass={glass} style={{ backgroundColor: glass.surfaceSecondary }}>
         <View style={[styles.infoSection, { backgroundColor: inputBgColor }]}>
           <Text style={[styles.infoTitle, { color: textColor }]}>Информация о режимах</Text>
           <View style={styles.infoItem}>
@@ -679,6 +696,7 @@ const ScheduleFormatModal = ({ theme, accentColor, onSettingsChange, onSave }) =
             </Text>
           </View>
         </View>
+        </SettingsGroup>
       </ScrollView>
 
       {/* Кнопка сохранения */}
@@ -696,7 +714,7 @@ const ScheduleFormatModal = ({ theme, accentColor, onSettingsChange, onSave }) =
 };
 
 const styles = StyleSheet.create({
-  section: { marginBottom: 24 },
+  section: { marginBottom: 12 },
   sectionTitle: { fontSize: 16, fontWeight: '600', marginBottom: 8, fontFamily: 'Montserrat_600SemiBold' },
   subSectionTitle: { fontSize: 14, fontWeight: '600', marginBottom: 8, marginTop: 12, fontFamily: 'Montserrat_600SemiBold' },
   sectionDescription: { fontSize: 14, marginBottom: 12, fontFamily: 'Montserrat_400Regular' },

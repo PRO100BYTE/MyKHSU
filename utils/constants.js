@@ -135,6 +135,8 @@ export const LIQUID_GLASS = {
     // Blur интенсивность
     blurIntensity: 80,
     blurTint: 'systemChromeMaterialDark',
+    // Карточки (tinted glass для спецтем)
+    isSpecialTheme: true,
   },
   legend: {
     // Поверхности
@@ -164,6 +166,8 @@ export const LIQUID_GLASS = {
     // Blur интенсивность
     blurIntensity: 80,
     blurTint: 'systemChromeMaterialDark',
+    // Карточки (tinted glass для спецтем)
+    isSpecialTheme: true,
   }
 };
 
@@ -172,7 +176,7 @@ export const APP_VERSION = '2.3.2';
 export const APP_DEVELOPERS = 'студентами группы 125-1 в составе команды PRO100BYTE Team';
 export const APP_SUPPORTERS = 'ХГУ им. Н.Ф. Катанова и ООО "Скалк Софт"';
 export const BUILD_VER = 'git-0d44c62';
-export const BUILD_DATE = '25.05.2026';
+export const BUILD_DATE = '07.08.2026';
 
 // Дни недели
 export const WEEKDAYS = [
@@ -189,7 +193,7 @@ export const WEEKDAYS = [
 export const SCREENS = {
   SCHEDULE: 'Расписание',
   MAP: 'Карта',
-  FRESHMAN: 'Первокурснику / Студенту',
+  FRESHMAN: 'Студгородок',
   NEWS: 'Новости',
   SETTINGS: 'Настройки'
 };
