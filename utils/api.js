@@ -1,5 +1,4 @@
 import { API_BASE_URL, CORS_PROXY } from './constants';
-import { getWithExpiry, setWithExpiry } from './cache';
 import { getWeekNumber } from './dateUtils';
 import NetInfo from '@react-native-community/netinfo';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -53,7 +52,7 @@ class ApiService {
   }
 
   // Универсальный метод для запросов
-  async makeRequest(url, options = {}, useCache = true, cacheKey = null, cacheTTL = null) {
+  async makeRequest(url, options = {}, useCache = true, cacheKey = null, cacheTTL = null, forceRefresh = false) {
     // Проверяем настройки кэширования
     if (!this.cacheSettings.enabled) {
       useCache = false;
@@ -75,7 +74,7 @@ class ApiService {
           const item = JSON.parse(itemStr);
           const now = Date.now();
           
-          if (now - item.timestamp <= finalTTL) {
+          if (now - item.timestamp <= finalTTL && !forceRefresh) {
             // Кэш ещё свежий — возвращаем сразу
             return {
               data: item.data,
@@ -83,7 +82,7 @@ class ApiService {
               cacheInfo: { cacheDate: new Date(item.timestamp).toISOString() }
             };
           }
-          // Кэш просрочен — сохраняем на случай оффлайна, НЕ удаляем
+          // Кэш просрочен или обновление запрошено явно — сохраняем на случай оффлайна, НЕ удаляем
           cachedItem = item;
         }
       } catch (cacheError) {
@@ -207,104 +206,11 @@ class ApiService {
   }
 
   // Улучшенный метод для загрузки новостей с умным кэшированием
-  async getNews(from = 0, amount = 10) {
+  async getNews(from = 0, amount = 10, forceRefresh = false) {
     const baseUrl = await this.getBaseUrl();
     const url = `${baseUrl}/news?amount=${amount}&from=${from}`;
     const cacheKey = `news_${from}_${amount}`;
-    
-    try {
-      const result = await this.makeRequest(url, {}, true, cacheKey, 30 * 60 * 1000); // 30 минут
-      
-      // Дополнительная обработка для новостей: проверка новых и обновление кэша
-      if (from === 0 && result.data && Array.isArray(result.data)) {
-        await this.processNewsUpdate(result.data);
-      }
-      
-      return result;
-    } catch (error) {
-      throw error;
-    }
-  }
-
-  // Обработка обновления новостей для умного кэширования
-  async processNewsUpdate(currentNews) {
-    if (!currentNews || currentNews.length === 0) return;
-    
-    try {
-      // Получаем последние закэшированные новости
-      const lastCachedNews = await getWithExpiry('news_latest');
-      const lastNewsCheck = await getWithExpiry('news_last_check');
-      
-      // Фильтруем пустые новости
-      const filteredNews = currentNews.filter(item => item.content && item.content.trim() !== "");
-      
-      // Сохраняем текущие новости как последние
-      await setWithExpiry('news_latest', filteredNews.slice(0, 5), 24 * 60 * 60 * 1000);
-      await setWithExpiry('news_last_check', Date.now(), 24 * 60 * 60 * 1000);
-      
-      // Если есть предыдущие новости, проверяем наличие новых
-      if (lastCachedNews && lastCachedNews.length > 0) {
-        const newNewsCount = this.detectNewNews(filteredNews, lastCachedNews);
-        
-        if (newNewsCount > 0) {
-          // Сохраняем информацию о новых новостях для уведомлений
-          await setWithExpiry('new_news_detected', {
-            count: newNewsCount,
-            detectedAt: Date.now(),
-            latestNews: filteredNews[0]
-          }, 24 * 60 * 60 * 1000);
-          
-          console.log(`Detected ${newNewsCount} new news items`);
-        }
-      }
-    } catch (error) {
-      console.error('Error processing news update:', error);
-    }
-  }
-
-  // Обнаружение новых новостей путем сравнения с предыдущими
-  detectNewNews(currentNews, previousNews) {
-    if (!previousNews || previousNews.length === 0) return currentNews.length;
-    
-    // Создаем набор уникальных идентификаторов предыдущих новостей
-    const previousNewsSet = new Set();
-    previousNews.forEach(news => {
-      const key = this.createNewsKey(news);
-      previousNewsSet.add(key);
-    });
-    
-    // Считаем новые новости
-    let newCount = 0;
-    for (const news of currentNews) {
-      const key = this.createNewsKey(news);
-      if (!previousNewsSet.has(key)) {
-        newCount++;
-      } else {
-        // Новости отсортированы от новых к старым, поэтому можно прервать
-        break;
-      }
-    }
-    
-    return newCount;
-  }
-
-  // Создание уникального ключа для новости
-  createNewsKey(news) {
-    return `${news.date}_${news.content.substring(0, 100)}`;
-  }
-
-  // Метод для получения информации о новых новостях (для уведомлений)
-  async getNewNewsInfo() {
-    return await getWithExpiry('new_news_detected');
-  }
-
-  // Метод для отметки новостей как прочитанных
-  async markNewsAsRead() {
-    const latestNews = await getWithExpiry('news_latest');
-    if (latestNews && latestNews.length > 0) {
-      await setWithExpiry('news_read', latestNews[0].date, 24 * 60 * 60 * 1000);
-      await setWithExpiry('new_news_detected', null);
-    }
+    return this.makeRequest(url, {}, true, cacheKey, 30 * 60 * 1000, forceRefresh);
   }
 
   // Метод для загрузки групп
@@ -315,7 +221,7 @@ class ApiService {
   }
 
   // Метод для загрузки расписания
-  async getSchedule(group, date, week = null) {
+  async getSchedule(group, date, week = null, forceRefresh = false) {
     let url;
     let cacheKey;
     
@@ -330,7 +236,7 @@ class ApiService {
       cacheKey = `schedule_${group}_date_${formattedDate}`;
     }
     
-    return this.makeRequest(url, {}, true, cacheKey, 60 * 60 * 1000);
+    return this.makeRequest(url, {}, true, cacheKey, 60 * 60 * 1000, forceRefresh);
   }
 
   // Метод для загрузки времени пар

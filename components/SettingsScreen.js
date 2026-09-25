@@ -397,8 +397,19 @@ const SettingsScreen = forwardRef(({
           onPress: async () => {
             try {
               const keys = await AsyncStorage.getAllKeys();
-              await AsyncStorage.multiRemove(keys);
-              Alert.alert('Успех', 'Кэш успешно очищен');
+              const cacheKeys = keys.filter((key) =>
+                key.startsWith('api_') ||
+                key.startsWith('schedule_') ||
+                key.startsWith('groups_') ||
+                key.startsWith('news_') ||
+                key.startsWith('teacher_schedule_') ||
+                key.startsWith('auditory_schedule_') ||
+                key.startsWith('pairs_time_') ||
+                key.startsWith('available_courses_') ||
+                key.startsWith('week_numbers_')
+              );
+              await AsyncStorage.multiRemove(cacheKeys);
+              Alert.alert('Успех', 'Кэш расписания и новостей успешно очищен');
             } catch (error) {
               console.error('Error clearing cache:', error);
               Alert.alert('Ошибка', 'Не удалось очистить кэш');

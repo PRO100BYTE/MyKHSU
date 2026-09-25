@@ -291,48 +291,30 @@ class NotificationService {
         return;
       }
 
-      // Получаем последние закэшированные новости
       const lastCachedNews = await getWithExpiry('news_latest');
-      const lastNewsCheck = await getWithExpiry('news_last_check');
-      
-      // Если это первая проверка, сохраняем текущие новости и выходим
+
+      // Первая успешная проверка создаёт baseline и не уведомляет о старой ленте.
       if (!lastCachedNews || lastCachedNews.length === 0) {
         await this.updateNewsCache(currentNews);
         return;
       }
 
-      // Находим действительно новые новости (по дате публикации)
       const newNews = this.findTrulyNewNews(currentNews, lastCachedNews);
-      
       if (newNews.length > 0) {
         await this.showNewsNotification(newNews);
-        await this.updateNewsCache(currentNews);
       }
+
+      // Обновляем baseline даже без новых записей, чтобы сравнение было идемпотентным.
+      await this.updateNewsCache(currentNews);
     } catch (error) {
       console.error('Error checking for new news:', error);
     }
   }
 
-  // Поиск действительно новых новостей по дате публикации
+  // Поиск новых новостей по устойчивому ключу, а не по строковому сравнению дат.
   findTrulyNewNews(currentNews, previousNews) {
-    const newNews = [];
-    
-    // Находим максимальную дату из предыдущих новостей
-    let maxPreviousDate = '';
-    previousNews.forEach(news => {
-      if (news.date > maxPreviousDate) {
-        maxPreviousDate = news.date;
-      }
-    });
-
-    // Ищем новости с датой позже максимальной из предыдущих
-    for (const news of currentNews) {
-      if (news.date > maxPreviousDate) {
-        newNews.push(news);
-      }
-    }
-
-    return newNews;
+    const previousIds = new Set((previousNews || []).map((news) => this.createNewsId(news)));
+    return (currentNews || []).filter((news) => !previousIds.has(this.createNewsId(news)));
   }
 
   // Обновление кэша новостей
@@ -386,8 +368,9 @@ class NotificationService {
   }
 
   createNewsId(newsItem) {
-    // Используем дату публикации для создания уникального ID
-    return newsItem.date;
+    const date = newsItem?.date || newsItem?.hr_date || '';
+    const content = String(newsItem?.content || '').trim().replace(/\s+/g, ' ').slice(0, 100);
+    return `${date}_${content}`;
   }
 
   /**

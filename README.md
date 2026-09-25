@@ -13,10 +13,10 @@
       <img src="https://img.shields.io/badge/лицензия-LGPL%20v3-green?style=for-the-badge" alt="Лицензия" />
     </a>
     <a href="https://reactnative.dev/">
-      <img src="https://img.shields.io/badge/React%20Native-0.81.5-61DAFB?style=for-the-badge&logo=react" alt="React Native" />
+      <img src="https://img.shields.io/badge/React%20Native-0.86.3-61DAFB?style=for-the-badge&logo=react" alt="React Native" />
     </a>
     <a href="https://expo.dev/">
-      <img src="https://img.shields.io/badge/Expo-54.0.34-000020?style=for-the-badge&logo=expo" alt="Expo" />
+      <img src="https://img.shields.io/badge/Expo-57.0.25-000020?style=for-the-badge&logo=expo" alt="Expo" />
     </a>
     <a href="https://developer.mozilla.org/ru/docs/Web/JavaScript">
       <img src="https://img.shields.io/badge/JavaScript-ES6+-F7DF1E?style=for-the-badge&logo=javascript&logoColor=black" alt="JavaScript" />
@@ -63,7 +63,7 @@
 
 - **Офлайн-доступ**: Кэширование расписания и новостей.
 - **Новости**: Актуальные события университета.
-- **Карта**: Интерактивная схема корпусов.
+- **Карта**: Интерактивная схема корпусов на iOS; на Android доступен список корпусов и переход к построению маршрута во внешних картах.
 - **Персонализация**: Темы (светлая/тёмная) и цветовые акценты.
 - **Уведомления**: Оповещения об изменениях и важных новостях.
 
@@ -74,7 +74,7 @@
 - **Framework**: [React Native](https://reactnative.dev/)
 - **Platform**: [Expo](https://expo.dev/)
 - **Language**: [JavaScript (ES6+)](https://developer.mozilla.org/ru/docs/Web/JavaScript)
-- **Navigation**: Expo Router (File-based routing)
+- **Navigation**: собственная tab-навигация на внутреннем состоянии React
 
 ## 🗒️ Структура проекта
 

@@ -210,7 +210,7 @@ export const useScheduleLogic = () => {
     }
   };
 
-  const fetchScheduleData = async (group) => {
+  const fetchScheduleData = async (group, forceRefresh = false) => {
     if (!group) return;
     
     setLoadingSchedule(true);
@@ -220,9 +220,9 @@ export const useScheduleLogic = () => {
     try {
       let result;
       if (viewMode === 'day') {
-        result = await ApiService.getSchedule(group, currentDate);
+        result = await ApiService.getSchedule(group, currentDate, null, forceRefresh);
       } else {
-        result = await ApiService.getSchedule(group, null, currentWeek);
+        result = await ApiService.getSchedule(group, null, currentWeek, forceRefresh);
       }
       
       const processedSchedule = processScheduleData(result, currentDate);
@@ -324,7 +324,7 @@ export const useScheduleLogic = () => {
   const onRefresh = () => {
     setRefreshing(true);
     if (selectedGroup) {
-      return fetchScheduleData(selectedGroup);
+      return fetchScheduleData(selectedGroup, true);
     } else {
       return fetchGroupsForCourse(course);
     }

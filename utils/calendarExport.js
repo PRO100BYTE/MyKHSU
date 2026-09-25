@@ -1,5 +1,5 @@
 // utils/calendarExport.js
-import { File, Paths } from 'expo-file-system/next';
+import { File, Paths } from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
 import * as Calendar from 'expo-calendar';
 import { Alert, Platform } from 'react-native';

@@ -2,8 +2,8 @@
 
 ## Технологический стек
 
-- React Native 0.81
-- Expo 54
+- React Native 0.86
+- Expo 57
 - React 19
 - AsyncStorage и SecureStore для локальных данных
 - Expo Notifications и Expo Background Fetch для уведомлений и фоновых задач
@@ -45,6 +45,7 @@
 - `AcademicCalendarScreen.js`: учебные события, добавление из панели действий фильтров, редактирование и экспорт в календарь и ICS.
 - `AcademicEventModal.js`: модальное окно создания и редактирования учебного события в формате `pageSheet`, по реализации и размерам согласованное с окнами `FreeAuditoriesScreen` и `AttendanceStatsModal`.
 - `ScheduleChangesHistoryScreen.js`: отдельная история изменений расписания с diff-представлением.
+- `CommunityScreen.js`: локальные черновики материалов и анонимные отзывы; публикация между пользователями требует backend и модерации.
 
 ### 2. Логический слой: `hooks/`
 
@@ -67,6 +68,7 @@
 - `academicEventsStorage.js`: локальное хранилище учебных событий.
 - `studyProfileStorage.js`: локальное хранилище учебного профиля.
 - `dateUtils.js`, `scheduleUtils.js`: вспомогательные вычисления дат и состояний расписания.
+- `communityStorage.js`: локальные черновики учебных материалов и отзывов о преподавателях для раздела «Сообщество ИТИ».
 - `constants.js`: централизованные константы приложения, включая `LIQUID_GLASS` — палитру тем с `cardBlurTint` и `cardBlurIntensity` для нативного Liquid Glass на iOS.
 - `liquidGlass.js`: утилитарные функции стилей для glass-дизайна.
 

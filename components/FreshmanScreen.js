@@ -6,6 +6,7 @@ import ConnectionError from './ConnectionError';
 import UnderDevelopmentModal from './UnderDevelopmentModal';
 import BuildingsListScreen from './BuildingsListScreen';
 import AcademicCalendarScreen from './AcademicCalendarScreen';
+import CommunityScreen from './CommunityScreen';
 import Snowfall from './Snowfall';
 import { unlockAchievement } from '../utils/achievements';
 import { showAchievementToast } from './AchievementToast';
@@ -52,6 +53,8 @@ const FreshmanScreen = forwardRef(({ theme, accentColor, isNewYearMode, onNaviga
       title = 'Расписание звонков';
     } else if (currentGroupType === 'academicCalendar') {
       title = 'Календарь учебных событий';
+    } else if (currentGroupType === 'community') {
+      title = 'Сообщество ИТИ';
     } else if (currentGroupType === 'glossary') {
       title = 'Словарь аббревиатур';
     }
@@ -451,6 +454,12 @@ const FreshmanScreen = forwardRef(({ theme, accentColor, isNewYearMode, onNaviga
           description: 'Группы и сообщества ВКонтакте и Telegram',
           onPress: () => setCurrentGroupType('main'),
         },
+        {
+          icon: 'people-outline',
+          title: 'Сообщество ИТИ',
+          description: 'Локальные черновики материалов и отзывы о преподавателях',
+          onPress: () => setCurrentGroupType('community'),
+        },
       ],
     },
   ];
@@ -620,6 +629,10 @@ const FreshmanScreen = forwardRef(({ theme, accentColor, isNewYearMode, onNaviga
 
   const renderAcademicCalendar = () => (
     <AcademicCalendarScreen theme={theme} accentColor={accentColor} />
+  );
+
+  const renderCommunity = () => (
+    <CommunityScreen theme={theme} accentColor={accentColor} />
   );
 
   // Расписание звонков (загружается с сервера)
@@ -893,6 +906,8 @@ const FreshmanScreen = forwardRef(({ theme, accentColor, isNewYearMode, onNaviga
       return renderBellSchedule();
     } else if (currentGroupType === 'academicCalendar') {
       return renderAcademicCalendar();
+    } else if (currentGroupType === 'community') {
+      return renderCommunity();
     } else if (currentGroupType === 'glossary') {
       return renderGlossary();
     }
