@@ -6,18 +6,8 @@
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
-    "newArchEnabled": false,
-    "splash": {
-      "image": "./assets/splash-icon.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#f3f4f6",
-      "imageWidth": 60,
-      "dark": {
-        "image": "./assets/splash-icon.png",
-        "resizeMode": "contain",
-        "backgroundColor": "#111827",
-        "imageWidth": 60
-      }
+    "experiments": {
+      "reactCompiler": true
     },
     "ios": {
       "supportsTablet": true,
@@ -45,7 +35,6 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "edgeToEdgeEnabled": true,
       "package": "com.pro100byte.myitikhsu",
       "versionCode": 1,
       "permissions": [
@@ -96,9 +85,24 @@
           ]
         }
       ],
-      "expo-splash-screen",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash-icon.png",
+          "resizeMode": "contain",
+          "backgroundColor": "#f3f4f6",
+          "dark": {
+            "image": "./assets/splash-icon.png",
+            "resizeMode": "contain",
+            "backgroundColor": "#111827"
+          }
+        }
+      ],
       "expo-calendar",
-      "@react-native-community/datetimepicker"
+      "@react-native-community/datetimepicker",
+      "@sentry/react-native",
+      "expo-sharing",
+      "expo-status-bar"
     ],
     "extra": {
       "eas": {
@@ -108,7 +112,6 @@
       "googleMapsApiKey": "$GOOGLE_MAPS_API_KEY"
     },
     "owner": "pro100byte",
-    "sdkVersion": "54.0.0",
     "platforms": [
       "ios",
       "android"

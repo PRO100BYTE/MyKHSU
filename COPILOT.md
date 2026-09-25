@@ -8,7 +8,7 @@
 
 ## Краткий профиль проекта
 
-- Платформа: React Native 0.81 + Expo 54.
+- Платформа: React Native 0.86 + Expo 57.
 - Вход: `App.js`, `index.js`.
 - Ключевые зоны:
   - экраны и UI: `components/`

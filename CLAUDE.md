@@ -8,7 +8,7 @@ Primary objective: deliver user-visible improvements with minimal risk, preserve
 
 ## Project Snapshot
 
-- Platform: React Native 0.81 + Expo 54.
+- Platform: React Native 0.86 + Expo 57.
 - Entry files: `App.js`, `index.js`.
 - UI components: `components/`.
 - Domain and business helpers: `utils/`.
