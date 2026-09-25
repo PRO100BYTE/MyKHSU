@@ -5,7 +5,7 @@ import { LIQUID_GLASS } from '../utils/constants';
 const PlaceholderScreen = ({ title, theme }) => {
   const messages = {
     'Карта': 'Данный раздел находится в разработке и скоро будет доступен.',
-    'Первокурснику': 'Полезная информация для первокурсников появится здесь в ближайшее время.'
+    'Студгородок': 'Полезная информация для студентов появится здесь в ближайшее время.'
   };
 
   const glass = LIQUID_GLASS[theme] || LIQUID_GLASS.light;

@@ -19,7 +19,7 @@ TaskManager.defineTask(BACKGROUND_NEWS_CHECK, async () => {
     }
 
     // Загружаем свежие новости
-    const result = await ApiService.getNews(0, 5);
+    const result = await ApiService.getNews(0, 5, true);
     
     if (result.data && result.data.length > 0) {
       await notificationService.checkForNewNews(result.data);
@@ -67,7 +67,7 @@ export default {
   registerBackgroundNewsCheck,
   checkForNewsNotifications: async () => {
     try {
-      const result = await ApiService.getNews(0, 5);
+      const result = await ApiService.getNews(0, 5, true);
       if (result.data && result.data.length > 0) {
         await notificationService.checkForNewNews(result.data);
       }

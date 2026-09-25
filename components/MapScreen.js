@@ -391,22 +391,36 @@ const MapScreen = forwardRef(({ theme, accentColor, isNewYearMode, onFilterCount
 
   // Если есть ошибка или загрузка, показываем соответствующий экран
   if (loading || error) {
-    let errorType = error;
-    let errorMessage = 'Не удалось загрузить карту';
-    
-    if (error === 'NO_INTERNET') {
-      errorType = 'no-internet';
-      errorMessage = 'Карта недоступна без подключения к интернету';
-    } else if (error === 'LOAD_ERROR') {
-      errorType = 'load-error';
-      errorMessage = 'Не удалось загрузить карту';
-    } else if (error === 'NO_API_KEY') {
-      errorType = 'load-error';
-      errorMessage = 'API ключ 2ГИС не настроен';
-    } else if (error === 'ANDROID_NOT_SUPPORTED') {
-      errorType = 'android-not-supported';
-      errorMessage = 'В данный момент карта недоступна на платформе Android из-за отсутствия необходимых API ключей и ресурсов. Мы делаем все возможное, чтобы восстановить работоспособность карты на Android в кратчайшие сроки. Следите за обновлениями!';
-    }
+    const mapErrorConfig = {
+      NO_INTERNET: {
+        errorType: 'no-internet',
+        icon: 'map-outline',
+        title: 'Карта недоступна',
+        description: 'Карта недоступна без подключения к интернету',
+      },
+      LOAD_ERROR: {
+        errorType: 'load-error',
+        icon: 'warning-outline',
+        title: 'Ошибка загрузки карты',
+        description: 'Не удалось загрузить карту',
+      },
+      NO_API_KEY: {
+        errorType: 'api-unavailable',
+        icon: 'key-outline',
+        title: 'Карта не настроена',
+        description: 'API ключ 2ГИС не настроен',
+      },
+      ANDROID_NOT_SUPPORTED: {
+        errorType: 'android-not-supported',
+        icon: 'build-outline',
+        title: 'Карта временно недоступна',
+        description: 'В данный момент карта недоступна на платформе Android из-за отсутствия необходимых API ключей и ресурсов. Мы делаем все возможное, чтобы восстановить работоспособность карты на Android в кратчайшие сроки. Следите за обновлениями!',
+      },
+    };
+
+    const resolvedErrorConfig = mapErrorConfig[error] || {
+      errorType: error || 'load-error',
+    };
 
     return (
       <View style={{ flex: 1, backgroundColor: bgColor }}>
@@ -417,13 +431,15 @@ const MapScreen = forwardRef(({ theme, accentColor, isNewYearMode, onFilterCount
             backgroundColor={bgColor}
           />
           <ConnectionError 
-            type={errorType}
+            screen="map"
+            errorType={resolvedErrorConfig.errorType}
+            icon={resolvedErrorConfig.icon}
+            title={resolvedErrorConfig.title}
+            description={resolvedErrorConfig.description}
             loading={loading}
             onRetry={handleRetry}
             theme={theme}
             accentColor={accentColor}
-            contentType="map"
-            message={errorMessage}
             showFreshmanHint={true}
           />
         </Animated.View>

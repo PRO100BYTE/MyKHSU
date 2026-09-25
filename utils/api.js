@@ -1,5 +1,4 @@
 import { API_BASE_URL, CORS_PROXY } from './constants';
-import { getWithExpiry, setWithExpiry } from './cache';
 import { getWeekNumber } from './dateUtils';
 import NetInfo from '@react-native-community/netinfo';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -17,6 +16,29 @@ class ApiService {
     this.loadCacheSettings();
   }
 
+  // Формирует суффикс кэша из URL, чтобы кэш разных API-эндпоинтов не смешивался
+  getCacheScopeByUrl(url) {
+    try {
+      return btoa(url).replace(/[^a-zA-Z0-9]/g, '').slice(0, 24);
+    } catch {
+      return 'default';
+    }
+  }
+
+  // Получить актуальный базовый URL (кастомный или дефолтный)
+  async getBaseUrl() {
+    try {
+      const useCustom = await SecureStore.getItemAsync('use_custom_api');
+      if (useCustom === 'true') {
+        const customUrl = await SecureStore.getItemAsync('custom_api_url');
+        if (customUrl && customUrl.trim()) {
+          return customUrl.trim();
+        }
+      }
+    } catch (e) {}
+    return API_BASE_URL;
+  }
+
   // Загрузка настроек кэширования
   async loadCacheSettings() {
     try {
@@ -30,7 +52,7 @@ class ApiService {
   }
 
   // Универсальный метод для запросов
-  async makeRequest(url, options = {}, useCache = true, cacheKey = null, cacheTTL = null) {
+  async makeRequest(url, options = {}, useCache = true, cacheKey = null, cacheTTL = null, forceRefresh = false) {
     // Проверяем настройки кэширования
     if (!this.cacheSettings.enabled) {
       useCache = false;
@@ -39,7 +61,8 @@ class ApiService {
     const netState = await NetInfo.fetch();
     const isOnline = netState.isConnected;
     
-    const finalCacheKey = cacheKey || `api_${btoa(url)}`;
+    const scope = this.getCacheScopeByUrl(url);
+    const finalCacheKey = cacheKey ? `${cacheKey}_${scope}` : `api_${scope}`;
     const finalTTL = cacheTTL || (this.cacheSettings.ttl * 24 * 60 * 60 * 1000);
     
     // Пытаемся получить данные из кэша
@@ -51,7 +74,7 @@ class ApiService {
           const item = JSON.parse(itemStr);
           const now = Date.now();
           
-          if (now - item.timestamp <= finalTTL) {
+          if (now - item.timestamp <= finalTTL && !forceRefresh) {
             // Кэш ещё свежий — возвращаем сразу
             return {
               data: item.data,
@@ -59,7 +82,7 @@ class ApiService {
               cacheInfo: { cacheDate: new Date(item.timestamp).toISOString() }
             };
           }
-          // Кэш просрочен — сохраняем на случай оффлайна, НЕ удаляем
+          // Кэш просрочен или обновление запрошено явно — сохраняем на случай оффлайна, НЕ удаляем
           cachedItem = item;
         }
       } catch (cacheError) {
@@ -183,143 +206,57 @@ class ApiService {
   }
 
   // Улучшенный метод для загрузки новостей с умным кэшированием
-  async getNews(from = 0, amount = 10) {
-    const url = `${API_BASE_URL}/news?amount=${amount}&from=${from}`;
+  async getNews(from = 0, amount = 10, forceRefresh = false) {
+    const baseUrl = await this.getBaseUrl();
+    const url = `${baseUrl}/news?amount=${amount}&from=${from}`;
     const cacheKey = `news_${from}_${amount}`;
-    
-    try {
-      const result = await this.makeRequest(url, {}, true, cacheKey, 30 * 60 * 1000); // 30 минут
-      
-      // Дополнительная обработка для новостей: проверка новых и обновление кэша
-      if (from === 0 && result.data && Array.isArray(result.data)) {
-        await this.processNewsUpdate(result.data);
-      }
-      
-      return result;
-    } catch (error) {
-      throw error;
-    }
-  }
-
-  // Обработка обновления новостей для умного кэширования
-  async processNewsUpdate(currentNews) {
-    if (!currentNews || currentNews.length === 0) return;
-    
-    try {
-      // Получаем последние закэшированные новости
-      const lastCachedNews = await getWithExpiry('news_latest');
-      const lastNewsCheck = await getWithExpiry('news_last_check');
-      
-      // Фильтруем пустые новости
-      const filteredNews = currentNews.filter(item => item.content && item.content.trim() !== "");
-      
-      // Сохраняем текущие новости как последние
-      await setWithExpiry('news_latest', filteredNews.slice(0, 5), 24 * 60 * 60 * 1000);
-      await setWithExpiry('news_last_check', Date.now(), 24 * 60 * 60 * 1000);
-      
-      // Если есть предыдущие новости, проверяем наличие новых
-      if (lastCachedNews && lastCachedNews.length > 0) {
-        const newNewsCount = this.detectNewNews(filteredNews, lastCachedNews);
-        
-        if (newNewsCount > 0) {
-          // Сохраняем информацию о новых новостях для уведомлений
-          await setWithExpiry('new_news_detected', {
-            count: newNewsCount,
-            detectedAt: Date.now(),
-            latestNews: filteredNews[0]
-          }, 24 * 60 * 60 * 1000);
-          
-          console.log(`Detected ${newNewsCount} new news items`);
-        }
-      }
-    } catch (error) {
-      console.error('Error processing news update:', error);
-    }
-  }
-
-  // Обнаружение новых новостей путем сравнения с предыдущими
-  detectNewNews(currentNews, previousNews) {
-    if (!previousNews || previousNews.length === 0) return currentNews.length;
-    
-    // Создаем набор уникальных идентификаторов предыдущих новостей
-    const previousNewsSet = new Set();
-    previousNews.forEach(news => {
-      const key = this.createNewsKey(news);
-      previousNewsSet.add(key);
-    });
-    
-    // Считаем новые новости
-    let newCount = 0;
-    for (const news of currentNews) {
-      const key = this.createNewsKey(news);
-      if (!previousNewsSet.has(key)) {
-        newCount++;
-      } else {
-        // Новости отсортированы от новых к старым, поэтому можно прервать
-        break;
-      }
-    }
-    
-    return newCount;
-  }
-
-  // Создание уникального ключа для новости
-  createNewsKey(news) {
-    return `${news.date}_${news.content.substring(0, 100)}`;
-  }
-
-  // Метод для получения информации о новых новостях (для уведомлений)
-  async getNewNewsInfo() {
-    return await getWithExpiry('new_news_detected');
-  }
-
-  // Метод для отметки новостей как прочитанных
-  async markNewsAsRead() {
-    const latestNews = await getWithExpiry('news_latest');
-    if (latestNews && latestNews.length > 0) {
-      await setWithExpiry('news_read', latestNews[0].date, 24 * 60 * 60 * 1000);
-      await setWithExpiry('new_news_detected', null);
-    }
+    return this.makeRequest(url, {}, true, cacheKey, 30 * 60 * 1000, forceRefresh);
   }
 
   // Метод для загрузки групп
   async getGroups(course) {
-    const url = `${API_BASE_URL}/getgroups/${course}`;
+    const baseUrl = await this.getBaseUrl();
+    const url = `${baseUrl}/getgroups/${course}`;
     return this.makeRequest(url, {}, true, `groups_${course}`, 24 * 60 * 60 * 1000);
   }
 
   // Метод для загрузки расписания
-  async getSchedule(group, date, week = null) {
+  async getSchedule(group, date, week = null, forceRefresh = false) {
     let url;
     let cacheKey;
     
     if (week) {
-      url = `${API_BASE_URL}/getpairsweek?type=group&data=${group}&week=${week}`;
+      const baseUrl = await this.getBaseUrl();
+      url = `${baseUrl}/getpairsweek?type=group&data=${group}&week=${week}`;
       cacheKey = `schedule_${group}_week_${week}`;
     } else {
       const formattedDate = this.formatDate(date);
-      url = `${API_BASE_URL}/getpairs/date:${group}:${formattedDate}`;
+      const baseUrl = await this.getBaseUrl();
+      url = `${baseUrl}/getpairs/date:${group}:${formattedDate}`;
       cacheKey = `schedule_${group}_date_${formattedDate}`;
     }
     
-    return this.makeRequest(url, {}, true, cacheKey, 60 * 60 * 1000);
+    return this.makeRequest(url, {}, true, cacheKey, 60 * 60 * 1000, forceRefresh);
   }
 
   // Метод для загрузки времени пар
   async getPairsTime() {
-    const url = `${API_BASE_URL}/getpairstime`;
+    const baseUrl = await this.getBaseUrl();
+    const url = `${baseUrl}/getpairstime`;
     return this.makeRequest(url, {}, true, 'pairs_time', 7 * 24 * 60 * 60 * 1000);
   }
 
   // Метод для загрузки доступных курсов
   async getCourses() {
-    const url = `${API_BASE_URL}/getcourses`;
+    const baseUrl = await this.getBaseUrl();
+    const url = `${baseUrl}/getcourses`;
     return this.makeRequest(url, {}, true, 'available_courses', 24 * 60 * 60 * 1000); // кэш на 1 день
   }
 
   // Метод для получения номеров недель
   async getWeekNumbers() {
-    const url = `${API_BASE_URL}/weeknumbers`;
+    const baseUrl = await this.getBaseUrl();
+    const url = `${baseUrl}/weeknumbers`;
     return this.makeRequest(url, {}, true, 'week_numbers', 6 * 60 * 60 * 1000); // кэш на 6 часов
   }
 
@@ -397,11 +334,13 @@ class ApiService {
     let cacheKey;
     
     if (week) {
-        url = `${API_BASE_URL}/getpairsweek?type=teacher&data=${encodedTeacherName}&week=${week}`;
+        const baseUrl = await this.getBaseUrl();
+        url = `${baseUrl}/getpairsweek?type=teacher&data=${encodedTeacherName}&week=${week}`;
         cacheKey = `teacher_schedule_${encodedTeacherName}_week_${week}`;
     } else {
         const currentWeek = getWeekNumber(new Date());
-        url = `${API_BASE_URL}/getpairsweek?type=teacher&data=${encodedTeacherName}&week=${currentWeek}`;
+        const baseUrl = await this.getBaseUrl();
+        url = `${baseUrl}/getpairsweek?type=teacher&data=${encodedTeacherName}&week=${currentWeek}`;
         cacheKey = `teacher_schedule_${encodedTeacherName}_week_${currentWeek}`;
     }
     
@@ -415,11 +354,13 @@ class ApiService {
     let cacheKey;
     
     if (week) {
-      url = `${API_BASE_URL}/getpairsweek?type=auditory&data=${encodedAuditory}&week=${week}`;
+      const baseUrl = await this.getBaseUrl();
+      url = `${baseUrl}/getpairsweek?type=auditory&data=${encodedAuditory}&week=${week}`;
       cacheKey = `auditory_schedule_${encodedAuditory}_week_${week}`;
     } else {
       const currentWeek = getWeekNumber(new Date());
-      url = `${API_BASE_URL}/getpairsweek?type=auditory&data=${encodedAuditory}&week=${currentWeek}`;
+      const baseUrl = await this.getBaseUrl();
+      url = `${baseUrl}/getpairsweek?type=auditory&data=${encodedAuditory}&week=${currentWeek}`;
       cacheKey = `auditory_schedule_${encodedAuditory}_week_${currentWeek}`;
     }
     
@@ -432,7 +373,8 @@ class ApiService {
       return { data: { names: [], courses: [], tnames: [], auditories: [] }, source: 'local' };
     }
     const encodedQuery = encodeURIComponent(query.trim());
-    const url = `${API_BASE_URL}/search/${encodedQuery}`;
+    const baseUrl = await this.getBaseUrl();
+    const url = `${baseUrl}/search/${encodedQuery}`;
     return this.makeRequest(url, {}, false, null, null);
   }
 

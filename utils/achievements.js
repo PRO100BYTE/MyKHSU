@@ -98,6 +98,50 @@ export const ACHIEVEMENT_DEFINITIONS = {
     realDescription: 'Ты нашёл то, что не должен был найти. Или наоборот?',
     realIcon: 'eye',
   },
+  homework_done: {
+    id: 'homework_done',
+    title: 'Отличник',
+    description: 'Отметь домашнее задание как выполненное',
+    icon: 'checkmark-circle',
+    color: '#10B981',
+    rarity: 'common',
+  },
+  free_room_hunter: {
+    id: 'free_room_hunter',
+    title: 'Охотник за аудиториями',
+    description: 'Найди свободную аудиторию',
+    icon: 'search',
+    color: '#06B6D4',
+    rarity: 'uncommon',
+  },
+  export_master: {
+    id: 'export_master',
+    title: 'Экспортёр',
+    description: 'Экспортируй расписание в календарь',
+    icon: 'calendar',
+    color: '#3B82F6',
+    rarity: 'uncommon',
+  },
+  offline_hero: {
+    id: 'offline_hero',
+    title: 'Партизан',
+    description: 'Открой расписание без интернета',
+    icon: 'cloud-offline',
+    color: '#6B7280',
+    rarity: 'uncommon',
+  },
+  snake_champion: {
+    id: 'snake_champion',
+    title: '???',
+    description: 'Найди секрет...',
+    icon: 'help',
+    color: '#10B981',
+    rarity: 'legendary',
+    secret: true,
+    realTitle: 'Повелитель змей',
+    realDescription: 'Ты нашёл пасхалку и набрал 30+ очков в игре!',
+    realIcon: 'game-controller',
+  },
 };
 
 // Описания редкости
@@ -164,6 +208,11 @@ export const getAchievementsCount = async () => {
   const total = Object.keys(ACHIEVEMENT_DEFINITIONS).length;
   const unlocked = Object.keys(achievements).length;
   return { unlocked, total };
+};
+
+export const hasUnlockedAllAchievements = async () => {
+  const { unlocked, total } = await getAchievementsCount();
+  return total > 0 && unlocked >= total;
 };
 
 // Инкремент счётчиков для трекинга прогресса

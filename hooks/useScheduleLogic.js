@@ -3,7 +3,19 @@ import NetInfo from '@react-native-community/netinfo';
 import ApiService from '../utils/api';
 import notificationService from '../utils/notificationService';
 import { getWeekNumber, setServerWeekNumber } from '../utils/dateUtils';
+import { unlockAchievement } from '../utils/achievements';
 import * as SecureStore from 'expo-secure-store';
+
+const normalizeScheduleErrorCode = (error) => {
+  const raw = String(error?.message || error || 'load-error');
+
+  if (/NO_INTERNET/i.test(raw)) return 'NO_INTERNET';
+  if (/API_UNAVAILABLE/i.test(raw)) return 'API_UNAVAILABLE';
+  if (/INVALID_JSON/i.test(raw)) return 'INVALID_JSON';
+  if (/JSON\s*Parse\s*error/i.test(raw) || /Unexpected\s*character/i.test(raw)) return 'JSON_PARSE_ERROR';
+
+  return 'load-error';
+};
 
 export const useScheduleLogic = () => {
   const [course, setCourse] = useState(1);
@@ -129,7 +141,7 @@ export const useScheduleLogic = () => {
       
     } catch (error) {
       console.error('Error fetching groups:', error);
-      setError('load-error');
+      setError(normalizeScheduleErrorCode(error));
       
       if (cachedGroups.length > 0) {
         setGroups(cachedGroups);
@@ -180,15 +192,25 @@ export const useScheduleLogic = () => {
       
       setPairsTime(processedTime);
       setCachedPairsTime(processedTime);
+
+      if (result.source === 'stale_cache') {
+        setShowCachedData(true);
+        setCacheInfo(result);
+        setError(prevError => prevError || (isOnline ? 'API_UNAVAILABLE' : 'NO_INTERNET'));
+      }
     } catch (error) {
       console.error('Error fetching pairs time:', error);
       if (cachedPairsTime.length > 0) {
         setPairsTime(cachedPairsTime);
+        setShowCachedData(true);
+        setError(prevError => prevError || normalizeScheduleErrorCode(error));
+      } else {
+        setError(prevError => prevError || normalizeScheduleErrorCode(error));
       }
     }
   };
 
-  const fetchScheduleData = async (group) => {
+  const fetchScheduleData = async (group, forceRefresh = false) => {
     if (!group) return;
     
     setLoadingSchedule(true);
@@ -198,9 +220,9 @@ export const useScheduleLogic = () => {
     try {
       let result;
       if (viewMode === 'day') {
-        result = await ApiService.getSchedule(group, currentDate);
+        result = await ApiService.getSchedule(group, currentDate, null, forceRefresh);
       } else {
-        result = await ApiService.getSchedule(group, null, currentWeek);
+        result = await ApiService.getSchedule(group, null, currentWeek, forceRefresh);
       }
       
       const processedSchedule = processScheduleData(result, currentDate);
@@ -217,16 +239,33 @@ export const useScheduleLogic = () => {
       } catch (notifyError) {
         console.error('Error scheduling notifications:', notifyError);
       }
+
+      // Проверяем изменения в расписании и уведомляем пользователя
+      try {
+        const d = new Date(currentDate);
+        const localDateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        const scopeSuffix = viewMode === 'day'
+          ? `day_${localDateStr}`
+          : `week_${processedSchedule?.week_number || currentWeek}`;
+        await notificationService.checkScheduleChanges(
+          processedSchedule,
+          `${group}__${scopeSuffix}`,
+          { source: result.source }
+        );
+      } catch (changeError) {
+        console.error('Error checking schedule changes:', changeError);
+      }
       
       console.log('Загружено расписание для группы', group, 'на', viewMode === 'day' ? currentDate.toDateString() : `неделю ${currentWeek}`);
     } catch (error) {
       console.error('Error fetching schedule:', error);
-      setError('load-error');
+      setError(normalizeScheduleErrorCode(error));
       
       if (cachedScheduleData) {
         setScheduleData(cachedScheduleData);
         setShowCachedData(true);
         setCacheInfo({ source: 'stale_cache', cacheInfo: { cacheDate: new Date().toISOString() } });
+        unlockAchievement('offline_hero').catch(() => {});
       }
     } finally {
       setLoadingSchedule(false);
@@ -285,7 +324,7 @@ export const useScheduleLogic = () => {
   const onRefresh = () => {
     setRefreshing(true);
     if (selectedGroup) {
-      return fetchScheduleData(selectedGroup);
+      return fetchScheduleData(selectedGroup, true);
     } else {
       return fetchGroupsForCourse(course);
     }

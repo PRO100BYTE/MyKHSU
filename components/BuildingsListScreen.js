@@ -17,6 +17,7 @@ import { Ionicons as Icon } from '@expo/vector-icons';
 import { ACCENT_COLORS, LIQUID_GLASS } from '../utils/constants';
 import { buildings } from '../utils/buildingCoordinates';
 import Snowfall from './Snowfall';
+import { GlassCard } from './SettingsComponents';
 
 const BuildingsListScreen = ({ theme, accentColor, onBuildingSelect, isNewYearMode }) => {
   const [showRouteOptions, setShowRouteOptions] = useState(false);
@@ -197,26 +198,28 @@ const BuildingsListScreen = ({ theme, accentColor, onBuildingSelect, isNewYearMo
   };
 
   const renderBuildingCard = (building, isLast = false) => (
-    <TouchableOpacity 
+    <GlassCard
       key={building.id}
+      glass={glass}
       style={{ 
-        flexDirection: 'row',
-        backgroundColor: glass.surfaceSecondary, 
+        backgroundColor: glass.surfaceSecondary,
         borderRadius: 14, 
         marginBottom: isLast ? 0 : 8,
         marginLeft: 16,
-        alignItems: 'center',
+        overflow: 'hidden',
         borderWidth: StyleSheet.hairlineWidth,
         borderColor: glass.border,
-        overflow: 'hidden',
         shadowColor: glass.shadowColor,
         shadowOffset: { width: 0, height: 1 },
         shadowOpacity: 0.06,
         shadowRadius: 4,
         elevation: 1,
       }}
-      onPress={() => handleBuildingPress(building)}
     >
+      <TouchableOpacity 
+        style={{ flexDirection: 'row', alignItems: 'center' }}
+        onPress={() => handleBuildingPress(building)}
+      >
       {/* Цветная полоска-акцент слева */}
       <View style={{
         width: 3,
@@ -257,7 +260,8 @@ const BuildingsListScreen = ({ theme, accentColor, onBuildingSelect, isNewYearMo
         </View>
         <Icon name="navigate-outline" size={20} color={colors.primary} />
       </View>
-    </TouchableOpacity>
+      </TouchableOpacity>
+    </GlassCard>
   );
 
   const renderCategorySection = (category, buildingsList) => {
@@ -267,14 +271,10 @@ const BuildingsListScreen = ({ theme, accentColor, onBuildingSelect, isNewYearMo
     
     return (
       <View key={category} style={{ marginBottom: 16 }}>
-        <TouchableOpacity 
-          style={{
-            flexDirection: 'row',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            padding: 14,
+        <GlassCard glass={glass} style={{
             backgroundColor: glass.surfaceSecondary,
             borderRadius: 14,
+            overflow: 'hidden',
             borderWidth: StyleSheet.hairlineWidth,
             borderColor: glass.border,
             shadowColor: glass.shadowColor,
@@ -282,9 +282,16 @@ const BuildingsListScreen = ({ theme, accentColor, onBuildingSelect, isNewYearMo
             shadowOpacity: 0.06,
             shadowRadius: 4,
             elevation: 1,
-          }}
-          onPress={() => toggleSection(category)}
-        >
+          }}>
+          <TouchableOpacity 
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              padding: 14,
+            }}
+            onPress={() => toggleSection(category)}
+          >
           <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
             <Text style={{ 
               color: textColor, 
@@ -314,7 +321,8 @@ const BuildingsListScreen = ({ theme, accentColor, onBuildingSelect, isNewYearMo
             size={20} 
             color={colors.primary} 
           />
-        </TouchableOpacity>
+          </TouchableOpacity>
+          </GlassCard>
         
         {isExpanded && (
           <View style={{ marginTop: 8 }}>

@@ -3,6 +3,7 @@ import { View, Text, ScrollView, StyleSheet, Animated } from 'react-native';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import { ACCENT_COLORS, LIQUID_GLASS } from '../utils/constants';
 import { getAchievementsList, RARITY_INFO } from '../utils/achievements';
+import { SectionHeader, SettingsGroup } from './SettingsComponents';
 
 const AchievementsScreen = ({ theme, accentColor }) => {
   const [achievements, setAchievements] = useState([]);
@@ -39,6 +40,8 @@ const AchievementsScreen = ({ theme, accentColor }) => {
         showsVerticalScrollIndicator={false}
       >
         {/* Прогресс */}
+        <SectionHeader title="Прогресс" placeholderColor={placeholderColor} />
+        <SettingsGroup glass={glass}>
         <View style={[styles.progressCard, { backgroundColor: glass.surfaceSecondary, borderColor: glass.border }]}>
           <View style={styles.progressHeader}>
             <View style={[styles.progressIconWrap, { backgroundColor: colors.glass, borderColor: colors.glassBorder }]}>
@@ -65,6 +68,7 @@ const AchievementsScreen = ({ theme, accentColor }) => {
             />
           </View>
         </View>
+        </SettingsGroup>
 
         {/* Полученные */}
         {unlockedList.length > 0 && (
