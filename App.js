@@ -6,6 +6,7 @@ import { useFonts, Montserrat_400Regular, Montserrat_500Medium, Montserrat_600Se
 import * as Notifications from 'expo-notifications';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
+import { GlassView, isGlassEffectAPIAvailable, isLiquidGlassAvailable } from 'expo-glass-effect';
 
 // Импорт компонентов
 import SplashScreen from './components/SplashScreen';
@@ -58,6 +59,7 @@ const styles = StyleSheet.create({
     marginTop: Platform.OS === 'ios' ? 54 : (StatusBar.currentHeight || 0) + 6,
     borderRadius: 20,
     borderWidth: StyleSheet.hairlineWidth,
+    backgroundColor: 'transparent',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 1,
     shadowRadius: 12,
@@ -100,6 +102,7 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     overflow: 'hidden',
     borderWidth: StyleSheet.hairlineWidth,
+    backgroundColor: 'transparent',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 1,
     shadowRadius: 20,
@@ -148,6 +151,8 @@ export default Sentry.wrap(function App() {
   const [refresh, setRefresh] = useState(0);
   const [refreshKey, setRefreshKey] = useState(0);
   const [legendUnlocked, setLegendUnlocked] = useState(false);
+  const [communityFeatureEnabled, setCommunityFeatureEnabled] = useState(false);
+  const [liquidGlassEnabled, setLiquidGlassEnabled] = useState(true);
   const insets = useSafeAreaInsets();
 
   // Refs для дочерних экранов (для управления из хедера)
@@ -464,8 +469,12 @@ const handleNewYearModeChange = async (enabled) => {
     try {
       const savedTheme = await SecureStore.getItemAsync('theme');
       const savedAccentColor = await SecureStore.getItemAsync('accentColor');
+      const savedCommunityFeature = await SecureStore.getItemAsync('feature_community_enabled');
+      const savedLiquidGlass = await SecureStore.getItemAsync('feature_liquid_glass_enabled');
       const allUnlocked = await hasUnlockedAllAchievements().catch(() => false);
 
+      setCommunityFeatureEnabled(savedCommunityFeature === 'true');
+      setLiquidGlassEnabled(savedLiquidGlass !== 'false');
       setLegendUnlocked(allUnlocked);
       
       if (savedTheme === 'legend' && !allUnlocked) {
@@ -530,6 +539,15 @@ const handleNewYearModeChange = async (enabled) => {
   const textColor = glass.text;
   const colors = ACCENT_COLORS[accentColor];
   const blurConfig = getBlurConfig(effectiveTheme);
+  let supportsSystemGlass = false;
+  if (liquidGlassEnabled && Platform.OS === 'ios') {
+    try {
+      supportsSystemGlass = isLiquidGlassAvailable() && isGlassEffectAPIAvailable();
+    } catch (error) {
+      console.warn('Liquid Glass API unavailable; using BlurView fallback.', error);
+    }
+  }
+  const systemGlassColorScheme = glass.isSpecialTheme ? 'dark' : 'auto';
   const tabBarBlurConfig = {
     intensity: glass.tabBarBlurIntensity || blurConfig.intensity,
     tint: glass.tabBarBlurTint || blurConfig.tint,
@@ -627,20 +645,16 @@ const handleNewYearModeChange = async (enabled) => {
       mapScreenRef.current?.openFilters();
     };
 
-    // iOS — плавающая glass-капсула с blur
+    // iOS — системный Liquid Glass при поддержке, BlurView как fallback.
     if (Platform.OS === 'ios') {
+      const HeaderGlass = supportsSystemGlass ? GlassView : BlurView;
       return (
         <View style={styles.headerFloating} pointerEvents="box-none">
-          <BlurView
-            intensity={tabBarBlurConfig.intensity}
-            tint={tabBarBlurConfig.tint}
-            style={[
-              styles.headerBlur,
-              {
-                borderColor: glass.borderStrong,
-                shadowColor: glass.shadowColor,
-              },
-            ]}
+          <HeaderGlass
+            {...(supportsSystemGlass
+              ? { colorScheme: systemGlassColorScheme, glassEffectStyle: 'regular' }
+              : { intensity: tabBarBlurConfig.intensity, tint: tabBarBlurConfig.tint })}
+            style={[styles.headerBlur, { borderColor: glass.borderStrong, shadowColor: glass.shadowColor }]}
           >
             <View style={styles.headerInner}>
               {showBackButton ? (
@@ -739,7 +753,7 @@ const handleNewYearModeChange = async (enabled) => {
                 </TouchableOpacity>
               )}
             </View>
-          </BlurView>
+          </HeaderGlass>
         </View>
       );
     }
@@ -891,13 +905,15 @@ const handleNewYearModeChange = async (enabled) => {
       />
     ));
 
-    // iOS — плавающий glass tab bar
+    // iOS — системный Liquid Glass tab bar, с BlurView fallback.
     if (Platform.OS === 'ios') {
+      const TabBarGlass = supportsSystemGlass ? GlassView : BlurView;
       return (
         <View style={styles.tabBarFloating}>
-          <BlurView
-            intensity={tabBarBlurConfig.intensity}
-            tint={tabBarBlurConfig.tint}
+          <TabBarGlass
+            {...(supportsSystemGlass
+              ? { colorScheme: systemGlassColorScheme, glassEffectStyle: 'regular' }
+              : { intensity: tabBarBlurConfig.intensity, tint: tabBarBlurConfig.tint })}
             style={[
               styles.tabBarFloatingIOS,
               {
@@ -910,7 +926,7 @@ const handleNewYearModeChange = async (enabled) => {
               {indicator}
               {tabButtons}
             </View>
-          </BlurView>
+          </TabBarGlass>
         </View>
       );
     }
@@ -989,6 +1005,7 @@ const handleNewYearModeChange = async (enabled) => {
             accentColor={accentColor} 
             key={`freshman-${refreshKey}`}
             isNewYearMode={isNewYearMode}
+            communityFeatureEnabled={communityFeatureEnabled}
             onNavigationChange={setFreshmanSubScreen}
           />
         )}
@@ -1016,6 +1033,8 @@ const handleNewYearModeChange = async (enabled) => {
             onTabbarSettingsChange={handleTabbarSettingsChange}
             isNewYearMode={isNewYearMode}
             onNewYearModeChange={handleNewYearModeChange}
+            onCommunityFeatureChange={setCommunityFeatureEnabled}
+            onLiquidGlassFeatureChange={setLiquidGlassEnabled}
             onNavigationChange={setSettingsSubScreen}
           />
         )}

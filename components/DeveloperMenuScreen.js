@@ -19,7 +19,7 @@ import { exportScheduleToCalendar } from '../utils/calendarExport';
 import SnakeGame from './SnakeGame';
 import { SectionHeader, SettingsGroup } from './SettingsComponents';
 
-const DeveloperMenuScreen = ({ theme, accentColor, onResetDeveloperMode }) => {
+const DeveloperMenuScreen = ({ theme, accentColor, onCommunityFeatureChange, onLiquidGlassFeatureChange, onResetDeveloperMode }) => {
   const [customApiUrl, setCustomApiUrl] = useState('');
   const [useCustomApi, setUseCustomApi] = useState(false);
   const [effectiveApiUrl, setEffectiveApiUrl] = useState(API_BASE_URL);
@@ -31,6 +31,8 @@ const DeveloperMenuScreen = ({ theme, accentColor, onResetDeveloperMode }) => {
   const [storageKeyValue, setStorageKeyValue] = useState(null);
   const [apiPingResults, setApiPingResults] = useState(null);
   const [smokeTestResults, setSmokeTestResults] = useState(null);
+  const [communityFeatureEnabled, setCommunityFeatureEnabled] = useState(false);
+  const [liquidGlassEnabled, setLiquidGlassEnabled] = useState(true);
 
   const colors = ACCENT_COLORS[accentColor];
   const glass = LIQUID_GLASS[theme] || LIQUID_GLASS.light;
@@ -48,8 +50,12 @@ const DeveloperMenuScreen = ({ theme, accentColor, onResetDeveloperMode }) => {
     try {
       const savedUrl = await SecureStore.getItemAsync('custom_api_url');
       const savedUseCustom = await SecureStore.getItemAsync('use_custom_api');
+      const savedCommunityFeature = await SecureStore.getItemAsync('feature_community_enabled');
+      const savedLiquidGlass = await SecureStore.getItemAsync('feature_liquid_glass_enabled');
       if (savedUrl) setCustomApiUrl(savedUrl);
       if (savedUseCustom === 'true') setUseCustomApi(true);
+      setCommunityFeatureEnabled(savedCommunityFeature === 'true');
+      setLiquidGlassEnabled(savedLiquidGlass !== 'false');
       const isCustomEnabled = savedUseCustom === 'true';
       setEffectiveApiUrl(isCustomEnabled && savedUrl ? savedUrl : API_BASE_URL);
     } catch (e) {
@@ -112,6 +118,27 @@ const DeveloperMenuScreen = ({ theme, accentColor, onResetDeveloperMode }) => {
     }
   };
 
+  const toggleCommunityFeature = async (enabled) => {
+    try {
+      await SecureStore.setItemAsync('feature_community_enabled', String(enabled));
+      setCommunityFeatureEnabled(enabled);
+      onCommunityFeatureChange?.(enabled);
+    } catch (error) {
+      Alert.alert('Ошибка', 'Не удалось изменить состояние экспериментального раздела.');
+    }
+  };
+
+  const toggleLiquidGlassFeature = async (enabled) => {
+    try {
+      await SecureStore.setItemAsync('feature_liquid_glass_enabled', String(enabled));
+      setLiquidGlassEnabled(enabled);
+      onLiquidGlassFeatureChange?.(enabled);
+      Alert.alert('Системный Liquid Glass', `Теперь используется ${enabled ? 'нативный эффект' : 'fallback BlurView'} в поддерживаемых поверхностях.`);
+    } catch {
+      Alert.alert('Ошибка', 'Не удалось изменить режим Liquid Glass.');
+    }
+  };
+
   const loadDebugInfo = async () => {
     try {
       const keys = await AsyncStorage.getAllKeys();
@@ -122,7 +149,7 @@ const DeveloperMenuScreen = ({ theme, accentColor, onResetDeveloperMode }) => {
         'default_course', 'teacher_name', 'show_course_selector',
         'notification_settings', 'developer_mode', 'custom_api_url',
         'use_custom_api', 'cache_settings', 'tabbar_labels_enabled',
-        'tabbar_font_size', 'new_year_mode'
+        'tabbar_font_size', 'new_year_mode', 'feature_community_enabled', 'feature_liquid_glass_enabled'
       ];
       
       const keyValues = [];
@@ -144,7 +171,7 @@ const DeveloperMenuScreen = ({ theme, accentColor, onResetDeveloperMode }) => {
   const clearAllSecureStore = () => {
     Alert.alert(
       'Очистить SecureStore?',
-      'Все настройки приложения будут сброшены. Это действие необратимо.',
+      'Все настройки приложения будут сброшены. Экспериментальные функции отключатся. Это действие необратимо.',
       [
         { text: 'Отмена', style: 'cancel' },
         { text: 'Очистить', style: 'destructive', onPress: async () => {
@@ -154,12 +181,16 @@ const DeveloperMenuScreen = ({ theme, accentColor, onResetDeveloperMode }) => {
               'default_course', 'teacher_name', 'show_course_selector',
               'notification_settings', 'developer_mode', 'custom_api_url',
               'use_custom_api', 'cache_settings', 'tabbar_labels_enabled',
-              'tabbar_font_size', 'new_year_mode'
+              'tabbar_font_size', 'new_year_mode', 'feature_community_enabled', 'feature_liquid_glass_enabled'
             ];
             for (const key of keys) {
               await SecureStore.deleteItemAsync(key);
             }
-            Alert.alert('Готово', 'SecureStore очищен. Перезапустите приложение.');
+            setCommunityFeatureEnabled(false);
+            setLiquidGlassEnabled(true);
+            onCommunityFeatureChange?.(false);
+            onLiquidGlassFeatureChange?.(true);
+            Alert.alert('Готово', 'SecureStore очищен. Экспериментальные функции сброшены.');
           } catch (e) {
             Alert.alert('Ошибка', 'Не удалось очистить SecureStore');
           }
@@ -359,6 +390,41 @@ const DeveloperMenuScreen = ({ theme, accentColor, onResetDeveloperMode }) => {
               </TouchableOpacity>
             </>
           )}
+        </SettingsGroup>
+
+        <SectionHeader title="Экспериментальные функции" placeholderColor={placeholderColor} />
+        <SettingsGroup glass={glass} style={styles.section}>
+          <View style={[styles.settingRow, { borderColor }]}>
+            <View style={styles.settingInfo}>
+              <Icon name="people-outline" size={24} color={communityFeatureEnabled ? colors.primary : placeholderColor} />
+              <View style={styles.textContainer}>
+                <Text style={[styles.settingLabel, { color: textColor }]}>Сообщество ИТИ</Text>
+                <Text style={[styles.settingDesc, { color: placeholderColor }]}>Локальные черновики и отзывы; раздел скрыт по умолчанию</Text>
+              </View>
+            </View>
+            <Switch
+              value={communityFeatureEnabled}
+              onValueChange={toggleCommunityFeature}
+              trackColor={{ false: borderColor, true: colors.light }}
+              thumbColor={communityFeatureEnabled ? colors.primary : placeholderColor}
+            />
+          </View>
+          <View style={[styles.settingRow, { borderColor }]}>
+            <View style={styles.settingInfo}>
+              <Icon name="layers-outline" size={24} color={liquidGlassEnabled ? colors.primary : placeholderColor} />
+              <View style={styles.textContainer}>
+                <Text style={[styles.settingLabel, { color: textColor }]}>Системный Liquid Glass</Text>
+                <Text style={[styles.settingDesc, { color: placeholderColor }]}>Сравнить системный эффект и BlurView в хедере и tab bar</Text>
+              </View>
+            </View>
+            <Switch
+              value={liquidGlassEnabled}
+              onValueChange={toggleLiquidGlassFeature}
+              trackColor={{ false: borderColor, true: colors.light }}
+              thumbColor={liquidGlassEnabled ? colors.primary : placeholderColor}
+              disabled={Platform.OS !== 'ios'}
+            />
+          </View>
         </SettingsGroup>
 
         {/* Отладочные инструменты */}

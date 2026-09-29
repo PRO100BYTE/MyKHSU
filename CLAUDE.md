@@ -9,6 +9,7 @@ Primary objective: deliver user-visible improvements with minimal risk, preserve
 ## Project Snapshot
 
 - Platform: React Native 0.86 + Expo 57.
+- iOS 26+: native system Liquid Glass via `expo-glass-effect` with `expo-blur` fallback.
 - Entry files: `App.js`, `index.js`.
 - UI components: `components/`.
 - Domain and business helpers: `utils/`.

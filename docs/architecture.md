@@ -74,19 +74,18 @@
 
 ## Liquid Glass (iOS)
 
-Приложение реализует нативный Liquid Glass на iOS через `expo-blur` (`BlurView`):
+На iOS 26+ поддерживаемые поверхности используют нативный системный эффект через `expo-glass-effect` (`GlassView`):
 
-- **Header и Tab Bar**: `BlurView` с `systemChromeMaterial` — уже реализовано в `App.js`.
-- **Карточки и группы настроек**: компонент `GlassCard` из `components/SettingsComponents.js`.
-  - На iOS рендерит `BlurView` с тинтом из `glass.cardBlurTint` и интенсивностью `glass.cardBlurIntensity`.
-  - Автоматически убирает `backgroundColor` из переданных стилей — фон обеспечивается blur-эффектом.
-  - На Android рендерит обычный `View` с сохранёнными стилями.
-- **Строки внутри GlassCard** (`SettingsRow`, `SectionRow`, `CommunityRow`) используют `backgroundColor: 'transparent'` на iOS.
-- **Карточки уроков** (`ScheduleScreen`): регулярные пары используют `GlassCard`; текущая пара — обычный `View` с акцентным фоном.
-- **Карточки новостей, строка поиска** (`NewsScreen`): `GlassCard`.
-- **Карточки зданий, заголовки категорий** (`BuildingsListScreen`): `GlassCard`.
-- **Карточки пар расписания звонков** (`FreshmanScreen`): `GlassCard` для обычных, `View` для текущей.
-- Android: все компоненты отображаются без изменений с прежними стилями.
+- **Header и Tab Bar** в `App.js` используют системный `GlassView`, когда флаг `feature_liquid_glass_enabled` включён и `isLiquidGlassAvailable()` с `isGlassEffectAPIAvailable()` возвращают `true`. Флаг можно переключить в Меню разработчика; по умолчанию включён. Сброс режима разработчика отключает экспериментальное сообщество и возвращает системный Liquid Glass к включённому значению.
+- **Карточки и группы настроек** используют тот же системный эффект через `GlassCard` из `components/SettingsComponents.js`, если API доступен.
+- Схема стекла следует системной теме (`auto`), кроме специальных тёмных тем приложения.
+- При недоступном API или на старых iOS используется `expo-blur` как fallback; Android сохраняет обычные поверхности.
+- GlassView нельзя помещать в родитель с `opacity: 0`: это отключает эффект. Для такой анимации нужно использовать нативный `glassEffectStyle` transition.
+- Это даёт нативный системный материал Liquid Glass, но не автоматически превращает каждый элемент приложения в системный UI. Полное визуальное соответствие iOS требует ручной проверки на устройстве и дальнейшего аудита кастомных карточек, кнопок и анимаций.
+- Подтверждённая доступность API не равна подтверждённому визуальному результату: устройство iOS 27 должно быть проверено после нативной сборки приложения. Проверить header, tab bar, карточки и все темы; сравнить с системными панелями, проверить Reduce Transparency.
+- Установка `expo-glass-effect` требует пересборки native binary / development build, если используемая сборка не содержит этот модуль. Переключатель в Меню разработчика переключает системный эффект и BlurView без reload; он позволяет сравнить варианты на устройстве.
+
+Ссылки: [Expo GlassEffect SDK 57](https://docs.expo.dev/versions/v57.0.0/sdk/glass-effect/), [Apple UIVisualEffectView](https://developer.apple.com/documentation/uikit/uivisualeffectview).
 
 ## Потоки данных
 

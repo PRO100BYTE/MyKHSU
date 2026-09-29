@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Platform } from 'react-native';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
+import { GlassView, isGlassEffectAPIAvailable, isLiquidGlassAvailable } from 'expo-glass-effect';
 
 /**
  * Переиспользуемые компоненты для Settings и подэкранов
@@ -11,15 +12,9 @@ import { BlurView } from 'expo-blur';
 /**
  * GlassCard — нативный Liquid Glass на iOS, обычный View на Android.
  *
- * На iOS:
- *   - Использует BlurView с тинтом 'systemMaterial' — автоматически адаптируется
- *     к светлой/тёмной теме, не требует кастомных цветов. Система сама управляет
- *     степенью прозрачности и эффектом размытия.
- *   - Для специальных тем (matrix, legend) использует 'dark' — единственный
- *     корректный вариант для тёмных нестандартных фонов.
- *   - Полностью убирает backgroundColor из стилей — стекло управляется системой.
- * На Android:
- *   - Обычный View с оригинальными стилями, без изменений.
+ * На iOS 26+ использует системный GlassView, на более старых версиях — BlurView.
+ * Для специальных тёмных тем фиксирует тёмную схему стекла.
+ * На Android оставляет обычный View с исходными стилями.
  */
 export const GlassCard = ({ glass, style, children }) => {
   if (Platform.OS === 'ios') {
@@ -27,15 +22,28 @@ export const GlassCard = ({ glass, style, children }) => {
     // Убираем backgroundColor — система управляет внешним видом через tint
     const { backgroundColor, ...iosStyle } = flatStyle;
 
-    // Для специальных тёмных тем — 'dark', для стандартных — 'systemMaterial'
-    // 'systemMaterial' адаптируется автоматически (light/dark), не нужно конфигурировать
-    const tint = glass?.isSpecialTheme ? 'dark' : 'systemMaterial';
+    let supportsSystemGlass = false;
+    try {
+      supportsSystemGlass = isLiquidGlassAvailable() && isGlassEffectAPIAvailable();
+    } catch (error) {
+      console.warn('Liquid Glass API unavailable; using BlurView fallback.', error);
+    }
+    const colorScheme = glass?.isSpecialTheme ? 'dark' : 'auto';
 
-    return (
-      <BlurView tint={tint} style={iosStyle}>
-        {children}
-      </BlurView>
-    );
+    if (supportsSystemGlass) {
+      return (
+        <GlassView
+          colorScheme={colorScheme}
+          glassEffectStyle="regular"
+          style={[iosStyle, { backgroundColor: 'transparent' }]}
+        >
+          {children}
+        </GlassView>
+      );
+    }
+
+    const tint = glass?.isSpecialTheme ? 'dark' : 'systemMaterial';
+    return <BlurView tint={tint} style={iosStyle}>{children}</BlurView>;
   }
   return <View style={style}>{children}</View>;
 };

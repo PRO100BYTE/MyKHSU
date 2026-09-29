@@ -13,7 +13,7 @@ import { showAchievementToast } from './AchievementToast';
 import ApiService from '../utils/api';
 import { GlassCard } from './SettingsComponents';
 
-const FreshmanScreen = forwardRef(({ theme, accentColor, isNewYearMode, onNavigationChange }, ref) => {
+const FreshmanScreen = forwardRef(({ theme, accentColor, isNewYearMode, communityFeatureEnabled, onNavigationChange }, ref) => {
   const [modalVisible, setModalVisible] = useState(false);
   const [currentGroupType, setCurrentGroupType] = useState(null);
   const [showBuildingsList, setShowBuildingsList] = useState(false);
@@ -40,7 +40,7 @@ const FreshmanScreen = forwardRef(({ theme, accentColor, isNewYearMode, onNaviga
         setCurrentGroupType(null);
       }
     },
-  }));
+  }), [showBuildingsList, currentGroupType]);
 
   // Notify parent about navigation state changes
   useEffect(() => {
@@ -53,13 +53,13 @@ const FreshmanScreen = forwardRef(({ theme, accentColor, isNewYearMode, onNaviga
       title = 'Расписание звонков';
     } else if (currentGroupType === 'academicCalendar') {
       title = 'Календарь учебных событий';
-    } else if (currentGroupType === 'community') {
+    } else if (currentGroupType === 'community' && communityFeatureEnabled) {
       title = 'Сообщество ИТИ';
     } else if (currentGroupType === 'glossary') {
       title = 'Словарь аббревиатур';
     }
     if (onNavigationChange) onNavigationChange(title);
-  }, [showBuildingsList, currentGroupType]);
+  }, [showBuildingsList, currentGroupType, communityFeatureEnabled]);
 
   // Загрузка расписания звонков с сервера
   useEffect(() => {
@@ -454,12 +454,12 @@ const FreshmanScreen = forwardRef(({ theme, accentColor, isNewYearMode, onNaviga
           description: 'Группы и сообщества ВКонтакте и Telegram',
           onPress: () => setCurrentGroupType('main'),
         },
-        {
+        ...(communityFeatureEnabled ? [{
           icon: 'people-outline',
           title: 'Сообщество ИТИ',
           description: 'Локальные черновики материалов и отзывы о преподавателях',
           onPress: () => setCurrentGroupType('community'),
-        },
+        }] : []),
       ],
     },
   ];
@@ -896,6 +896,9 @@ const FreshmanScreen = forwardRef(({ theme, accentColor, isNewYearMode, onNaviga
 
   // Рендер текущего экрана с анимацией
   const renderCurrentScreen = () => {
+    if (currentGroupType === 'community' && !communityFeatureEnabled) {
+      return renderMainSections();
+    }
     if (showBuildingsList) {
       return renderBuildingsList();
     } else if (!currentGroupType) {
@@ -906,7 +909,7 @@ const FreshmanScreen = forwardRef(({ theme, accentColor, isNewYearMode, onNaviga
       return renderBellSchedule();
     } else if (currentGroupType === 'academicCalendar') {
       return renderAcademicCalendar();
-    } else if (currentGroupType === 'community') {
+    } else if (currentGroupType === 'community' && communityFeatureEnabled) {
       return renderCommunity();
     } else if (currentGroupType === 'glossary') {
       return renderGlossary();

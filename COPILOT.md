@@ -9,6 +9,7 @@
 ## Краткий профиль проекта
 
 - Платформа: React Native 0.86 + Expo 57.
+- Liquid Glass на iOS 26+ использует системный `expo-glass-effect`, с fallback на `expo-blur`.
 - Вход: `App.js`, `index.js`.
 - Ключевые зоны:
   - экраны и UI: `components/`

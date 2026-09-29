@@ -197,7 +197,7 @@ const Confetti = ({ show, theme, colors }) => {
 const SettingsScreen = forwardRef(({ 
   theme, accentColor, legendUnlocked, setTheme, setAccentColor, 
   onScheduleSettingsChange, onTabbarSettingsChange, 
-  isNewYearMode, onNewYearModeChange, onNavigationChange 
+  isNewYearMode, onNewYearModeChange, onCommunityFeatureChange, onLiquidGlassFeatureChange, onNavigationChange
 }, ref) => {
   const [currentScreen, setCurrentScreen] = useState(null);
   const [scheduleSettings, setScheduleSettings] = useState(null);
@@ -348,6 +348,10 @@ const SettingsScreen = forwardRef(({
         { text: 'Сбросить', style: 'destructive', onPress: async () => {
           setDeveloperMode(false);
           await SecureStore.setItemAsync('developer_mode', 'false');
+          await SecureStore.setItemAsync('feature_community_enabled', 'false');
+          await SecureStore.setItemAsync('feature_liquid_glass_enabled', 'true');
+          onCommunityFeatureChange?.(false);
+          onLiquidGlassFeatureChange?.(true);
           if (accentColor === 'orange' || accentColor === 'matrix') {
             setAccentColor('green');
             await SecureStore.setItemAsync('accentColor', 'green');
@@ -836,6 +840,8 @@ const SettingsScreen = forwardRef(({
             <DeveloperMenuScreen
               theme={theme}
               accentColor={accentColor}
+              onCommunityFeatureChange={onCommunityFeatureChange}
+              onLiquidGlassFeatureChange={onLiquidGlassFeatureChange}
               onResetDeveloperMode={resetDeveloperMode}
             />
           )}
