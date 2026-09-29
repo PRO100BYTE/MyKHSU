@@ -62,7 +62,7 @@ const AboutModal = ({ theme, accentColor }) => {
               <View style={styles.featureItem}>
                 <Icon name="map-outline" size={16} color={colors.primary} style={styles.featureIcon} />
                 <Text style={[styles.featureText, { color: textColor }]}>
-                  Интерактивная карта учебных корпусов
+                  Карта учебных корпусов на iOS и список корпусов с маршрутами на Android
                 </Text>
               </View>
               <View style={styles.featureItem}>
@@ -82,6 +82,10 @@ const AboutModal = ({ theme, accentColor }) => {
                 <Text style={[styles.featureText, { color: textColor }]}>
                   Темы оформления и цветовые схемы
                 </Text>
+              </View>
+              <View style={styles.featureItem}>
+                <Icon name="layers-outline" size={16} color={colors.primary} style={styles.featureIcon} />
+                <Text style={[styles.featureText, { color: textColor }]}>Нативный системный Liquid Glass на поддерживаемых версиях iOS</Text>
               </View>
               <View style={styles.featureItem}>
                 <Icon name="cloud-offline-outline" size={16} color={colors.primary} style={styles.featureIcon} />
