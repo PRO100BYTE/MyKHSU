@@ -118,17 +118,17 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 6,
     bottom: 6,
-    borderRadius: 18,
+    borderRadius: 12,
     overflow: 'hidden',
     zIndex: 1,
   },
   tabIndicatorGlass: {
     ...StyleSheet.absoluteFillObject,
-    borderRadius: 18,
+    borderRadius: 12,
   },
   tabIndicatorContent: {
     flex: 1,
-    borderRadius: 18,
+    borderRadius: 12,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: 'rgba(255, 255, 255, 0.52)',
     backgroundColor: 'rgba(255, 255, 255, 0.08)',
@@ -891,8 +891,8 @@ const handleNewYearModeChange = async (enabled) => {
         style={[
           styles.tabIndicator,
           {
-            width: indicatorWidth - 8,
-            transform: [{ translateX: Animated.add(indicatorAnim, 4) }],
+            width: indicatorWidth,
+            transform: [{ translateX: indicatorAnim }],
           },
         ]}
         {...indicatorPanResponder.panHandlers}
