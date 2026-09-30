@@ -3,12 +3,12 @@ import { TouchableOpacity, View, Text, StyleSheet, Platform } from 'react-native
 import { Ionicons as Icon } from '@expo/vector-icons';
 import { ACCENT_COLORS } from '../utils/constants';
 
-const TabButton = ({ icon, label, isActive, onPress, theme, accentColor, showLabels = true, fontSize = 'medium', glassAvailable = false, onLayout }) => {
+const TabButton = ({ icon, label, isActive, onPress, theme, accentColor, showLabels = true, fontSize = 'medium', glassAvailable = false, activeColor: activeColorOverride, onLayout }) => {
   const colors = ACCENT_COLORS[accentColor];
   const isDarkTheme = theme !== 'light';
   const systemGlassMode = Platform.OS === 'ios' && glassAvailable;
   const inactiveColor = systemGlassMode ? (isDarkTheme ? '#f2f2f7' : '#3a3a3c') : '#8e8e93';
-  const activeColor = systemGlassMode ? (isDarkTheme ? '#ffffff' : '#1c1c1e') : colors.primary;
+  const activeColor = activeColorOverride || colors.primary;
   const iconColor = isActive ? activeColor : inactiveColor;
   const textColor = isActive ? activeColor : inactiveColor;
 

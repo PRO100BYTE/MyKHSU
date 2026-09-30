@@ -117,10 +117,10 @@ const styles = StyleSheet.create({
   tabIndicator: {
     position: 'absolute',
     top: 6,
-    bottom: 6,
+    height: 36,
     borderRadius: 12,
     overflow: 'hidden',
-    zIndex: 1,
+    zIndex: 3,
   },
   tabIndicatorGlass: {
     ...StyleSheet.absoluteFillObject,
@@ -132,6 +132,11 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: 'rgba(255, 255, 255, 0.52)',
     backgroundColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  tabIndicatorAccent: {
+    ...StyleSheet.absoluteFillObject,
+    borderRadius: 12,
+    borderWidth: 1.5,
   },
   // Fallback стиль для Android
   tabBarAndroid: {
@@ -885,7 +890,7 @@ const handleNewYearModeChange = async (enabled) => {
     const activeLayout = tabLayouts.current[activeIndex];
     const indicatorWidth = activeLayout ? activeLayout.width : 0;
 
-    // Анимированный индикатор (glass pill) — перетаскиваемый
+    // Системная капсула располагается поверх иконки активного раздела.
     const indicator = indicatorWidth > 0 ? (
       <Animated.View
         style={[
@@ -898,12 +903,15 @@ const handleNewYearModeChange = async (enabled) => {
         {...indicatorPanResponder.panHandlers}
       >
         {supportsSystemGlass ? (
-          <GlassView
-            colorScheme={systemGlassColorScheme}
-            glassEffectStyle="regular"
-            isInteractive
-            style={styles.tabIndicatorGlass}
-          />
+          <>
+            <GlassView
+              colorScheme={systemGlassColorScheme}
+              glassEffectStyle="regular"
+              isInteractive
+              style={styles.tabIndicatorGlass}
+            />
+            <View pointerEvents="none" style={[styles.tabIndicatorAccent, { borderColor: colors.primary }]} />
+          </>
         ) : (
           <View style={[styles.tabIndicatorContent, { backgroundColor: colors.glass, borderColor: colors.glassBorder }]} />
         )}
@@ -922,6 +930,7 @@ const handleNewYearModeChange = async (enabled) => {
         showLabels={showTabbarLabels}
         fontSize={tabbarFontSize}
         glassAvailable={supportsSystemGlass}
+        activeColor={supportsSystemGlass ? (effectiveTheme === 'light' ? colors.primary : '#FFFFFF') : colors.primary}
         onLayout={(e) => handleTabLayout(index, e)}
       />
     ));
