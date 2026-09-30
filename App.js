@@ -118,9 +118,20 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 6,
     bottom: 6,
-    borderRadius: 12,
-    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: 18,
+    overflow: 'hidden',
     zIndex: 1,
+  },
+  tabIndicatorGlass: {
+    ...StyleSheet.absoluteFillObject,
+    borderRadius: 18,
+  },
+  tabIndicatorContent: {
+    flex: 1,
+    borderRadius: 18,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(255, 255, 255, 0.52)',
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
   },
   // Fallback стиль для Android
   tabBarAndroid: {
@@ -880,14 +891,23 @@ const handleNewYearModeChange = async (enabled) => {
         style={[
           styles.tabIndicator,
           {
-            width: indicatorWidth,
-            backgroundColor: colors.glass,
-            borderColor: colors.glassBorder,
-            transform: [{ translateX: indicatorAnim }],
+            width: indicatorWidth - 8,
+            transform: [{ translateX: Animated.add(indicatorAnim, 4) }],
           },
         ]}
         {...indicatorPanResponder.panHandlers}
-      />
+      >
+        {supportsSystemGlass ? (
+          <GlassView
+            colorScheme={systemGlassColorScheme}
+            glassEffectStyle="regular"
+            isInteractive
+            style={styles.tabIndicatorGlass}
+          />
+        ) : (
+          <View style={[styles.tabIndicatorContent, { backgroundColor: colors.glass, borderColor: colors.glassBorder }]} />
+        )}
+      </Animated.View>
     ) : null;
 
     const tabButtons = TAB_ORDER.map((screen, index) => (
@@ -901,6 +921,7 @@ const handleNewYearModeChange = async (enabled) => {
         accentColor={accentColor}
         showLabels={showTabbarLabels}
         fontSize={tabbarFontSize}
+        glassAvailable={supportsSystemGlass}
         onLayout={(e) => handleTabLayout(index, e)}
       />
     ));
