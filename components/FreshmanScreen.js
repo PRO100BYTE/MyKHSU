@@ -516,8 +516,8 @@ const FreshmanScreen = forwardRef(({ theme, accentColor, isNewYearMode, communit
 
   // Экран групп ВКонтакте
   const renderVKGroups = () => (
-    <View style={{ flex: 1, padding: 16 }}>
-      <ScrollView showsVerticalScrollIndicator={false}>
+    <View style={{ flex: 1 }}>
+      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 16, paddingBottom: 100 }} showsVerticalScrollIndicator={false}>
         {vkGroups.map((group, index) => 
           renderGroupCard(group, index === vkGroups.length - 1)
         )}
@@ -527,7 +527,7 @@ const FreshmanScreen = forwardRef(({ theme, accentColor, isNewYearMode, communit
 
   // Экран групп Telegram
   const renderTelegramGroups = () => (
-    <View style={{ flex: 1, padding: 16 }}>
+    <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 16, paddingBottom: 100 }}>
       <View style={{ 
         backgroundColor: glass.surfaceSecondary, 
         borderRadius: 16, 
@@ -572,7 +572,7 @@ const FreshmanScreen = forwardRef(({ theme, accentColor, isNewYearMode, communit
           Мы работаем над добавлением Telegram-каналов и чатов
         </Text>
       </View>
-    </View>
+    </ScrollView>
   );
 
   // Единый экран сообществ с секциями

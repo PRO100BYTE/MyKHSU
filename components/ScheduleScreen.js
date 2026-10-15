@@ -118,7 +118,7 @@ const LessonCountdown = ({ timeEnd, accentColor }) => {
   );
 };
 
-import ScrollView from './ScreenScrollView';
+import ScrollView, { useScreenHeaderInset } from './ScreenScrollView';
 
 const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings, onSettingsUpdate, isNewYearMode, onCacheStatusChange, onExportReady, onFavoritesReady }) => {
   const [isTeacherMode, setIsTeacherMode] = useState(false);
@@ -178,6 +178,7 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
   const [animationDirection, setAnimationDirection] = useState('right');
   
   // Состояние для скролла
+  const headerInset = useScreenHeaderInset();
   const [scrollOffset, setScrollOffset] = useState(0);
   const [showFixedHeader, setShowFixedHeader] = useState(false);
   const scrollViewRef = useRef(null);
@@ -278,7 +279,7 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
     
     // Показываем фиксированный заголовок при скролле вниз
     if (shouldShowFixedHeader()) {
-      const showHeader = offsetY > 100;
+      const showHeader = offsetY - headerInset > 100;
       if (showHeader !== showFixedHeader) {
         setShowFixedHeader(showHeader);
         
@@ -320,7 +321,7 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
       requestAnimationFrame(() => {
         dayRefs.current[currentDayIndex].measure((x, y, width, height, pageX, pageY) => {
           // Прокручиваем с отступом
-          const scrollPosition = Math.max(0, y - 150);
+          const scrollPosition = Math.max(0, y - headerInset - 150);
           
           if (scrollViewRef.current) {
             scrollViewRef.current.scrollTo({
@@ -343,7 +344,7 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
       
       return () => clearTimeout(timer);
     }
-  }, [viewMode, isTeacherMode, isAuditoryMode, scheduleData, teacherSchedule, auditorySchedule, currentWeek]);
+  }, [viewMode, isTeacherMode, isAuditoryMode, scheduleData, teacherSchedule, auditorySchedule, currentWeek, headerInset]);
 
   // Сброс refs при изменении данных
   useEffect(() => {
@@ -1720,7 +1721,7 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
       <Animated.View
         style={{
           position: 'absolute',
-          top: 8,
+          top: headerInset + 8,
           left: 12,
           right: 12,
           backgroundColor: glass.backgroundElevated,
@@ -2300,7 +2301,7 @@ return (
       
       <ScrollView 
         ref={scrollViewRef}
-        style={{ flex: 1, padding: 16 }}
+        style={{ flex: 1 }}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -2311,7 +2312,7 @@ return (
         }
         onScroll={handleScroll}
         scrollEventThrottle={16}
-        contentContainerStyle={{ minHeight: height, paddingBottom: 100 }}
+        contentContainerStyle={{ minHeight: height, padding: 16, paddingBottom: 100 }}
       >
         {/* ВСЕ содержимое расписания */}
         
@@ -2602,7 +2603,7 @@ return (
             </TouchableOpacity>
           </View>
 
-          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: 20 }}>
+          <ScrollView underlap={false} showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: 20 }}>
             {favorites.length === 0 ? (
               <View style={{ alignItems: 'center', marginTop: 44 }}>
                 <Icon name="star-outline" size={44} color={placeholderColor} style={{ marginBottom: 10 }} />

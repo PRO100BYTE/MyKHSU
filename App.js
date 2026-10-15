@@ -11,6 +11,7 @@ import { GlassView, isGlassEffectAPIAvailable, isLiquidGlassAvailable } from 'ex
 // Импорт компонентов
 import SplashScreen from './components/SplashScreen';
 import TabButton from './components/TabButton';
+import NativeTabBar from './components/NativeTabBar';
 import NewsScreen from './components/NewsScreen';
 import ScheduleScreen from './components/ScheduleScreen';
 import SettingsScreen from './components/SettingsScreen';
@@ -143,6 +144,11 @@ const styles = StyleSheet.create({
 });
 
 const TAB_ORDER = [SCREENS.SCHEDULE, SCREENS.MAP, SCREENS.FRESHMAN, SCREENS.NEWS, SCREENS.SETTINGS];
+const NATIVE_TABS = TAB_ORDER.map((key, index) => ({
+  key,
+  label: key,
+  sfSymbol: ['calendar', 'map', 'book', 'newspaper', 'gearshape'][index],
+}));
 
 export default Sentry.wrap(function App() {
   let [fontsLoaded] = useFonts({
@@ -931,32 +937,6 @@ const handleNewYearModeChange = async (enabled) => {
       />
     ));
 
-    // iOS — системный Liquid Glass tab bar, с BlurView fallback.
-    if (Platform.OS === 'ios') {
-      const TabBarGlass = supportsSystemGlass ? GlassView : BlurView;
-      return (
-        <View style={styles.tabBarFloating}>
-          <TabBarGlass
-            {...(supportsSystemGlass
-              ? { colorScheme: systemGlassColorScheme, glassEffectStyle: 'regular' }
-              : { intensity: tabBarBlurConfig.intensity, tint: tabBarBlurConfig.tint })}
-            style={[
-              styles.tabBarFloatingIOS,
-              {
-                borderColor: glass.borderStrong,
-                shadowColor: glass.shadowStrong,
-              },
-            ]}
-          >
-            <View style={styles.tabBarInner} {...indicatorPanResponder.panHandlers}>
-              {indicator}
-              {tabButtons}
-            </View>
-          </TabBarGlass>
-        </View>
-      );
-    }
-
     // Android
     return (
       <View 
@@ -977,22 +957,9 @@ const handleNewYearModeChange = async (enabled) => {
     );
   };
 
-  return (
-    <View style={{ flex: 1, backgroundColor: effectiveTheme === 'matrix' ? glass.backgroundSolid : bgColor }}>
-      {effectiveTheme === 'matrix' && <MatrixRain intensity={0.85} />}
-      {/* Статусбар */}
-      <StatusBar 
-        barStyle={effectiveTheme === 'light' ? 'dark-content' : 'light-content'}
-        backgroundColor={Platform.OS === 'android' ? glass.headerGlass : 'transparent'}
-        translucent={Platform.OS === 'ios'}
-      />
-      
-      {/* Заголовок с Glass-эффектом (плавающий поверх контента на iOS) */}
-      {renderHeader()}
-      
-      {/* Контент — содержимое проходит за header и tab bar для Liquid Glass-эффекта */}
+  const renderScreen = (screen) => (
       <View style={{ flex: 1 }}>
-        {activeScreen === SCREENS.SCHEDULE && (
+        {screen === SCREENS.SCHEDULE && (
           <ScheduleScreen 
             theme={effectiveTheme} 
             accentColor={accentColor} 
@@ -1013,7 +980,7 @@ const handleNewYearModeChange = async (enabled) => {
             }}
           />
         )}
-        {activeScreen === SCREENS.MAP && (
+        {screen === SCREENS.MAP && (
           <MapScreen 
             ref={mapScreenRef}
             theme={effectiveTheme} 
@@ -1024,7 +991,7 @@ const handleNewYearModeChange = async (enabled) => {
             onNavigationChange={setMapSubScreen}
           />
         )}
-        {activeScreen === SCREENS.FRESHMAN && (
+        {screen === SCREENS.FRESHMAN && (
           <FreshmanScreen 
             ref={freshmanScreenRef}
             theme={effectiveTheme} 
@@ -1035,7 +1002,7 @@ const handleNewYearModeChange = async (enabled) => {
             onNavigationChange={setFreshmanSubScreen}
           />
         )}
-        {activeScreen === SCREENS.NEWS && (
+        {screen === SCREENS.NEWS && (
           <NewsScreen 
             theme={effectiveTheme} 
             accentColor={accentColor} 
@@ -1047,7 +1014,7 @@ const handleNewYearModeChange = async (enabled) => {
             }}
           />
         )}
-        {activeScreen === SCREENS.SETTINGS && (
+        {screen === SCREENS.SETTINGS && (
           <SettingsScreen 
             ref={settingsScreenRef}
             theme={effectiveTheme} 
@@ -1065,11 +1032,32 @@ const handleNewYearModeChange = async (enabled) => {
           />
         )}
       </View>
-      
-      {/* Навигация — Liquid Glass tab bar */}
-      {renderTabBar()}
+  );
 
-      {/* Тост уведомление о полученных достижениях */}
+  return (
+    <View style={{ flex: 1, backgroundColor: effectiveTheme === 'matrix' ? glass.backgroundSolid : bgColor }}>
+      {effectiveTheme === 'matrix' && <MatrixRain intensity={0.85} />}
+      <StatusBar
+        barStyle={effectiveTheme === 'light' ? 'dark-content' : 'light-content'}
+        backgroundColor={Platform.OS === 'android' ? glass.headerGlass : 'transparent'}
+        translucent={Platform.OS === 'ios'}
+      />
+      {Platform.OS !== 'ios' && renderHeader()}
+      {Platform.OS === 'ios' ? (
+        <NativeTabBar
+          activeScreen={activeScreen}
+          onTabPress={handleTabPress}
+          tabs={NATIVE_TABS}
+          renderScreen={renderScreen}
+          theme={effectiveTheme}
+          accentColor={colors.primary}
+          backgroundColor={bgColor}
+          showLabels={showTabbarLabels}
+          labelFontSize={{ small: 8, medium: 10, large: 12 }[tabbarFontSize]}
+        />
+      ) : renderScreen(activeScreen)}
+      {Platform.OS === 'ios' && renderHeader()}
+      {Platform.OS !== 'ios' && renderTabBar()}
       <AchievementToast theme={effectiveTheme} accentColor={accentColor} />
     </View>
   );
