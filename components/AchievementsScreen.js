@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, ScrollView, StyleSheet, Animated } from 'react-native';
+import { View, Text, StyleSheet, Animated } from 'react-native';
+import ScrollView from './ScreenScrollView';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import { ACCENT_COLORS, LIQUID_GLASS } from '../utils/constants';
 import { getAchievementsList, RARITY_INFO } from '../utils/achievements';
@@ -35,14 +36,14 @@ const AchievementsScreen = ({ theme, accentColor }) => {
   return (
     <Animated.View style={{ flex: 1, opacity: fadeAnim }}>
       <ScrollView 
-        style={{ flex: 1, padding: 16 }} 
-        contentContainerStyle={{ paddingBottom: 100 }}
+        style={{ flex: 1 }}
+        contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 100 }}
         showsVerticalScrollIndicator={false}
       >
         {/* Прогресс */}
         <SectionHeader title="Прогресс" placeholderColor={placeholderColor} />
-        <SettingsGroup glass={glass}>
-        <View style={[styles.progressCard, { backgroundColor: glass.surfaceSecondary, borderColor: glass.border }]}>
+        <SettingsGroup glass={glass} style={{ marginBottom: 20 }}>
+        <View style={styles.progressCard}>
           <View style={styles.progressHeader}>
             <View style={[styles.progressIconWrap, { backgroundColor: colors.glass, borderColor: colors.glassBorder }]}>
               <Icon name="trophy" size={24} color={colors.primary} />
@@ -169,10 +170,7 @@ const AchievementCard = ({ achievement, glass, colors, unlocked }) => {
 
 const styles = StyleSheet.create({
   progressCard: {
-    borderRadius: 20,
     padding: 18,
-    marginBottom: 20,
-    borderWidth: StyleSheet.hairlineWidth,
   },
   progressHeader: {
     flexDirection: 'row',

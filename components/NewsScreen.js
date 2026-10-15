@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, StyleSheet, RefreshControl, Animated, StatusBar, TextInput, Platform } from 'react-native';
+import { View, Text, TouchableOpacity, ActivityIndicator, StyleSheet, RefreshControl, Animated, StatusBar, TextInput, Platform } from 'react-native';
+import ScrollView from './ScreenScrollView';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import { ACCENT_COLORS, LIQUID_GLASS } from '../utils/constants';
 import ConnectionError from './ConnectionError';

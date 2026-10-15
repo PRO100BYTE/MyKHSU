@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, Switch, ScrollView, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, Switch, StyleSheet } from 'react-native';
+import ScrollView from './ScreenScrollView';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import * as SecureStore from 'expo-secure-store';
 import { ACCENT_COLORS, LIQUID_GLASS } from '../utils/constants';
@@ -73,8 +74,8 @@ const NotificationSettingsModal = ({ theme, accentColor }) => {
   return (
     <View style={{ flex: 1, backgroundColor: bgColor }}>
       <ScrollView 
-        style={{ flex: 1, padding: 16 }} 
-        contentContainerStyle={{ paddingBottom: 100 }}
+        style={{ flex: 1 }}
+        contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 100 }}
         showsVerticalScrollIndicator={false}
       >
             {/* Основные настройки */}
@@ -275,7 +276,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 12,
+    padding: 14,
+    gap: 12,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: 'transparent',
   },

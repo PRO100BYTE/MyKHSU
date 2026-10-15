@@ -60,6 +60,7 @@ export const SectionHeader = ({ title, style, textStyle, placeholderColor }) => 
       paddingHorizontal: 4,
       color: placeholderColor,
     },
+    style,
     textStyle,
   ]}>
     {title}

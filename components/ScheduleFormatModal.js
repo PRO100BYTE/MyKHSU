@@ -1,10 +1,12 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { View, Text, TouchableOpacity, TextInput, ScrollView, StyleSheet, Alert, ActivityIndicator, Switch, FlatList } from 'react-native';
+import { View, Text, TouchableOpacity, TextInput, StyleSheet, Alert, ActivityIndicator, Switch, FlatList } from 'react-native';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import * as SecureStore from 'expo-secure-store';
 import { ACCENT_COLORS, COURSES, LIQUID_GLASS } from '../utils/constants';
 import ApiService from '../utils/api';
+import { getScheduleGroups, resolveScheduleSelection } from '../utils/scheduleSelection';
 import { SectionHeader, SettingsGroup } from './SettingsComponents';
+import ScrollView from './ScreenScrollView';
 
 const ScheduleFormatModal = ({ theme, accentColor, onSettingsChange, onSave }) => {
   const [scheduleFormat, setScheduleFormat] = useState('student');
@@ -15,6 +17,11 @@ const ScheduleFormatModal = ({ theme, accentColor, onSettingsChange, onSave }) =
   const [availableGroups, setAvailableGroups] = useState([]);
   const [selectedCourse, setSelectedCourse] = useState(1);
   const [loadingGroups, setLoadingGroups] = useState(false);
+  const groupsRequestId = useRef(0);
+  const [settingsLoaded, setSettingsLoaded] = useState(false);
+  const initialSelection = useRef(null);
+  const currentCourse = useRef(1);
+  const groupRef = useRef('');
   const [showCourseSelector, setShowCourseSelector] = useState(true);
   const [attendanceTrackingEnabled, setAttendanceTrackingEnabled] = useState(true);
   const [freeAuditoriesEnabled, setFreeAuditoriesEnabled] = useState(true);
@@ -47,8 +54,11 @@ const ScheduleFormatModal = ({ theme, accentColor, onSettingsChange, onSave }) =
   }, []);
 
   useEffect(() => {
+    if (!settingsLoaded) return;
     loadGroupsForCourse(selectedCourse);
-  }, [selectedCourse]);
+  }, [selectedCourse, settingsLoaded]);
+
+  useEffect(() => () => { groupsRequestId.current += 1; }, []);
 
   const fetchAvailableCourses = async () => {
     setLoadingCourses(true);
@@ -83,44 +93,63 @@ const ScheduleFormatModal = ({ theme, accentColor, onSettingsChange, onSave }) =
       const savedFreeAuditories = await SecureStore.getItemAsync('free_auditories_enabled');
       
       if (savedFormat) setScheduleFormat(savedFormat);
-      if (savedGroup) setDefaultGroup(savedGroup);
-      if (savedCourse) setDefaultCourse(parseInt(savedCourse));
+      if (savedGroup) {
+        groupRef.current = savedGroup;
+        setDefaultGroup(savedGroup);
+      }
       if (savedTeacher) setTeacherName(savedTeacher);
       if (savedAuditory) setAuditoryName(savedAuditory);
       if (savedShowSelector !== null) setShowCourseSelector(savedShowSelector === 'true');
       if (savedAttendanceTracking !== null) setAttendanceTrackingEnabled(savedAttendanceTracking === 'true');
       if (savedFreeAuditories !== null) setFreeAuditoriesEnabled(savedFreeAuditories === 'true');
-      if (savedCourse) setSelectedCourse(parseInt(savedCourse));
+      if (savedCourse) {
+        const parsedCourse = Number.parseInt(savedCourse, 10);
+        if (Number.isFinite(parsedCourse)) {
+          setDefaultCourse(parsedCourse);
+          currentCourse.current = parsedCourse;
+          setSelectedCourse(parsedCourse);
+        }
+      }
+      initialSelection.current = { course: currentCourse.current, group: savedGroup };
     } catch (error) {
       console.error('Error loading schedule format settings:', error);
+    } finally {
+      setSettingsLoaded(true);
     }
   };
 
   const loadGroupsForCourse = async (course) => {
+    const requestId = ++groupsRequestId.current;
+    const isCurrent = () => requestId === groupsRequestId.current && currentCourse.current === course;
     setLoadingGroups(true);
     try {
       const result = await ApiService.getGroups(course);
-      if (result.data && result.data.groups) {
-        setAvailableGroups(result.data.groups);
-        if (defaultGroup && result.data.groups.includes(defaultGroup)) {
-          setDefaultGroup(defaultGroup);
-        } else if (result.data.groups.length > 0) {
-          setDefaultGroup(result.data.groups[0]);
-        }
-      } else {
-        setAvailableGroups([]);
-        setDefaultGroup('');
-      }
+      if (!isCurrent()) return;
+      const initial = initialSelection.current;
+      const selection = initial?.course === course
+        ? await resolveScheduleSelection({ course, group: initial.group, result, courses: COURSES,
+          getGroups: id => ApiService.getGroups(id), isCurrent })
+        : { course, group: getScheduleGroups(result).includes(groupRef.current) ? groupRef.current : '',
+          groups: getScheduleGroups(result) };
+      if (!selection || !isCurrent()) return;
+      initialSelection.current = null;
+      currentCourse.current = selection.course;
+      groupRef.current = selection.group || '';
+      setSelectedCourse(selection.course);
+      setDefaultCourse(selection.course);
+      setDefaultGroup(groupRef.current);
+      setAvailableGroups(selection.groups);
     } catch (error) {
+      if (!isCurrent()) return;
       console.error('Error loading groups:', error);
       setAvailableGroups([]);
-      setDefaultGroup('');
     } finally {
-      setLoadingGroups(false);
+      if (requestId === groupsRequestId.current) setLoadingGroups(false);
     }
   };
-
   const saveSettings = async () => {
+    if (!settingsLoaded || loadingGroups) return;
+    groupsRequestId.current += 1;
     try {
       if (scheduleFormat === 'teacher' && !teacherName.trim()) {
         Alert.alert('Ошибка', 'Пожалуйста, укажите ФИО преподавателя');
@@ -131,7 +160,9 @@ const ScheduleFormatModal = ({ theme, accentColor, onSettingsChange, onSave }) =
         return;
       }
       if (scheduleFormat === 'student' && !defaultGroup && !showCourseSelector) {
-        Alert.alert('Ошибка', 'При скрытом селекторе необходимо выбрать группу по умолчанию');
+        Alert.alert('Ошибка', availableGroups.length === 0
+          ? 'Для выбранного курса не удалось подтвердить доступную группу. Сначала выберите актуальный курс и группу.'
+          : 'При скрытом селекторе необходимо выбрать группу по умолчанию');
         return;
       }
 
@@ -170,6 +201,12 @@ const ScheduleFormatModal = ({ theme, accentColor, onSettingsChange, onSave }) =
   };
 
   const handleCourseChange = (courseId) => {
+    if (currentCourse.current === courseId) return;
+    groupsRequestId.current += 1;
+    initialSelection.current = null;
+    currentCourse.current = courseId;
+    groupRef.current = '';
+    setAvailableGroups([]);
     setSelectedCourse(courseId);
     setDefaultGroup('');
   };
@@ -403,7 +440,7 @@ const ScheduleFormatModal = ({ theme, accentColor, onSettingsChange, onSave }) =
                         backgroundColor: defaultGroup === group ? colors.primary : inputBgColor,
                         borderColor: defaultGroup === group ? colors.primary : borderColor
                       }]}
-                      onPress={() => setDefaultGroup(group)}
+                      onPress={() => { groupRef.current = group; setDefaultGroup(group); }}
                     >
                       <Text style={[styles.groupOptionText, { color: defaultGroup === group ? '#ffffff' : textColor }]}>
                         {group}

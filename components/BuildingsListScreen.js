@@ -2,7 +2,6 @@ import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { 
   View, 
   Text, 
-  ScrollView, 
   TouchableOpacity, 
   TouchableWithoutFeedback,
   TextInput,
@@ -17,6 +16,7 @@ import { Ionicons as Icon } from '@expo/vector-icons';
 import { ACCENT_COLORS, LIQUID_GLASS } from '../utils/constants';
 import { buildings } from '../utils/buildingCoordinates';
 import Snowfall from './Snowfall';
+import ScrollView from './ScreenScrollView';
 import { GlassCard } from './SettingsComponents';
 
 const BuildingsListScreen = ({ theme, accentColor, onBuildingSelect, isNewYearMode }) => {
@@ -346,7 +346,7 @@ const BuildingsListScreen = ({ theme, accentColor, onBuildingSelect, isNewYearMo
           backgroundColor={bgColor}
         />
 
-        <View style={{ flex: 1, padding: 16 }}>
+        <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: 16, paddingBottom: 100 }}>
           {/* Поиск */}
           <View style={{
             flexDirection: 'row',
@@ -388,7 +388,7 @@ const BuildingsListScreen = ({ theme, accentColor, onBuildingSelect, isNewYearMo
             </Text>
           </View>
 
-          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 100 }}>
+          <View>
             {Object.entries(filteredGroupedBuildings).map(([category, buildingsList]) => 
               renderCategorySection(category, buildingsList)
             )}
@@ -413,8 +413,8 @@ const BuildingsListScreen = ({ theme, accentColor, onBuildingSelect, isNewYearMo
                 </Text>
               </View>
             )}
-          </ScrollView>
-        </View>
+          </View>
+        </ScrollView>
 
         {/* Модальное окно выбора сервиса для построения маршрута с анимацией */}
         {showRouteOptions && (

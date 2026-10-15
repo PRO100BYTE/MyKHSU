@@ -2,7 +2,6 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { 
   View, 
   Text, 
-  ScrollView, 
   TouchableOpacity, 
   ActivityIndicator, 
   StyleSheet, 
@@ -119,6 +118,8 @@ const LessonCountdown = ({ timeEnd, accentColor }) => {
   );
 };
 
+import ScrollView from './ScreenScrollView';
+
 const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings, onSettingsUpdate, isNewYearMode, onCacheStatusChange, onExportReady, onFavoritesReady }) => {
   const [isTeacherMode, setIsTeacherMode] = useState(false);
   const [isAuditoryMode, setIsAuditoryMode] = useState(false);
@@ -187,6 +188,7 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
     course,
     setCourse,
     groups,
+    groupsForCourse,
     selectedGroup,
     setSelectedGroup,
     scheduleData,
@@ -1065,6 +1067,8 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
     fetchAvailableCourses();
   }, []);
 
+  const previousStudentSettings = useRef(externalSettings);
+
   // Применение внешних настроек
   useEffect(() => {
     if (externalSettings) {
@@ -1181,10 +1185,12 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
     } else if (settings.format === 'auditory' && settings.auditory) {
       fetchAuditorySchedule(settings.auditory);
     } else if (settings.format === 'student') {
-      if (settings.group && !settings.showSelector) {
-        setSelectedGroup(settings.group);
-        console.log('Установлена группа из настроек:', settings.group);
+      const previous = previousStudentSettings.current;
+      if (settings.course !== previous?.course || settings.group !== previous?.group) {
+        if (Number.isFinite(settings.course)) setCourse(settings.course);
+        if (settings.group) setSelectedGroup(settings.group);
       }
+      previousStudentSettings.current = settings;
     }
   };
 
@@ -1219,6 +1225,7 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
     
     try {
       await SecureStore.setItemAsync('default_course', courseId.toString());
+      await SecureStore.deleteItemAsync('default_group');
       
       const newSettings = {
         ...externalSettings,
@@ -2095,7 +2102,7 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
         </View>
       );
     } else {
-      if (loadingSchedule) {
+      if (loadingSchedule || (selectedGroup && groupsForCourse !== course)) {
         return <ActivityIndicator size="large" color={colors.primary} />;
       }
       
@@ -2294,7 +2301,6 @@ return (
       <ScrollView 
         ref={scrollViewRef}
         style={{ flex: 1, padding: 16 }}
-        contentInset={{ top: 0 }}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}

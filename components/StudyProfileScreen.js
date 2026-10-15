@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import ScrollView from './ScreenScrollView';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import { LIQUID_GLASS, ACCENT_COLORS } from '../utils/constants';
 import { loadAllAttendance, getAttendanceStats } from '../utils/attendanceStorage';
@@ -88,11 +89,11 @@ const StudyProfileScreen = ({ theme, accentColor }) => {
   };
 
   return (
-    <ScrollView style={{ flex: 1, padding: 16 }} contentContainerStyle={{ paddingBottom: 64 }}>
+    <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 64 }}>
       <SectionHeader title="Персональный учебный профиль" placeholderColor={glass.textSecondary} />
 
       <SettingsGroup glass={glass}>
-      <View style={[styles.card, { backgroundColor: glass.surfaceSecondary, borderColor: glass.border }]}>
+      <View style={styles.card}>
         <Text style={[styles.sectionTitle, { color: glass.text }]}>Посещаемость</Text>
         <Text style={{ color: glass.textSecondary, fontFamily: 'Montserrat_400Regular', marginTop: 4 }}>
           Текущая: {attendanceTotal.ratio}% ({attendanceTotal.attended}/{attendanceTotal.all})
@@ -119,7 +120,7 @@ const StudyProfileScreen = ({ theme, accentColor }) => {
 
       <SectionHeader title="Дедлайны и ДЗ" placeholderColor={glass.textSecondary} />
       <SettingsGroup glass={glass}>
-      <View style={[styles.card, { marginTop: 0, backgroundColor: glass.surfaceSecondary, borderColor: glass.border }]}>
+      <View style={styles.card}>
         <Text style={[styles.sectionTitle, { color: glass.text }]}>Дедлайны и ДЗ</Text>
         <Text style={[styles.text, { color: glass.textSecondary }]}>К выполнению: {deadlinesStats.todo}</Text>
         <Text style={[styles.text, { color: glass.textSecondary }]}>В работе: {deadlinesStats.in_progress}</Text>
@@ -149,7 +150,7 @@ const StudyProfileScreen = ({ theme, accentColor }) => {
 
       <SectionHeader title="История изменений" placeholderColor={glass.textSecondary} />
       <SettingsGroup glass={glass}>
-      <View style={[styles.card, { marginTop: 0, backgroundColor: glass.surfaceSecondary, borderColor: glass.border }]}>
+      <View style={styles.card}>
         <Text style={[styles.sectionTitle, { color: glass.text }]}>История изменений расписания (7 дней)</Text>
         {history.length === 0 && (
           <Text style={[styles.text, { color: glass.textSecondary }]}>Изменений пока нет.</Text>
@@ -174,7 +175,7 @@ const StudyProfileScreen = ({ theme, accentColor }) => {
 
       <SectionHeader title="Риск-зоны" placeholderColor={glass.textSecondary} />
       <SettingsGroup glass={glass}>
-      <View style={[styles.card, { marginTop: 0, backgroundColor: glass.surfaceSecondary, borderColor: glass.border }]}>
+      <View style={styles.card}>
         <Text style={[styles.sectionTitle, { color: glass.text }]}>Риск-зоны по предметам</Text>
         {attendanceStats.slice(0, 5).map((item) => (
           <View key={item.subject} style={[styles.listRow, { borderColor: glass.border, backgroundColor: glass.surfaceTertiary }]}>
@@ -197,9 +198,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   card: {
-    borderRadius: 14,
-    borderWidth: StyleSheet.hairlineWidth,
-    padding: 12,
+    padding: 14,
   },
   sectionTitle: {
     fontSize: 14,

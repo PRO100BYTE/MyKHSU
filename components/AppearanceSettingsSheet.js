@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Switch, Alert } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Switch, Alert } from 'react-native';
+import ScrollView from './ScreenScrollView';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import { useColorScheme } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
@@ -174,14 +175,14 @@ const AppearanceSettingsSheet = ({
 
   return (
     <ScrollView 
-      style={{ flex: 1, backgroundColor: bgColor, padding: 16 }} 
-      contentContainerStyle={{ paddingBottom: 100 }}
+      style={{ flex: 1, backgroundColor: bgColor }}
+      contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 100 }}
       showsVerticalScrollIndicator={false}
     >
       {/* Секция темы */}
       <View style={styles.section}>
         <SectionHeader title="Тема" placeholderColor={placeholderColor} />
-        <SettingsGroup glass={glass} style={{ backgroundColor: glass.surfaceSecondary, padding: 12 }}>
+        <SettingsGroup glass={glass} style={{ backgroundColor: glass.surfaceSecondary }}>
         <View style={styles.optionsContainer}>
           {themeOptions.map(opt => (
             <TouchableOpacity
@@ -194,7 +195,7 @@ const AppearanceSettingsSheet = ({
             >
               <View style={styles.optionHeader}>
                 <Icon name={opt.icon} size={24} color={selectedTheme === opt.key ? colors.primary : placeholderColor} />
-                <View style={{ marginLeft: 12 }}>
+                <View style={{ marginLeft: 12, flex: 1 }}>
                   <Text style={[styles.optionText, { color: selectedTheme === opt.key ? colors.primary : textColor }]}>
                     {opt.label}
                   </Text>
@@ -213,7 +214,7 @@ const AppearanceSettingsSheet = ({
       {/* Секция акцентного цвета */}
       <View style={styles.section}>
         <SectionHeader title="Акцентный цвет" placeholderColor={placeholderColor} />
-        <SettingsGroup glass={glass} style={{ backgroundColor: glass.surfaceSecondary, padding: 12 }}>
+        <SettingsGroup glass={glass} style={{ backgroundColor: glass.surfaceSecondary }}>
         <View style={styles.colorOptions}>
           {accentColorOptions.map(opt => (
             <TouchableOpacity
@@ -268,7 +269,7 @@ const AppearanceSettingsSheet = ({
       {showNewYearOption && (
         <View style={styles.section}>
           <SectionHeader title="Новогоднее настроение" placeholderColor={placeholderColor} />
-          <SettingsGroup glass={glass} style={{ backgroundColor: glass.surfaceSecondary, padding: 12 }}>
+          <SettingsGroup glass={glass} style={{ backgroundColor: glass.surfaceSecondary }}>
           <TouchableOpacity
             style={[styles.settingItem, { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: borderColor }]}
             onPress={() => handleNewYearModeChange(!newYearSetting)}
@@ -304,7 +305,7 @@ const AppearanceSettingsSheet = ({
       {/* Секция панели навигации */}
       <View style={styles.section}>
         <SectionHeader title="Панель навигации" placeholderColor={placeholderColor} />
-        <SettingsGroup glass={glass} style={{ backgroundColor: glass.surfaceSecondary, padding: 12 }}>
+        <SettingsGroup glass={glass} style={{ backgroundColor: glass.surfaceSecondary }}>
         <TouchableOpacity
           style={[styles.settingItem, { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: borderColor }]}
           onPress={() => handleShowLabelsChange(!showTabbarLabels)}
@@ -326,7 +327,7 @@ const AppearanceSettingsSheet = ({
           />
         </TouchableOpacity>
         {showTabbarLabels && (
-          <View style={{ marginTop: 16 }}>
+          <View style={{ padding: 14 }}>
             <Text style={[styles.subSectionTitle, { color: textColor }]}>Размер шрифта подписей</Text>
             <Text style={[styles.subSectionDescription, { color: placeholderColor }]}>
               Выберите размер текста под иконками навигации
@@ -377,14 +378,14 @@ const styles = StyleSheet.create({
   sectionTitle: { fontSize: 16, fontWeight: '600', marginBottom: 12, fontFamily: 'Montserrat_600SemiBold' },
   subSectionTitle: { fontSize: 14, fontWeight: '600', marginBottom: 4, fontFamily: 'Montserrat_600SemiBold' },
   subSectionDescription: { fontSize: 12, marginBottom: 12, fontFamily: 'Montserrat_400Regular' },
-  optionsContainer: { gap: 8 },
+  optionsContainer: { gap: 8, padding: 12 },
   option: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 16, borderRadius: 16, borderWidth: StyleSheet.hairlineWidth },
-  optionHeader: { flexDirection: 'row', alignItems: 'center' },
+  optionHeader: { flexDirection: 'row', alignItems: 'center', flex: 1 },
   optionText: { fontSize: 16, fontFamily: 'Montserrat_500Medium' },
   optionDescription: { fontSize: 12, fontFamily: 'Montserrat_400Regular', marginTop: 2 },
-  colorOptions: { flexDirection: 'row', justifyContent: 'center', gap: 16, paddingHorizontal: 20 },
+  colorOptions: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 16, padding: 14 },
   colorOption: { width: 44, height: 44, borderRadius: 22, justifyContent: 'center', alignItems: 'center' },
-  settingItem: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 12 },
+  settingItem: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 14, gap: 12 },
   settingInfo: { flexDirection: 'row', alignItems: 'center', flex: 1 },
   textContainer: { marginLeft: 12, flex: 1 },
   settingLabel: { fontSize: 16, fontFamily: 'Montserrat_500Medium', marginBottom: 2 },
@@ -392,7 +393,7 @@ const styles = StyleSheet.create({
   fontSizeOptions: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 8, gap: 8 },
   fontSizeOption: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 12, paddingHorizontal: 8, borderRadius: 12, borderWidth: StyleSheet.hairlineWidth },
   fontSizeOptionText: { fontFamily: 'Montserrat_500Medium' },
-  infoSection: { flexDirection: 'row', alignItems: 'center', padding: 12, borderRadius: 12, marginTop: 8 },
+  infoSection: { flexDirection: 'row', alignItems: 'center', padding: 14, borderRadius: 12 },
   infoText: { fontSize: 12, fontFamily: 'Montserrat_400Regular' },
 });
 

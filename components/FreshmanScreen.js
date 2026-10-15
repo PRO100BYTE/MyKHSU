@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect, useImperativeHandle, forwardRef } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, Linking, StyleSheet, Platform, Animated, StatusBar, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, TouchableOpacity, Linking, StyleSheet, Platform, Animated, StatusBar, Alert, ActivityIndicator } from 'react-native';
+import ScrollView from './ScreenScrollView';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import { ACCENT_COLORS, LIQUID_GLASS } from '../utils/constants';
 import ConnectionError from './ConnectionError';
@@ -465,7 +466,7 @@ const FreshmanScreen = forwardRef(({ theme, accentColor, isNewYearMode, communit
   ];
 
   const renderMainSections = () => (
-    <ScrollView style={{ flex: 1, padding: 16 }} contentContainerStyle={{ paddingBottom: 100 }}>
+    <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 16, paddingBottom: 100 }}>
       {sectionCategories.map(category => (
         <View key={category.title}>
           <SectionHeader title={category.title} />
@@ -576,7 +577,7 @@ const FreshmanScreen = forwardRef(({ theme, accentColor, isNewYearMode, communit
 
   // Единый экран сообществ с секциями
   const renderGroupTypeSelection = () => (
-    <ScrollView style={{ flex: 1, padding: 16 }} contentContainerStyle={{ paddingBottom: 100 }} showsVerticalScrollIndicator={false}>
+    <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 16, paddingBottom: 100 }} showsVerticalScrollIndicator={false}>
       <SectionHeader title="ВКонтакте" />
       <SectionGroup>
         {vkGroups.map((group, index) => (
@@ -694,7 +695,7 @@ const FreshmanScreen = forwardRef(({ theme, accentColor, isNewYearMode, communit
     };
 
     return (
-      <ScrollView style={{ flex: 1, padding: 16 }} contentContainerStyle={{ paddingBottom: 100 }} showsVerticalScrollIndicator={false}>
+      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 16, paddingBottom: 100 }} showsVerticalScrollIndicator={false}>
         <View style={{
           backgroundColor: colors.glass,
           borderRadius: 16,
@@ -819,7 +820,7 @@ const FreshmanScreen = forwardRef(({ theme, accentColor, isNewYearMode, communit
   ];
 
   const renderGlossary = () => (
-    <ScrollView style={{ flex: 1, padding: 16 }} contentContainerStyle={{ paddingBottom: 100 }} showsVerticalScrollIndicator={false}>
+    <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 16, paddingBottom: 100 }} showsVerticalScrollIndicator={false}>
       <View style={{
         backgroundColor: colors.glass,
         borderRadius: 16,

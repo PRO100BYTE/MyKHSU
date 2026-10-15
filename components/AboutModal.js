@@ -1,6 +1,7 @@
 // components/AboutModal.js
 import React from 'react';
-import { View, Text, ScrollView, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet } from 'react-native';
+import ScrollView from './ScreenScrollView';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import { ACCENT_COLORS, APP_VERSION, APP_DEVELOPERS, APP_SUPPORTERS, BUILD_VER, BUILD_DATE, LIQUID_GLASS } from '../utils/constants';
 import { SectionHeader, SettingsGroup } from './SettingsComponents';
@@ -11,20 +12,18 @@ const AboutModal = ({ theme, accentColor }) => {
   const bgColor = glass.background;
   const textColor = glass.text;
   const placeholderColor = glass.textSecondary;
-  const inputBgColor = glass.surfaceTertiary;
-  const borderColor = glass.border;
 
   return (
     <View style={{ flex: 1, backgroundColor: bgColor }}>
       <ScrollView 
-        style={{ flex: 1, padding: 16 }} 
-        contentContainerStyle={{ paddingBottom: 100 }}
+        style={{ flex: 1 }}
+        contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 100 }}
         showsVerticalScrollIndicator={false}
       >
             {/* Идентификация приложения */}
             <SectionHeader title="О приложении" placeholderColor={placeholderColor} />
             <SettingsGroup glass={glass}>
-            <View style={[styles.appIdentity, { backgroundColor: colors.glass, borderColor: colors.glassBorder }]}>
+            <View style={[styles.appIdentity, { backgroundColor: colors.glass }]}>
               <View style={[styles.appIconCircle, { backgroundColor: colors.primary }]}>
                 <Icon name="school" size={32} color="#ffffff" />
               </View>
@@ -41,7 +40,7 @@ const AboutModal = ({ theme, accentColor }) => {
             {/* Основные возможности */}
             <SectionHeader title="Возможности" placeholderColor={placeholderColor} />
             <SettingsGroup glass={glass}>
-            <View style={[styles.sectionCard, { backgroundColor: inputBgColor, borderColor }]}>
+            <View style={styles.sectionCard}>
               <View style={styles.sectionHeader}>
                 <Icon name="sparkles-outline" size={18} color={colors.primary} />
                 <Text style={[styles.sectionTitle, { color: textColor }]}>Возможности</Text>
@@ -99,7 +98,7 @@ const AboutModal = ({ theme, accentColor }) => {
             {/* Для преподавателей */}
             <SectionHeader title="Для преподавателей" placeholderColor={placeholderColor} />
             <SettingsGroup glass={glass}>
-            <View style={[styles.sectionCard, { backgroundColor: inputBgColor, borderColor }]}>
+            <View style={styles.sectionCard}>
               <View style={styles.sectionHeader}>
                 <Icon name="person-outline" size={18} color={colors.primary} />
                 <Text style={[styles.sectionTitle, { color: textColor }]}>Для преподавателей</Text>
@@ -123,7 +122,7 @@ const AboutModal = ({ theme, accentColor }) => {
             {/* Отслеживание ошибок */}
             <SectionHeader title="Отслеживание ошибок" placeholderColor={placeholderColor} />
             <SettingsGroup glass={glass}>
-            <View style={[styles.sectionCard, { backgroundColor: inputBgColor, borderColor }]}>
+            <View style={styles.sectionCard}>
               <View style={styles.sectionHeader}>
                 <Icon name="bug-outline" size={18} color={colors.primary} />
                 <Text style={[styles.sectionTitle, { color: textColor }]}>Отслеживание ошибок</Text>
@@ -137,7 +136,7 @@ const AboutModal = ({ theme, accentColor }) => {
             {/* Информация о версии */}
             <SectionHeader title="Версия и авторы" placeholderColor={placeholderColor} />
             <SettingsGroup glass={glass}>
-            <View style={[styles.infoSection, { backgroundColor: inputBgColor, borderColor }]}>
+            <View style={styles.infoSection}>
               <View style={styles.infoItem}>
                 <Icon name="calendar-outline" size={14} color={colors.primary} />
                 <Text style={[styles.infoText, { color: placeholderColor }]}>
@@ -168,9 +167,6 @@ const styles = StyleSheet.create({
   appIdentity: {
     alignItems: 'center',
     padding: 20,
-    borderRadius: 20,
-    borderWidth: StyleSheet.hairlineWidth,
-    marginBottom: 20,
   },
   appIconCircle: {
     width: 64,
@@ -199,10 +195,7 @@ const styles = StyleSheet.create({
   },
   // Section cards
   sectionCard: {
-    borderRadius: 16,
     padding: 16,
-    borderWidth: StyleSheet.hairlineWidth,
-    marginBottom: 12,
   },
   sectionHeader: {
     flexDirection: 'row',
@@ -238,9 +231,6 @@ const styles = StyleSheet.create({
   // Info section
   infoSection: {
     padding: 16,
-    borderRadius: 16,
-    borderWidth: StyleSheet.hairlineWidth,
-    marginBottom: 8,
   },
   infoItem: {
     flexDirection: 'row',

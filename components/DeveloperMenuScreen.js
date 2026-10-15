@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, TextInput, StyleSheet, Alert, Switch, Clipboard, Platform } from 'react-native';
+import { View, Text, TouchableOpacity, TextInput, StyleSheet, Alert, Switch, Clipboard, Platform } from 'react-native';
+import ScrollView from './ScreenScrollView';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import * as SecureStore from 'expo-secure-store';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -337,8 +338,8 @@ const DeveloperMenuScreen = ({ theme, accentColor, onCommunityFeatureChange, onL
   return (
     <View style={{ flex: 1, backgroundColor: bgColor }}>
       <ScrollView 
-        style={{ flex: 1, padding: 16 }} 
-        contentContainerStyle={{ paddingBottom: 100 }}
+        style={{ flex: 1 }}
+        contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 100 }}
         showsVerticalScrollIndicator={false}
       >
         {/* API-эндпоинт */}
@@ -1516,7 +1517,7 @@ const DeveloperMenuScreen = ({ theme, accentColor, onCommunityFeatureChange, onL
 const styles = StyleSheet.create({
   section: {
     marginBottom: 10,
-    padding: 12,
+    padding: 14,
   },
   sectionDescription: { fontSize: 12, marginBottom: 10, fontFamily: 'Montserrat_400Regular' },
   settingRow: {
@@ -1524,6 +1525,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingVertical: 12,
+    gap: 12,
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
   settingInfo: { flexDirection: 'row', alignItems: 'center', flex: 1 },
@@ -1564,6 +1566,7 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontFamily: 'Montserrat_500Medium',
     marginLeft: 12,
+    flex: 1,
   },
   debugCard: {
     padding: 16,

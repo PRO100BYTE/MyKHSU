@@ -1,10 +1,12 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import NetInfo from '@react-native-community/netinfo';
 import ApiService from '../utils/api';
 import notificationService from '../utils/notificationService';
 import { getWeekNumber, setServerWeekNumber } from '../utils/dateUtils';
 import { unlockAchievement } from '../utils/achievements';
 import * as SecureStore from 'expo-secure-store';
+import { COURSES } from '../utils/constants';
+import { getScheduleGroups, resolveScheduleSelection } from '../utils/scheduleSelection';
 
 const normalizeScheduleErrorCode = (error) => {
   const raw = String(error?.message || error || 'load-error');
@@ -18,10 +20,11 @@ const normalizeScheduleErrorCode = (error) => {
 };
 
 export const useScheduleLogic = () => {
-  const [course, setCourse] = useState(1);
+  const [course, updateCourse] = useState(1);
   const [groups, setGroups] = useState([]);
   const [cachedGroups, setCachedGroups] = useState([]);
-  const [selectedGroup, setSelectedGroup] = useState(null);
+  const [groupsForCourse, setGroupsForCourse] = useState(null);
+  const [selectedGroup, updateSelectedGroup] = useState(null);
   const [scheduleData, setScheduleData] = useState(null);
   const [cachedScheduleData, setCachedScheduleData] = useState(null);
   const [pairsTime, setPairsTime] = useState([]);
@@ -38,6 +41,42 @@ export const useScheduleLogic = () => {
   const [showCachedData, setShowCachedData] = useState(false);
   const [cacheInfo, setCacheInfo] = useState(null);
   const [currentTime, setCurrentTime] = useState(new Date());
+  const [initialSettingsLoaded, setInitialSettingsLoaded] = useState(false);
+  const groupsRequestId = useRef(0);
+  const groupsCacheByCourse = useRef({});
+  const currentCourseRef = useRef(course);
+  const initialSelectionRef = useRef(null);
+  const selectedGroupRef = useRef(null);
+  const selectionVersion = useRef(0);
+  const scheduleRequestId = useRef(0);
+  const scheduleCache = useRef({});
+
+  const setSelectedGroup = useCallback((group) => {
+    selectionVersion.current += 1;
+    scheduleRequestId.current += 1;
+    selectedGroupRef.current = group;
+    updateSelectedGroup(group);
+    setScheduleData(null);
+    setCachedScheduleData(null);
+    setLoadingSchedule(false);
+  }, []);
+
+  const setCourse = useCallback((nextCourse) => {
+    if (currentCourseRef.current === nextCourse) return;
+    currentCourseRef.current = nextCourse;
+    groupsRequestId.current += 1;
+    initialSelectionRef.current = null;
+    setSelectedGroup(null);
+    setGroupsForCourse(null);
+    setGroups([]);
+    updateCourse(nextCourse);
+  }, [setSelectedGroup]);
+
+  useEffect(() => () => {
+    groupsRequestId.current += 1;
+    scheduleRequestId.current += 1;
+    selectionVersion.current += 1;
+  }, []);
 
   // Обновление текущего времени
   useEffect(() => {
@@ -68,8 +107,10 @@ export const useScheduleLogic = () => {
 
   // Загрузка групп при изменении курса
   useEffect(() => {
-    fetchGroupsForCourse(course);
-  }, [course]);
+    if (initialSettingsLoaded) {
+      if (groupsForCourse !== course) fetchGroupsForCourse(course);
+    }
+  }, [course, initialSettingsLoaded]);
 
   // Загрузка времени пар
   useEffect(() => {
@@ -78,10 +119,10 @@ export const useScheduleLogic = () => {
 
   // Загрузка расписания при изменении выбранной группы или других параметров
   useEffect(() => {
-    if (selectedGroup) {
+    if (selectedGroup && groupsForCourse === course) {
       fetchScheduleData(selectedGroup);
     }
-  }, [viewMode, currentDate, currentWeek, selectedGroup]);
+  }, [viewMode, currentDate, currentWeek, selectedGroup, groupsForCourse, course]);
 
   const fetchWeekNumbers = async () => {
     try {
@@ -105,86 +146,84 @@ export const useScheduleLogic = () => {
 
   const loadInitialSettings = async () => {
     try {
-      const savedCourse = await SecureStore.getItemAsync('default_course');
-      const savedGroup = await SecureStore.getItemAsync('default_group');
-      
-      if (savedCourse) {
-        setCourse(parseInt(savedCourse));
-      }
-      
+      const [savedCourse, savedGroup] = await Promise.all([
+        SecureStore.getItemAsync('default_course'),
+        SecureStore.getItemAsync('default_group'),
+      ]);
+      const parsedCourse = Number.parseInt(savedCourse, 10);
+      if (selectionVersion.current !== 0) return;
+      const savedCourseId = COURSES.some(item => item.id === parsedCourse) ? parsedCourse : 1;
+      currentCourseRef.current = savedCourseId;
+      updateCourse(savedCourseId);
+      initialSelectionRef.current = { group: savedGroup, course: savedCourseId };
       console.log('Загружены начальные настройки:', { course: savedCourse, group: savedGroup });
     } catch (error) {
       console.error('Error loading initial settings:', error);
+    } finally {
+      setInitialSettingsLoaded(true);
     }
   };
 
   const fetchGroupsForCourse = async (courseId) => {
+    const requestId = ++groupsRequestId.current;
+    const version = selectionVersion.current;
+    const isRequestCurrent = () => requestId === groupsRequestId.current && currentCourseRef.current === courseId;
+    const isCurrent = () => isRequestCurrent() && version === selectionVersion.current;
     setLoadingGroups(true);
     setError(null);
-    
     try {
       const result = await ApiService.getGroups(courseId);
-      const processedGroups = processGroupsData(result);
-      
-      setGroups(processedGroups);
-      setCachedGroups(processedGroups);
-      
-      if (result.source === 'cache' || result.source === 'stale_cache') {
+      if (!isRequestCurrent()) return;
+      groupsCacheByCourse.current[courseId] = result;
+      setGroupsForCourse(courseId);
+      setGroups(getScheduleGroups(result));
+      if (!isCurrent()) return;
+      const initial = initialSelectionRef.current;
+      const preferredGroup = selectedGroupRef.current || (initial?.course === courseId ? initial.group : null);
+      const selection = initial?.course === courseId
+        ? await resolveScheduleSelection({ course: courseId, group: preferredGroup, result,
+          courses: COURSES, getGroups: id => ApiService.getGroups(id), isCurrent })
+        : { course: courseId, group: preferredGroup || getScheduleGroups(result)[0] || null,
+          groups: getScheduleGroups(result), result };
+      if (!selection || !isCurrent()) return;
+      initialSelectionRef.current = null;
+      groupsCacheByCourse.current[selection.course] = selection.result;
+      currentCourseRef.current = selection.course;
+      updateCourse(selection.course);
+      setGroupsForCourse(selection.course);
+      setGroups(selection.groups);
+      setCachedGroups(selection.groups);
+      selectedGroupRef.current = selection.group;
+      updateSelectedGroup(selection.group);
+      if (selection.result.source === 'cache' || selection.result.source === 'stale_cache') {
         setShowCachedData(true);
-        setCacheInfo(result);
+        setCacheInfo(selection.result);
       }
-      
-      console.log('Загружены группы для курса', courseId, ':', processedGroups);
-      
-      // Автоматический выбор группы после загрузки
-      await autoSelectGroup(processedGroups, courseId);
-      
+      if (selection.course !== courseId) {
+        await SecureStore.setItemAsync('default_course', String(selection.course));
+      }
     } catch (error) {
-      console.error('Error fetching groups:', error);
+      if (!isCurrent()) return;
       setError(normalizeScheduleErrorCode(error));
-      
-      if (cachedGroups.length > 0) {
-        setGroups(cachedGroups);
+      const cached = groupsCacheByCourse.current[courseId];
+      const courseGroups = getScheduleGroups(cached);
+      setGroupsForCourse(courseId);
+      setGroups(courseGroups);
+      setCachedGroups(courseGroups);
+      const initial = initialSelectionRef.current;
+      const group = selectedGroupRef.current || (initial?.course === courseId ? initial.group : null);
+      if (group || courseGroups.length) {
+        selectedGroupRef.current = group || courseGroups[0];
+        updateSelectedGroup(selectedGroupRef.current);
         setShowCachedData(true);
-        // Пробуем выбрать группу из кэша
-        autoSelectGroup(cachedGroups, courseId);
-      } else {
-        setGroups([]);
       }
     } finally {
-      setLoadingGroups(false);
+      if (requestId === groupsRequestId.current) {
+        setLoadingGroups(false);
+        setRefreshing(false);
+      }
     }
   };
-
-  const autoSelectGroup = async (availableGroups, currentCourseId) => {
-    if (availableGroups.length === 0) return;
-    
-    try {
-      const savedGroup = await SecureStore.getItemAsync('default_group');
-      const savedCourse = await SecureStore.getItemAsync('default_course');
-      const showSelector = await SecureStore.getItemAsync('show_course_selector');
-      
-      // Если есть сохраненная группа и она доступна в текущем курсе
-      if (savedGroup && availableGroups.includes(savedGroup) && 
-          parseInt(savedCourse) === currentCourseId) {
-        setSelectedGroup(savedGroup);
-        console.log('Автоматически выбрана сохраненная группа:', savedGroup);
-      } 
-      // Если нет выбранной группы, но есть сохраненная (даже если курс не совпадает)
-      else if (!selectedGroup && savedGroup && availableGroups.includes(savedGroup)) {
-        setSelectedGroup(savedGroup);
-        console.log('Выбрана сохраненная группа (курс мог измениться):', savedGroup);
-      }
-      // Если все еще нет выбранной группы, выбираем первую
-      else if (!selectedGroup && availableGroups.length > 0) {
-        setSelectedGroup(availableGroups[0]);
-        console.log('Выбрана первая группа из списка:', availableGroups[0]);
-      }
-    } catch (error) {
-      console.error('Error in autoSelectGroup:', error);
-    }
-  };
-
   const fetchPairsTime = async () => {
     try {
       const result = await ApiService.getPairsTime();
@@ -212,7 +251,12 @@ export const useScheduleLogic = () => {
 
   const fetchScheduleData = async (group, forceRefresh = false) => {
     if (!group) return;
-    
+    const requestId = ++scheduleRequestId.current;
+    const requestCourse = currentCourseRef.current;
+    const cacheKey = `${requestCourse}:${group}:${viewMode}:${viewMode === 'day' ? currentDate.toDateString() : currentWeek}`;
+    const isCurrent = () => requestId === scheduleRequestId.current &&
+      group === selectedGroupRef.current && requestCourse === currentCourseRef.current;
+
     setLoadingSchedule(true);
     setError(null);
     setShowCachedData(false);
@@ -225,7 +269,9 @@ export const useScheduleLogic = () => {
         result = await ApiService.getSchedule(group, null, currentWeek, forceRefresh);
       }
       
+      if (!isCurrent()) return;
       const processedSchedule = processScheduleData(result, currentDate);
+      scheduleCache.current[cacheKey] = processedSchedule;
       setScheduleData(processedSchedule);
       setCachedScheduleData(processedSchedule);
       
@@ -240,6 +286,7 @@ export const useScheduleLogic = () => {
         console.error('Error scheduling notifications:', notifyError);
       }
 
+      if (!isCurrent()) return;
       // Проверяем изменения в расписании и уведомляем пользователя
       try {
         const d = new Date(currentDate);
@@ -258,18 +305,21 @@ export const useScheduleLogic = () => {
       
       console.log('Загружено расписание для группы', group, 'на', viewMode === 'day' ? currentDate.toDateString() : `неделю ${currentWeek}`);
     } catch (error) {
+      if (!isCurrent()) return;
       console.error('Error fetching schedule:', error);
       setError(normalizeScheduleErrorCode(error));
       
-      if (cachedScheduleData) {
-        setScheduleData(cachedScheduleData);
+      if (scheduleCache.current[cacheKey]) {
+        setScheduleData(scheduleCache.current[cacheKey]);
         setShowCachedData(true);
         setCacheInfo({ source: 'stale_cache', cacheInfo: { cacheDate: new Date().toISOString() } });
         unlockAchievement('offline_hero').catch(() => {});
       }
     } finally {
-      setLoadingSchedule(false);
-      setRefreshing(false);
+      if (isCurrent()) {
+        setLoadingSchedule(false);
+        setRefreshing(false);
+      }
     }
   };
 
@@ -344,6 +394,7 @@ export const useScheduleLogic = () => {
     // States
     course,
     groups,
+    groupsForCourse,
     selectedGroup,
     scheduleData,
     pairsTime,

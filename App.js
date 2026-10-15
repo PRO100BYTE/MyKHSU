@@ -61,8 +61,8 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth,
     backgroundColor: 'transparent',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 1,
-    shadowRadius: 12,
+    shadowOpacity: 0,
+    shadowRadius: 0,
   },
   headerInner: {
     flexDirection: 'row',
@@ -116,27 +116,20 @@ const styles = StyleSheet.create({
   // Анимированный индикатор активной вкладки
   tabIndicator: {
     position: 'absolute',
+    left: 0,
     top: 6,
-    height: 36,
-    borderRadius: 12,
+    borderRadius: 24,
     overflow: 'hidden',
-    zIndex: 3,
+    zIndex: 1,
   },
   tabIndicatorGlass: {
     ...StyleSheet.absoluteFillObject,
-    borderRadius: 12,
+    borderRadius: 24,
   },
   tabIndicatorContent: {
-    flex: 1,
-    borderRadius: 12,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(255, 255, 255, 0.52)',
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
-  },
-  tabIndicatorAccent: {
     ...StyleSheet.absoluteFillObject,
-    borderRadius: 12,
-    borderWidth: 1.5,
+    borderRadius: 24,
+    borderWidth: StyleSheet.hairlineWidth,
   },
   // Fallback стиль для Android
   tabBarAndroid: {
@@ -197,18 +190,20 @@ export default Sentry.wrap(function App() {
   const tabLayouts = useRef({});   // { index: { x, width } }
   const isDragging = useRef(false);
   const prevTabIndex = useRef(0);
-  const [indicatorReady, setIndicatorReady] = useState(false);
+  const [, setTabLayoutRevision] = useState(0);
 
   // Сохраняем позицию вкладки при её layout
   const handleTabLayout = useCallback((index, event) => {
-    const { x, width } = event.nativeEvent.layout;
-    tabLayouts.current[index] = { x, width };
-    // Инициализируем позицию индикатора для начальной вкладки
+    const { x, width, height } = event.nativeEvent.layout;
+    const previous = tabLayouts.current[index];
+    tabLayouts.current[index] = { x, width, height };
+    if (!previous || previous.x !== x || previous.width !== width || previous.height !== height) {
+      setTabLayoutRevision((revision) => revision + 1);
+    }
     if (index === TAB_ORDER.indexOf(activeScreen) && !isDragging.current) {
       indicatorAnim.setValue(x);
-      if (!indicatorReady) setIndicatorReady(true);
     }
-  }, [activeScreen, indicatorReady]);
+  }, [activeScreen, indicatorAnim]);
 
   // Анимация скольжения при переключении таба
   const animateIndicatorTo = useCallback((tabIndex) => {
@@ -225,7 +220,7 @@ export default Sentry.wrap(function App() {
 
   // PanResponder для перетаскивания индикатора при зажатии активной вкладки
   const indicatorPanResponder = useMemo(() => PanResponder.create({
-    onStartShouldSetPanResponder: () => true,
+    onStartShouldSetPanResponder: () => false,
     onStartShouldSetPanResponderCapture: () => false,
     onMoveShouldSetPanResponder: (_, gesture) => {
       return Math.abs(gesture.dx) > 8 && Math.abs(gesture.dy) < 20;
@@ -563,7 +558,7 @@ const handleNewYearModeChange = async (enabled) => {
       console.warn('Liquid Glass API unavailable; using BlurView fallback.', error);
     }
   }
-  const systemGlassColorScheme = glass.isSpecialTheme ? 'dark' : 'auto';
+  const systemGlassColorScheme = effectiveTheme === 'light' ? 'light' : 'dark';
   const tabBarBlurConfig = {
     intensity: glass.tabBarBlurIntensity || blurConfig.intensity,
     tint: glass.tabBarBlurTint || blurConfig.tint,
@@ -670,7 +665,7 @@ const handleNewYearModeChange = async (enabled) => {
             {...(supportsSystemGlass
               ? { colorScheme: systemGlassColorScheme, glassEffectStyle: 'regular' }
               : { intensity: tabBarBlurConfig.intensity, tint: tabBarBlurConfig.tint })}
-            style={[styles.headerBlur, { borderColor: glass.borderStrong, shadowColor: glass.shadowColor }]}
+            style={[styles.headerBlur, { marginTop: insets.top + 6, borderColor: glass.borderStrong }]}
           >
             <View style={styles.headerInner}>
               {showBackButton ? (
@@ -890,31 +885,32 @@ const handleNewYearModeChange = async (enabled) => {
     const activeLayout = tabLayouts.current[activeIndex];
     const indicatorWidth = activeLayout ? activeLayout.width : 0;
 
-    // Системная капсула располагается поверх иконки активного раздела.
+    // Нейтральная капсула под содержимым вкладки; акцент принадлежит иконке.
     const indicator = indicatorWidth > 0 ? (
       <Animated.View
         style={[
           styles.tabIndicator,
           {
             width: indicatorWidth,
+            height: activeLayout.height,
+            top: Platform.OS === 'ios' ? 6 : 0,
             transform: [{ translateX: indicatorAnim }],
           },
         ]}
-        {...indicatorPanResponder.panHandlers}
+        pointerEvents="none"
       >
-        {supportsSystemGlass ? (
-          <>
-            <GlassView
-              colorScheme={systemGlassColorScheme}
-              glassEffectStyle="regular"
-              isInteractive
-              style={styles.tabIndicatorGlass}
-            />
-            <View pointerEvents="none" style={[styles.tabIndicatorAccent, { borderColor: colors.primary }]} />
-          </>
-        ) : (
-          <View style={[styles.tabIndicatorContent, { backgroundColor: colors.glass, borderColor: colors.glassBorder }]} />
+        {supportsSystemGlass && (
+          <GlassView
+            colorScheme={systemGlassColorScheme}
+            glassEffectStyle="regular"
+            isInteractive
+            style={styles.tabIndicatorGlass}
+          />
         )}
+        <View style={[styles.tabIndicatorContent, {
+          backgroundColor: effectiveTheme === 'light' ? 'rgba(0,0,0,0.07)' : 'rgba(255,255,255,0.14)',
+          borderColor: effectiveTheme === 'light' ? 'rgba(255,255,255,0.6)' : 'rgba(255,255,255,0.22)',
+        }]} />
       </Animated.View>
     ) : null;
 
@@ -930,7 +926,7 @@ const handleNewYearModeChange = async (enabled) => {
         showLabels={showTabbarLabels}
         fontSize={tabbarFontSize}
         glassAvailable={supportsSystemGlass}
-        activeColor={supportsSystemGlass ? (effectiveTheme === 'light' ? colors.primary : '#FFFFFF') : colors.primary}
+        activeColor={colors.primary}
         onLayout={(e) => handleTabLayout(index, e)}
       />
     ));
@@ -952,7 +948,7 @@ const handleNewYearModeChange = async (enabled) => {
               },
             ]}
           >
-            <View style={styles.tabBarInner}>
+            <View style={styles.tabBarInner} {...indicatorPanResponder.panHandlers}>
               {indicator}
               {tabButtons}
             </View>
@@ -995,7 +991,7 @@ const handleNewYearModeChange = async (enabled) => {
       {renderHeader()}
       
       {/* Контент — содержимое проходит за header и tab bar для Liquid Glass-эффекта */}
-      <View style={{ flex: 1, paddingTop: Platform.OS === 'ios' ? 104 : 0 }}>
+      <View style={{ flex: 1 }}>
         {activeScreen === SCREENS.SCHEDULE && (
           <ScheduleScreen 
             theme={effectiveTheme} 

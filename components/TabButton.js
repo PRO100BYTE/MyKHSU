@@ -27,6 +27,9 @@ const TabButton = ({ icon, label, isActive, onPress, theme, accentColor, showLab
       style={styles.tabButton}
       activeOpacity={0.7}
       onLayout={onLayout}
+      accessibilityRole="tab"
+      accessibilityState={{ selected: isActive }}
+      accessibilityLabel={label}
     >
       <Icon name={icon} size={22} color={iconColor} />
       {showLabels && (

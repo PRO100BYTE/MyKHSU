@@ -2,7 +2,6 @@ import React, { useState, useEffect, useRef, forwardRef, useImperativeHandle } f
 import { 
   View, 
   Text, 
-  ScrollView, 
   TouchableOpacity, 
   Alert, 
   StyleSheet, 
@@ -28,7 +27,8 @@ import { ACCENT_COLORS, APP_VERSION, APP_DEVELOPERS, APP_SUPPORTERS, GITHUB_REPO
 import { getAchievementsCount, unlockAchievement } from '../utils/achievements';
 import { showAchievementToast } from './AchievementToast';
 import { getGlassSettingsCardStyle, getGlassIconBadgeStyle } from '../utils/liquidGlass';
-import { GlassCard } from './SettingsComponents';
+import { SettingsGroup as SharedSettingsGroup } from './SettingsComponents';
+import ScrollView from './ScreenScrollView';
 import { BlurView } from 'expo-blur';
 import Snowfall from './Snowfall';
 import { clearAllNotes, getNotesCount } from '../utils/notesStorage';
@@ -481,20 +481,9 @@ const SettingsScreen = forwardRef(({
 
   // Группировка настроек в карточку
   const SettingsGroup = ({ children }) => (
-    <GlassCard glass={glass} style={{
-      backgroundColor: glass.surfaceSecondary,
-      borderRadius: 14,
-      overflow: 'hidden',
-      borderWidth: StyleSheet.hairlineWidth,
-      borderColor: glass.border,
-      shadowColor: glass.shadowColor,
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.08,
-      shadowRadius: 6,
-      elevation: 2,
-    }}>
+    <SharedSettingsGroup glass={glass}>
       {children}
-    </GlassCard>
+    </SharedSettingsGroup>
   );
 
   // Строка настройки в группе
@@ -537,8 +526,8 @@ const SettingsScreen = forwardRef(({
 
   const renderMainScreen = () => (
     <ScrollView 
-      style={{ padding: 16 }} 
-      contentContainerStyle={{ paddingBottom: 100 }}
+      style={{ flex: 1 }}
+      contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 100 }}
       showsVerticalScrollIndicator={false}
     >
       {/* РАСПИСАНИЕ */}

@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import ScrollView from './ScreenScrollView';
 import * as Notifications from 'expo-notifications';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import { LIQUID_GLASS, ACCENT_COLORS } from '../utils/constants';
@@ -175,11 +176,11 @@ const AcademicCalendarScreen = ({ theme, accentColor }) => {
 
   return (
     <View style={{ flex: 1 }}>
-      <ScrollView style={{ flex: 1, padding: 16 }} contentContainerStyle={{ paddingBottom: 32 }}>
+      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 32 }}>
       <SectionHeader title="Календарь учебных событий" placeholderColor={glass.textSecondary} />
 
-      <SettingsGroup glass={glass} style={{ marginBottom: 12 }}>
-      <View style={[styles.heroCard, { backgroundColor: colors.glass, borderColor: colors.glassBorder || glass.border }]}>
+      <SettingsGroup glass={glass}>
+      <View style={[styles.heroCard, { backgroundColor: colors.glass }]}>
         <View style={styles.heroBadge}>
           <Icon name="sparkles-outline" size={18} color={colors.primary} />
         </View>
@@ -195,8 +196,8 @@ const AcademicCalendarScreen = ({ theme, accentColor }) => {
       </SettingsGroup>
 
       <SectionHeader title="Фильтры и события" placeholderColor={glass.textSecondary} />
-      <SettingsGroup glass={glass} style={{ marginTop: 2 }}>
-      <View style={[styles.card, { marginTop: 0, backgroundColor: glass.surfaceSecondary, borderColor: glass.border }]}>
+      <SettingsGroup glass={glass}>
+      <View style={styles.card}>
         <View style={styles.filtersHeaderRow}>
           <Text style={[styles.label, { color: glass.textSecondary, marginTop: 0 }]}>Фильтры</Text>
           <View style={styles.topActions}>
@@ -328,17 +329,12 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   card: {
-    borderRadius: 14,
-    borderWidth: StyleSheet.hairlineWidth,
-    padding: 12,
+    padding: 14,
   },
   heroCard: {
-    borderRadius: 18,
-    borderWidth: StyleSheet.hairlineWidth,
     padding: 14,
     flexDirection: 'row',
     gap: 12,
-    marginBottom: 12,
   },
   heroBadge: {
     width: 42,
