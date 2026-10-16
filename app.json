@@ -61,6 +61,12 @@
       "expo-secure-store",
       "expo-web-browser",
       [
+        "expo-calendar",
+        {
+          "calendarPermission": "Приложению Мой ИТИ ХГУ требуется доступ к календарю для экспорта расписания занятий."
+        }
+      ],
+      [
         "@sentry/react-native/expo",
         {
           "url": "https://sentry.io/",
@@ -98,7 +104,6 @@
           }
         }
       ],
-      "expo-calendar",
       "@react-native-community/datetimepicker",
       "@sentry/react-native",
       "expo-sharing",

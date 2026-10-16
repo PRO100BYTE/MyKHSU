@@ -13,6 +13,9 @@ import TabButton from './components/TabButton';
 import NativeTabBar from './components/NativeTabBar';
 import HeaderToolbar from './components/HeaderToolbar';
 import InAppNotificationBanner from './components/InAppNotificationBanner';
+import OnboardingScreen from './components/OnboardingScreen';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { isOnboardingCompleted } from './utils/onboarding';
 import NewsScreen from './components/NewsScreen';
 import ScheduleScreen from './components/ScheduleScreen';
 import SettingsScreen from './components/SettingsScreen';
@@ -150,6 +153,7 @@ export default Sentry.wrap(function App() {
   });
 
   const [isLoading, setIsLoading] = useState(true);
+  const [onboardingRequired, setOnboardingRequired] = useState(null);
   const [activeScreen, setActiveScreen] = useState(SCREENS.SCHEDULE);
   const [theme, setTheme] = useState('auto');
   const [accentColor, setAccentColor] = useState('green');
@@ -430,6 +434,7 @@ const handleNewYearModeChange = async (enabled) => {
 
   const initializeApp = async () => {
     try {
+      setOnboardingRequired(!await isOnboardingCompleted(AsyncStorage));
       // Инициализируем сервис уведомлений
       await notificationService.initialize();
 
@@ -518,7 +523,7 @@ const handleNewYearModeChange = async (enabled) => {
   const effectiveTheme = getEffectiveTheme();
   
   // Рендерим SplashScreen пока шрифты не загружены или приложение загружается
-  if (!fontsLoaded || isLoading) {
+  if (!fontsLoaded || isLoading || onboardingRequired === null) {
     const holiday = getHolidayInfo();
     const holidayInfo = holiday && (holiday.type !== 'new-year' || splashNewYearMode) ? holiday : null;
     return <SplashScreen 
@@ -529,6 +534,10 @@ const handleNewYearModeChange = async (enabled) => {
     />;
   }
   
+  if (onboardingRequired) {
+    return <OnboardingScreen visible theme={effectiveTheme} accentColor={accentColor} onComplete={() => setOnboardingRequired(false)} />;
+  }
+
   const glass = LIQUID_GLASS[effectiveTheme] || LIQUID_GLASS.light;
   const bgColor = glass.background;
   const textColor = glass.text;
@@ -657,7 +666,7 @@ const handleNewYearModeChange = async (enabled) => {
           actions={[
             showFilterButton && { primary: true, icon: 'options-outline', badge: mapFilterCount, label: mapFilterCount ? `Фильтры (${mapFilterCount})` : 'Фильтры карты', onPress: handleFilterPress },
             activeScreen === SCREENS.SCHEDULE && scheduleFavoritesAvailable && { primary: true, icon: 'star-outline', label: 'Избранное расписание', onPress: () => scheduleFavoritesHandler.current?.() },
-            activeScreen === SCREENS.SCHEDULE && scheduleExportAvailable && { symbol: 'square.and.arrow.up', label: scheduleExporting ? 'Экспорт выполняется…' : 'Поделиться расписанием', disabled: scheduleExporting, onPress: () => scheduleExportHandler.current?.() },
+            activeScreen === SCREENS.SCHEDULE && scheduleExportAvailable && { direct: true, icon: 'share-outline', label: scheduleExporting ? 'Экспорт выполняется…' : 'Поделиться расписанием', disabled: scheduleExporting, onPress: () => scheduleExportHandler.current?.() },
           ]}
         />
       );
@@ -720,8 +729,8 @@ const handleNewYearModeChange = async (enabled) => {
           >
             <Icon 
               name={currentCacheStatus === 'offline' ? 'cloud-offline-outline' : 'cloud-done-outline'} 
-              size={16} 
-              color={currentCacheStatus === 'offline' ? '#f59e0b' : colors.primary} 
+              size={22}
+              color={colors.primary}
             />
             <Text style={{ 
               fontSize: 11, 

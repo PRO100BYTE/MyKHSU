@@ -30,5 +30,14 @@ test('toolbar never mounts missing MenuView, registered view uses native menu', 
     const tree = module.exports.default({ title: 'Schedule', glass: {}, actions: [{ label: 'Share', onPress() {} }] });
     const includes = node => node && typeof node === 'object' && (node.type === nativeMenu || (node.props?.children || []).flat(Infinity).some(includes));
     assert.equal(!!includes(tree), available);
+    const direct = module.exports.default({ title: 'Schedule', glass: {}, status: { icon: 'cloud-done-outline' }, accent: '#123456',
+      actions: [{ label: 'Share', direct: true, icon: 'share-outline', onPress() {} }] });
+    assert.equal(!!includes(direct), false, 'direct share action never renders an ellipsis menu');
+    const collect = node => !node || typeof node !== 'object' ? [] : [node, ...(node.props?.children || []).flat(Infinity).flatMap(collect)];
+    const icons = collect(direct).filter(node => node.type === 'Icon');
+    const cache = icons.find(node => node.props.name === 'cloud-done-outline');
+    assert.equal(cache.props.size, 22);
+    assert.equal(cache.props.color, '#123456');
+    assert.ok(icons.some(node => node.props.name === 'share-outline'));
   }
 });

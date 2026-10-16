@@ -821,28 +821,26 @@ const MapScreen = forwardRef(({ theme, accentColor, isNewYearMode, onFilterCount
       <NativeSheet
         visible={showFiltersModal}
         onRequestClose={handleCloseFiltersModal}
-        presentationStyle="formSheet"
+        bounded
         accessibilityLabel="Фильтры карты"
-        contentStyle={{ backgroundColor: Platform.OS === 'ios' ? glass.backgroundElevated : 'transparent' }}
+        contentStyle={{
+          backgroundColor: 'transparent',
+          height: Math.min(height * 0.65, 560),
+          maxHeight: Math.min(height * 0.65, 560),
+        }}
       >
         <Animated.View 
           style={[
             styles.filtersModalOverlay,
-            Platform.OS === 'ios' ? styles.nativeSheetContent : {
-              opacity: filtersModalAnim,
-              backgroundColor: 'rgba(0, 0, 0, 0.5)'
-            }
+            { opacity: filtersModalAnim }
           ]}
         >
-          {Platform.OS === 'android' && (
-            <TouchableWithoutFeedback onPress={handleCloseFiltersModal}>
-              <View style={{ flex: 1 }} />
-            </TouchableWithoutFeedback>
-          )}
           <Animated.View 
             style={[
               styles.filtersModal,
-              Platform.OS === 'ios' ? styles.nativeSheetCard : {
+              Platform.OS === 'ios' && styles.filtersModalCompact,
+              { paddingBottom: insets.bottom + 16 },
+              {
                 backgroundColor: glass.backgroundElevated,
                 borderColor: glass.border,
                 borderWidth: StyleSheet.hairlineWidth,
@@ -868,7 +866,7 @@ const MapScreen = forwardRef(({ theme, accentColor, isNewYearMode, onFilterCount
               </View>
               <TouchableOpacity 
                 onPress={handleCloseFiltersModal}
-                style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: glass.surfaceTertiary, justifyContent: 'center', alignItems: 'center' }}
+                style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: glass.surfaceTertiary, justifyContent: 'center', alignItems: 'center' }}
               >
                 <Icon name="close" size={18} color={placeholderColor} />
               </TouchableOpacity>
@@ -1123,11 +1121,12 @@ const styles = StyleSheet.create({
     paddingBottom: 16,
   },
   filtersModal: {
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    padding: 20,
-    paddingBottom: Platform.OS === 'ios' ? 100 : 24,
-    maxHeight: '80%',
+    flex: 1,
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+    padding: 16,
+    paddingBottom: 16,
+    maxHeight: '100%',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: -4 },
     shadowOpacity: 0.15,
@@ -1151,7 +1150,8 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   filtersList: {
-    maxHeight: 380,
+    flex: 1,
+    minHeight: 0,
   },
   filterItem: {
     flexDirection: 'row',
@@ -1179,6 +1179,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   filtersFooter: {
+    flexShrink: 0,
     flexDirection: 'row',
     gap: 8,
     marginTop: 12,

@@ -41,7 +41,6 @@ import ScheduleShareImage from './ScheduleShareImage';
 import notificationService from '../utils/notificationService';
 import AttendanceStatsModal from './AttendanceStatsModal';
 import FreeAuditoriesScreen from './FreeAuditoriesScreen';
-import { showContextActions, shareText } from '../utils/contextActions';
 import {
   loadAllAttendance,
   saveAttendance,
@@ -706,18 +705,6 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
   // Общий компонент карточки занятия
   const renderLessonCard = (lesson, lessonIndex, pairTime, isCurrentLessonFlag, isTeacher = false, isAuditory = false, weekday = null, lessonDate = null) => {
     const typeInfo = getLessonTypeIcon(lesson.type_lesson);
-    const showLessonActions = () => showContextActions({
-      title: lesson.subject || 'Занятие',
-      actions: [
-        { label: 'Заметка', onPress: () => openNoteModal(lesson, weekday) },
-        { label: 'Поделиться', onPress: () => shareText([
-          lesson.subject,
-          lessonDate ? String(lessonDate) : null,
-          pairTime ? `${pairTime.time_start} – ${pairTime.time_end}` : `Пара ${lesson.time}`,
-          typeof lesson.teacher === 'string' ? lesson.teacher : null,
-        ].filter(Boolean).join('\n')) },
-      ],
-    });
     
     const cardStyle = {
       flexDirection: 'row',
@@ -817,7 +804,7 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
           </View>
           
           {/* Название предмета */}
-          <Text onLongPress={showLessonActions} style={{
+          <Text style={{
             fontSize: 16, 
             fontWeight: '600', 
             color: textColor, 
@@ -983,14 +970,6 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
                 />
               )}
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                <TouchableOpacity
-                  onPress={showLessonActions}
-                  accessibilityRole="button"
-                  accessibilityLabel="Действия с занятием"
-                  style={{ minWidth: 44, minHeight: 44, alignItems: 'center', justifyContent: 'center' }}
-                >
-                  <Icon name="ellipsis-horizontal" size={20} color={placeholderColor} />
-                </TouchableOpacity>
                 {attendanceTrackingEnabled && !isTeacher && !isAuditory && (
                   <TouchableOpacity
                     onPress={() => {

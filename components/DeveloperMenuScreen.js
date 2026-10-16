@@ -1358,11 +1358,13 @@ const DeveloperMenuScreen = ({ theme, accentColor, onCommunityFeatureChange, onL
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[styles.actionButton, { backgroundColor: 'rgba(99, 102, 241, 0.08)', borderColor: 'rgba(99, 102, 241, 0.25)' }]}
+            accessibilityRole="button"
+            accessibilityLabel="Открыть мини-игру Змейка"
+            style={[styles.actionButton, { backgroundColor: colors.primary + '12', borderColor: colors.primary + '35' }]}
             onPress={() => setSnakeVisible(true)}
           >
-            <Icon name="game-controller-outline" size={20} color="#6366F1" />
-            <Text style={[styles.actionButtonText, { color: textColor }]}>Мини-игра</Text>
+            <Icon name="game-controller-outline" size={20} color={colors.primary} />
+            <Text style={[styles.actionButtonText, { color: textColor }]}>Змейка · мини-игра</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -1506,13 +1508,15 @@ const DeveloperMenuScreen = ({ theme, accentColor, onCommunityFeatureChange, onL
           ) : null}
         </View>
 
+      </ScrollView>
+      {snakeVisible && (
         <SnakeGame
           visible={snakeVisible}
           onClose={() => setSnakeVisible(false)}
           theme={theme}
           accentColor={accentColor}
         />
-      </ScrollView>
+      )}
     </View>
   );
 };

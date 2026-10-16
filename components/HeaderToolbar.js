@@ -8,7 +8,8 @@ import { GlassView } from 'expo-glass-effect';
 export default function HeaderToolbar({ title, icon, onBack, actions = [], status, accent, textColor, glass, supportsGlass, colorScheme, top }) {
   const available = actions.filter(action => action && !action.hidden);
   const primary = available.find(action => action.primary);
-  const secondary = available.filter(action => action !== primary);
+  const direct = available.filter(action => action !== primary && action.direct);
+  const secondary = available.filter(action => action !== primary && !action.direct);
   const runAction = async (action) => {
     if (!action || action.disabled) return;
     try {
@@ -49,7 +50,7 @@ export default function HeaderToolbar({ title, icon, onBack, actions = [], statu
           <Text accessibilityRole="header" numberOfLines={1} style={[styles.title, { color: textColor }]}>{title}</Text>
           {status && (
             <TouchableOpacity onPress={status.onPress} accessibilityRole="button" accessibilityLabel={status.label} style={styles.button}>
-              <Icon name={status.icon} size={18} color={status.warning ? '#d97706' : textColor} />
+              <Icon name={status.icon} size={22} color={accent} />
             </TouchableOpacity>
           )}
           {primary && (
@@ -60,6 +61,13 @@ export default function HeaderToolbar({ title, icon, onBack, actions = [], statu
               {!!primary.badge && <View style={[styles.badge, { backgroundColor: accent }]}><Text style={styles.badgeText}>{primary.badge}</Text></View>}
             </TouchableOpacity>
           )}
+          {direct.map((action, index) => (
+            <TouchableOpacity key={action.label || index} onPress={() => { void runAction(action); }} disabled={action.disabled}
+              accessibilityRole="button" accessibilityLabel={action.label} accessibilityState={{ disabled: !!action.disabled }}
+              style={[styles.button, action.disabled && { opacity: 0.4 }]}>
+              <Icon name={action.icon || 'share-outline'} size={22} color={accent} />
+            </TouchableOpacity>
+          ))}
           {secondary.length > 0 && (nativeMenuAvailable ? (
             <MenuView title={title} shouldOpenOnLongPress={false}
               actions={secondary.map((action, index) => ({ id: String(index), title: action.label, image: action.symbol, attributes: { disabled: !!action.disabled } }))}

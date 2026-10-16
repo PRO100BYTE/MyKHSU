@@ -1,363 +1,231 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Modal } from 'react-native';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { AppState, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, useWindowDimensions, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import { LIQUID_GLASS, ACCENT_COLORS } from '../utils/constants';
 import { unlockAchievement } from '../utils/achievements';
 import { showAchievementToast } from './AchievementToast';
 
-const GRID_SIZE = 16;
-const CELL_SIZE = 16;
+const { GRID_SIZE, createGame, queueDirection, start, tick } = require('../utils/snakeEngine.cjs');
 const TICK_MS = 140;
 const CHAMPION_SCORE = 30;
-
-const randomPos = (snake) => {
-  let pos;
-  do {
-    pos = {
-      x: Math.floor(Math.random() * GRID_SIZE),
-      y: Math.floor(Math.random() * GRID_SIZE),
-    };
-  } while (snake.some(s => s.x === pos.x && s.y === pos.y));
-  return pos;
-};
-
-const INIT_SNAKE = [{ x: 8, y: 8 }, { x: 7, y: 8 }, { x: 6, y: 8 }];
-const INIT_DIR = { x: 1, y: 0 };
+const DIRECTIONS = [
+  { label: 'Влево', icon: 'arrow-back', x: -1, y: 0 },
+  { label: 'Вверх', icon: 'arrow-up', x: 0, y: -1 },
+  { label: 'Вниз', icon: 'arrow-down', x: 0, y: 1 },
+  { label: 'Вправо', icon: 'arrow-forward', x: 1, y: 0 },
+];
 
 const SnakeGame = ({ visible, onClose, theme, accentColor }) => {
+  const { width, height } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
   const glass = LIQUID_GLASS[theme] || LIQUID_GLASS.light;
   const colors = ACCENT_COLORS[accentColor] || ACCENT_COLORS.green;
+  const boardSize = Math.max(1, Math.min(width - 64, 360, Math.max(144, height - insets.top - insets.bottom - 340)));
+  const cellSize = boardSize / GRID_SIZE;
+  const [game, setGame] = useState(() => createGame());
+  const gameRef = useRef(game);
+  const timerRef = useRef(null);
+  const visibleRef = useRef(visible);
+  const appStateRef = useRef(AppState.currentState);
+  const swipeStartRef = useRef(null);
+  const championAwardedRef = useRef(false);
+  visibleRef.current = visible;
 
-  // All game state in refs to avoid stale closures in the interval callback
-  const snakeRef = useRef([...INIT_SNAKE]);
-  const dirRef = useRef({ ...INIT_DIR });
-  const foodRef = useRef(randomPos(INIT_SNAKE));
-  const scoreRef = useRef(0);
-  const gameOverRef = useRef(false);
-  const startedRef = useRef(false);
-  const championRef = useRef(false);
-  const tickRef = useRef(null);
-
-  // Minimal state only for triggering re-renders
-  const [tick, setTick] = useState(0);
-  const rerender = useCallback(() => setTick(t => t + 1), []);
-
-  const stopTick = useCallback(() => {
-    if (tickRef.current) {
-      clearInterval(tickRef.current);
-      tickRef.current = null;
-    }
+  const publish = useCallback(next => {
+    gameRef.current = next;
+    setGame(next);
   }, []);
 
-  const resetGame = useCallback(() => {
-    stopTick();
-    snakeRef.current = [{ x: 8, y: 8 }, { x: 7, y: 8 }, { x: 6, y: 8 }];
-    dirRef.current = { x: 1, y: 0 };
-    foodRef.current = randomPos(snakeRef.current);
-    scoreRef.current = 0;
-    gameOverRef.current = false;
-    startedRef.current = false;
-    championRef.current = false;
-    rerender();
-  }, [stopTick, rerender]);
+  const stopTimer = useCallback(() => {
+    if (timerRef.current !== null) clearInterval(timerRef.current);
+    timerRef.current = null;
+  }, []);
 
-  const startGame = useCallback(() => {
-    stopTick();
-    startedRef.current = true;
-    rerender();
+  const pause = useCallback(() => {
+    stopTimer();
+    if (gameRef.current.running) {
+      publish({ ...gameRef.current, running: false, paused: true, queuedDirection: null });
+    }
+  }, [publish, stopTimer]);
 
-    tickRef.current = setInterval(() => {
-      if (gameOverRef.current) {
-        stopTick();
-        return;
-      }
+  const runTick = useCallback(() => {
+    if (!visibleRef.current || appStateRef.current !== 'active') return;
+    const previous = gameRef.current;
+    const next = tick(previous);
+    publish(next);
+    if (!next.running) stopTimer();
+    if (previous.score < CHAMPION_SCORE && next.score >= CHAMPION_SCORE && !championAwardedRef.current) {
+      championAwardedRef.current = true;
+      unlockAchievement('snake_champion')
+        .then(result => { if (result) showAchievementToast(result); })
+        .catch(error => console.warn('Snake achievement could not be saved:', error));
+    }
+  }, [publish, stopTimer]);
 
-      const snake = snakeRef.current;
-      const dir = dirRef.current;
-      const food = foodRef.current;
-      const head = snake[0];
-      const newHead = { x: head.x + dir.x, y: head.y + dir.y };
+  const begin = useCallback(() => {
+    if (!visibleRef.current || appStateRef.current !== 'active') return;
+    stopTimer();
+    publish(start(gameRef.current));
+    timerRef.current = setInterval(runTick, TICK_MS);
+  }, [publish, runTick, stopTimer]);
 
-      // Wall collision
-      if (
-        newHead.x < 0 ||
-        newHead.x >= GRID_SIZE ||
-        newHead.y < 0 ||
-        newHead.y >= GRID_SIZE
-      ) {
-        gameOverRef.current = true;
-        stopTick();
-        rerender();
-        return;
-      }
+  const restart = useCallback(() => {
+    championAwardedRef.current = false;
+    publish(createGame());
+    begin();
+  }, [begin, publish]);
 
-      // Self collision
-      if (snake.some(s => s.x === newHead.x && s.y === newHead.y)) {
-        gameOverRef.current = true;
-        stopTick();
-        rerender();
-        return;
-      }
+  const changeDirection = useCallback(direction => {
+    if (gameRef.current.running) publish(queueDirection(gameRef.current, direction));
+  }, [publish]);
 
-      const ate = newHead.x === food.x && newHead.y === food.y;
-      snakeRef.current = ate
-        ? [newHead, ...snake]
-        : [newHead, ...snake.slice(0, -1)];
-
-      if (ate) {
-        foodRef.current = randomPos(snakeRef.current);
-        scoreRef.current += 10;
-        if (scoreRef.current >= CHAMPION_SCORE && !championRef.current) {
-          championRef.current = true;
-          unlockAchievement('snake_champion').then(result => {
-            if (result) showAchievementToast(result);
-          }).catch(() => {});
-        }
-      }
-
-      rerender();
-    }, TICK_MS);
-  }, [stopTick, rerender]);
-
-  // Clean up on close / unmount
   useEffect(() => {
-    if (!visible) {
-      resetGame();
-    }
-    return stopTick;
-  }, [visible, resetGame, stopTick]);
+    const subscription = AppState.addEventListener('change', state => {
+      appStateRef.current = state;
+      if (state !== 'active') pause();
+    });
+    const blurSubscription = AppState.addEventListener('blur', pause);
+    return () => {
+      subscription.remove();
+      blurSubscription.remove();
+      stopTimer();
+    };
+  }, [pause, stopTimer]);
 
-  const handleDir = (dx, dy) => {
-    const cur = dirRef.current;
-    // Prevent reversing direction
-    if (cur.x === -dx && cur.y === -dy) return;
-    dirRef.current = { x: dx, y: dy };
+  useEffect(() => {
+    stopTimer();
+    publish(createGame());
+    championAwardedRef.current = false;
+    swipeStartRef.current = null;
+    return stopTimer;
+  }, [visible, publish, stopTimer]);
+
+  const close = () => {
+    pause();
+    onClose?.();
   };
-
-  const handleAction = () => {
-    if (gameOverRef.current) {
-      resetGame();
-      setTimeout(startGame, 30);
-    } else {
-      startGame();
-    }
+  const onTouchStart = event => {
+    const touch = event.nativeEvent.touches?.[0];
+    swipeStartRef.current = touch ? { x: touch.pageX, y: touch.pageY } : null;
   };
-
-  const snake = snakeRef.current;
-  const food = foodRef.current;
-  const score = scoreRef.current;
-  const gameOver = gameOverRef.current;
-  const started = startedRef.current;
-  const gridPx = GRID_SIZE * CELL_SIZE;
-
-  const bgColor = glass.backgroundElevated || (theme === 'dark' ? '#1c1c1e' : '#ffffff');
-  const textColor = glass.text;
-  const textSecondary = glass.textSecondary;
-  const borderColor = glass.border;
+  const onTouchEnd = event => {
+    const origin = swipeStartRef.current;
+    swipeStartRef.current = null;
+    const touch = event.nativeEvent.changedTouches?.[0];
+    if (!origin || !touch) return;
+    const dx = touch.pageX - origin.x;
+    const dy = touch.pageY - origin.y;
+    if (Math.max(Math.abs(dx), Math.abs(dy)) < 20) return;
+    changeDirection(Math.abs(dx) > Math.abs(dy)
+      ? { x: Math.sign(dx), y: 0 }
+      : { x: 0, y: Math.sign(dy) });
+  };
+  const title = game.gameOver ? (game.won ? 'Поле заполнено!' : 'Игра окончена') : game.paused ? 'Пауза' : 'Готовы к игре?';
+  const action = game.gameOver ? 'Ещё раз' : game.paused ? 'Продолжить' : 'Начать';
 
   return (
-    <Modal
-      visible={visible}
-      animationType="slide"
-      transparent
-      onRequestClose={onClose}
-    >
-      <View style={styles.overlay}>
-        <View style={[styles.card, { backgroundColor: bgColor, borderColor }]}>
-          {/* Header */}
+    <Modal visible={visible} animationType="fade" transparent onRequestClose={close}>
+      <ScrollView
+        style={styles.overlay}
+        contentContainerStyle={[styles.modalContent, { paddingTop: insets.top + 16, paddingBottom: insets.bottom + 16 }]}
+        bounces={false}
+      >
+        <View style={[styles.card, { backgroundColor: glass.backgroundElevated || glass.background, borderColor: glass.border }]}>
           <View style={styles.header}>
-            <Text style={[styles.title, { color: textColor }]}>🐍 Snake</Text>
-            <View style={[styles.scoreBadge, { backgroundColor: colors.primary + '22' }]}>
-              <Text style={[styles.scoreText, { color: colors.primary }]}>{score}</Text>
+            <View style={styles.heading}>
+              <Text style={[styles.eyebrow, { color: colors.primary }]}>ПЕРЕРЫВ НА ИГРУ</Text>
+              <Text style={[styles.title, { color: glass.text }]}>Змейка</Text>
             </View>
-            <TouchableOpacity onPress={onClose} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-              <Icon name="close-circle-outline" size={26} color={textSecondary} />
+            <TouchableOpacity accessibilityRole="button" accessibilityLabel="Закрыть игру" style={styles.iconButton} onPress={close}>
+              <Icon name="close" size={24} color={glass.text} />
             </TouchableOpacity>
           </View>
-
-          {/* Grid */}
+          <View style={[styles.score, { backgroundColor: glass.surfaceTertiary }]}>
+            <Text style={[styles.bodyText, { color: glass.textSecondary }]}>Счёт</Text>
+            <Text style={[styles.scoreText, { color: colors.primary }]}>{game.score}</Text>
+            <Text style={[styles.bodyText, { color: glass.textSecondary }]}>+10 за еду</Text>
+          </View>
           <View
-            style={[
-              styles.grid,
-              {
-                width: gridPx,
-                height: gridPx,
-                borderColor,
-                backgroundColor: glass.surfaceTertiary || 'rgba(0,0,0,0.04)',
-              },
-            ]}
+            accessibilityLabel="Игровое поле. Управляйте свайпами или кнопками ниже."
+            style={[styles.board, { width: boardSize, height: boardSize, backgroundColor: glass.surfaceTertiary }]}
+            onTouchStart={onTouchStart}
+            onTouchEnd={onTouchEnd}
+            onTouchCancel={() => { swipeStartRef.current = null; }}
           >
-            {Array.from({ length: GRID_SIZE }).map((_, y) => (
-              <View key={y} style={styles.row}>
-                {Array.from({ length: GRID_SIZE }).map((_, x) => {
-                  const isHead = snake[0]?.x === x && snake[0]?.y === y;
-                  const isBody = !isHead && snake.slice(1).some(s => s.x === x && s.y === y);
-                  const isFood = food.x === x && food.y === y;
-                  return (
-                    <View
-                      key={x}
-                      style={[
-                        styles.cell,
-                        isHead && { backgroundColor: colors.primary, borderRadius: 4 },
-                        isBody && { backgroundColor: colors.primary + 'AA', borderRadius: 3 },
-                        isFood && { backgroundColor: '#EF4444', borderRadius: 4 },
-                      ]}
-                    />
-                  );
-                })}
-              </View>
+            {game.snake.map((point, index) => (
+              <View key={`${point.x}:${point.y}`} style={[
+                styles.cell,
+                { left: point.x * cellSize + 1, top: point.y * cellSize + 1, width: cellSize - 2, height: cellSize - 2, backgroundColor: colors.primary, opacity: index === 0 ? 1 : 0.65 },
+              ]} />
             ))}
-
-            {/* Start / Game over overlay */}
-            {(!started || gameOver) && (
-              <View style={styles.overlayPanel}>
-                {gameOver && (
-                  <>
-                    <Text style={styles.gameOverText}>Игра окончена</Text>
-                    <Text style={styles.finalScore}>Счёт: {score}</Text>
-                  </>
-                )}
-                <TouchableOpacity
-                  style={[styles.startButton, { backgroundColor: colors.primary }]}
-                  onPress={handleAction}
-                >
-                  <Text style={styles.startButtonText}>
-                    {gameOver ? 'Ещё раз' : 'Начать'}
-                  </Text>
+            {game.food && <View style={[
+              styles.food,
+              { left: game.food.x * cellSize + 2, top: game.food.y * cellSize + 2, width: cellSize - 4, height: cellSize - 4 },
+            ]} />}
+            {!game.running && (
+              <View style={styles.panel}>
+                <Text style={styles.panelTitle}>{title}</Text>
+                <TouchableOpacity accessibilityRole="button" style={[styles.primaryButton, { backgroundColor: colors.primary }]} onPress={game.gameOver ? restart : begin}>
+                  <Text style={styles.primaryText}>{action}</Text>
                 </TouchableOpacity>
               </View>
             )}
           </View>
-
-          {/* D-pad */}
-          <View style={styles.dpadContainer}>
-            <TouchableOpacity style={[styles.dpadBtn, { borderColor }]} onPress={() => handleDir(0, -1)}>
-              <Icon name="chevron-up" size={22} color={textColor} />
+          <View style={styles.controls}>
+            {DIRECTIONS.map(direction => (
+              <TouchableOpacity
+                key={direction.label}
+                accessibilityRole="button"
+                accessibilityLabel={direction.label}
+                accessibilityState={{ disabled: !game.running }}
+                disabled={!game.running}
+                style={[styles.directionButton, { backgroundColor: glass.surfaceTertiary, borderColor: glass.border, opacity: game.running ? 1 : 0.5 }]}
+                onPress={() => changeDirection(direction)}
+              >
+                <Icon name={direction.icon} size={23} color={glass.text} />
+              </TouchableOpacity>
+            ))}
+          </View>
+          <View style={styles.actions}>
+            <TouchableOpacity accessibilityRole="button" disabled={!game.running} style={styles.secondaryButton} onPress={pause}>
+              <Text style={[styles.bodyText, { color: game.running ? colors.primary : glass.textSecondary }]}>Пауза</Text>
             </TouchableOpacity>
-            <View style={styles.dpadRow}>
-              <TouchableOpacity style={[styles.dpadBtn, { borderColor }]} onPress={() => handleDir(-1, 0)}>
-                <Icon name="chevron-back" size={22} color={textColor} />
-              </TouchableOpacity>
-              <View style={styles.dpadCenter} />
-              <TouchableOpacity style={[styles.dpadBtn, { borderColor }]} onPress={() => handleDir(1, 0)}>
-                <Icon name="chevron-forward" size={22} color={textColor} />
-              </TouchableOpacity>
-            </View>
-            <TouchableOpacity style={[styles.dpadBtn, { borderColor }]} onPress={() => handleDir(0, 1)}>
-              <Icon name="chevron-down" size={22} color={textColor} />
+            <TouchableOpacity accessibilityRole="button" style={styles.secondaryButton} onPress={restart}>
+              <Text style={[styles.bodyText, { color: colors.primary }]}>Заново</Text>
             </TouchableOpacity>
           </View>
-
-          <Text style={[styles.hint, { color: textSecondary }]}>
-            Набери {CHAMPION_SCORE}+ очков для особой награды
-          </Text>
+          <Text style={[styles.hint, { color: glass.textSecondary }]}>Свайп по полю или стрелки. Стены нельзя пересекать. {CHAMPION_SCORE} очков — достижение.</Text>
         </View>
-      </View>
+      </ScrollView>
     </Modal>
   );
 };
 
 const styles = StyleSheet.create({
-  overlay: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'rgba(0,0,0,0.65)',
-  },
-  card: {
-    borderRadius: 24,
-    borderWidth: StyleSheet.hairlineWidth,
-    padding: 20,
-    alignItems: 'center',
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    width: '100%',
-    justifyContent: 'space-between',
-    marginBottom: 14,
-  },
-  title: {
-    fontFamily: 'Montserrat_700Bold',
-    fontSize: 18,
-  },
-  scoreBadge: {
-    paddingHorizontal: 14,
-    paddingVertical: 4,
-    borderRadius: 10,
-  },
-  scoreText: {
-    fontFamily: 'Montserrat_700Bold',
-    fontSize: 16,
-  },
-  grid: {
-    borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: 10,
-    overflow: 'hidden',
-  },
-  row: {
-    flexDirection: 'row',
-  },
-  cell: {
-    width: CELL_SIZE,
-    height: CELL_SIZE,
-  },
-  overlayPanel: {
-    ...StyleSheet.absoluteFillObject,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'rgba(0,0,0,0.62)',
-    borderRadius: 10,
-  },
-  gameOverText: {
-    color: '#EF4444',
-    fontFamily: 'Montserrat_700Bold',
-    fontSize: 20,
-    marginBottom: 4,
-  },
-  finalScore: {
-    color: '#ffffff',
-    fontFamily: 'Montserrat_400Regular',
-    fontSize: 15,
-    marginBottom: 20,
-  },
-  startButton: {
-    paddingHorizontal: 28,
-    paddingVertical: 12,
-    borderRadius: 14,
-  },
-  startButtonText: {
-    color: '#ffffff',
-    fontFamily: 'Montserrat_700Bold',
-    fontSize: 16,
-  },
-  dpadContainer: {
-    alignItems: 'center',
-    marginTop: 16,
-    gap: 4,
-  },
-  dpadRow: {
-    flexDirection: 'row',
-    gap: 4,
-  },
-  dpadBtn: {
-    width: 46,
-    height: 46,
-    borderRadius: 12,
-    borderWidth: StyleSheet.hairlineWidth,
-    backgroundColor: 'rgba(128,128,128,0.1)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  dpadCenter: {
-    width: 46,
-    height: 46,
-  },
-  hint: {
-    marginTop: 12,
-    fontFamily: 'Montserrat_400Regular',
-    fontSize: 11,
-  },
+  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.65)' },
+  modalContent: { flexGrow: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 16 },
+  card: { maxWidth: 400, width: '100%', borderRadius: 24, borderWidth: StyleSheet.hairlineWidth, padding: 16, alignItems: 'center' },
+  header: { flexDirection: 'row', alignItems: 'center', width: '100%', marginBottom: 12 },
+  heading: { flex: 1 },
+  eyebrow: { fontFamily: 'Montserrat_700Bold', fontSize: 10, letterSpacing: 1 },
+  title: { fontFamily: 'Montserrat_700Bold', fontSize: 24, marginTop: 4 },
+  iconButton: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
+  score: { width: '100%', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 12, borderRadius: 12, marginBottom: 12 },
+  scoreText: { fontFamily: 'Montserrat_700Bold', fontSize: 22 },
+  bodyText: { fontFamily: 'Montserrat_600SemiBold', fontSize: 13 },
+  board: { borderRadius: 12, overflow: 'hidden' },
+  cell: { position: 'absolute', borderRadius: 3 },
+  food: { position: 'absolute', borderRadius: 20, backgroundColor: '#EF4444' },
+  panel: { ...StyleSheet.absoluteFillObject, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.7)', padding: 8 },
+  panelTitle: { color: '#fff', fontFamily: 'Montserrat_700Bold', fontSize: 17, marginBottom: 12, textAlign: 'center' },
+  primaryButton: { minHeight: 44, justifyContent: 'center', paddingHorizontal: 20, borderRadius: 12 },
+  primaryText: { color: '#fff', fontFamily: 'Montserrat_700Bold', fontSize: 15 },
+  controls: { flexDirection: 'row', gap: 8, marginTop: 14 },
+  directionButton: { width: 48, height: 48, borderRadius: 12, borderWidth: StyleSheet.hairlineWidth, justifyContent: 'center', alignItems: 'center' },
+  actions: { flexDirection: 'row', justifyContent: 'center', gap: 12, marginTop: 4 },
+  secondaryButton: { minHeight: 44, justifyContent: 'center', paddingHorizontal: 16 },
+  hint: { fontFamily: 'Montserrat_400Regular', fontSize: 11, textAlign: 'center', lineHeight: 16 },
 });
 
 export default SnakeGame;
