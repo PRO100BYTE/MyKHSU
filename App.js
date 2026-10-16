@@ -172,6 +172,8 @@ export default Sentry.wrap(function App() {
 
   // Состояния для контекстных кнопок в хедере
   const [mapFilterCount, setMapFilterCount] = useState(0);
+  const [, refreshMapFilterControl] = useState(0);
+  const handleMapFilterControlChange = useCallback(() => refreshMapFilterControl(value => value + 1), []);
   const scheduleExportHandler = useRef(null);
   const [scheduleExportAvailable, setScheduleExportAvailable] = useState(false);
   const [scheduleExporting, setScheduleExporting] = useState(false);
@@ -664,7 +666,7 @@ const handleNewYearModeChange = async (enabled) => {
             onPress: handleCacheIconPress,
           } : null}
           actions={[
-            showFilterButton && { primary: true, icon: 'options-outline', badge: mapFilterCount, label: mapFilterCount ? `Фильтры (${mapFilterCount})` : 'Фильтры карты', onPress: handleFilterPress },
+            showFilterButton && { primary: true, render: () => mapScreenRef.current?.renderFilterButton(), label: 'Фильтры карты' },
             activeScreen === SCREENS.SCHEDULE && scheduleFavoritesAvailable && { primary: true, icon: 'star-outline', label: 'Избранное расписание', onPress: () => scheduleFavoritesHandler.current?.() },
             activeScreen === SCREENS.SCHEDULE && scheduleExportAvailable && { direct: true, icon: 'share-outline', label: scheduleExporting ? 'Экспорт выполняется…' : 'Поделиться расписанием', disabled: scheduleExporting, onPress: () => scheduleExportHandler.current?.() },
           ]}
@@ -884,6 +886,7 @@ const handleNewYearModeChange = async (enabled) => {
             key={`map-${refreshKey}`}
             isNewYearMode={isNewYearMode}
             onFilterCountChange={setMapFilterCount}
+            onFilterControlChange={handleMapFilterControlChange}
             onNavigationChange={setMapSubScreen}
           />
         )}

@@ -53,7 +53,7 @@ export default function HeaderToolbar({ title, icon, onBack, actions = [], statu
               <Icon name={status.icon} size={22} color={accent} />
             </TouchableOpacity>
           )}
-          {primary && (
+          {primary?.render ? primary.render() : primary && (
             <TouchableOpacity onPress={() => { void runAction(primary); }} disabled={primary.disabled}
               accessibilityRole="button" accessibilityLabel={primary.label} accessibilityState={{ disabled: !!primary.disabled }}
               style={[styles.button, primary.disabled && { opacity: 0.4 }]}>

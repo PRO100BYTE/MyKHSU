@@ -6,6 +6,7 @@ import notificationService from './notificationService';
 
 const BACKGROUND_NEWS_CHECK = 'BACKGROUND_NEWS_CHECK';
 let registrationQueue = Promise.resolve();
+let nativeConfigurationUnavailable = false;
 
 const checkForNewsNotifications = async () => {
   try {
@@ -43,14 +44,20 @@ export const registerBackgroundNewsCheck = () => {
         if (registered) await BackgroundFetch.unregisterTaskAsync(BACKGROUND_NEWS_CHECK);
         return;
       }
-      if (registered) return;
+      if (registered || nativeConfigurationUnavailable) return;
       const status = await BackgroundFetch.getStatusAsync();
       if (status !== BackgroundFetch.BackgroundFetchStatus.Available) return;
       await BackgroundFetch.registerTaskAsync(BACKGROUND_NEWS_CHECK, {
         minimumInterval: 15 * 60, stopOnTerminate: false, startOnBoot: true,
       });
     } catch (error) {
-      console.log('Background fetch registration skipped:', error.message || error);
+      const message = String(error?.message || error);
+      if (Platform.OS === 'ios' && /BackgroundFetchDisabled|Background Fetch has not been configured|UIBackgroundModes/i.test(message)) {
+        nativeConfigurationUnavailable = true;
+        console.warn('Фоновые проверки недоступны в установленной iOS-сборке. Нужна пересборка с expo-background-fetch и UIBackgroundModes: fetch. Проверка новостей при открытом приложении продолжает работать.');
+      } else {
+        console.log('Background fetch registration skipped:', message);
+      }
     }
   }).catch(error => console.error('Background task synchronization failed:', error));
   return registrationQueue;

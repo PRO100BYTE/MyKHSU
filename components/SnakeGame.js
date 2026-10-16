@@ -116,11 +116,24 @@ const SnakeGame = ({ visible, onClose, theme, accentColor }) => {
     if (!origin || !touch) return;
     const dx = touch.pageX - origin.x;
     const dy = touch.pageY - origin.y;
-    if (Math.max(Math.abs(dx), Math.abs(dy)) < 20) return;
+    if (Math.max(Math.abs(dx), Math.abs(dy)) < 28) return;
     changeDirection(Math.abs(dx) > Math.abs(dy)
       ? { x: Math.sign(dx), y: 0 }
       : { x: 0, y: Math.sign(dy) });
   };
+  const renderDirectionButton = direction => (
+    <TouchableOpacity
+      key={direction.label}
+      accessibilityRole="button"
+      accessibilityLabel={direction.label}
+      accessibilityState={{ disabled: !game.running }}
+      disabled={!game.running}
+      style={[styles.directionButton, { backgroundColor: glass.surfaceTertiary, borderColor: glass.border, opacity: game.running ? 1 : 0.5 }]}
+      onPressIn={() => changeDirection(direction)}
+    >
+      <Icon name={direction.icon} size={23} color={glass.text} />
+    </TouchableOpacity>
+  );
   const title = game.gameOver ? (game.won ? 'Поле заполнено!' : 'Игра окончена') : game.paused ? 'Пауза' : 'Готовы к игре?';
   const action = game.gameOver ? 'Ещё раз' : game.paused ? 'Продолжить' : 'Начать';
 
@@ -152,6 +165,11 @@ const SnakeGame = ({ visible, onClose, theme, accentColor }) => {
             onTouchStart={onTouchStart}
             onTouchEnd={onTouchEnd}
             onTouchCancel={() => { swipeStartRef.current = null; }}
+            onStartShouldSetResponder={() => game.running}
+            onMoveShouldSetResponder={() => game.running}
+            onStartShouldSetResponderCapture={() => game.running}
+            onMoveShouldSetResponderCapture={() => game.running}
+            onResponderTerminationRequest={() => false}
           >
             {game.snake.map((point, index) => (
               <View key={`${point.x}:${point.y}`} style={[
@@ -172,20 +190,15 @@ const SnakeGame = ({ visible, onClose, theme, accentColor }) => {
               </View>
             )}
           </View>
-          <View style={styles.controls}>
-            {DIRECTIONS.map(direction => (
-              <TouchableOpacity
-                key={direction.label}
-                accessibilityRole="button"
-                accessibilityLabel={direction.label}
-                accessibilityState={{ disabled: !game.running }}
-                disabled={!game.running}
-                style={[styles.directionButton, { backgroundColor: glass.surfaceTertiary, borderColor: glass.border, opacity: game.running ? 1 : 0.5 }]}
-                onPress={() => changeDirection(direction)}
-              >
-                <Icon name={direction.icon} size={23} color={glass.text} />
-              </TouchableOpacity>
-            ))}
+          <View style={styles.controls} accessibilityLabel="Управление направлением">
+            <View style={styles.controlRow}>
+              {renderDirectionButton(DIRECTIONS[1])}
+            </View>
+            <View style={styles.controlRow}>
+              {renderDirectionButton(DIRECTIONS[0])}
+              {renderDirectionButton(DIRECTIONS[2])}
+              {renderDirectionButton(DIRECTIONS[3])}
+            </View>
           </View>
           <View style={styles.actions}>
             <TouchableOpacity accessibilityRole="button" disabled={!game.running} style={styles.secondaryButton} onPress={pause}>
@@ -221,8 +234,9 @@ const styles = StyleSheet.create({
   panelTitle: { color: '#fff', fontFamily: 'Montserrat_700Bold', fontSize: 17, marginBottom: 12, textAlign: 'center' },
   primaryButton: { minHeight: 44, justifyContent: 'center', paddingHorizontal: 20, borderRadius: 12 },
   primaryText: { color: '#fff', fontFamily: 'Montserrat_700Bold', fontSize: 15 },
-  controls: { flexDirection: 'row', gap: 8, marginTop: 14 },
-  directionButton: { width: 48, height: 48, borderRadius: 12, borderWidth: StyleSheet.hairlineWidth, justifyContent: 'center', alignItems: 'center' },
+  controls: { alignItems: 'center', gap: 4, marginTop: 14 },
+  controlRow: { flexDirection: 'row', gap: 4 },
+  directionButton: { width: 52, height: 52, borderRadius: 12, borderWidth: StyleSheet.hairlineWidth, justifyContent: 'center', alignItems: 'center' },
   actions: { flexDirection: 'row', justifyContent: 'center', gap: 12, marginTop: 4 },
   secondaryButton: { minHeight: 44, justifyContent: 'center', paddingHorizontal: 16 },
   hint: { fontFamily: 'Montserrat_400Regular', fontSize: 11, textAlign: 'center', lineHeight: 16 },

@@ -39,5 +39,10 @@ test('toolbar never mounts missing MenuView, registered view uses native menu', 
     assert.equal(cache.props.size, 22);
     assert.equal(cache.props.color, '#123456');
     assert.ok(icons.some(node => node.props.name === 'share-outline'));
+    const customControl = { type: 'MapFilterButton', props: { children: [] } };
+    const custom = module.exports.default({ title: 'Map', glass: {}, actions: [{ primary: true, label: 'Filters', render: () => customControl }] });
+    const customNodes = collect(custom);
+    assert.ok(customNodes.includes(customControl));
+    assert.equal(customNodes.some(node => node.type === 'TouchableOpacity'), false, 'native filter trigger is not nested in another touchable');
   }
 });

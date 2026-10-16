@@ -6,13 +6,11 @@ import {
   Alert, 
   Linking, 
   Platform,
-  Dimensions, 
   TouchableOpacity, 
   TouchableWithoutFeedback,
   Animated, 
   StatusBar, 
-  ActivityIndicator,
-  ScrollView
+  ActivityIndicator
 } from 'react-native';
 import MapView, { Marker, PROVIDER_DEFAULT, UrlTile } from 'react-native-maps';
 import NetInfo from '@react-native-community/netinfo';
@@ -26,24 +24,20 @@ import BuildingsListScreen from './BuildingsListScreen';
 import { WebView } from 'react-native-webview';
 import Snowfall from './Snowfall';
 import NativeSheet from './NativeSheet';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import MapFilterButton, { openMapFilterFallback } from './MapFilterButton';
 
-const { width, height } = Dimensions.get('window');
-
-const MapScreen = forwardRef(({ theme, accentColor, isNewYearMode, onFilterCountChange, onNavigationChange }, ref) => {
+const MapScreen = forwardRef(({ theme, accentColor, isNewYearMode, onFilterCountChange, onFilterControlChange, onNavigationChange }, ref) => {
   const [isOnline, setIsOnline] = useState(true);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [showRouteOptions, setShowRouteOptions] = useState(false);
   const [selectedBuilding, setSelectedBuilding] = useState(null);
   const [mapLoaded, setMapLoaded] = useState(false);
-  const [showFiltersModal, setShowFiltersModal] = useState(false);
   const [selectedFilters, setSelectedFilters] = useState([]);
   const [showBuildingsList, setShowBuildingsList] = useState(false);
   const [webViewKey, setWebViewKey] = useState(0);
   const [mapError, setMapError] = useState(false);
   const [locationPermission, setLocationPermission] = useState(false);
-  const insets = useSafeAreaInsets();
   
   const colors = ACCENT_COLORS[accentColor];
   const glass = LIQUID_GLASS[theme] || LIQUID_GLASS.light;
@@ -59,37 +53,35 @@ const MapScreen = forwardRef(({ theme, accentColor, isNewYearMode, onFilterCount
   // Анимации
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const routeModalAnim = useRef(new Animated.Value(0)).current;
-  const filtersModalAnim = useRef(new Animated.Value(0)).current;
   const mapRef = useRef(null);
   const webViewRef = useRef(null);
 
   // Expose methods to parent via ref
   useImperativeHandle(ref, () => ({
-    openFilters: () => setShowFiltersModal(true),
+    openFilters: () => openMapFilterFallback({ selectedFilters, onToggleFilter: handleToggleFilter, onClearFilters: handleClearFilters }),
+    renderFilterButton: (props = {}) => (
+      <MapFilterButton
+        {...props}
+        selectedFilters={selectedFilters}
+        onToggleFilter={handleToggleFilter}
+        onClearFilters={handleClearFilters}
+        color={colors.primary}
+        theme={theme}
+      />
+    ),
     goBack: () => setShowBuildingsList(false),
   }));
 
-  // Notify parent about filter count changes
+  // Update the header even when the selection changes without changing its count.
   useEffect(() => {
     if (onFilterCountChange) onFilterCountChange(selectedFilters.length);
-  }, [selectedFilters]);
+    onFilterControlChange?.();
+  }, [selectedFilters, theme, accentColor]);
 
   // Notify parent about navigation state changes
   useEffect(() => {
     if (onNavigationChange) onNavigationChange(showBuildingsList ? 'Корпуса ХГУ' : null);
   }, [showBuildingsList]);
-
-  // Категории фильтров
-  const filterCategories = [
-    { id: 'main', name: 'Административный корпус', icon: 'business-outline' },
-    { id: 'academic', name: 'Учебные корпуса', icon: 'school-outline' },
-    { id: 'dormitory', name: 'Общежития', icon: 'home-outline' },
-    { id: 'library', name: 'Библиотеки ХГУ', icon: 'library-outline' },
-    { id: 'cafeteria', name: 'Столовые ХГУ', icon: 'restaurant-outline' },
-    { id: 'cardatm', name: 'Банкоматы', icon: 'card-outline' },
-    { id: 'sports', name: 'Спортивные площадки', icon: 'barbell-outline' },
-    { id: 'other', name: 'Прочее', icon: 'ellipse-outline' }
-  ];
 
   // Фильтрация зданий
   const filteredBuildings = useMemo(() => {
@@ -134,23 +126,6 @@ const MapScreen = forwardRef(({ theme, accentColor, isNewYearMode, onFilterCount
       }).start();
     }
   }, [showRouteOptions]);
-
-  // Анимация появления модального окна фильтров
-  useEffect(() => {
-    if (showFiltersModal) {
-      Animated.spring(filtersModalAnim, {
-        toValue: 1,
-        duration: 300,
-        useNativeDriver: true,
-      }).start();
-    } else {
-      Animated.timing(filtersModalAnim, {
-        toValue: 0,
-        duration: 200,
-        useNativeDriver: true,
-      }).start();
-    }
-  }, [showFiltersModal]);
 
   const initializeMap = async () => {
     setLoading(true);
@@ -283,16 +258,6 @@ const MapScreen = forwardRef(({ theme, accentColor, isNewYearMode, onFilterCount
 
   const handleClearFilters = () => {
     setSelectedFilters([]);
-  };
-
-  const handleCloseFiltersModal = () => {
-    Animated.timing(filtersModalAnim, {
-      toValue: 0,
-      duration: 200,
-      useNativeDriver: true,
-    }).start(() => {
-      setShowFiltersModal(false);
-    });
   };
 
   const getBuildingIcon = (type) => {
@@ -817,134 +782,6 @@ const MapScreen = forwardRef(({ theme, accentColor, isNewYearMode, onFilterCount
         </View>
       )}
 
-      {/* Модальное окно фильтров */}
-      <NativeSheet
-        visible={showFiltersModal}
-        onRequestClose={handleCloseFiltersModal}
-        bounded
-        accessibilityLabel="Фильтры карты"
-        contentStyle={{
-          backgroundColor: 'transparent',
-          height: Math.min(height * 0.65, 560),
-          maxHeight: Math.min(height * 0.65, 560),
-        }}
-      >
-        <Animated.View 
-          style={[
-            styles.filtersModalOverlay,
-            { opacity: filtersModalAnim }
-          ]}
-        >
-          <Animated.View 
-            style={[
-              styles.filtersModal,
-              Platform.OS === 'ios' && styles.filtersModalCompact,
-              { paddingBottom: insets.bottom + 16 },
-              {
-                backgroundColor: glass.backgroundElevated,
-                borderColor: glass.border,
-                borderWidth: StyleSheet.hairlineWidth,
-                borderBottomWidth: 0,
-                transform: [{
-                  translateY: filtersModalAnim.interpolate({
-                    inputRange: [0, 1],
-                    outputRange: [300, 0]
-                  })
-                }]
-              }
-            ]}
-          >
-            {/* Drag handle */}
-            <View style={{ width: 28, height: 3, borderRadius: 2, backgroundColor: glass.border, alignSelf: 'center', marginBottom: 12 }} />
-            
-            <View style={styles.filtersHeader}>
-              <View style={styles.filtersTitleGroup}>
-                <Text style={[styles.filtersTitle, { color: textColor, fontFamily: 'Montserrat_600SemiBold' }]}>Фильтры</Text>
-                <Text style={[styles.filtersCount, { color: placeholderColor, fontFamily: 'Montserrat_400Regular' }]}>
-                  {selectedFilters.length ? `${selectedFilters.length} выбрано` : 'Все корпуса'}
-                </Text>
-              </View>
-              <TouchableOpacity 
-                onPress={handleCloseFiltersModal}
-                style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: glass.surfaceTertiary, justifyContent: 'center', alignItems: 'center' }}
-              >
-                <Icon name="close" size={18} color={placeholderColor} />
-              </TouchableOpacity>
-            </View>
-
-            <ScrollView style={styles.filtersList} showsVerticalScrollIndicator={false}>
-              {filterCategories.map((category, index) => (
-                <TouchableOpacity
-                  key={category.id}
-                  accessibilityRole="checkbox"
-                  accessibilityState={{ checked: selectedFilters.includes(category.id) }}
-                  accessibilityLabel={category.name}
-                  hitSlop={6}
-                  style={[
-                    styles.filterItem,
-                    { 
-                      backgroundColor: selectedFilters.includes(category.id) ? colors.glass : 'transparent',
-                      borderColor: selectedFilters.includes(category.id) ? colors.glassBorder : 'transparent',
-                      borderWidth: StyleSheet.hairlineWidth,
-                      borderRadius: 14,
-                      marginBottom: 6,
-                    }
-                  ]}
-                  onPress={() => handleToggleFilter(category.id)}
-                >
-                  <View style={styles.filterItemLeft}>
-                    <View style={[styles.filterIcon, { 
-                      backgroundColor: selectedFilters.includes(category.id) ? colors.primary : colors.glass,
-                      borderRadius: 12,
-                      borderWidth: selectedFilters.includes(category.id) ? 0 : StyleSheet.hairlineWidth,
-                      borderColor: colors.glassBorder,
-                    }]}>
-                      <Icon name={category.icon} size={18} color={selectedFilters.includes(category.id) ? '#ffffff' : colors.primary} />
-                    </View>
-                    <Text style={[styles.filterName, { 
-                      color: selectedFilters.includes(category.id) ? colors.primary : textColor, 
-                      fontFamily: selectedFilters.includes(category.id) ? 'Montserrat_600SemiBold' : 'Montserrat_500Medium' 
-                    }]}>
-                      {category.name}
-                    </Text>
-                  </View>
-                  <View style={{ 
-                    width: 24, height: 24, borderRadius: 12, 
-                    backgroundColor: selectedFilters.includes(category.id) ? colors.primary : 'transparent',
-                    borderWidth: selectedFilters.includes(category.id) ? 0 : 1.5,
-                    borderColor: glass.border,
-                    justifyContent: 'center', alignItems: 'center',
-                  }}>
-                    {selectedFilters.includes(category.id) && (
-                      <Icon name="checkmark" size={14} color="#ffffff" />
-                    )}
-                  </View>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-
-            <View style={styles.filtersFooter}>
-              <TouchableOpacity 
-                style={[styles.clearButton, { borderColor: glass.border, backgroundColor: glass.surfaceTertiary }]}
-                onPress={handleClearFilters}
-              >
-                <Text style={[styles.clearButtonText, { color: textColor, fontFamily: 'Montserrat_500Medium' }]}>
-                  Сбросить
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity 
-                style={[styles.applyButton, { backgroundColor: colors.primary }]}
-                onPress={handleCloseFiltersModal}
-              >
-                <Text style={[styles.applyButtonText, { fontFamily: 'Montserrat_600SemiBold' }]}>
-                  Применить
-                </Text>
-              </TouchableOpacity>
-            </View>
-          </Animated.View>
-        </Animated.View>
-      </NativeSheet>
-
       {/* Модальное окно выбора сервиса для построения маршрута с анимацией */}
       <NativeSheet
         visible={showRouteOptions}
@@ -1096,15 +933,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontFamily: 'Montserrat_500Medium',
   },
-  filtersModalOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    justifyContent: 'flex-end',
-    zIndex: 1001,
-  },
   nativeSheetContent: {
     flex: 1,
     backgroundColor: 'transparent',
@@ -1115,96 +943,6 @@ const styles = StyleSheet.create({
     borderRadius: 0,
     borderWidth: 0,
     transform: [],
-  },
-  filtersModalCompact: {
-    padding: 16,
-    paddingBottom: 16,
-  },
-  filtersModal: {
-    flex: 1,
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
-    padding: 16,
-    paddingBottom: 16,
-    maxHeight: '100%',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 16,
-    elevation: 8,
-  },
-  filtersHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  filtersTitleGroup: {
-    flex: 1,
-  },
-  filtersTitle: {
-    fontSize: 17,
-  },
-  filtersCount: {
-    fontSize: 12,
-    marginTop: 2,
-  },
-  filtersList: {
-    flex: 1,
-    minHeight: 0,
-  },
-  filterItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    minHeight: 46,
-    paddingVertical: 6,
-    paddingHorizontal: 10,
-  },
-  filterItemLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-  },
-  filterIcon: {
-    width: 28,
-    height: 28,
-    borderRadius: 8,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 10,
-  },
-  filterName: {
-    fontSize: 14,
-    flex: 1,
-  },
-  filtersFooter: {
-    flexShrink: 0,
-    flexDirection: 'row',
-    gap: 8,
-    marginTop: 12,
-  },
-  clearButton: {
-    flex: 1,
-    minHeight: 44,
-    paddingVertical: 8,
-    borderRadius: 14,
-    borderWidth: StyleSheet.hairlineWidth,
-    alignItems: 'center',
-  },
-  clearButtonText: {
-    fontSize: 14,
-  },
-  applyButton: {
-    flex: 1,
-    minHeight: 44,
-    paddingVertical: 8,
-    borderRadius: 14,
-    alignItems: 'center',
-  },
-  applyButtonText: {
-    color: '#ffffff',
-    fontSize: 14,
   },
   routeModalOverlay: {
     position: 'absolute',

@@ -60,6 +60,7 @@
     "plugins": [
       "expo-secure-store",
       "expo-web-browser",
+      "expo-background-fetch",
       [
         "expo-calendar",
         {

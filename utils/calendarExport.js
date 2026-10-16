@@ -269,47 +269,44 @@ const buildPlainDescription = (event) => {
  * Экспорт в системный календарь через expo-calendar
  */
 const exportToSystemCalendar = async (events, calendarName) => {
-  const { status } = await Calendar.requestCalendarPermissionsAsync();
+  const { status } = await Calendar.requestCalendarPermissions();
   if (status !== 'granted') {
     throw new Error('CALENDAR_PERMISSION_DENIED');
   }
 
-  // Получаем доступные календари
-  const calendars = await Calendar.getCalendarsAsync(Calendar.EntityTypes.EVENT);
-  
-  // Ищем дефолтный календарь для записи
-  let targetCalendarId;
-  
+  const calendars = await Calendar.getCalendars(Calendar.EntityTypes.EVENT);
+  let targetCalendar;
+
   if (Platform.OS === 'ios') {
-    const defaultCalendar = await Calendar.getDefaultCalendarAsync();
-    targetCalendarId = defaultCalendar.id;
+    targetCalendar = Calendar.getDefaultCalendarSync();
   } else {
     const writableCalendar = calendars.find(
-      c => c.allowsModifications && c.source && c.source.isLocalAccount !== false
-    ) || calendars.find(c => c.allowsModifications);
-    
+      calendar => calendar.allowsModifications && calendar.source && calendar.source.isLocalAccount !== false
+    ) || calendars.find(calendar => calendar.allowsModifications);
+
     if (writableCalendar) {
-      targetCalendarId = writableCalendar.id;
+      targetCalendar = await Calendar.ExpoCalendar.get(writableCalendar.id);
     } else {
-      // Создаём новый локальный календарь
-      const defaultSource = Platform.OS === 'android' 
-        ? { isLocalAccount: true, name: 'MyKHSU', type: Calendar.SourceType?.LOCAL }
-        : undefined;
-      targetCalendarId = await Calendar.createCalendarAsync({
+      const createdCalendar = await Calendar.createCalendar({
         title: 'MyKHSU',
         color: '#10B981',
         entityType: Calendar.EntityTypes.EVENT,
-        source: defaultSource,
+        source: {
+          isLocalAccount: true,
+          name: 'MyKHSU',
+          type: Calendar.SourceType?.LOCAL,
+        },
         name: 'mykhsu',
         ownerAccount: 'mykhsu',
         accessLevel: Calendar.CalendarAccessLevel.OWNER,
       });
+      targetCalendar = await Calendar.ExpoCalendar.get(createdCalendar.id);
     }
   }
 
   let addedCount = 0;
   for (const event of events) {
-    await Calendar.createEventAsync(targetCalendarId, {
+    await targetCalendar.createEvent({
       title: event.summary,
       startDate: event.startDate,
       endDate: event.endDate,

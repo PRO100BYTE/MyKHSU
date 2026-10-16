@@ -19,6 +19,8 @@ import backgroundService from '../utils/backgroundService';
 import { exportScheduleToCalendar } from '../utils/calendarExport';
 import SnakeGame from './SnakeGame';
 import { SectionHeader, SettingsGroup } from './SettingsComponents';
+import { resetOnboarding } from '../utils/onboarding';
+import { clearAllCache } from '../utils/cache';
 
 const DeveloperMenuScreen = ({ theme, accentColor, onCommunityFeatureChange, onLiquidGlassFeatureChange, onResetDeveloperMode }) => {
   const [customApiUrl, setCustomApiUrl] = useState('');
@@ -167,6 +169,28 @@ const DeveloperMenuScreen = ({ theme, accentColor, onCommunityFeatureChange, onL
     } catch (e) {
       Alert.alert('Ошибка', 'Не удалось загрузить отладочную информацию');
     }
+  };
+
+  const resetOnboardingFlow = () => {
+    Alert.alert(
+      'Сбросить первое знакомство?',
+      'При следующем запуске приложения снова откроется экран первого знакомства. Текущие настройки, кэш и другие данные не будут удалены.',
+      [
+        { text: 'Отмена', style: 'cancel' },
+        {
+          text: 'Сбросить',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await resetOnboarding(AsyncStorage);
+              Alert.alert('Готово', 'Первое знакомство будет показано при следующем запуске приложения.');
+            } catch (error) {
+              Alert.alert('Ошибка', 'Не удалось сбросить первое знакомство.');
+            }
+          },
+        },
+      ]
+    );
   };
 
   const clearAllSecureStore = () => {
@@ -1008,14 +1032,15 @@ const DeveloperMenuScreen = ({ theme, accentColor, onCommunityFeatureChange, onL
             style={[styles.actionButton, { backgroundColor: inputBgColor, borderColor }]}
             onPress={() => {
               Alert.alert(
-                'Очистить AsyncStorage?',
-                'Весь кэш приложения (расписание, новости, группы) будет удалён.',
+                'Очистить кэш API?',
+                'Будут удалены только кэшированные данные API (расписание, новости и группы). Настройки, первое знакомство и другие данные приложения сохранятся.',
                 [
                   { text: 'Отмена', style: 'cancel' },
                   { text: 'Очистить', style: 'destructive', onPress: async () => {
                     try {
-                      await AsyncStorage.clear();
-                      Alert.alert('Готово', 'AsyncStorage полностью очищен');
+                      const cleared = await clearAllCache();
+                       if (!cleared) throw new Error('CACHE_CLEAR_FAILED');
+                      Alert.alert('Готово', 'Кэш очищен. Настройки и первое ��накомство сохранены.');
                     } catch (e) {
                       Alert.alert('Ошибка', e.message);
                     }
@@ -1404,6 +1429,17 @@ const DeveloperMenuScreen = ({ theme, accentColor, onCommunityFeatureChange, onL
             </Text>
           </TouchableOpacity>
 
+           <TouchableOpacity
+             accessibilityRole="button"
+             accessibilityLabel="Сбросить первое знакомство"
+             style={[styles.actionButton, { backgroundColor: inputBgColor, borderColor }]}
+             onPress={resetOnboardingFlow}
+           >
+             <Icon name="refresh-circle-outline" size={20} color={colors.primary} />
+             <Text style={[styles.actionButtonText, { color: textColor }]}>Сбросить первое знакомство</Text>
+           </TouchableOpacity>
+
+
           <TouchableOpacity
             style={[styles.actionButton, { backgroundColor: 'rgba(239, 68, 68, 0.1)', borderColor: 'rgba(239, 68, 68, 0.3)' }]}
             onPress={clearAllSecureStore}
@@ -1523,7 +1559,7 @@ const DeveloperMenuScreen = ({ theme, accentColor, onCommunityFeatureChange, onL
 
 const styles = StyleSheet.create({
   section: {
-    marginBottom: 10,
+    marginBottom: 16,
     padding: 14,
   },
   sectionDescription: { fontSize: 12, marginBottom: 10, fontFamily: 'Montserrat_400Regular' },
@@ -1531,7 +1567,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 12,
+    minHeight: 44,
+    paddingVertical: 10,
     gap: 12,
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
@@ -1564,7 +1601,8 @@ const styles = StyleSheet.create({
   actionButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 14,
+    minHeight: 44,
+    padding: 12,
     borderRadius: 14,
     borderWidth: StyleSheet.hairlineWidth,
     marginBottom: 8,
