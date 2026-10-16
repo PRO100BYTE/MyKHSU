@@ -7,9 +7,10 @@
 - `visible`: controls presentation;
 - `onRequestClose`: handles close/back/dismiss;
 - `children`: sheet content;
-- `contentStyle` and `accessibilityLabel`: presentation and accessibility customization.
+- `contentStyle` and `accessibilityLabel`: presentation and accessibility customization;
+- `presentationStyle`: optional iOS `Modal` style override; map filters use `formSheet`, while routing keeps the default `pageSheet`.
 
-On iOS it uses the real React Native `Modal` `pageSheet` presentation. Android uses a transparent native `Modal` with a bottom-aligned fallback surface; this is not presented as a native iOS sheet.
+On iOS it uses the real React Native `Modal` presentation (`pageSheet` by default). The filters use the system `formSheet` presentation; this is a native presentation choice, not a simulated detent or height guarantee. Android uses a transparent native `Modal` with a bottom-aligned fallback surface; this is not presented as a native iOS sheet.
 
 ## Map behavior
 

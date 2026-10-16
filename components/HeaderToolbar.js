@@ -1,5 +1,5 @@
 import React from 'react';
-import { Alert, Text, TouchableOpacity, View, StyleSheet } from 'react-native';
+import { Alert, ActionSheetIOS, Platform, UIManager, Text, TouchableOpacity, View, StyleSheet } from 'react-native';
 import { MenuView } from '@react-native-menu/menu';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
@@ -16,6 +16,21 @@ export default function HeaderToolbar({ title, icon, onBack, actions = [], statu
     } catch (error) {
       console.warn('Header action failed:', error);
       Alert.alert('Не удалось выполнить действие', 'Попробуйте ещё раз.');
+    }
+  };
+  const nativeMenuAvailable = Platform.OS === 'ios' && !!UIManager.hasViewManagerConfig('MenuView');
+  const openFallbackMenu = () => {
+    if (Platform.OS === 'ios') {
+      ActionSheetIOS.showActionSheetWithOptions({
+        title,
+        options: [...secondary.map(action => action.label), 'Отмена'],
+        cancelButtonIndex: secondary.length,
+        disabledButtonIndices: secondary.flatMap((action, index) => action.disabled ? [index] : []),
+      }, index => { void runAction(secondary[index]); });
+    } else {
+      Alert.alert(title, undefined, [...secondary.filter(action => !action.disabled).map(action => ({
+        text: action.label, onPress: () => { void runAction(action); },
+      })), { text: 'Отмена', style: 'cancel' }]);
     }
   };
   const Surface = supportsGlass ? GlassView : BlurView;
@@ -45,14 +60,18 @@ export default function HeaderToolbar({ title, icon, onBack, actions = [], statu
               {!!primary.badge && <View style={[styles.badge, { backgroundColor: accent }]}><Text style={styles.badgeText}>{primary.badge}</Text></View>}
             </TouchableOpacity>
           )}
-          {secondary.length > 0 && (
+          {secondary.length > 0 && (nativeMenuAvailable ? (
             <MenuView title={title} shouldOpenOnLongPress={false}
               actions={secondary.map((action, index) => ({ id: String(index), title: action.label, image: action.symbol, attributes: { disabled: !!action.disabled } }))}
               onPressAction={({ nativeEvent }) => { void runAction(secondary[Number(nativeEvent.event)]); }}
               accessibilityRole="button" accessibilityLabel={`Другие действия: ${title}`}>
               <View style={styles.button}><Icon name="ellipsis" size={23} color={accent} /></View>
             </MenuView>
-          )}
+          ) : (
+            <TouchableOpacity onPress={openFallbackMenu} accessibilityRole="button" accessibilityLabel={`Другие действия: ${title}`} style={styles.button}>
+              <Icon name="ellipsis-horizontal" size={23} color={accent} />
+            </TouchableOpacity>
+          ))}
         </View>
       </Surface>
     </View>

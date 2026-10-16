@@ -6,7 +6,14 @@ import { Modal, Platform, StyleSheet, View } from 'react-native';
  * iOS uses the platform page/form sheet presentation; Android uses a transparent
  * Modal with a bottom-aligned surface because it has no equivalent presentation style.
  */
-const NativeSheet = ({ visible, onRequestClose, children, contentStyle, accessibilityLabel }) => {
+const NativeSheet = ({
+  visible,
+  onRequestClose,
+  children,
+  contentStyle,
+  accessibilityLabel,
+  presentationStyle = 'pageSheet',
+}) => {
   const closeHandled = useRef(false);
 
   useEffect(() => {
@@ -25,7 +32,7 @@ const NativeSheet = ({ visible, onRequestClose, children, contentStyle, accessib
       visible={visible}
       onRequestClose={handleClose}
       onDismiss={handleClose}
-      presentationStyle={Platform.OS === 'ios' ? 'pageSheet' : undefined}
+      presentationStyle={Platform.OS === 'ios' ? presentationStyle : undefined}
       animationType="slide"
       allowSwipeDismissal={Platform.OS === 'ios'}
       transparent={Platform.OS !== 'ios'}

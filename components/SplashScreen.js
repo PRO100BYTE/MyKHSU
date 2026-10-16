@@ -1,12 +1,19 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useMemo, useRef } from 'react';
 import { View, Text, StyleSheet, StatusBar, Animated, Dimensions, ActivityIndicator } from 'react-native';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import { ACCENT_COLORS, LIQUID_GLASS, APP_VERSION } from '../utils/constants';
 import MatrixRain from './MatrixRain';
+import SeasonalSplashEffects, { useSplashReduceMotion } from './SeasonalSplashEffects';
+import { getSplashDecoration } from '../utils/splashSeason';
 
 const { width, height } = Dimensions.get('window');
 
 const SplashScreen = ({ accentColor, theme, holidayInfo, legendUnlocked = false }) => {
+  const reduceMotion = useSplashReduceMotion();
+  const decoration = useMemo(
+    () => getSplashDecoration({ holidayInfo, theme, legendUnlocked }),
+    [holidayInfo, theme, legendUnlocked]
+  );
   const safeAccentColor = accentColor || 'green';
   const colors = ACCENT_COLORS[safeAccentColor] || ACCENT_COLORS.green;
   const safeColors = colors || { primary: '#10b981', light: '#d1fae5' };
@@ -111,66 +118,96 @@ const SplashScreen = ({ accentColor, theme, holidayInfo, legendUnlocked = false 
   ];
 
   useEffect(() => {
+    if (reduceMotion !== false) {
+      blobAnims.forEach(blob => {
+        blob.scale.setValue(1);
+        blob.translateX.setValue(0);
+        blob.translateY.setValue(0);
+      });
+      logoScale.setValue(1);
+      logoOpacity.setValue(1);
+      glowOpacity.setValue(0.7);
+      titleTranslateY.setValue(0);
+      titleOpacity.setValue(1);
+      subtitleTranslateY.setValue(0);
+      subtitleOpacity.setValue(1);
+      loaderOpacity.setValue(1);
+      versionOpacity.setValue(0.4);
+      holidayAnim.setValue(1);
+      return;
+    }
+    const animations = [];
+    const startAnimation = animation => {
+      animations.push(animation);
+      animation.start();
+    };
     // Запускаем плавающие анимации блобов
     blobAnims.forEach((blob, index) => {
       const duration = 3000 + Math.random() * 4000;
       const amplitude = 15 + Math.random() * 25;
 
       // Появление блоба
-      Animated.timing(blob.scale, {
+      startAnimation(Animated.timing(blob.scale, {
         toValue: 1,
         duration: 800 + index * 150,
         useNativeDriver: true,
-      }).start();
+        isInteraction: false,
+      }));
 
       // Плавное дрейфование по Y
-      Animated.loop(
+      startAnimation(Animated.loop(
         Animated.sequence([
           Animated.timing(blob.translateY, {
             toValue: -amplitude,
             duration,
             useNativeDriver: true,
+            isInteraction: false,
           }),
           Animated.timing(blob.translateY, {
             toValue: amplitude,
             duration,
             useNativeDriver: true,
+            isInteraction: false,
           }),
         ])
-      ).start();
+      ));
 
       // Плавное дрейфование по X
-      Animated.loop(
+      startAnimation(Animated.loop(
         Animated.sequence([
           Animated.timing(blob.translateX, {
             toValue: amplitude * 0.6,
             duration: duration * 1.2,
             useNativeDriver: true,
+            isInteraction: false,
           }),
           Animated.timing(blob.translateX, {
             toValue: -amplitude * 0.6,
             duration: duration * 1.2,
             useNativeDriver: true,
+            isInteraction: false,
           }),
         ])
-      ).start();
+      ));
     });
 
     // Пульсирующее свечение
-    Animated.loop(
+    startAnimation(Animated.loop(
       Animated.sequence([
         Animated.timing(glowOpacity, {
           toValue: 1,
           duration: 1800,
           useNativeDriver: true,
+          isInteraction: false,
         }),
         Animated.timing(glowOpacity, {
           toValue: 0.4,
           duration: 1800,
           useNativeDriver: true,
+          isInteraction: false,
         }),
       ])
-    ).start();
+    ));
 
     // Появление логотипа
     const logoAnimation = Animated.parallel([
@@ -240,20 +277,22 @@ const SplashScreen = ({ accentColor, theme, holidayInfo, legendUnlocked = false 
             tension: 50,
             friction: 7,
             useNativeDriver: true,
+            isInteraction: false,
           }),
         ])
       : Animated.delay(0);
 
     // Последовательный запуск анимаций
-    Animated.stagger(180, [
+    startAnimation(Animated.stagger(180, [
       logoAnimation,
       titleAnimation,
       subtitleAnimation,
       loaderAnimation,
       versionAnimation,
       holidayAnimation,
-    ]).start();
-  }, [holidayInfo]);
+    ]));
+    return () => animations.forEach(animation => animation.stop());
+  }, [holidayInfo, reduceMotion]);
 
   return (
     <View style={[styles.container, { backgroundColor }]}>
@@ -263,7 +302,7 @@ const SplashScreen = ({ accentColor, theme, holidayInfo, legendUnlocked = false 
       />
 
       {/* Плавающие блобы / Matrix Rain */}
-      {isMatrix ? (
+      {isMatrix && reduceMotion === false ? (
         <MatrixRain intensity={0.85} />
       ) : (
         blobs.map((blob, index) => (
@@ -287,6 +326,8 @@ const SplashScreen = ({ accentColor, theme, holidayInfo, legendUnlocked = false 
           />
         ))
       )}
+
+      <SeasonalSplashEffects decoration={decoration} reduceMotion={reduceMotion} />
 
       {/* Центральный контент */}
       <View style={styles.contentContainer}>

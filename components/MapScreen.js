@@ -26,6 +26,7 @@ import BuildingsListScreen from './BuildingsListScreen';
 import { WebView } from 'react-native-webview';
 import Snowfall from './Snowfall';
 import NativeSheet from './NativeSheet';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const { width, height } = Dimensions.get('window');
 
@@ -42,6 +43,7 @@ const MapScreen = forwardRef(({ theme, accentColor, isNewYearMode, onFilterCount
   const [webViewKey, setWebViewKey] = useState(0);
   const [mapError, setMapError] = useState(false);
   const [locationPermission, setLocationPermission] = useState(false);
+  const insets = useSafeAreaInsets();
   
   const colors = ACCENT_COLORS[accentColor];
   const glass = LIQUID_GLASS[theme] || LIQUID_GLASS.light;
@@ -819,6 +821,7 @@ const MapScreen = forwardRef(({ theme, accentColor, isNewYearMode, onFilterCount
       <NativeSheet
         visible={showFiltersModal}
         onRequestClose={handleCloseFiltersModal}
+        presentationStyle="formSheet"
         accessibilityLabel="Фильтры карты"
         contentStyle={{ backgroundColor: Platform.OS === 'ios' ? glass.backgroundElevated : 'transparent' }}
       >
@@ -854,12 +857,15 @@ const MapScreen = forwardRef(({ theme, accentColor, isNewYearMode, onFilterCount
             ]}
           >
             {/* Drag handle */}
-            <View style={{ width: 36, height: 4, borderRadius: 2, backgroundColor: glass.textSecondary + '40', alignSelf: 'center', marginBottom: 16 }} />
+            <View style={{ width: 28, height: 3, borderRadius: 2, backgroundColor: glass.border, alignSelf: 'center', marginBottom: 12 }} />
             
             <View style={styles.filtersHeader}>
-              <Text style={[styles.filtersTitle, { color: textColor, fontFamily: 'Montserrat_600SemiBold' }]}>
-                Фильтры
-              </Text>
+              <View style={styles.filtersTitleGroup}>
+                <Text style={[styles.filtersTitle, { color: textColor, fontFamily: 'Montserrat_600SemiBold' }]}>Фильтры</Text>
+                <Text style={[styles.filtersCount, { color: placeholderColor, fontFamily: 'Montserrat_400Regular' }]}>
+                  {selectedFilters.length ? `${selectedFilters.length} выбрано` : 'Все корпуса'}
+                </Text>
+              </View>
               <TouchableOpacity 
                 onPress={handleCloseFiltersModal}
                 style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: glass.surfaceTertiary, justifyContent: 'center', alignItems: 'center' }}
@@ -1112,6 +1118,10 @@ const styles = StyleSheet.create({
     borderWidth: 0,
     transform: [],
   },
+  filtersModalCompact: {
+    padding: 16,
+    paddingBottom: 16,
+  },
   filtersModal: {
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
@@ -1128,20 +1138,28 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 20,
+    marginBottom: 12,
+  },
+  filtersTitleGroup: {
+    flex: 1,
   },
   filtersTitle: {
-    fontSize: 18,
+    fontSize: 17,
+  },
+  filtersCount: {
+    fontSize: 12,
+    marginTop: 2,
   },
   filtersList: {
-    maxHeight: 400,
+    maxHeight: 380,
   },
   filterItem: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 12,
-    paddingHorizontal: 14,
+    minHeight: 46,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
   },
   filterItemLeft: {
     flexDirection: 'row',
@@ -1149,41 +1167,43 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   filterIcon: {
-    width: 38,
-    height: 38,
-    borderRadius: 12,
+    width: 28,
+    height: 28,
+    borderRadius: 8,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 12,
+    marginRight: 10,
   },
   filterName: {
-    fontSize: 16,
+    fontSize: 14,
     flex: 1,
   },
   filtersFooter: {
     flexDirection: 'row',
-    gap: 12,
-    marginTop: 20,
+    gap: 8,
+    marginTop: 12,
   },
   clearButton: {
     flex: 1,
-    paddingVertical: 14,
+    minHeight: 44,
+    paddingVertical: 8,
     borderRadius: 14,
     borderWidth: StyleSheet.hairlineWidth,
     alignItems: 'center',
   },
   clearButtonText: {
-    fontSize: 16,
+    fontSize: 14,
   },
   applyButton: {
     flex: 1,
-    paddingVertical: 14,
+    minHeight: 44,
+    paddingVertical: 8,
     borderRadius: 14,
     alignItems: 'center',
   },
   applyButtonText: {
     color: '#ffffff',
-    fontSize: 16,
+    fontSize: 14,
   },
   routeModalOverlay: {
     position: 'absolute',
