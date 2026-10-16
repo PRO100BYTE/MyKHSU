@@ -363,6 +363,7 @@ const DeveloperMenuScreen = ({ theme, accentColor, onCommunityFeatureChange, onL
               </View>
             </View>
             <Switch
+              accessibilityRole="switch"
               value={useCustomApi}
               onValueChange={toggleCustomApi}
               trackColor={{ false: borderColor, true: colors.light }}
@@ -404,6 +405,7 @@ const DeveloperMenuScreen = ({ theme, accentColor, onCommunityFeatureChange, onL
               </View>
             </View>
             <Switch
+              accessibilityRole="switch"
               value={communityFeatureEnabled}
               onValueChange={toggleCommunityFeature}
               trackColor={{ false: borderColor, true: colors.light }}
@@ -419,6 +421,7 @@ const DeveloperMenuScreen = ({ theme, accentColor, onCommunityFeatureChange, onL
               </View>
             </View>
             <Switch
+              accessibilityRole="switch"
               value={liquidGlassEnabled}
               onValueChange={toggleLiquidGlassFeature}
               trackColor={{ false: borderColor, true: colors.light }}

@@ -68,26 +68,21 @@ export const SectionHeader = ({ title, style, textStyle, placeholderColor }) => 
 );
 
 export const SettingsGroup = ({ children, style, glass }) => (
-  <GlassCard
-    glass={glass}
+  <View
     style={[
       {
-        backgroundColor: glass?.surfaceSecondary || '#f3f4f6',
+        backgroundColor: glass?.backgroundElevated || '#f3f4f6',
         borderRadius: 14,
         overflow: 'hidden',
         borderWidth: StyleSheet.hairlineWidth,
         borderColor: glass?.border || '#e5e7eb',
-        shadowColor: glass?.shadowColor || '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.08,
-        shadowRadius: 6,
-        elevation: 2,
       },
       style,
+      { backgroundColor: glass?.backgroundElevated || '#f3f4f6' },
     ]}
   >
     {children}
-  </GlassCard>
+  </View>
 );
 
 export const SettingsRow = ({
@@ -109,10 +104,14 @@ export const SettingsRow = ({
     onPress={onPress}
     activeOpacity={0.7}
     disabled={!onPress}
+    accessibilityRole={onPress ? 'button' : undefined}
+    accessibilityLabel={title}
     style={{
       flexDirection: 'row',
       alignItems: 'center',
-      padding: 14,
+      minHeight: 44,
+      paddingHorizontal: 14,
+      paddingVertical: 10,
       backgroundColor: Platform.OS === 'ios' ? 'transparent' : (glass?.surfaceSecondary || '#f3f4f6'),
       borderTopLeftRadius: isFirst ? 14 : 0,
       borderTopRightRadius: isFirst ? 14 : 0,

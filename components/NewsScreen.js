@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, TouchableOpacity, ActivityIndicator, StyleSheet, RefreshControl, Animated, StatusBar, TextInput, Platform } from 'react-native';
+import { View, Text, TouchableOpacity, ActivityIndicator, StyleSheet, RefreshControl, Animated, StatusBar } from 'react-native';
 import ScrollView from './ScreenScrollView';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import { ACCENT_COLORS, LIQUID_GLASS } from '../utils/constants';
@@ -10,6 +10,8 @@ import ApiService from '../utils/api';
 import notificationService from '../utils/notificationService';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Snowfall from './Snowfall';
+import SearchField from './SearchField';
+import { showNewsActions } from '../utils/contextActions';
 
 const normalizeNewsErrorCode = (error) => {
   const raw = String(error?.message || error || 'load-error');
@@ -98,7 +100,7 @@ const NewsScreen = ({ theme, accentColor, isNewYearMode, onCacheStatusChange }) 
     if (!newsData || !Array.isArray(newsData)) return [];
     
     return newsData
-      .filter(item => item.content && item.content.trim() !== "")
+      .filter(item => typeof item?.content === 'string' && item.content.trim() !== '')
       .map(item => ({
         ...item,
         id: createNewsId(item),
@@ -149,17 +151,6 @@ const NewsScreen = ({ theme, accentColor, isNewYearMode, onCacheStatusChange }) 
     return new Date(0).toISOString();
   };
 
-  // Проверка новых новостей для уведомлений
-  const checkForNewNews = async (currentNews) => {
-    if (!isOnline || loading || loadingMore) return;
-    
-    try {
-      await notificationService.checkForNewNews(currentNews);
-    } catch (error) {
-      console.error('Error checking for new news:', error);
-    }
-  };
-
   useEffect(() => {
     // Проверяем подключение к интернету
     const unsubscribe = NetInfo.addEventListener(state => {
@@ -171,13 +162,6 @@ const NewsScreen = ({ theme, accentColor, isNewYearMode, onCacheStatusChange }) 
 
     return () => unsubscribe();
   }, []);
-
-  // Проверяем новые новости при загрузке
-  useEffect(() => {
-    if (news.length > 0 && !loading && !loadingMore) {
-      checkForNewNews(news);
-    }
-  }, [news, loading, loadingMore]);
 
   const fetchNews = async (isInitial = false, targetFrom = null) => {
     if (loading || loadingMore) return;
@@ -196,6 +180,9 @@ const NewsScreen = ({ theme, accentColor, isNewYearMode, onCacheStatusChange }) 
     try {
       const result = await ApiService.getNews(currentFrom, 10);
       const newsList = extractNewsList(result.data);
+      if (currentFrom === 0 && (result.source === 'api' || result.source === 'proxy')) {
+        await notificationService.checkForNewNews(newsList);
+      }
       
       // Фильтрация пустого контента и дубликатов
       const filteredData = filterAndProcessNews(newsList);
@@ -326,7 +313,9 @@ return (
         backgroundColor={bgColor}
       />
       
-      <ScrollView 
+      <ScrollView
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
         contentContainerStyle={{ paddingTop: 16, paddingHorizontal: 16, paddingBottom: 100 }}
         refreshControl={
           <RefreshControl
@@ -339,43 +328,18 @@ return (
         {/* ВСЕ содержимое новостей */}
 
         {/* Поиск по новостям */}
-        <GlassCard glass={glass} style={{
-          flexDirection: 'row',
-          alignItems: 'center',
-          backgroundColor: glass.surfaceSecondary,
-          borderRadius: 14,
-          borderWidth: StyleSheet.hairlineWidth,
-          borderColor: glass.border,
-          paddingHorizontal: 12,
-          marginBottom: 16,
-          gap: 8,
-        }}>
-          <Icon name="search-outline" size={18} color={placeholderColor} />
-          <TextInput
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-            placeholder="Поиск по новостям..."
-            placeholderTextColor={placeholderColor}
-            style={{
-              flex: 1,
-              paddingVertical: 12,
-              fontSize: 15,
-              fontFamily: 'Montserrat_400Regular',
-              color: textColor,
-            }}
-            clearButtonMode="while-editing"
-          />
-          {searchQuery.length > 0 && (
-            <TouchableOpacity onPress={() => setSearchQuery('')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-              <Icon name="close-circle" size={18} color={placeholderColor} />
-            </TouchableOpacity>
-          )}
-        </GlassCard>
+        <SearchField
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+          placeholder="Поиск по загруженным новостям"
+          theme={theme}
+          accentColor={accentColor}
+        />
 
         {(() => {
           const filteredNews = searchQuery.trim()
             ? news.filter(item =>
-                (item.content || '').toLowerCase().includes(searchQuery.toLowerCase())
+                (item.content || '').toLowerCase().includes(searchQuery.trim().toLowerCase())
               )
             : news;
 
@@ -414,8 +378,16 @@ return (
             }
 
           return filteredNews.map((item) => (
-          <GlassCard 
+          <TouchableOpacity
             key={item.id}
+            activeOpacity={0.85}
+            onPress={() => showNewsActions(item)}
+            onLongPress={() => showNewsActions(item)}
+            accessibilityRole="button"
+            accessibilityLabel={`${item.content}. Действия с новостью`}
+            accessibilityHint="Открыть меню действий"
+          >
+          <GlassCard
             glass={glass}
             style={{ 
               flexDirection: 'row',
@@ -465,6 +437,7 @@ return (
               </Text>
             </View>
           </GlassCard>
+          </TouchableOpacity>
           ));
         })()}
         

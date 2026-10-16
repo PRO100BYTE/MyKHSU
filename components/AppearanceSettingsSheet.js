@@ -286,6 +286,7 @@ const AppearanceSettingsSheet = ({
               </View>
             </View>
             <Switch
+              accessibilityRole="switch"
               value={newYearSetting}
               onValueChange={handleNewYearModeChange}
               trackColor={{ false: borderColor, true: colors.light }}
@@ -320,7 +321,8 @@ const AppearanceSettingsSheet = ({
             </View>
           </View>
           <Switch
-            value={showTabbarLabels}
+            accessibilityRole="switch"
+              value={showTabbarLabels}
             onValueChange={handleShowLabelsChange}
             trackColor={{ false: borderColor, true: colors.light }}
             thumbColor={showTabbarLabels ? colors.primary : placeholderColor}

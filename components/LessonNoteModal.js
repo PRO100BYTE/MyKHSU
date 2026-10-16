@@ -1,17 +1,15 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
+  Modal,
   TouchableOpacity,
-  TouchableWithoutFeedback,
   TextInput,
   StyleSheet,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
   Alert,
-  Animated,
-  Dimensions,
 } from 'react-native';
 import * as Notifications from 'expo-notifications';
 import { Ionicons as Icon } from '@expo/vector-icons';
@@ -23,7 +21,6 @@ import NativeDateField from './NativeDateField';
 import notificationService from '../utils/notificationService';
 
 const TABBAR_HEIGHT = 90;
-const SCREEN_HEIGHT = Dimensions.get('window').height;
 
 const LessonNoteModal = ({ visible, onClose, lesson, weekday, theme, accentColor }) => {
   const [noteText, setNoteText] = useState('');
@@ -33,10 +30,6 @@ const LessonNoteModal = ({ visible, onClose, lesson, weekday, theme, accentColor
   const [homeworkReminderId, setHomeworkReminderId] = useState(null);
   const [loading, setLoading] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
-  const [rendered, setRendered] = useState(false);
-
-  const backdropAnim = useRef(new Animated.Value(0)).current;
-  const slideAnim = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
 
   const glass = LIQUID_GLASS[theme] || LIQUID_GLASS.light;
   const colors = ACCENT_COLORS[accentColor] || ACCENT_COLORS.green;
@@ -47,39 +40,6 @@ const LessonNoteModal = ({ visible, onClose, lesson, weekday, theme, accentColor
     timeSlot: lesson?.time,
     group: lesson?.group ? (Array.isArray(lesson.group) ? lesson.group.join(',') : lesson.group) : '',
   };
-
-  useEffect(() => {
-    if (visible) {
-      setRendered(true);
-      Animated.parallel([
-        Animated.timing(backdropAnim, {
-          toValue: 1,
-          duration: 250,
-          useNativeDriver: true,
-        }),
-        Animated.spring(slideAnim, {
-          toValue: 0,
-          damping: 20,
-          stiffness: 200,
-          mass: 0.8,
-          useNativeDriver: true,
-        }),
-      ]).start();
-    } else if (rendered) {
-      Animated.parallel([
-        Animated.timing(backdropAnim, {
-          toValue: 0,
-          duration: 200,
-          useNativeDriver: true,
-        }),
-        Animated.timing(slideAnim, {
-          toValue: SCREEN_HEIGHT,
-          duration: 200,
-          useNativeDriver: true,
-        }),
-      ]).start(() => setRendered(false));
-    }
-  }, [visible]);
 
   useEffect(() => {
     if (visible && lesson) {
@@ -246,23 +206,20 @@ const LessonNoteModal = ({ visible, onClose, lesson, weekday, theme, accentColor
     setHasChanges(true);
   };
 
-  if (!visible && !rendered) return null;
-
   return (
-    <View style={styles.overlay} pointerEvents="box-none">
-      <TouchableWithoutFeedback onPress={handleClose}>
-        <Animated.View style={[styles.backdrop, { opacity: backdropAnim }]} />
-      </TouchableWithoutFeedback>
+    <Modal
+      visible={visible}
+      animationType="slide"
+      presentationStyle="pageSheet"
+      onRequestClose={handleClose}
+    >
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.keyboardView}
         pointerEvents="box-none"
       >
-        <Animated.View
-          style={[
-            styles.container,
-            { backgroundColor: glass.backgroundElevated, transform: [{ translateY: slideAnim }] },
-          ]}
+        <View
+          style={[styles.container, { backgroundColor: glass.backgroundElevated }]}
         >
 
           {/* Header */}
@@ -458,34 +415,18 @@ const LessonNoteModal = ({ visible, onClose, lesson, weekday, theme, accentColor
               />
             </View>
           </ScrollView>
-        </Animated.View>
+        </View>
       </KeyboardAvoidingView>
-    </View>
+    </Modal>
   );
 };
 
 const styles = StyleSheet.create({
-  overlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    zIndex: 5,
-    justifyContent: 'flex-end',
-  },
-  backdrop: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.35)',
-  },
   keyboardView: {
-    justifyContent: 'flex-end',
+    flex: 1,
   },
   container: {
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    maxHeight: '93%',
-    minHeight: '65%',
+    flex: 1,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: -4 },
     shadowOpacity: 0.15,

@@ -4,7 +4,6 @@ import {
   Text, 
   TouchableOpacity, 
   TouchableWithoutFeedback,
-  TextInput,
   Linking, 
   StyleSheet, 
   Animated, 
@@ -18,6 +17,8 @@ import { buildings } from '../utils/buildingCoordinates';
 import Snowfall from './Snowfall';
 import ScrollView from './ScreenScrollView';
 import { GlassCard } from './SettingsComponents';
+import SearchField from './SearchField';
+import NativeSheet from './NativeSheet';
 
 const BuildingsListScreen = ({ theme, accentColor, onBuildingSelect, isNewYearMode }) => {
   const [showRouteOptions, setShowRouteOptions] = useState(false);
@@ -217,6 +218,9 @@ const BuildingsListScreen = ({ theme, accentColor, onBuildingSelect, isNewYearMo
       }}
     >
       <TouchableOpacity 
+        accessibilityRole="button"
+        accessibilityLabel={`Построить маршрут: ${building.name}`}
+        hitSlop={4}
         style={{ flexDirection: 'row', alignItems: 'center' }}
         onPress={() => handleBuildingPress(building)}
       >
@@ -348,38 +352,13 @@ const BuildingsListScreen = ({ theme, accentColor, onBuildingSelect, isNewYearMo
 
         <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: 16, paddingBottom: 100 }}>
           {/* Поиск */}
-          <View style={{
-            flexDirection: 'row',
-            alignItems: 'center',
-            backgroundColor: glass.surfaceTertiary,
-            borderRadius: 14,
-            paddingHorizontal: 14,
-            paddingVertical: 10,
-            marginBottom: 16,
-            borderWidth: StyleSheet.hairlineWidth,
-            borderColor: glass.border,
-          }}>
-            <Icon name="search-outline" size={18} color={placeholderColor} />
-            <TextInput
-              style={{
-                flex: 1,
-                marginLeft: 10,
-                fontSize: 15,
-                fontFamily: 'Montserrat_400Regular',
-                color: textColor,
-                paddingVertical: 0,
-              }}
-              placeholder="Поиск корпусов..."
-              placeholderTextColor={placeholderColor}
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-            />
-            {searchQuery.length > 0 && (
-              <TouchableOpacity onPress={() => setSearchQuery('')}>
-                <Icon name="close-circle" size={18} color={placeholderColor} />
-              </TouchableOpacity>
-            )}
-          </View>
+          <SearchField
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            placeholder="Поиск корпусов..."
+            theme={theme}
+            accentColor={accentColor}
+          />
 
           {/* Счётчик результатов */}
           <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
@@ -417,23 +396,30 @@ const BuildingsListScreen = ({ theme, accentColor, onBuildingSelect, isNewYearMo
         </ScrollView>
 
         {/* Модальное окно выбора сервиса для построения маршрута с анимацией */}
-        {showRouteOptions && (
+        <NativeSheet
+          visible={showRouteOptions}
+          onRequestClose={handleCloseRouteModal}
+          accessibilityLabel="Выбор сервиса навигации"
+          contentStyle={{ backgroundColor: Platform.OS === 'ios' ? glass.backgroundElevated : 'transparent' }}
+        >
           <Animated.View 
             style={[
               styles.routeModalOverlay,
-              { 
+              Platform.OS === 'ios' ? styles.nativeSheetContent : {
                 opacity: routeModalAnim,
                 backgroundColor: 'rgba(0, 0, 0, 0.5)'
               }
             ]}
           >
-            <TouchableWithoutFeedback onPress={handleCloseRouteModal}>
-              <View style={{ flex: 1 }} />
-            </TouchableWithoutFeedback>
+            {Platform.OS === 'android' && (
+              <TouchableWithoutFeedback onPress={handleCloseRouteModal}>
+                <View style={{ flex: 1 }} />
+              </TouchableWithoutFeedback>
+            )}
             <Animated.View 
               style={[
                 styles.routeModal,
-                { 
+                Platform.OS === 'ios' ? styles.nativeSheetCard : {
                   backgroundColor: glass.backgroundElevated,
                   borderColor: glass.border,
                   borderWidth: StyleSheet.hairlineWidth,
@@ -509,7 +495,7 @@ const BuildingsListScreen = ({ theme, accentColor, onBuildingSelect, isNewYearMo
               </TouchableOpacity>
             </Animated.View>
           </Animated.View>
-        )}
+        </NativeSheet>
       </Animated.View>
     </View>
   );
@@ -525,6 +511,17 @@ const styles = StyleSheet.create({
   infoText: {
     fontSize: 14,
     fontFamily: 'Montserrat_400Regular',
+  },
+  nativeSheetContent: {
+    flex: 1,
+    backgroundColor: 'transparent',
+  },
+  nativeSheetCard: {
+    flex: 1,
+    maxHeight: undefined,
+    borderRadius: 0,
+    borderWidth: 0,
+    transform: [],
   },
   routeModalOverlay: {
     position: 'absolute',

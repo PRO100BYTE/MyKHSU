@@ -8,7 +8,7 @@ export function useScreenHeaderInset() {
   const insets = useSafeAreaInsets();
   const { fontScale } = useWindowDimensions();
   // Keep in sync with App's header: top margin 6, vertical padding 12, text 18.
-  const headerHeight = 24 + Math.max(20, Math.ceil(18 * 1.25 * fontScale)) + 2 * StyleSheet.hairlineWidth;
+  const headerHeight = Math.max(52, 24 + Math.max(20, Math.ceil(18 * 1.25 * fontScale))) + 2 * StyleSheet.hairlineWidth;
   return Platform.OS === 'ios' ? insets.top + 6 + headerHeight : 0;
 }
 

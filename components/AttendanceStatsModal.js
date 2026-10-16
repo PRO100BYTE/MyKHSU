@@ -3,10 +3,12 @@ import {
   View,
   Text,
   Modal,
+  KeyboardAvoidingView,
   ScrollView,
   TouchableOpacity,
   StyleSheet,
   StatusBar,
+  Platform,
 } from 'react-native';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import { ACCENT_COLORS, LIQUID_GLASS } from '../utils/constants';
@@ -74,7 +76,11 @@ const AttendanceStatsModal = ({ visible, onClose, attendanceMap, theme, accentCo
           </TouchableOpacity>
         </View>
 
-        <ScrollView contentContainerStyle={{ padding: 20 }}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={{ flex: 1 }}
+        >
+        <ScrollView contentContainerStyle={{ padding: 20 }} keyboardShouldPersistTaps="handled">
           {/* Общая статистика */}
           {grandTotal > 0 && (
             <View style={{
@@ -193,6 +199,7 @@ const AttendanceStatsModal = ({ visible, onClose, attendanceMap, theme, accentCo
             </>
           )}
         </ScrollView>
+        </KeyboardAvoidingView>
       </View>
     </Modal>
   );

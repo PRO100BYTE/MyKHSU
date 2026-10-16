@@ -1,17 +1,18 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import { View, Text, Platform, Appearance, StyleSheet, StatusBar, PanResponder, Animated, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, Platform, AppState, Appearance, StyleSheet, StatusBar, PanResponder, Animated, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import * as SecureStore from 'expo-secure-store';
 import { useFonts, Montserrat_400Regular, Montserrat_500Medium, Montserrat_600SemiBold, Montserrat_700Bold } from '@expo-google-fonts/montserrat';
 import * as Notifications from 'expo-notifications';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { BlurView } from 'expo-blur';
 import { GlassView, isGlassEffectAPIAvailable, isLiquidGlassAvailable } from 'expo-glass-effect';
 
 // Импорт компонентов
 import SplashScreen from './components/SplashScreen';
 import TabButton from './components/TabButton';
 import NativeTabBar from './components/NativeTabBar';
+import HeaderToolbar from './components/HeaderToolbar';
+import InAppNotificationBanner from './components/InAppNotificationBanner';
 import NewsScreen from './components/NewsScreen';
 import ScheduleScreen from './components/ScheduleScreen';
 import SettingsScreen from './components/SettingsScreen';
@@ -22,7 +23,6 @@ import AchievementToast from './components/AchievementToast';
 
 // Импорт утилит
 import { ACCENT_COLORS, SCREENS, LIQUID_GLASS, isNewYearPeriod, getNewYearText, getHolidayInfo } from './utils/constants';
-import { getBlurConfig } from './utils/liquidGlass';
 import * as Sentry from '@sentry/react-native';
 import notificationService from './utils/notificationService';
 import backgroundService from './utils/backgroundService';
@@ -34,15 +34,6 @@ Sentry.init({
   replaysSessionSampleRate: 0.1,
   replaysOnErrorSampleRate: 1,
   integrations: [Sentry.mobileReplayIntegration(), Sentry.feedbackIntegration()],
-});
-
-// Конфигурация уведомлений
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: true,
-    shouldSetBadge: true,
-  }),
 });
 
 const styles = StyleSheet.create({
@@ -315,24 +306,44 @@ export default Sentry.wrap(function App() {
   const [isNewYearMode, setIsNewYearMode] = useState(false);
   const [splashNewYearMode, setSplashNewYearMode] = useState(false);
 
+  const handledNotificationResponse = useRef(null);
+  const navigateFromNotification = useCallback((route) => {
+    const screen = route?.screen === 'news' ? SCREENS.NEWS
+      : route?.screen === 'schedule' ? SCREENS.SCHEDULE : null;
+    if (!screen) return;
+    setActiveScreen(screen);
+    setRefreshKey(value => value + 1);
+  }, []);
+
   useEffect(() => {
-    // Настройка обработчиков уведомлений
-    const subscription = Notifications.addNotificationReceivedListener(notification => {
-      console.log('Notification received:', notification);
+    let mounted = true;
+    const handleResponse = (response) => {
+      if (!mounted || !response) return;
+      const id = `${response.notification?.request?.identifier}:${response.actionIdentifier}`;
+      if (handledNotificationResponse.current === id) return;
+      handledNotificationResponse.current = id;
+      navigateFromNotification(notificationService.getNotificationRoute(response));
+      Notifications.clearLastNotificationResponseAsync().catch(error => {
+        console.warn('Unable to clear handled notification response:', error);
+      });
+    };
+    const responseSubscription = Notifications.addNotificationResponseReceivedListener(handleResponse);
+    Notifications.getLastNotificationResponseAsync().then(handleResponse).catch(error => {
+      console.warn('Unable to restore notification response:', error);
     });
-
-    const responseSubscription = Notifications.addNotificationResponseReceivedListener(response => {
-      console.log('Notification response:', response);
-    });
-
-    // Инициализация уведомлений
     initializeApp();
-
+    const appStateSubscription = AppState.addEventListener('change', state => {
+      if (state !== 'active') return;
+      notificationService.initialize().then(() => backgroundService.registerBackgroundNewsCheck()).catch(error => {
+        console.warn('Unable to synchronize notification permissions:', error);
+      });
+    });
     return () => {
-      subscription.remove();
+      mounted = false;
+      appStateSubscription.remove();
       responseSubscription.remove();
     };
-  }, []);
+  }, [navigateFromNotification]);
 
   // Функция для загрузки настроек таббара
   const loadTabbarSettings = async () => {
@@ -419,9 +430,6 @@ const handleNewYearModeChange = async (enabled) => {
 
   const initializeApp = async () => {
     try {
-      // Запрашиваем разрешения на уведомления
-      await setupNotifications();
-
       // Инициализируем сервис уведомлений
       await notificationService.initialize();
 
@@ -441,36 +449,6 @@ const handleNewYearModeChange = async (enabled) => {
       setTimeout(() => {
         setIsLoading(false);
       }, 2000);
-    }
-  };
-
-  const setupNotifications = async () => {
-    try {
-      const { status: existingStatus } = await Notifications.getPermissionsAsync();
-      let finalStatus = existingStatus;
-
-      if (existingStatus !== 'granted') {
-        const { status } = await Notifications.requestPermissionsAsync();
-        finalStatus = status;
-      }
-
-      if (finalStatus !== 'granted') {
-        console.log('Notification permissions not granted');
-        return;
-      }
-
-      // Настраиваем канал для Android
-      if (Platform.OS === 'android') {
-        await Notifications.setNotificationChannelAsync('default', {
-          name: 'default',
-          importance: Notifications.AndroidImportance.MAX,
-          vibrationPattern: [0, 250, 250, 250],
-          lightColor: '#FF231F7C',
-        });
-      }
-
-    } catch (error) {
-      console.error('Error setting up notifications:', error);
     }
   };
 
@@ -555,7 +533,6 @@ const handleNewYearModeChange = async (enabled) => {
   const bgColor = glass.background;
   const textColor = glass.text;
   const colors = ACCENT_COLORS[accentColor];
-  const blurConfig = getBlurConfig(effectiveTheme);
   let supportsSystemGlass = false;
   if (liquidGlassEnabled && Platform.OS === 'ios') {
     try {
@@ -565,10 +542,6 @@ const handleNewYearModeChange = async (enabled) => {
     }
   }
   const systemGlassColorScheme = effectiveTheme === 'light' ? 'light' : 'dark';
-  const tabBarBlurConfig = {
-    intensity: glass.tabBarBlurIntensity || blurConfig.intensity,
-    tint: glass.tabBarBlurTint || blurConfig.tint,
-  };
   
   const handleTabPress = (screen) => {
     if (activeScreen === screen) {
@@ -664,118 +637,27 @@ const handleNewYearModeChange = async (enabled) => {
 
     // iOS — системный Liquid Glass при поддержке, BlurView как fallback.
     if (Platform.OS === 'ios') {
-      const HeaderGlass = supportsSystemGlass ? GlassView : BlurView;
       return (
-        <View style={styles.headerFloating} pointerEvents="box-none">
-          <HeaderGlass
-            {...(supportsSystemGlass
-              ? { colorScheme: systemGlassColorScheme, glassEffectStyle: 'regular' }
-              : { intensity: tabBarBlurConfig.intensity, tint: tabBarBlurConfig.tint })}
-            style={[styles.headerBlur, { marginTop: insets.top + 6, borderColor: glass.borderStrong }]}
-          >
-            <View style={styles.headerInner}>
-              {showBackButton ? (
-                <TouchableOpacity onPress={handleBackPress} style={{ marginRight: 10 }}>
-                  <Icon name="arrow-back" size={20} color={colors.primary} />
-                </TouchableOpacity>
-              ) : (
-                <Icon name={headerIcon} size={20} color={colors.primary} style={styles.headerIcon} />
-              )}
-              <Text style={[styles.headerText, { color: textColor, flex: 1 }]}>
-                {headerTitle}
-              </Text>
-              {showFilterButton && (
-                <TouchableOpacity 
-                  onPress={handleFilterPress}
-                  style={{ flexDirection: 'row', alignItems: 'center', marginLeft: 8 }}
-                >
-                  <Icon name="filter-outline" size={20} color={colors.primary} />
-                  {mapFilterCount > 0 && (
-                    <View style={{ 
-                      backgroundColor: colors.primary, 
-                      borderRadius: 8, 
-                      minWidth: 16, 
-                      height: 16, 
-                      justifyContent: 'center', 
-                      alignItems: 'center',
-                      marginLeft: 4,
-                    }}>
-                      <Text style={{ color: '#ffffff', fontSize: 10, fontFamily: 'Montserrat_600SemiBold' }}>
-                        {mapFilterCount}
-                      </Text>
-                    </View>
-                  )}
-                </TouchableOpacity>
-              )}
-              {showCacheIcon && (
-                <TouchableOpacity 
-                  onPress={handleCacheIconPress}
-                  activeOpacity={0.7}
-                  style={{ 
-                    flexDirection: 'row', 
-                    alignItems: 'center', 
-                    marginLeft: 8,
-                    backgroundColor: currentCacheStatus === 'offline' ? '#f59e0b18' : colors.glass,
-                    paddingHorizontal: 8,
-                    paddingVertical: 4,
-                    borderRadius: 10,
-                  }}
-                >
-                  <Icon 
-                    name={currentCacheStatus === 'offline' ? 'cloud-offline-outline' : 'cloud-done-outline'} 
-                    size={16} 
-                    color={currentCacheStatus === 'offline' ? '#f59e0b' : colors.primary} 
-                  />
-                  <Text style={{ 
-                    fontSize: 11, 
-                    color: currentCacheStatus === 'offline' ? '#f59e0b' : colors.primary,
-                    fontFamily: 'Montserrat_500Medium',
-                    marginLeft: 4,
-                  }}>
-                    {currentCacheStatus === 'offline' ? 'Оффлайн' : 'Кэш'}
-                  </Text>
-                </TouchableOpacity>
-              )}
-              {activeScreen === SCREENS.SCHEDULE && scheduleFavoritesAvailable && (
-                <TouchableOpacity
-                  onPress={() => scheduleFavoritesHandler.current?.()}
-                  activeOpacity={0.7}
-                  style={{
-                    marginLeft: 8,
-                    padding: 6,
-                    borderRadius: 10,
-                    backgroundColor: colors.glass,
-                  }}
-                >
-                  <Icon name="star-outline" size={18} color={colors.primary} />
-                </TouchableOpacity>
-              )}
-              {activeScreen === SCREENS.SCHEDULE && scheduleExportAvailable && (
-                <TouchableOpacity
-                  onPress={() => scheduleExportHandler.current?.()}
-                  disabled={scheduleExporting}
-                  activeOpacity={0.7}
-                  style={{
-                    marginLeft: 8,
-                    padding: 6,
-                    borderRadius: 10,
-                    backgroundColor: colors.glass,
-                  }}
-                >
-                  {scheduleExporting ? (
-                    <ActivityIndicator size={16} color={colors.primary} />
-                  ) : (
-                    <Icon name="share-outline" size={18} color={colors.primary} />
-                  )}
-                </TouchableOpacity>
-              )}
-            </View>
-          </HeaderGlass>
-        </View>
+        <HeaderToolbar
+          title={headerTitle}
+          icon={headerIcon}
+          onBack={showBackButton ? handleBackPress : undefined}
+          accent={colors.primary}
+          textColor={textColor}
+          glass={glass}
+          supportsGlass={supportsSystemGlass}
+          colorScheme={systemGlassColorScheme}
+          top={insets.top + 6}
+          actions={[
+            showFilterButton && { label: mapFilterCount ? `Фильтры (${mapFilterCount})` : 'Фильтры карты', onPress: handleFilterPress },
+            showCacheIcon && { label: currentCacheStatus === 'offline' ? 'Офлайн: сведения о данных' : 'Сведения о сохранённых данных', onPress: handleCacheIconPress },
+            activeScreen === SCREENS.SCHEDULE && scheduleFavoritesAvailable && { label: 'Избранное расписание', onPress: () => scheduleFavoritesHandler.current?.() },
+            activeScreen === SCREENS.SCHEDULE && scheduleExportAvailable && { label: scheduleExporting ? 'Экспорт выполняется…' : 'Поделиться расписанием', disabled: scheduleExporting, onPress: () => scheduleExportHandler.current?.() },
+          ]}
+        />
       );
     }
 
-    // Android — glass фон без blur
     return (
       <View style={[
         styles.headerAndroid,
@@ -1059,6 +941,7 @@ const handleNewYearModeChange = async (enabled) => {
       {Platform.OS === 'ios' && renderHeader()}
       {Platform.OS !== 'ios' && renderTabBar()}
       <AchievementToast theme={effectiveTheme} accentColor={accentColor} />
+      <InAppNotificationBanner theme={effectiveTheme} onNavigate={navigateFromNotification} />
     </View>
   );
 });

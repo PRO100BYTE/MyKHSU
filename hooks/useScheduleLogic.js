@@ -117,6 +117,13 @@ export const useScheduleLogic = () => {
     fetchPairsTime();
   }, []);
 
+  useEffect(() => {
+    if (!scheduleData || pairsTime.length === 0) return;
+    notificationService.scheduleLessonNotifications(scheduleData, pairsTime).catch(error => {
+      console.error('Error reconciling lesson notifications:', error);
+    });
+  }, [scheduleData, pairsTime]);
+
   // Загрузка расписания при изменении выбранной группы или других параметров
   useEffect(() => {
     if (selectedGroup && groupsForCourse === course) {
@@ -280,12 +287,6 @@ export const useScheduleLogic = () => {
         setCacheInfo(result);
       }
       
-      try {
-        await notificationService.scheduleLessonNotifications(processedSchedule, pairsTime);
-      } catch (notifyError) {
-        console.error('Error scheduling notifications:', notifyError);
-      }
-
       if (!isCurrent()) return;
       // Проверяем изменения в расписании и уведомляем пользователя
       try {

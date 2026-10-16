@@ -2,10 +2,12 @@ import React, { useEffect, useMemo, useState } from 'react';
 import {
   Alert,
   Modal,
+  KeyboardAvoidingView,
   ScrollView,
   StatusBar,
   StyleSheet,
   Switch,
+  Platform,
   Text,
   TextInput,
   TouchableOpacity,
@@ -159,6 +161,10 @@ const AcademicEventModal = ({ visible, onClose, onSubmit, event, theme, accentCo
           </View>
         </View>
 
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={{ flex: 1 }}
+        >
         <ScrollView contentContainerStyle={{ padding: 20 }} keyboardShouldPersistTaps="handled">
           <Text style={[styles.label, { color: placeholderColor, marginTop: 0 }]}>НАЗВАНИЕ</Text>
           <TextInput
@@ -237,6 +243,7 @@ const AcademicEventModal = ({ visible, onClose, onSubmit, event, theme, accentCo
             />
           </View>
         </ScrollView>
+        </KeyboardAvoidingView>
       </View>
     </Modal>
   );

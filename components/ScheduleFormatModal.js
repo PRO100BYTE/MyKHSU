@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { View, Text, TouchableOpacity, TextInput, StyleSheet, Alert, ActivityIndicator, Switch, FlatList } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Alert, ActivityIndicator, Switch, FlatList } from 'react-native';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import * as SecureStore from 'expo-secure-store';
 import { ACCENT_COLORS, COURSES, LIQUID_GLASS } from '../utils/constants';
@@ -7,6 +7,7 @@ import ApiService from '../utils/api';
 import { getScheduleGroups, resolveScheduleSelection } from '../utils/scheduleSelection';
 import { SectionHeader, SettingsGroup } from './SettingsComponents';
 import ScrollView from './ScreenScrollView';
+import SearchField from './SearchField';
 
 const ScheduleFormatModal = ({ theme, accentColor, onSettingsChange, onSave }) => {
   const [scheduleFormat, setScheduleFormat] = useState('student');
@@ -33,12 +34,14 @@ const ScheduleFormatModal = ({ theme, accentColor, onSettingsChange, onSave }) =
   const [loadingTeacherSearch, setLoadingTeacherSearch] = useState(false);
   const [showTeacherSuggestions, setShowTeacherSuggestions] = useState(false);
   const teacherSearchTimeout = useRef(null);
+  const teacherSearchRequestId = useRef(0);
   
   // Поиск аудиторий
   const [auditorySearchResults, setAuditorySearchResults] = useState([]);
   const [loadingAuditorySearch, setLoadingAuditorySearch] = useState(false);
   const [showAuditorySuggestions, setShowAuditorySuggestions] = useState(false);
   const auditorySearchTimeout = useRef(null);
+  const auditorySearchRequestId = useRef(0);
 
   const colors = ACCENT_COLORS[accentColor];
   const glass = LIQUID_GLASS[theme] || LIQUID_GLASS.light;
@@ -218,6 +221,7 @@ const ScheduleFormatModal = ({ theme, accentColor, onSettingsChange, onSave }) =
 
   // Поиск преподавателей через API
   const searchTeachers = useCallback((query) => {
+    const requestId = ++teacherSearchRequestId.current;
     if (teacherSearchTimeout.current) {
       clearTimeout(teacherSearchTimeout.current);
     }
@@ -232,6 +236,7 @@ const ScheduleFormatModal = ({ theme, accentColor, onSettingsChange, onSave }) =
       setLoadingTeacherSearch(true);
       try {
         const result = await ApiService.search(query.trim());
+        if (requestId !== teacherSearchRequestId.current) return;
         if (result.data && result.data.tnames) {
           setTeacherSearchResults(result.data.tnames);
           setShowTeacherSuggestions(result.data.tnames.length > 0);
@@ -251,6 +256,7 @@ const ScheduleFormatModal = ({ theme, accentColor, onSettingsChange, onSave }) =
 
   // Поиск аудиторий через API
   const searchAuditories = useCallback((query) => {
+    const requestId = ++auditorySearchRequestId.current;
     if (auditorySearchTimeout.current) {
       clearTimeout(auditorySearchTimeout.current);
     }
@@ -265,6 +271,7 @@ const ScheduleFormatModal = ({ theme, accentColor, onSettingsChange, onSave }) =
       setLoadingAuditorySearch(true);
       try {
         const result = await ApiService.search(query.trim());
+        if (requestId !== auditorySearchRequestId.current) return;
         if (result.data && result.data.auditories) {
           setAuditorySearchResults(result.data.auditories);
           setShowAuditorySuggestions(result.data.auditories.length > 0);
@@ -493,7 +500,8 @@ const ScheduleFormatModal = ({ theme, accentColor, onSettingsChange, onSave }) =
                   </View>
                 </View>
                 <Switch
-                  value={showCourseSelector}
+                  accessibilityRole="switch"
+              value={showCourseSelector}
                   onValueChange={setShowCourseSelector}
                   trackColor={{ false: borderColor, true: colors.light }}
                   thumbColor={showCourseSelector ? colors.primary : placeholderColor}
@@ -539,7 +547,8 @@ const ScheduleFormatModal = ({ theme, accentColor, onSettingsChange, onSave }) =
                   </View>
                 </View>
                 <Switch
-                  value={attendanceTrackingEnabled}
+                  accessibilityRole="switch"
+              value={attendanceTrackingEnabled}
                   onValueChange={setAttendanceTrackingEnabled}
                   trackColor={{ false: borderColor, true: colors.light }}
                   thumbColor={attendanceTrackingEnabled ? colors.primary : placeholderColor}
@@ -573,7 +582,8 @@ const ScheduleFormatModal = ({ theme, accentColor, onSettingsChange, onSave }) =
                   </View>
                 </View>
                 <Switch
-                  value={freeAuditoriesEnabled}
+                  accessibilityRole="switch"
+              value={freeAuditoriesEnabled}
                   onValueChange={setFreeAuditoriesEnabled}
                   trackColor={{ false: borderColor, true: colors.light }}
                   thumbColor={freeAuditoriesEnabled ? colors.primary : placeholderColor}
@@ -595,18 +605,16 @@ const ScheduleFormatModal = ({ theme, accentColor, onSettingsChange, onSave }) =
             
             <View style={{ position: 'relative', zIndex: 10 }}>
               <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                <TextInput
-                  style={[styles.textInput, {
-                    backgroundColor: inputBgColor,
-                    borderColor: teacherName.trim() ? colors.primary : borderColor,
-                    color: textColor,
-                    flex: 1,
-                  }]}
-                  placeholder="Начните вводить ФИО..."
-                  placeholderTextColor={placeholderColor}
+                <SearchField
                   value={teacherName}
                   onChangeText={handleTeacherNameChange}
-                  autoCapitalize="words"
+                  onCancel={() => {
+                    setShowTeacherSuggestions(false);
+                    setTeacherSearchResults([]);
+                  }}
+                  placeholder="Начните вводить ФИО..."
+                  theme={theme}
+                  accentColor={accentColor}
                 />
                 {loadingTeacherSearch && (
                   <ActivityIndicator size="small" color={colors.primary} style={{ position: 'absolute', right: 12, top: 20 }} />
@@ -658,17 +666,16 @@ const ScheduleFormatModal = ({ theme, accentColor, onSettingsChange, onSave }) =
             
             <View style={{ position: 'relative', zIndex: 10 }}>
               <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                <TextInput
-                  style={[styles.textInput, {
-                    backgroundColor: inputBgColor,
-                    borderColor: auditoryName.trim() ? colors.primary : borderColor,
-                    color: textColor,
-                    flex: 1,
-                  }]}
-                  placeholder="Например: 2-221"
-                  placeholderTextColor={placeholderColor}
+                <SearchField
                   value={auditoryName}
                   onChangeText={handleAuditoryNameChange}
+                  onCancel={() => {
+                    setShowAuditorySuggestions(false);
+                    setAuditorySearchResults([]);
+                  }}
+                  placeholder="Например: 2-221"
+                  theme={theme}
+                  accentColor={accentColor}
                 />
                 {loadingAuditorySearch && (
                   <ActivityIndicator size="small" color={colors.primary} style={{ position: 'absolute', right: 12, top: 20 }} />

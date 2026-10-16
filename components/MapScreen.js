@@ -18,12 +18,14 @@ import MapView, { Marker, PROVIDER_DEFAULT, UrlTile } from 'react-native-maps';
 import NetInfo from '@react-native-community/netinfo';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import Constants from 'expo-constants';
+import * as Location from 'expo-location';
 import { ACCENT_COLORS, LIQUID_GLASS } from '../utils/constants';
 import ConnectionError from './ConnectionError';
 import { buildings, initialRegion } from '../utils/buildingCoordinates';
 import BuildingsListScreen from './BuildingsListScreen';
 import { WebView } from 'react-native-webview';
 import Snowfall from './Snowfall';
+import NativeSheet from './NativeSheet';
 
 const { width, height } = Dimensions.get('window');
 
@@ -39,6 +41,7 @@ const MapScreen = forwardRef(({ theme, accentColor, isNewYearMode, onFilterCount
   const [showBuildingsList, setShowBuildingsList] = useState(false);
   const [webViewKey, setWebViewKey] = useState(0);
   const [mapError, setMapError] = useState(false);
+  const [locationPermission, setLocationPermission] = useState(false);
   
   const colors = ACCENT_COLORS[accentColor];
   const glass = LIQUID_GLASS[theme] || LIQUID_GLASS.light;
@@ -172,6 +175,17 @@ const MapScreen = forwardRef(({ theme, accentColor, isNewYearMode, onFilterCount
         setError('NO_API_KEY');
         setLoading(false);
         return;
+      }
+
+      // Location is optional: the map remains usable when permission is denied.
+      if (Platform.OS === 'ios') {
+        try {
+          const permission = await Location.requestForegroundPermissionsAsync();
+          setLocationPermission(permission.status === 'granted');
+        } catch (locationError) {
+          console.warn('Location permission unavailable:', locationError);
+          setLocationPermission(false);
+        }
       }
 
       setLoading(false);
@@ -729,8 +743,8 @@ const MapScreen = forwardRef(({ theme, accentColor, isNewYearMode, onFilterCount
             latitudeDelta: 0.01,
             longitudeDelta: 0.01,
           }}
-          showsUserLocation={true}
-          showsMyLocationButton={true}
+          showsUserLocation={locationPermission}
+          showsMyLocationButton={locationPermission}
           onMapReady={() => setMapLoaded(true)}
           onMarkerPress={(e) => {
             const building = filteredBuildings.find(b => b.latitude === e.nativeEvent.coordinate.latitude && b.longitude === e.nativeEvent.coordinate.longitude);
@@ -802,23 +816,30 @@ const MapScreen = forwardRef(({ theme, accentColor, isNewYearMode, onFilterCount
       )}
 
       {/* Модальное окно фильтров */}
-      {showFiltersModal && Platform.OS === 'ios' && (
+      <NativeSheet
+        visible={showFiltersModal}
+        onRequestClose={handleCloseFiltersModal}
+        accessibilityLabel="Фильтры карты"
+        contentStyle={{ backgroundColor: Platform.OS === 'ios' ? glass.backgroundElevated : 'transparent' }}
+      >
         <Animated.View 
           style={[
             styles.filtersModalOverlay,
-            { 
+            Platform.OS === 'ios' ? styles.nativeSheetContent : {
               opacity: filtersModalAnim,
               backgroundColor: 'rgba(0, 0, 0, 0.5)'
             }
           ]}
         >
-          <TouchableWithoutFeedback onPress={handleCloseFiltersModal}>
-            <View style={{ flex: 1 }} />
-          </TouchableWithoutFeedback>
+          {Platform.OS === 'android' && (
+            <TouchableWithoutFeedback onPress={handleCloseFiltersModal}>
+              <View style={{ flex: 1 }} />
+            </TouchableWithoutFeedback>
+          )}
           <Animated.View 
             style={[
               styles.filtersModal,
-              { 
+              Platform.OS === 'ios' ? styles.nativeSheetCard : {
                 backgroundColor: glass.backgroundElevated,
                 borderColor: glass.border,
                 borderWidth: StyleSheet.hairlineWidth,
@@ -851,6 +872,10 @@ const MapScreen = forwardRef(({ theme, accentColor, isNewYearMode, onFilterCount
               {filterCategories.map((category, index) => (
                 <TouchableOpacity
                   key={category.id}
+                  accessibilityRole="checkbox"
+                  accessibilityState={{ checked: selectedFilters.includes(category.id) }}
+                  accessibilityLabel={category.name}
+                  hitSlop={6}
                   style={[
                     styles.filterItem,
                     { 
@@ -914,26 +939,33 @@ const MapScreen = forwardRef(({ theme, accentColor, isNewYearMode, onFilterCount
             </View>
           </Animated.View>
         </Animated.View>
-      )}
+      </NativeSheet>
 
       {/* Модальное окно выбора сервиса для построения маршрута с анимацией */}
-      {showRouteOptions && Platform.OS === 'ios' && (
+      <NativeSheet
+        visible={showRouteOptions}
+        onRequestClose={handleCloseRouteModal}
+        accessibilityLabel="Выбор сервиса навигации"
+        contentStyle={{ backgroundColor: Platform.OS === 'ios' ? glass.backgroundElevated : 'transparent' }}
+      >
         <Animated.View 
           style={[
             styles.routeModalOverlay,
-            { 
+            Platform.OS === 'ios' ? styles.nativeSheetContent : {
               opacity: routeModalAnim,
               backgroundColor: 'rgba(0, 0, 0, 0.5)'
             }
           ]}
         >
-          <TouchableWithoutFeedback onPress={handleCloseRouteModal}>
-            <View style={{ flex: 1 }} />
-          </TouchableWithoutFeedback>
+          {Platform.OS === 'android' && (
+            <TouchableWithoutFeedback onPress={handleCloseRouteModal}>
+              <View style={{ flex: 1 }} />
+            </TouchableWithoutFeedback>
+          )}
           <Animated.View 
             style={[
               styles.routeModal,
-              { 
+              Platform.OS === 'ios' ? styles.nativeSheetCard : {
                 backgroundColor: glass.backgroundElevated,
                 borderColor: glass.border,
                 borderWidth: StyleSheet.hairlineWidth,
@@ -1009,7 +1041,7 @@ const MapScreen = forwardRef(({ theme, accentColor, isNewYearMode, onFilterCount
             </TouchableOpacity>
           </Animated.View>
         </Animated.View>
-      )}
+      </NativeSheet>
     </Animated.View>
     </View>
   );
@@ -1068,6 +1100,17 @@ const styles = StyleSheet.create({
     bottom: 0,
     justifyContent: 'flex-end',
     zIndex: 1001,
+  },
+  nativeSheetContent: {
+    flex: 1,
+    backgroundColor: 'transparent',
+  },
+  nativeSheetCard: {
+    flex: 1,
+    maxHeight: undefined,
+    borderRadius: 0,
+    borderWidth: 0,
+    transform: [],
   },
   filtersModal: {
     borderTopLeftRadius: 24,
