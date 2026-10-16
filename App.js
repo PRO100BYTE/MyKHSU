@@ -648,11 +648,16 @@ const handleNewYearModeChange = async (enabled) => {
           supportsGlass={supportsSystemGlass}
           colorScheme={systemGlassColorScheme}
           top={insets.top + 6}
+          status={showCacheIcon ? {
+            label: currentCacheStatus === 'offline' ? 'Нет сети. Сведения о сохранённых данных' : 'Показаны сохранённые данные',
+            icon: currentCacheStatus === 'offline' ? 'cloud-offline-outline' : 'cloud-done-outline',
+            warning: currentCacheStatus === 'offline',
+            onPress: handleCacheIconPress,
+          } : null}
           actions={[
-            showFilterButton && { label: mapFilterCount ? `Фильтры (${mapFilterCount})` : 'Фильтры карты', onPress: handleFilterPress },
-            showCacheIcon && { label: currentCacheStatus === 'offline' ? 'Офлайн: сведения о данных' : 'Сведения о сохранённых данных', onPress: handleCacheIconPress },
-            activeScreen === SCREENS.SCHEDULE && scheduleFavoritesAvailable && { label: 'Избранное расписание', onPress: () => scheduleFavoritesHandler.current?.() },
-            activeScreen === SCREENS.SCHEDULE && scheduleExportAvailable && { label: scheduleExporting ? 'Экспорт выполняется…' : 'Поделиться расписанием', disabled: scheduleExporting, onPress: () => scheduleExportHandler.current?.() },
+            showFilterButton && { primary: true, icon: 'options-outline', badge: mapFilterCount, label: mapFilterCount ? `Фильтры (${mapFilterCount})` : 'Фильтры карты', onPress: handleFilterPress },
+            activeScreen === SCREENS.SCHEDULE && scheduleFavoritesAvailable && { primary: true, icon: 'star-outline', label: 'Избранное расписание', onPress: () => scheduleFavoritesHandler.current?.() },
+            activeScreen === SCREENS.SCHEDULE && scheduleExportAvailable && { symbol: 'square.and.arrow.up', label: scheduleExporting ? 'Экспорт выполняется…' : 'Поделиться расписанием', disabled: scheduleExporting, onPress: () => scheduleExportHandler.current?.() },
           ]}
         />
       );

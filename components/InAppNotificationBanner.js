@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Ionicons as Icon } from '@expo/vector-icons';
 import notificationService from '../utils/notificationService';
 import { LIQUID_GLASS } from '../utils/constants';
 
@@ -35,11 +36,11 @@ export default function InAppNotificationBanner({ theme = 'light', onNavigate })
           <Text accessibilityLiveRegion="polite" style={[styles.title, { color: glass.text }]}>
             {notification.notification.title}
           </Text>
-          <Text numberOfLines={3} style={{ color: glass.textSecondary }}>{notification.notification.body}</Text>
+          <Text numberOfLines={3} style={[styles.body, { color: glass.textSecondary }]}>{notification.notification.body}</Text>
         </Pressable>
         <Pressable accessibilityRole="button" accessibilityLabel="Закрыть уведомление"
-          hitSlop={8} onPress={dismiss} style={styles.close}>
-          <Text style={{ color: glass.text, fontSize: 22 }}>×</Text>
+          onPress={dismiss} style={styles.close}>
+          <Icon name="close" size={20} color={glass.textSecondary} />
         </Pressable>
       </View>
     </View>
@@ -47,10 +48,11 @@ export default function InAppNotificationBanner({ theme = 'light', onNavigate })
 }
 
 const styles = StyleSheet.create({
-  container: { position: 'absolute', left: 12, right: 12, zIndex: 10000, elevation: 20 },
-  banner: { flexDirection: 'row', borderRadius: 16, borderWidth: StyleSheet.hairlineWidth,
-    shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 12, shadowOffset: { width: 0, height: 4 } },
-  content: { flex: 1, padding: 16 },
-  title: { fontWeight: '600', marginBottom: 4 },
-  close: { paddingHorizontal: 16, justifyContent: 'center' },
+  container: { position: 'absolute', left: 16, right: 16, alignItems: 'center', zIndex: 10000, elevation: 20 },
+  banner: { width: '100%', maxWidth: 560, flexDirection: 'row', borderRadius: 14, borderWidth: StyleSheet.hairlineWidth,
+    shadowColor: '#000', shadowOpacity: 0.08, shadowRadius: 8, shadowOffset: { width: 0, height: 2 } },
+  content: { flex: 1, minWidth: 0, padding: 16, paddingRight: 4 },
+  title: { fontFamily: 'Montserrat_600SemiBold', fontSize: 14, lineHeight: 20, marginBottom: 4 },
+  body: { fontFamily: 'Montserrat_400Regular', fontSize: 13, lineHeight: 19 },
+  close: { width: 44, minHeight: 44, alignSelf: 'flex-start', alignItems: 'center', justifyContent: 'center', marginTop: 4 },
 });

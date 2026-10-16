@@ -2237,39 +2237,61 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
     const compactActionStyle = {
       flexDirection: 'row',
       alignItems: 'center',
-      paddingVertical: 6,
+      justifyContent: 'center',
+      flexBasis: 160,
+      flexGrow: 1,
+      flexShrink: 1,
+      minWidth: 44,
+      minHeight: 44,
+      paddingVertical: 10,
       paddingHorizontal: 10,
       borderRadius: 12,
       backgroundColor: glass.surfaceSecondary,
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: glass.border,
-      gap: 5,
+      gap: 6,
+    };
+    const actionLabelStyle = {
+      flexShrink: 1,
+      fontSize: 12,
+      fontFamily: 'Montserrat_500Medium',
+      color: textColor,
+      textAlign: 'center',
     };
 
     return (
-      <View style={{ flexDirection: 'row', gap: 6, marginBottom: 10, flexWrap: 'wrap' }}>
-        {showFavoriteInToolbar && renderFavoriteToggleButton({ compact: true })}
-        {showAttendanceBtn && (
-          <TouchableOpacity
-            onPress={() => setAttendanceStatsVisible(true)}
-            style={compactActionStyle}
-          >
-            <Icon name="bar-chart-outline" size={13} color={colors.primary} />
-            <Text style={{ fontSize: 11, fontFamily: 'Montserrat_500Medium', color: textColor }}>
-              Посещаемость
-            </Text>
-          </TouchableOpacity>
+      <View style={{ gap: 8, marginBottom: 12 }}>
+        {showFavoriteInToolbar && (
+          <View style={{ alignItems: 'flex-start' }}>
+            {renderFavoriteToggleButton({ compact: true })}
+          </View>
         )}
-        {showFreeAuditoriesBtn && (
-          <TouchableOpacity
-            onPress={() => setFreeAuditoriesVisible(true)}
-            style={compactActionStyle}
-          >
-            <Icon name="grid-outline" size={13} color={colors.primary} />
-            <Text style={{ fontSize: 11, fontFamily: 'Montserrat_500Medium', color: textColor }}>
-              Своб. аудитории
-            </Text>
-          </TouchableOpacity>
+        {(showAttendanceBtn || showFreeAuditoriesBtn) && (
+          <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap', alignItems: 'stretch' }}>
+            {showAttendanceBtn && (
+              <TouchableOpacity
+                accessibilityRole="button"
+                accessibilityLabel="Посещаемость"
+                accessibilityHint="Открыть статистику посещаемости"
+                onPress={() => setAttendanceStatsVisible(true)}
+                style={compactActionStyle}
+              >
+                <Icon name="bar-chart-outline" size={16} color={colors.primary} />
+                <Text style={actionLabelStyle}>Посещаемость</Text>
+              </TouchableOpacity>
+            )}
+            {showFreeAuditoriesBtn && (
+              <TouchableOpacity
+                accessibilityRole="button"
+                accessibilityLabel="Свободные аудитории"
+                onPress={() => setFreeAuditoriesVisible(true)}
+                style={compactActionStyle}
+              >
+                <Icon name="grid-outline" size={16} color={colors.primary} />
+                <Text style={actionLabelStyle}>Свободные аудитории</Text>
+              </TouchableOpacity>
+            )}
+          </View>
         )}
       </View>
     );
@@ -2342,9 +2364,6 @@ return (
 
         {/* Управление */}
         {renderControls()}
-
-        {/* Инструменты: посещаемость, свободные аудитории */}
-        {renderToolbar()}
 
         {/* Студенческий режим: кнопки курса и групп */}
         {settingsLoaded && !isTeacherMode && !isAuditoryMode && (showCourseSelector || selectorExpandedTemp) && (
@@ -2566,6 +2585,9 @@ return (
             </TouchableOpacity>
           </View>
         )}
+
+        {/* Инструменты после выбора расписания */}
+        {renderToolbar()}
 
         {/* Содержимое расписания с анимацией */}
         <Animated.View

@@ -1,11 +1,14 @@
 import React from 'react';
-import { ActionSheetIOS, Alert, Platform, Text, TouchableOpacity, View, StyleSheet } from 'react-native';
+import { Alert, Text, TouchableOpacity, View, StyleSheet } from 'react-native';
+import { MenuView } from '@react-native-menu/menu';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
 import { GlassView } from 'expo-glass-effect';
 
-export default function HeaderToolbar({ title, icon, onBack, actions = [], accent, textColor, glass, supportsGlass, colorScheme, top }) {
+export default function HeaderToolbar({ title, icon, onBack, actions = [], status, accent, textColor, glass, supportsGlass, colorScheme, top }) {
   const available = actions.filter(action => action && !action.hidden);
+  const primary = available.find(action => action.primary);
+  const secondary = available.filter(action => action !== primary);
   const runAction = async (action) => {
     if (!action || action.disabled) return;
     try {
@@ -13,20 +16,6 @@ export default function HeaderToolbar({ title, icon, onBack, actions = [], accen
     } catch (error) {
       console.warn('Header action failed:', error);
       Alert.alert('Не удалось выполнить действие', 'Попробуйте ещё раз.');
-    }
-  };
-  const openActions = () => {
-    if (Platform.OS === 'ios') {
-      ActionSheetIOS.showActionSheetWithOptions({
-        title,
-        options: [...available.map(action => action.label), 'Отмена'],
-        cancelButtonIndex: available.length,
-        disabledButtonIndices: available.flatMap((action, index) => action.disabled ? [index] : []),
-      }, index => {
-        void runAction(available[index]);
-      });
-    } else {
-      Alert.alert(title, undefined, [...available.filter(action => !action.disabled).map(action => ({ text: action.label, onPress: () => { void runAction(action); } })), { text: 'Отмена', style: 'cancel' }]);
     }
   };
   const Surface = supportsGlass ? GlassView : BlurView;
@@ -43,10 +32,26 @@ export default function HeaderToolbar({ title, icon, onBack, actions = [], accen
             </TouchableOpacity>
           ) : <Icon name={icon} size={22} color={accent} style={styles.icon} />}
           <Text accessibilityRole="header" numberOfLines={1} style={[styles.title, { color: textColor }]}>{title}</Text>
-          {available.length > 0 && (
-            <TouchableOpacity onPress={openActions} accessibilityRole="button" accessibilityLabel={`Действия: ${title}`} accessibilityHint="Открывает меню доступных действий раздела" style={styles.button}>
-              <Icon name="ellipsis-horizontal" size={23} color={accent} />
+          {status && (
+            <TouchableOpacity onPress={status.onPress} accessibilityRole="button" accessibilityLabel={status.label} style={styles.button}>
+              <Icon name={status.icon} size={18} color={status.warning ? '#d97706' : textColor} />
             </TouchableOpacity>
+          )}
+          {primary && (
+            <TouchableOpacity onPress={() => { void runAction(primary); }} disabled={primary.disabled}
+              accessibilityRole="button" accessibilityLabel={primary.label} accessibilityState={{ disabled: !!primary.disabled }}
+              style={[styles.button, primary.disabled && { opacity: 0.4 }]}>
+              <Icon name={primary.icon || 'options-outline'} size={22} color={accent} />
+              {!!primary.badge && <View style={[styles.badge, { backgroundColor: accent }]}><Text style={styles.badgeText}>{primary.badge}</Text></View>}
+            </TouchableOpacity>
+          )}
+          {secondary.length > 0 && (
+            <MenuView title={title} shouldOpenOnLongPress={false}
+              actions={secondary.map((action, index) => ({ id: String(index), title: action.label, image: action.symbol, attributes: { disabled: !!action.disabled } }))}
+              onPressAction={({ nativeEvent }) => { void runAction(secondary[Number(nativeEvent.event)]); }}
+              accessibilityRole="button" accessibilityLabel={`Другие действия: ${title}`}>
+              <View style={styles.button}><Icon name="ellipsis" size={23} color={accent} /></View>
+            </MenuView>
           )}
         </View>
       </Surface>
@@ -61,4 +66,6 @@ const styles = StyleSheet.create({
   button: { width: 44, height: 44, justifyContent: 'center', alignItems: 'center' },
   icon: { marginHorizontal: 10 },
   title: { flex: 1, fontSize: 18, fontFamily: 'Montserrat_700Bold', paddingVertical: 12 },
+  badge: { position: 'absolute', right: 0, top: 2, borderRadius: 8, minWidth: 16, paddingHorizontal: 3, alignItems: 'center' },
+  badgeText: { color: '#fff', fontFamily: 'Montserrat_600SemiBold', fontSize: 10 },
 });
