@@ -7,7 +7,11 @@
     "start": "expo start",
     "android": "expo run:android",
     "ios": "expo run:ios",
-    "web": "expo start --web"
+    "web": "expo start --web",
+    "test": "node --test tests/*.test.cjs",
+    "lint": "eslint . --max-warnings 0",
+    "check:syntax": "node scripts/check-syntax.cjs",
+    "check:bundle": "expo export --platform all --output-dir dist/ci"
   },
   "dependencies": {
     "@2gis/mapgl": "^1.66.0",
@@ -57,7 +61,12 @@
   },
   "devDependencies": {
     "@babel/core": "^7.20.0",
-    "@react-native-community/cli": "latest"
+    "@babel/eslint-parser": "^7.29.9",
+    "@eslint/js": "^9.39.5",
+    "@react-native-community/cli": "latest",
+    "eslint": "^9.39.5",
+    "eslint-plugin-react": "^7.37.5",
+    "globals": "^17.13.0"
   },
   "private": true,
   "allowScripts": {

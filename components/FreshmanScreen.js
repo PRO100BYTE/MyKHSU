@@ -518,9 +518,11 @@ const FreshmanScreen = forwardRef(({ theme, accentColor, isNewYearMode, communit
   const renderVKGroups = () => (
     <View style={{ flex: 1 }}>
       <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 16, paddingBottom: 100 }} showsVerticalScrollIndicator={false}>
-        {vkGroups.map((group, index) => 
-          renderGroupCard(group, index === vkGroups.length - 1)
-        )}
+        <SectionGroup>
+          {vkGroups.map((group, index) => (
+            <CommunityRow key={`vk-${group.id}`} group={group} isFirst={index === 0} isLast={index === vkGroups.length - 1} />
+          ))}
+        </SectionGroup>
       </ScrollView>
     </View>
   );
