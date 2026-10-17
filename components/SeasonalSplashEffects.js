@@ -68,15 +68,15 @@ const Particle = ({ particle, width, height, season }) => {
     };
   }, [particle, progress]);
 
-  const travel = motion.direction === 'up' ? [height + 56, 0] : [0, height + 56];
   const sway = motion.drift * (particle.drift < 0 ? -1 : 1);
-  const startOffset = particle.y * height;
-  const translateY = phase.interpolate({ inputRange: [0, 1], outputRange: [startOffset, travel[1]] });
+  const baseTop = particle.y * Math.max(height - 72, 1);
+  const verticalTravel = motion.direction === 'up' ? [-42, 42] : [-18, 96];
+  const translateY = phase.interpolate({ inputRange: [0, 1], outputRange: verticalTravel });
   return (
     <Animated.View style={{
       position: 'absolute',
       left: particle.x * width,
-      top: -28,
+      top: baseTop,
       opacity: phase.interpolate({
         inputRange: [0, 0.12, 0.5, 0.88, 1],
         outputRange: [0, 0.82, season === 'summer' ? 1 : 0.78, 0.62, 0],
