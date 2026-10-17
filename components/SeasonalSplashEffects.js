@@ -1,99 +1,93 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { AccessibilityInfo, Animated, Easing, StyleSheet, View, useWindowDimensions } from 'react-native';
+import React, { useEffect, useMemo, useRef } from 'react';
+import { Animated, Easing, StyleSheet, View, useWindowDimensions } from 'react-native';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import { createSplashParticles } from '../utils/splashSeason';
 
-export const useSplashReduceMotion = () => {
-  const [reduceMotion, setReduceMotion] = useState(null);
-  useEffect(() => {
-    let active = true;
-    const subscription = AccessibilityInfo.addEventListener('reduceMotionChanged', value => {
-      if (active) setReduceMotion(value);
-    });
-    AccessibilityInfo.isReduceMotionEnabled()
-      .then(value => {
-        if (active) setReduceMotion(value);
-      })
-      .catch(() => {
-        if (active) setReduceMotion(false);
-      });
-    return () => {
-      active = false;
-      subscription?.remove();
-    };
-  }, []);
-  return reduceMotion;
-};
+export const useSplashReduceMotion = () => false;
 
 export const SEASONAL_MOTION = {
-  autumn: { drift: 34, rotation: 220, upward: false, scale: [0.88, 1.08, 0.92] },
-  winter: { drift: 24, rotation: 55, upward: false, scale: [0.92, 1.12, 0.96] },
-  spring: { drift: 30, rotation: 70, upward: false, scale: [0.9, 1.08, 0.94] },
-  summer: { drift: 18, rotation: 28, upward: true, scale: [0.78, 1.2, 0.8] },
-  holiday: { drift: 22, rotation: 90, upward: false, scale: [0.9, 1.1, 0.94] },
+  autumn: { drift: 28, rotation: 18, lift: 34 },
+  winter: { drift: 16, rotation: 8, lift: 24 },
+  spring: { drift: 24, rotation: 12, lift: 30 },
+  summer: { drift: 18, rotation: 6, lift: 38 },
+  holiday: { drift: 22, rotation: 14, lift: 28 },
 };
 
 const getMotion = key => SEASONAL_MOTION[key] || SEASONAL_MOTION.holiday;
 
 const Particle = ({ particle, width, height, kind }) => {
-  const progress = useRef(new Animated.Value(0)).current;
   const motion = getMotion(kind);
-  const direction = motion.upward ? -1 : 1;
-  const startY = motion.upward
-    ? height - particle.y * height
-    : particle.y * height;
+  const animation = useRef(new Animated.Value(0)).current;
+  const phase = (particle.id % 4) * 280;
+  const left = particle.x * width;
+  const top = particle.y * Math.max(height - 40, 1);
+  const direction = particle.id % 2 === 0 ? 1 : -1;
 
   useEffect(() => {
-    progress.setValue(0);
-    const animation = Animated.loop(
-      Animated.timing(progress, {
-        toValue: 1,
-        duration: 2400 + (particle.id % 4) * 180,
-        easing: Easing.linear,
-        useNativeDriver: true,
-        isInteraction: false,
-      }),
-      { resetBeforeIteration: true },
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.delay(phase),
+        Animated.parallel([
+          Animated.timing(animation, {
+            toValue: 1,
+            duration: 1300 + (particle.id % 3) * 180,
+            easing: Easing.inOut(Easing.sin),
+            useNativeDriver: true,
+            isInteraction: false,
+          }),
+          Animated.timing(animation, {
+            toValue: 1,
+            duration: 1300 + (particle.id % 3) * 180,
+            easing: Easing.inOut(Easing.sin),
+            useNativeDriver: true,
+            isInteraction: false,
+          }),
+        ]),
+        Animated.timing(animation, {
+          toValue: 0,
+          duration: 1300 + (particle.id % 3) * 180,
+          easing: Easing.inOut(Easing.sin),
+          useNativeDriver: true,
+          isInteraction: false,
+        }),
+      ]),
     );
-    animation.start();
+    loop.start();
     return () => {
-      animation.stop();
-      progress.stopAnimation();
+      loop.stop();
+      animation.stopAnimation();
     };
-  }, [particle.id, progress]);
+  }, [animation, particle.id, phase]);
 
-  const sway = motion.drift * (particle.drift < 0 ? -1 : 1);
   return (
     <Animated.View
-      collapsable={false}
+      pointerEvents="none"
       style={[
         styles.particle,
         {
-          left: particle.x * width,
-          opacity: progress.interpolate({
-            inputRange: [0, 0.08, 0.86, 1],
-            outputRange: [0, 0.9, 0.82, 0],
-          }),
+          left,
+          top,
+          opacity: animation.interpolate({ inputRange: [0, 0.5, 1], outputRange: [0.42, 1, 0.42] }),
           transform: [
             {
-              translateY: progress.interpolate({
-                inputRange: [0, 1],
-                outputRange: [startY, direction > 0 ? height + 56 : -56],
-              }),
-            },
-            {
-              translateX: progress.interpolate({
-                inputRange: [0, 0.25, 0.75, 1],
-                outputRange: [0, sway, -sway, 0],
-              }),
-            },
-            {
-              rotate: progress.interpolate({
+              translateX: animation.interpolate({
                 inputRange: [0, 0.5, 1],
-                outputRange: ['0deg', `${motion.rotation * (particle.drift < 0 ? -1 : 1)}deg`, '0deg'],
+                outputRange: [0, motion.drift * direction, 0],
               }),
             },
-            { scale: progress.interpolate({ inputRange: [0, 0.5, 1], outputRange: motion.scale }) },
+            {
+              translateY: animation.interpolate({
+                inputRange: [0, 0.5, 1],
+                outputRange: [0, -motion.lift, 0],
+              }),
+            },
+            {
+              rotate: animation.interpolate({
+                inputRange: [0, 0.5, 1],
+                outputRange: ['0deg', `${motion.rotation * direction}deg`, '0deg'],
+              }),
+            },
+            { scale: animation.interpolate({ inputRange: [0, 0.5, 1], outputRange: [0.82, 1.18, 0.82] }) },
           ],
         },
       ]}
@@ -109,14 +103,7 @@ const SeasonalSplashEffects = ({ decoration }) => {
   if (!decoration) return null;
 
   return (
-    <View
-      pointerEvents="none"
-      collapsable={false}
-      accessible={false}
-      accessibilityElementsHidden
-      importantForAccessibility="no-hide-descendants"
-      style={styles.overlay}
-    >
+    <View pointerEvents="none" style={styles.overlay}>
       {particles.map(particle => (
         <Particle
           key={`${decoration.key}-${particle.id}`}
@@ -139,7 +126,6 @@ const styles = StyleSheet.create({
   },
   particle: {
     position: 'absolute',
-    top: -28,
   },
 });
 
