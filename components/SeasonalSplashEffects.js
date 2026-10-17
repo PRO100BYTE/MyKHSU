@@ -41,17 +41,25 @@ export const SEASONAL_MOTION = {
 const getMotion = key => SEASONAL_MOTION[key] || SEASONAL_MOTION.holiday;
 
 const Particle = ({ particle, width, height, season }) => {
-  const progress = useRef(new Animated.Value(particle.y)).current;
+  const progress = useRef(new Animated.Value(0)).current;
   const motion = getMotion(season);
   const phase = progress;
   useEffect(() => {
-    const animation = Animated.loop(Animated.timing(progress, {
-      toValue: particle.y + 1,
-      duration: particle.duration,
-      easing: Easing.linear,
-      useNativeDriver: true,
-      isInteraction: false,
-    }));
+    const animation = Animated.loop(Animated.sequence([
+      Animated.timing(progress, {
+        toValue: 1,
+        duration: particle.duration,
+        easing: Easing.linear,
+        useNativeDriver: true,
+        isInteraction: false,
+      }),
+      Animated.timing(progress, {
+        toValue: 0,
+        duration: 0,
+        useNativeDriver: true,
+        isInteraction: false,
+      }),
+    ]));
     animation.start();
     return () => {
       animation.stop();
@@ -61,6 +69,8 @@ const Particle = ({ particle, width, height, season }) => {
 
   const travel = motion.direction === 'up' ? [height + 56, 0] : [0, height + 56];
   const sway = motion.drift * (particle.drift < 0 ? -1 : 1);
+  const startOffset = particle.y * height;
+  const translateY = phase.interpolate({ inputRange: [0, 1], outputRange: [startOffset, travel[1]] });
   return (
     <Animated.View style={{
       position: 'absolute',
@@ -71,7 +81,7 @@ const Particle = ({ particle, width, height, season }) => {
         outputRange: [0, 0.5, season === 'summer' ? 0.8 : 0.42, 0.3, 0],
       }),
       transform: [
-        { translateY: phase.interpolate({ inputRange: [0, 1], outputRange: travel }) },
+        { translateY },
         { translateX: phase.interpolate({ inputRange: [0, 0.28, 0.62, 1], outputRange: [0, sway, -sway * 0.65, 0] }) },
         { rotate: phase.interpolate({ inputRange: [0, 0.5, 1], outputRange: ['0deg', `${motion.rotation * (particle.drift < 0 ? -1 : 1)}deg`, '0deg'] }) },
         { scale: phase.interpolate({ inputRange: [0, 0.5, 1], outputRange: motion.scale }) },
