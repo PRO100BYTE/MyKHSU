@@ -122,7 +122,6 @@ const SplashScreen = ({ accentColor, theme, holidayInfo, legendUnlocked = false,
           <Text style={[styles.holidayDescription, { color: subtextColor }]}>{holidayGreeting.subtitle}</Text>
         </Animated.View>}
       </Animated.View>
-      <SeasonalSplashEffects decoration={decoration} reduceMotion={reduceMotion} />
 
       <View style={styles.footer}>
         <Text style={[styles.meta, { color: subtextColor }]}>(c) 2025-{CURRENT_YEAR} PRO100BYTE Team</Text>
@@ -131,6 +130,7 @@ const SplashScreen = ({ accentColor, theme, holidayInfo, legendUnlocked = false,
           <Text style={[styles.build, { color: subtextColor }]}>BUILD {BUILD_VER}</Text>
         </View>
       </View>
+      <SeasonalSplashEffects decoration={decoration} reduceMotion={reduceMotion} />
     </Animated.View>
   );
 };

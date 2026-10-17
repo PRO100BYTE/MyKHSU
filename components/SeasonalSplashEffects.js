@@ -126,7 +126,7 @@ const SeasonalSplashEffects = ({ decoration, reduceMotion }) => {
 };
 
 const styles = StyleSheet.create({
-  overlay: { ...StyleSheet.absoluteFillObject, overflow: 'hidden', zIndex: 10, elevation: 10 },
+  overlay: { ...StyleSheet.absoluteFillObject, overflow: 'visible', zIndex: 999, elevation: 999 },
 });
 
 export default SeasonalSplashEffects;
