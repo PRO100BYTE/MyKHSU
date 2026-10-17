@@ -485,7 +485,25 @@ const DeveloperMenuScreen = ({ theme, accentColor, onCommunityFeatureChange, onL
           </View>
           <Text style={[styles.previewLabel, { color: placeholderColor }]}>Праздники</Text>
           <View style={styles.previewGrid}>
-            {[['new-year', 'Новый год'], ['student-day', 'День студента'], ['cosmonautics-day', 'День космонавтики'], ['sysadmin-day', 'День сисадмина'], ['russia-day', 'День России'], ['programmer-day', 'День программиста'], ['victory-day', 'День Победы']].map(([type, text]) => (
+            {[
+              ['new-year', 'Новый год'],
+              ['student-day', 'День студента'],
+              ['valentines-day', 'День влюблённых'],
+              ['defender-day', 'День защитника Отечества'],
+              ['womens-day', '8 Марта'],
+              ['cosmonautics-day', 'День космонавтики'],
+              ['may-day', 'Праздник Весны и Труда'],
+              ['victory-day', 'День Победы'],
+              ['children-day', 'День защиты детей'],
+              ['russia-day', 'День России'],
+              ['knowledge-day', 'День знаний'],
+              ['september-3', '3 сентября'],
+              ['programmer-day', 'День программиста'],
+              ['sysadmin-day', 'День сисадмина'],
+              ['teacher-day', 'День преподавателя'],
+              ['unity-day', 'День народного единства'],
+              ['intl-student-day', 'Международный день студента'],
+            ].map(([type, text]) => (
               <TouchableOpacity
                 key={type}
                 style={[styles.previewChip, { borderColor, backgroundColor: inputBgColor }]}
