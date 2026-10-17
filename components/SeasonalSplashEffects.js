@@ -29,8 +29,20 @@ export const useSplashReduceMotion = () => {
   return reduceMotion;
 };
 
-const Particle = ({ particle, width, height, summer }) => {
+// Keep the movement gentle, but give each season a recognisable motion language.
+export const SEASONAL_MOTION = {
+  autumn: { drift: 34, rotation: 220, direction: 'down', scale: [0.82, 1, 0.9] },
+  winter: { drift: 24, rotation: 55, direction: 'down', scale: [0.9, 1.08, 0.94] },
+  spring: { drift: 30, rotation: 70, direction: 'down', scale: [0.88, 1, 0.94] },
+  summer: { drift: 18, rotation: 28, direction: 'up', scale: [0.72, 1.18, 0.76] },
+  holiday: { drift: 22, rotation: 90, direction: 'down', scale: [0.86, 1.04, 0.9] },
+};
+
+const getMotion = key => SEASONAL_MOTION[key] || SEASONAL_MOTION.holiday;
+
+const Particle = ({ particle, width, height, season }) => {
   const progress = useRef(new Animated.Value(0)).current;
+  const motion = getMotion(season);
   const phase = useMemo(() => Animated.modulo(Animated.add(progress, particle.y), 1), [progress, particle.y]);
   useEffect(() => {
     const animation = Animated.loop(Animated.timing(progress, {
@@ -47,16 +59,22 @@ const Particle = ({ particle, width, height, summer }) => {
     };
   }, [particle, progress]);
 
+  const travel = motion.direction === 'up' ? [height + 56, 0] : [0, height + 56];
+  const sway = motion.drift * (particle.drift < 0 ? -1 : 1);
   return (
     <Animated.View style={{
       position: 'absolute',
       left: particle.x * width,
       top: -28,
-      opacity: phase.interpolate({ inputRange: [0, 0.15, 0.85, 1], outputRange: [0, 0.34, 0.28, 0] }),
+      opacity: phase.interpolate({
+        inputRange: [0, 0.12, 0.5, 0.88, 1],
+        outputRange: [0, 0.5, season === 'summer' ? 0.8 : 0.42, 0.3, 0],
+      }),
       transform: [
-        { translateY: phase.interpolate({ inputRange: [0, 1], outputRange: summer ? [height + 56, 0] : [0, height + 56] }) },
-        { translateX: phase.interpolate({ inputRange: [0, 0.5, 1], outputRange: [0, particle.drift, 0] }) },
-        { rotate: phase.interpolate({ inputRange: [0, 1], outputRange: ['0deg', summer ? '30deg' : '160deg'] }) },
+        { translateY: phase.interpolate({ inputRange: [0, 1], outputRange: travel }) },
+        { translateX: phase.interpolate({ inputRange: [0, 0.28, 0.62, 1], outputRange: [0, sway, -sway * 0.65, 0] }) },
+        { rotate: phase.interpolate({ inputRange: [0, 0.5, 1], outputRange: ['0deg', `${motion.rotation * (particle.drift < 0 ? -1 : 1)}deg`, '0deg'] }) },
+        { scale: phase.interpolate({ inputRange: [0, 0.5, 1], outputRange: motion.scale }) },
       ],
     }}>
       <Icon name={particle.icon} size={particle.size} color={particle.color} />
@@ -76,8 +94,14 @@ const SeasonalSplashEffects = ({ decoration, reduceMotion }) => {
       importantForAccessibility="no-hide-descendants"
       style={styles.overlay}
     >
-      {reduceMotion === false ? particles.map(particle => (
-        <Particle key={`${decoration.key}-${particle.id}`} particle={particle} width={width} height={height} summer={decoration.key === 'summer'} />
+      {reduceMotion !== true ? particles.map(particle => (
+        <Particle
+          key={`${decoration.key}-${particle.id}`}
+          particle={particle}
+          width={width}
+          height={height}
+          season={decoration.kind === 'season' ? decoration.key : 'holiday'}
+        />
       )) : decoration.icons.map((icon, index) => (
         <Icon key={index} name={icon} color={decoration.colors[index]} size={20} style={{
           position: 'absolute',
