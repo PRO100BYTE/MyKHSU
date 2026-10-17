@@ -70,110 +70,103 @@ const SplashScreen = ({ accentColor, theme, holidayInfo, legendUnlocked = false 
   const holidayEntry = HOLIDAY_COLORS[holidayInfo?.type]?.[holidayTheme];
   const holiday = holidayEntry ? { text: holidayEntry[0], icons: holidayEntry[1] } : { text: theme === 'light' ? '#D32F2F' : '#FFD700', icons: ['#FFD700', '#FF5722', '#2196F3'] };
   const holidayIcons = HOLIDAY_ICONS[holidayInfo?.type] || ['sparkles', 'star', 'sparkles'];
-
-  const blobAnims = useRef(Array.from({ length: 6 }, () => ({ x: new Animated.Value(0), y: new Animated.Value(0), scale: new Animated.Value(0) }))).current;
   const reveal = useRef(new Animated.Value(0)).current;
-  const orbit = useRef(new Animated.Value(0)).current;
+  const sheetDrift = useRef(new Animated.Value(0)).current;
+  const ribbonReveal = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     if (reduceMotion !== false) {
       reveal.setValue(1);
-      orbit.setValue(0);
-      blobAnims.forEach(blob => { blob.scale.setValue(1); blob.x.setValue(0); blob.y.setValue(0); });
+      sheetDrift.setValue(0);
+      ribbonReveal.setValue(1);
       return undefined;
     }
-    const animations = [];
-    const start = animation => { animations.push(animation); animation.start(); };
-    blobAnims.forEach((blob, index) => {
-      start(Animated.timing(blob.scale, { toValue: 1, duration: 500 + index * 80, useNativeDriver: true, isInteraction: false }));
-      start(Animated.loop(Animated.sequence([
-        Animated.timing(blob.y, { toValue: index % 2 ? 18 : -18, duration: 3200 + index * 240, useNativeDriver: true, isInteraction: false }),
-        Animated.timing(blob.y, { toValue: index % 2 ? -18 : 18, duration: 3200 + index * 240, useNativeDriver: true, isInteraction: false }),
-      ])));
-    });
-    start(Animated.timing(reveal, { toValue: 1, duration: 650, useNativeDriver: true, isInteraction: false }));
-    start(Animated.loop(Animated.timing(orbit, { toValue: 1, duration: 18000, useNativeDriver: true, isInteraction: false })));
+    const animations = [
+      Animated.timing(reveal, { toValue: 1, duration: 650, useNativeDriver: true, isInteraction: false }),
+      Animated.timing(ribbonReveal, { toValue: 1, duration: 520, delay: 180, useNativeDriver: true, isInteraction: false }),
+      Animated.loop(Animated.sequence([
+        Animated.timing(sheetDrift, { toValue: 1, duration: 5200, useNativeDriver: true, isInteraction: false }),
+        Animated.timing(sheetDrift, { toValue: 0, duration: 5200, useNativeDriver: true, isInteraction: false }),
+      ])),
+    ];
+    animations.forEach(animation => animation.start());
     return () => animations.forEach(animation => animation.stop());
   }, [reduceMotion]);
 
-  const blobs = [
-    { x: width * .08, y: height * .14, size: 170 }, { x: width * .9, y: height * .1, size: 210 },
-    { x: width * .92, y: height * .7, size: 140 }, { x: width * .05, y: height * .75, size: 190 },
-    { x: width * .72, y: height * .9, size: 180 }, { x: width * .25, y: height * .04, size: 100 },
-  ];
-  const orbitRotate = orbit.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] });
+  const drift = sheetDrift.interpolate({ inputRange: [0, 1], outputRange: [0, 7] });
+  const sheetTranslate = reveal.interpolate({ inputRange: [0, 1], outputRange: [34, 0] });
+  const ribbonTranslate = ribbonReveal.interpolate({ inputRange: [0, 1], outputRange: [26, 0] });
 
   return (
     <View style={[styles.container, { backgroundColor }]}>
       <StatusBar barStyle={theme === 'light' ? 'dark-content' : 'light-content'} backgroundColor={backgroundColor} />
-      {isMatrix && reduceMotion === false ? <MatrixRain intensity={0.85} /> : blobs.map((blob, index) => (
-        <Animated.View key={`blob-${index}`} style={[styles.blob, { left: blob.x - blob.size / 2, top: blob.y - blob.size / 2, width: blob.size, height: blob.size, borderRadius: blob.size / 2, backgroundColor: primary, opacity: isLegendSplash ? .08 : .065, transform: [{ translateX: blobAnims[index].x }, { translateY: blobAnims[index].y }, { scale: blobAnims[index].scale }] }]} />
-      ))}
+      {isMatrix && reduceMotion === false ? <MatrixRain intensity={0.85} /> : <>
+        <Animated.View style={[styles.paperStrip, { backgroundColor: primary, opacity: isLegendSplash ? .08 : .07, transform: [{ translateX: drift }, { rotate: '-14deg' }] }]} />
+        <Animated.View style={[styles.paperStrip, styles.paperStripSecond, { backgroundColor: primary, opacity: isLegendSplash ? .06 : .05, transform: [{ translateX: drift }, { rotate: '18deg' }] }]} />
+      </>}
       <SeasonalSplashEffects decoration={decoration} reduceMotion={reduceMotion} />
 
       <View style={styles.contentContainer}>
-        {holidayInfo && <Animated.View style={[styles.holiday, { opacity: reveal, transform: [{ translateY: reveal.interpolate({ inputRange: [0, 1], outputRange: [12, 0] }) }] }]}>
-          <Text style={[styles.holidayText, { color: holiday.text }]}>{holidayInfo.text}</Text>
-          <View style={styles.holidayIcons}>{holidayIcons.map((name, index) => <Icon key={index} name={name} size={index === 1 ? 14 : 17} color={holiday.icons[index]} style={styles.holidayIcon} />)}</View>
-        </Animated.View>}
-
-        <Animated.View style={[styles.observatory, { opacity: reveal, transform: [{ scale: reveal.interpolate({ inputRange: [0, 1], outputRange: [.86, 1] }) }] }]}>
-          <Animated.View style={[styles.orbit, styles.orbitWide, { borderColor: `${primary}30`, transform: [{ rotate: orbitRotate }] }]}>
-            <View style={[styles.orbitNode, { backgroundColor: primary }]} />
-          </Animated.View>
-          <View style={[styles.orbit, styles.orbitTight, { borderColor: `${primary}22` }]} />
-          <GlassSurface glass={glass} style={[styles.badge, { borderColor: `${primary}55`, shadowColor: primary }]}>
-            <View style={[styles.badgeMark, { backgroundColor: `${primary}18`, borderColor: `${primary}45` }]}>
-              <Icon name={isLegendSplash ? 'trophy' : 'school'} size={45} color={isLegendSplash ? '#FFD666' : (theme === 'dark' || isMatrix ? safeColors.light : primary)} />
+        <Animated.View style={[styles.sheet, { opacity: reveal, transform: [{ translateX: sheetTranslate }, { translateY: drift }, { rotate: '-2deg' }] }]}>
+          <GlassSurface glass={glass} style={[styles.sheetSurface, { borderColor: `${primary}55`, shadowColor: primary }]}>
+            <View style={[styles.sheetRule, { backgroundColor: primary }]} />
+            <View style={styles.sheetHeader}>
+              <Text style={[styles.sheetKicker, { color: primary }]}>ИТИ · ХГУ</Text>
+              <Text style={[styles.sheetIndex, { color: subtextColor }]}>01 / 01</Text>
             </View>
-            <Text style={[styles.badgeCode, { color: primary }]}>ITI · KHSU</Text>
+            <View style={[styles.foldMark, { borderBottomColor: primary }]} />
+            <Text style={[styles.title, { color: textColor }]}>Мой ИТИ ХГУ</Text>
+            <Text style={[styles.subtitle, { color: subtextColor }]}>{isLegendSplash ? 'Легенда ИТИ ХГУ' : 'Твой университет в кармане'}</Text>
+            <View style={styles.notes}>
+              <View style={[styles.noteLine, { backgroundColor: `${primary}45`, width: '82%' }]} />
+              <View style={[styles.noteLine, { backgroundColor: `${primary}30`, width: '61%' }]} />
+              <View style={[styles.noteLine, { backgroundColor: `${primary}24`, width: '72%' }]} />
+            </View>
+            {isLegendSplash && <Text style={[styles.legend, { color: '#FFD666' }]}>ВСЕ ДОСТИЖЕНИЯ СОБРАНЫ</Text>}
+            {holidayInfo && <View style={styles.holidayRow}>
+              <Text style={[styles.holidayText, { color: holiday.text }]}>{holidayInfo.text}</Text>
+              <View style={styles.holidayIcons}>{holidayIcons.map((name, index) => <Icon key={index} name={name} size={index === 1 ? 13 : 16} color={holiday.icons[index]} style={styles.holidayIcon} />)}</View>
+            </View>}
           </GlassSurface>
         </Animated.View>
 
-        <Animated.View style={[styles.copy, { opacity: reveal, transform: [{ translateY: reveal.interpolate({ inputRange: [0, 1], outputRange: [18, 0] }) }] }]}>
-          <Text style={[styles.eyebrow, { color: primary }]}>SIGNAL / 2026</Text>
-          <Text style={[styles.title, { color: textColor }]}>Мой ИТИ ХГУ</Text>
-          <Text style={[styles.subtitle, { color: subtextColor }]}>{isLegendSplash ? 'Легенда ИТИ ХГУ' : 'Твой университет в кармане'}</Text>
-          {isLegendSplash && <Text style={[styles.legend, { color: '#FFD666' }]}>ВСЕ ДОСТИЖЕНИЯ СОБРАНЫ</Text>}
-        </Animated.View>
-
-        <Animated.View style={[styles.statusGlass, { opacity: reveal }]}>
-          <View style={[styles.statusDot, { backgroundColor: primary }]} />
-          <Text style={[styles.statusLabel, { color: subtextColor }]}>СИНХРОНИЗАЦИЯ ДАННЫХ</Text>
+        <Animated.View style={[styles.ribbon, { opacity: ribbonReveal, transform: [{ translateX: ribbonTranslate }, { rotate: '4deg' }] }]}>
+          <View style={[styles.ribbonMark, { backgroundColor: primary }]} />
+          <Text style={[styles.ribbonLabel, { color: textColor }]}>ОТКРЫВАЕМ ПРИЛОЖЕНИЕ</Text>
           <ActivityIndicator size="small" color={primary} />
         </Animated.View>
       </View>
 
-      <Text style={[styles.version, { color: subtextColor }]}>v{APP_VERSION}  ·  ACADEMIC SIGNAL</Text>
+      <Text style={[styles.version, { color: subtextColor }]}>v{APP_VERSION}</Text>
     </View>
   );
 };
 
 const styles = StyleSheet.create({
   container: { flex: 1, overflow: 'hidden' },
-  blob: { position: 'absolute' },
-  contentContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', zIndex: 2, paddingHorizontal: 24 },
-  holiday: { alignItems: 'center', marginBottom: 18 },
-  holidayText: { fontSize: 20, fontWeight: '700', fontFamily: 'Montserrat_700Bold', textAlign: 'center' },
-  holidayIcons: { flexDirection: 'row', marginTop: 7 },
-  holidayIcon: { marginHorizontal: 4 },
-  observatory: { width: 218, height: 218, alignItems: 'center', justifyContent: 'center' },
-  orbit: { position: 'absolute', borderWidth: 1, borderRadius: 200 },
-  orbitWide: { width: 210, height: 126, transform: [{ rotate: '-24deg' }] },
-  orbitTight: { width: 178, height: 178 },
-  orbitNode: { position: 'absolute', width: 7, height: 7, borderRadius: 5, right: 19, top: 9 },
-  badge: { width: 134, height: 158, borderRadius: 34, borderWidth: 1, alignItems: 'center', justifyContent: 'center', shadowOpacity: .22, shadowRadius: 24, elevation: 8 },
-  badgeMark: { width: 78, height: 78, borderRadius: 25, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
-  badgeCode: { marginTop: 13, fontSize: 10, letterSpacing: 1.8, fontFamily: 'Montserrat_700Bold' },
-  copy: { alignItems: 'center', marginTop: 10 },
-  eyebrow: { fontSize: 10, letterSpacing: 2.4, fontFamily: 'Montserrat_700Bold', marginBottom: 7 },
-  title: { fontSize: 31, fontWeight: '700', letterSpacing: .2, textAlign: 'center', fontFamily: 'Montserrat_700Bold' },
-  subtitle: { fontSize: 14, letterSpacing: .3, textAlign: 'center', marginTop: 7, fontFamily: 'Montserrat_500Medium' },
-  legend: { fontSize: 11, letterSpacing: 1.2, marginTop: 11, fontFamily: 'Montserrat_600SemiBold' },
-  statusGlass: { flexDirection: 'row', alignItems: 'center', marginTop: 31, paddingHorizontal: 15, paddingVertical: 10, borderRadius: 18, borderWidth: StyleSheet.hairlineWidth, borderColor: 'rgba(255,255,255,.16)', backgroundColor: 'rgba(255,255,255,.06)', gap: 9 },
-  statusDot: { width: 6, height: 6, borderRadius: 4 },
-  statusLabel: { fontSize: 9, letterSpacing: 1.1, fontFamily: 'Montserrat_600SemiBold' },
-  version: { position: 'absolute', bottom: 40, alignSelf: 'center', fontSize: 11, letterSpacing: .8, fontFamily: 'Montserrat_400Regular' },
+  paperStrip: { position: 'absolute', width: width * 1.5, height: 92, left: -width * .25, top: height * .17 },
+  paperStripSecond: { top: height * .72, height: 64 },
+  contentContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 25, zIndex: 2 },
+  sheet: { width: Math.min(width - 48, 344), minHeight: 350, shadowOpacity: .2, shadowRadius: 26, elevation: 9 },
+  sheetSurface: { minHeight: 350, borderWidth: 1, borderRadius: 10, padding: 25, overflow: 'hidden' },
+  sheetRule: { width: 38, height: 4, borderRadius: 2, marginBottom: 30 },
+  sheetHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 42 },
+  sheetKicker: { fontSize: 11, letterSpacing: 2, fontFamily: 'Montserrat_700Bold' },
+  sheetIndex: { fontSize: 10, letterSpacing: 1.1, fontFamily: 'Montserrat_500Medium' },
+  foldMark: { position: 'absolute', right: 0, top: 0, width: 0, height: 0, borderStyle: 'solid', borderRightWidth: 42, borderBottomWidth: 42, borderRightColor: 'transparent', borderBottomColor: 'transparent', borderLeftColor: 'transparent', borderTopColor: 'transparent' },
+  title: { fontSize: 31, lineHeight: 37, fontWeight: '700', letterSpacing: .1, fontFamily: 'Montserrat_700Bold' },
+  subtitle: { fontSize: 14, letterSpacing: .3, marginTop: 10, fontFamily: 'Montserrat_500Medium' },
+  notes: { marginTop: 42, gap: 10 },
+  noteLine: { height: 2, borderRadius: 2 },
+  legend: { fontSize: 10, letterSpacing: 1.1, marginTop: 20, fontFamily: 'Montserrat_600SemiBold' },
+  holidayRow: { marginTop: 29, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: 'rgba(127,127,127,.22)', paddingTop: 13, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  holidayText: { fontSize: 14, fontWeight: '700', flex: 1, fontFamily: 'Montserrat_700Bold' },
+  holidayIcons: { flexDirection: 'row' },
+  holidayIcon: { marginLeft: 6 },
+  ribbon: { flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-end', marginTop: -28, marginRight: 8, paddingHorizontal: 16, paddingVertical: 12, borderRadius: 4, backgroundColor: 'rgba(127,127,127,.13)', gap: 9 },
+  ribbonMark: { width: 7, height: 7, borderRadius: 1 },
+  ribbonLabel: { fontSize: 9, letterSpacing: 1, fontFamily: 'Montserrat_600SemiBold' },
+  version: { position: 'absolute', bottom: 40, left: 25, fontSize: 11, letterSpacing: .8, fontFamily: 'Montserrat_400Regular' },
 });
 
 export default SplashScreen;

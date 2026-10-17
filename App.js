@@ -11,6 +11,7 @@ import { GlassView, isGlassEffectAPIAvailable, isLiquidGlassAvailable } from 'ex
 import SplashScreen from './components/SplashScreen';
 import TabButton from './components/TabButton';
 import NativeTabBar from './components/NativeTabBar';
+import IOSEdgeSwipeBack from './components/IOSEdgeSwipeBack';
 import HeaderToolbar from './components/HeaderToolbar';
 import InAppNotificationBanner from './components/InAppNotificationBanner';
 import OnboardingScreen from './components/OnboardingScreen';
@@ -574,6 +575,10 @@ const handleNewYearModeChange = async (enabled) => {
     [SCREENS.SETTINGS]: 'settings-outline',
   };
 
+  const isSubscreenOpen = (activeScreen === SCREENS.MAP && mapSubScreen) ||
+    (activeScreen === SCREENS.FRESHMAN && freshmanSubScreen) ||
+    (activeScreen === SCREENS.SETTINGS && settingsSubScreen);
+
   // Рендер header с glass-эффектом (плавающая капсула)
   const renderHeader = () => {
     // Определяем, нужна ли кнопка назад
@@ -943,7 +948,15 @@ const handleNewYearModeChange = async (enabled) => {
       />
       {Platform.OS !== 'ios' && renderHeader()}
       {Platform.OS === 'ios' ? (
-        <NativeTabBar
+        <IOSEdgeSwipeBack
+          enabled={Boolean(isSubscreenOpen)}
+          onBack={() => {
+            if (activeScreen === SCREENS.MAP) mapScreenRef.current?.goBack();
+            else if (activeScreen === SCREENS.FRESHMAN) freshmanScreenRef.current?.goBack();
+            else if (activeScreen === SCREENS.SETTINGS) settingsScreenRef.current?.goBack();
+          }}
+        >
+          <NativeTabBar
           activeScreen={activeScreen}
           onTabPress={handleTabPress}
           tabs={NATIVE_TABS}
@@ -953,7 +966,8 @@ const handleNewYearModeChange = async (enabled) => {
           backgroundColor={bgColor}
           showLabels={showTabbarLabels}
           labelFontSize={{ small: 8, medium: 10, large: 12 }[tabbarFontSize]}
-        />
+          />
+        </IOSEdgeSwipeBack>
       ) : renderScreen(activeScreen)}
       {Platform.OS === 'ios' && renderHeader()}
       {Platform.OS !== 'ios' && renderTabBar()}

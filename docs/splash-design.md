@@ -1,20 +1,18 @@
-# Splash: Signal Glass Observatory
+# Splash: Institute Paper-Glass Studio
 
-The splash screen is designed as a small **signal glass observatory**, rather than a generic centered logo. The academic badge is the instrument at the center: two restrained orbit lines, a signal node, and the ITI/KHSU mark establish a structured composition that reads as an institute interface. The `SIGNAL / 2026` eyebrow and synchronization capsule make the loading state feel intentional without inventing a new loading phase.
+The splash is an asymmetric editorial desk rather than a centered emblem or orbit. A tilted translucent course sheet anchors the left of the screen, while a narrow reading ribbon crosses it like a bookmarked page. The institute name is set as the page heading; a small folded corner, rule lines, and side notes make the screen feel made for reading instead of like a product template.
 
 ## Visual system
 
-- The central badge is a transparent glass surface. On iOS with the native glass APIs it uses `GlassView`; on other platforms, or when the API is unavailable, it falls back to a transparent-tinted bordered surface.
-- Orbit lines, signal node, badge border, and ambient blobs all derive from the selected `accentColor`. Light, dark, Matrix, and Legend states retain their existing contrast rules and special backgrounds.
-- `theme` and `accentColor` remain optional for backward compatibility. The current parent already supplies both; if another caller omits them, the component falls back to the green accent and light glass palette.
-- The version remains visible at the bottom and no timeout, delay, or data-loading behavior was added.
+- The course sheet and loading ribbon use `GlassView` on iOS where the native glass APIs are available. Every other environment receives the same translucent, bordered `View` fallback.
+- Accent color is reserved for the sheet edge, the folded corner, status mark, and rule details. Theme-specific background and contrast behavior is retained for light, dark, Matrix, and Legend states.
+- `theme` and `accentColor` remain optional: omitted values use the green accent and light glass palette.
+- The version stays at the bottom. This redesign adds no timeout, delay, or loading behavior.
 
 ## Motion and accessibility
 
-The existing `useSplashReduceMotion` path is preserved. When reduced motion is enabled, the observatory is shown in its settled state, orbit animation and blob movement are disabled, and seasonal effects use their static treatment. Normal motion is deliberately slow and uses non-interaction animations so it does not delay app work.
+The `useSplashReduceMotion` behavior is retained. With reduced motion enabled, all paper elements are immediately settled and seasonal decoration uses its static treatment. Otherwise the sheet arrives with a short lateral reveal, the ribbon enters after it, and background paper strips drift slowly using non-interaction animations.
 
 ## Seasonal and special designs
 
-`getSplashDecoration` and `SeasonalSplashEffects` remain the source of seasonal decoration. Existing holiday text, icon mappings, particles, and season behavior are retained. Matrix and Legend decorations continue to be suppressed by the existing decoration helper. The holiday banner stays above the observatory, so special designs remain recognizable without disrupting the new composition.
-
-No onboarding confetti or new dependency is used.
+`getSplashDecoration` and `SeasonalSplashEffects` continue to provide every existing seasonal and holiday treatment. Holiday text and its mapped icons remain visible in the page header. Matrix and Legend still suppress added decoration through the existing helper, while retaining their backgrounds and contrast. No dependency or onboarding effect was added.
