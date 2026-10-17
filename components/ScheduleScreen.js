@@ -40,6 +40,7 @@ import { loadAllNotes, getLessonNoteKey, findHomeworkBySubject, markHomeworkDeli
 import ViewShot from 'react-native-view-shot';
 import * as Sharing from 'expo-sharing';
 import ScheduleShareImage from './ScheduleShareImage';
+import RefreshStatusHint from './RefreshStatusHint';
 import notificationService from '../utils/notificationService';
 import AttendanceStatsModal from './AttendanceStatsModal';
 import FreeAuditoriesScreen from './FreeAuditoriesScreen';
@@ -2368,6 +2369,7 @@ if (error && !loadingGroups && !loadingSchedule && !loadingTeacher && !loadingAu
 
 return (
   <View style={{ flex: 1, backgroundColor: bgColor }}>
+    <RefreshStatusHint visible={refreshing} glass={glass} accentColor={colors.primary} />
     {/* Снегопад для новогоднего режима (между фоном и контентом) */}
     {isNewYearMode && <Snowfall key={`snowfall-${isNewYearMode}`} theme={theme} intensity={0.8} />}
     
@@ -2389,6 +2391,8 @@ return (
             onRefresh={handleRefresh}
             colors={[colors.primary]}
             tintColor={colors.primary}
+            title="Потяните вниз для обновления"
+            titleColor={placeholderColor}
           />
         }
         onScroll={handleScroll}

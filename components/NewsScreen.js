@@ -12,6 +12,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import Snowfall from './Snowfall';
 import SearchField from './SearchField';
 import { showNewsActions } from '../utils/contextActions';
+import RefreshStatusHint from './RefreshStatusHint';
 
 const normalizeNewsErrorCode = (error) => {
   const raw = String(error?.message || error || 'load-error');
@@ -304,6 +305,7 @@ if (error && !loading) {
 
 return (
   <View style={{ flex: 1, backgroundColor: bgColor }}>
+    <RefreshStatusHint visible={refreshing} glass={glass} accentColor={colors.primary} />
     {/* Снегопад на заднем плане */}
     {isNewYearMode && <Snowfall key={`snowfall-${isNewYearMode}`} theme={theme} intensity={0.8} />}
     
@@ -319,9 +321,12 @@ return (
         contentContainerStyle={{ paddingTop: 16, paddingHorizontal: 16, paddingBottom: 100 }}
         refreshControl={
           <RefreshControl
-            refreshing={refreshing}            onRefresh={handleRefresh}
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
             colors={[colors.primary]}
             tintColor={colors.primary}
+            title="Потяните вниз для обновления"
+            titleColor={placeholderColor}
           />
         }
       >
