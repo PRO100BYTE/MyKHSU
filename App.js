@@ -536,6 +536,7 @@ const handleNewYearModeChange = async (enabled) => {
     if (!initializationReady || !fontsLoaded || onboardingRequired === null) return undefined;
     const startedAt = Date.now();
     const remaining = Math.max(0, SPLASH_DURATION_MS - (startedAt - splashStartedAt.current));
+    setIsLoading(true);
     const timer = setTimeout(() => setIsLoading(false), remaining);
     console.info(`Splash duration: ${SPLASH_DURATION_BEFORE_MS}ms -> ${SPLASH_DURATION_MS}ms`);
     return () => clearTimeout(timer);
@@ -563,7 +564,7 @@ const handleNewYearModeChange = async (enabled) => {
     return () => fadeOut.stop();
   }, [shouldShowSplash, splashTransition]);
 
-  if (onboardingRequired === null || !fontsLoaded) {
+  if (shouldShowSplash) {
     return <SplashScreen
       accentColor={accentColor}
       theme={getEffectiveTheme()}

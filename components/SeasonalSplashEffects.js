@@ -41,12 +41,12 @@ export const SEASONAL_MOTION = {
 const getMotion = key => SEASONAL_MOTION[key] || SEASONAL_MOTION.holiday;
 
 const Particle = ({ particle, width, height, season }) => {
-  const progress = useRef(new Animated.Value(0)).current;
+  const progress = useRef(new Animated.Value(particle.y)).current;
   const motion = getMotion(season);
-  const phase = useMemo(() => Animated.modulo(Animated.add(progress, particle.y), 1), [progress, particle.y]);
+  const phase = progress;
   useEffect(() => {
     const animation = Animated.loop(Animated.timing(progress, {
-      toValue: 1,
+      toValue: particle.y + 1,
       duration: particle.duration,
       easing: Easing.linear,
       useNativeDriver: true,

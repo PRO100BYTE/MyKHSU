@@ -99,9 +99,7 @@ const SplashScreen = ({ accentColor, theme, holidayInfo, legendUnlocked = false,
         <View style={[styles.cornerBlock, { backgroundColor: primary }]} />
         <View style={[styles.cornerBlockSmall, { borderColor: `${primary}99` }]} />
       </>}
-      <SeasonalSplashEffects decoration={decoration} reduceMotion={reduceMotion} />
-
-      <Animated.View style={[styles.main, { opacity: intro, transform: [{ translateY: intro.interpolate({ inputRange: [0, 1], outputRange: [22, 0] }) }] }]}>
+      <Animated.View style={[styles.main,  { opacity: intro, transform: [{ translateY: intro.interpolate({ inputRange: [0, 1], outputRange: [22, 0] }) }] }]}>
         <View style={styles.logoStage}>
           <Animated.View style={[styles.halo, { borderColor: primary, opacity: haloOpacity, transform: [{ scale: haloScale }] }]} />
           <View style={[styles.logoFrame, { borderColor: `${primary}88`, backgroundColor: isLegendSplash ? '#211605' : (theme === 'light' ? '#FFFFFF' : '#102019') }]}>
@@ -124,6 +122,7 @@ const SplashScreen = ({ accentColor, theme, holidayInfo, legendUnlocked = false,
           <Text style={[styles.holidayDescription, { color: subtextColor }]}>{holidayGreeting.subtitle}</Text>
         </Animated.View>}
       </Animated.View>
+      <SeasonalSplashEffects decoration={decoration} reduceMotion={reduceMotion} />
 
       <View style={styles.footer}>
         <Text style={[styles.meta, { color: subtextColor }]}>(c) 2025-{CURRENT_YEAR} PRO100BYTE Team</Text>
