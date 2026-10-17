@@ -1,98 +1,84 @@
-import React, { useEffect, useMemo, useRef } from 'react';
-import { Animated, Easing, StyleSheet, View, useWindowDimensions } from 'react-native';
-import { Ionicons as Icon } from '@expo/vector-icons';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { AccessibilityInfo, Animated, Easing, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { createSplashParticles } from '../utils/splashSeason';
 
-export const useSplashReduceMotion = () => false;
+const EMOJIS = ['🎉', '✨', '🌟', '⭐', '🎊', '🥳', '🎁', '🎈', '💫', '🔥', '💥', '🎇', '🎆', '🪅', '🪩'];
 
-export const SEASONAL_MOTION = {
-  autumn: { drift: 28, rotation: 18, lift: 34 },
-  winter: { drift: 16, rotation: 8, lift: 24 },
-  spring: { drift: 24, rotation: 12, lift: 30 },
-  summer: { drift: 18, rotation: 6, lift: 38 },
-  holiday: { drift: 22, rotation: 14, lift: 28 },
+export const useSplashReduceMotion = () => {
+  const [reduceMotion, setReduceMotion] = useState(false);
+  useEffect(() => {
+    let active = true;
+    AccessibilityInfo.isReduceMotionEnabled()
+      .then(value => {
+        if (active) setReduceMotion(value);
+      })
+      .catch(() => {});
+    const subscription = AccessibilityInfo.addEventListener('reduceMotionChanged', value => {
+      if (active) setReduceMotion(value);
+    });
+    return () => {
+      active = false;
+      subscription?.remove();
+    };
+  }, []);
+  return reduceMotion;
 };
 
-const getMotion = key => SEASONAL_MOTION[key] || SEASONAL_MOTION.holiday;
-
-const Particle = ({ particle, width, height, kind }) => {
-  const motion = getMotion(kind);
-  const animation = useRef(new Animated.Value(0)).current;
-  const phase = (particle.id % 4) * 280;
-  const left = particle.x * width;
-  const top = particle.y * Math.max(height - 40, 1);
-  const direction = particle.id % 2 === 0 ? 1 : -1;
+const EmojiParticle = ({ particle, width, height }) => {
+  const fall = useRef(new Animated.Value(0)).current;
+  const swing = useRef(new Animated.Value(0)).current;
+  const rotate = useRef(new Animated.Value(0)).current;
+  const opacity = useRef(new Animated.Value(0)).current;
+  const duration = 2600 + (particle.id % 5) * 260;
+  const startDelay = (particle.id % 10) * 90;
 
   useEffect(() => {
-    const loop = Animated.loop(
+    const animation = Animated.loop(
       Animated.sequence([
-        Animated.delay(phase),
+        Animated.delay(startDelay),
         Animated.parallel([
-          Animated.timing(animation, {
-            toValue: 1,
-            duration: 1300 + (particle.id % 3) * 180,
-            easing: Easing.inOut(Easing.sin),
-            useNativeDriver: true,
-            isInteraction: false,
-          }),
-          Animated.timing(animation, {
-            toValue: 1,
-            duration: 1300 + (particle.id % 3) * 180,
-            easing: Easing.inOut(Easing.sin),
-            useNativeDriver: true,
-            isInteraction: false,
-          }),
+          Animated.timing(fall, { toValue: 1, duration, easing: Easing.linear, useNativeDriver: true, isInteraction: false }),
+          Animated.timing(rotate, { toValue: 1, duration, easing: Easing.linear, useNativeDriver: true, isInteraction: false }),
+          Animated.sequence([
+            Animated.timing(opacity, { toValue: 1, duration: 180, useNativeDriver: true, isInteraction: false }),
+            Animated.delay(duration - 680),
+            Animated.timing(opacity, { toValue: 0, duration: 500, useNativeDriver: true, isInteraction: false }),
+          ]),
+          Animated.sequence([
+            Animated.timing(swing, { toValue: 1, duration: duration / 2, easing: Easing.inOut(Easing.sin), useNativeDriver: true, isInteraction: false }),
+            Animated.timing(swing, { toValue: 0, duration: duration / 2, easing: Easing.inOut(Easing.sin), useNativeDriver: true, isInteraction: false }),
+          ]),
         ]),
-        Animated.timing(animation, {
-          toValue: 0,
-          duration: 1300 + (particle.id % 3) * 180,
-          easing: Easing.inOut(Easing.sin),
-          useNativeDriver: true,
-          isInteraction: false,
-        }),
+        Animated.parallel([
+          Animated.timing(fall, { toValue: 0, duration: 0, useNativeDriver: true }),
+          Animated.timing(rotate, { toValue: 0, duration: 0, useNativeDriver: true }),
+        ]),
       ]),
     );
-    loop.start();
+    animation.start();
     return () => {
-      loop.stop();
-      animation.stopAnimation();
+      animation.stop();
+      fall.stopAnimation();
+      swing.stopAnimation();
+      rotate.stopAnimation();
+      opacity.stopAnimation();
     };
-  }, [animation, particle.id, phase]);
+  }, [duration, fall, opacity, rotate, startDelay, swing]);
 
+  const y = -80 - (particle.id % 6) * 45;
+  const x = (particle.id * 41 % 100) / 100 * width;
   return (
-    <Animated.View
-      pointerEvents="none"
-      style={[
-        styles.particle,
-        {
-          left,
-          top,
-          opacity: animation.interpolate({ inputRange: [0, 0.5, 1], outputRange: [0.42, 1, 0.42] }),
-          transform: [
-            {
-              translateX: animation.interpolate({
-                inputRange: [0, 0.5, 1],
-                outputRange: [0, motion.drift * direction, 0],
-              }),
-            },
-            {
-              translateY: animation.interpolate({
-                inputRange: [0, 0.5, 1],
-                outputRange: [0, -motion.lift, 0],
-              }),
-            },
-            {
-              rotate: animation.interpolate({
-                inputRange: [0, 0.5, 1],
-                outputRange: ['0deg', `${motion.rotation * direction}deg`, '0deg'],
-              }),
-            },
-            { scale: animation.interpolate({ inputRange: [0, 0.5, 1], outputRange: [0.82, 1.18, 0.82] }) },
-          ],
-        },
-      ]}
-    >
-      <Icon name={particle.icon} size={particle.size + 5} color={particle.color} />
+    <Animated.View style={[styles.particle, {
+      left: x,
+      top: y,
+      opacity,
+      transform: [
+        { translateY: fall.interpolate({ inputRange: [0, 1], outputRange: [0, height + 180] }) },
+        { translateX: swing.interpolate({ inputRange: [0, 1], outputRange: [0, particle.id % 2 ? -34 : 34] }) },
+        { rotate: rotate.interpolate({ inputRange: [0, 1], outputRange: ['0deg', `${particle.id % 2 ? -720 : 720}deg`] }) },
+      ],
+    }]}>
+      <Text style={styles.emoji}>{EMOJIS[particle.id % EMOJIS.length]}</Text>
     </Animated.View>
   );
 };
@@ -101,17 +87,10 @@ const SeasonalSplashEffects = ({ decoration }) => {
   const { width, height } = useWindowDimensions();
   const particles = useMemo(() => createSplashParticles(decoration), [decoration]);
   if (!decoration) return null;
-
   return (
     <View pointerEvents="none" style={styles.overlay}>
       {particles.map(particle => (
-        <Particle
-          key={`${decoration.key}-${particle.id}`}
-          particle={particle}
-          width={width}
-          height={height}
-          kind={decoration.kind === 'season' ? decoration.key : 'holiday'}
-        />
+        <EmojiParticle key={`${decoration.key}-${particle.id}`} particle={particle} width={width} height={height} />
       ))}
     </View>
   );
@@ -124,8 +103,12 @@ const styles = StyleSheet.create({
     elevation: 9999,
     overflow: 'hidden',
   },
-  particle: {
-    position: 'absolute',
+  particle: { position: 'absolute' },
+  emoji: {
+    fontSize: 28,
+    lineHeight: 34,
+    textAlign: 'center',
+    includeFontPadding: false,
   },
 });
 
