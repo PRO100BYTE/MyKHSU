@@ -13,15 +13,21 @@ test('old binary without permission functions reports unavailable instead of Typ
   assert.equal((await api.get()).status, 'unavailable');
   assert.equal((await api.request()).status, 'unavailable');
 });
-test('permission reads do not request access and preserve status', async () => {
+test('permission reads do not request access and both calls explicitly request full calendar access', async () => {
   let requests = 0;
-  const api = load({ getCalendarPermissions: async () => ({ status: 'undetermined' }), requestCalendarPermissions: async () => { requests++; return { status: 'granted' }; } });
+  const writeOnlyValues = [];
+  const api = load({
+    getCalendarPermissions: async writeOnly => { writeOnlyValues.push(writeOnly); return { status: 'undetermined' }; },
+    requestCalendarPermissions: async writeOnly => { writeOnlyValues.push(writeOnly); requests++; return { status: 'granted' }; },
+  });
   assert.equal((await api.get()).status, 'undetermined');
   assert.equal(requests, 0);
   assert.equal((await api.request()).status, 'granted');
   assert.equal(requests, 1);
+  assert.deepEqual(writeOnlyValues, [false, false]);
 });
-test('unsupported native method reports unavailable, unexpected errors remain actionable', async () => {
+test('unsupported native method and Expo Go report unavailable, unexpected errors remain actionable', async () => {
   assert.equal((await load({ getCalendarPermissions: async () => { throw Error('native method not available'); } }).get()).status, 'unavailable');
+  assert.equal((await load({ requestCalendarPermissions: async () => { throw Error('Calendar@next functionality is not available in Expo Go'); } }).request()).status, 'unavailable');
   await assert.rejects(load({ getCalendarPermissions: async () => { throw Error('storage failure'); } }).get(), /storage failure/);
 });
