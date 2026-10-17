@@ -1,40 +1,25 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { AccessibilityInfo, Animated, Easing, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
-import { createSplashParticles } from '../utils/splashSeason';
+import React, { useEffect, useRef } from 'react';
+import { Animated, Easing, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 
 const EMOJIS = ['🎉', '✨', '🌟', '⭐', '🎊', '🥳', '🎁', '🎈', '💫', '🔥', '💥', '🎇', '🎆', '🪅', '🪩'];
+const PARTICLE_COUNT = 80;
 
-export const useSplashReduceMotion = () => {
-  const [reduceMotion, setReduceMotion] = useState(false);
-  useEffect(() => {
-    let active = true;
-    AccessibilityInfo.isReduceMotionEnabled()
-      .then(value => {
-        if (active) setReduceMotion(value);
-      })
-      .catch(() => {});
-    const subscription = AccessibilityInfo.addEventListener('reduceMotionChanged', value => {
-      if (active) setReduceMotion(value);
-    });
-    return () => {
-      active = false;
-      subscription?.remove();
-    };
-  }, []);
-  return reduceMotion;
-};
+export const useSplashReduceMotion = () => false;
 
-const EmojiParticle = ({ particle, width, height }) => {
+const EmojiParticle = ({ index, width, height, decorationKey }) => {
   const fall = useRef(new Animated.Value(0)).current;
   const swing = useRef(new Animated.Value(0)).current;
   const rotate = useRef(new Animated.Value(0)).current;
-  const duration = 2600 + (particle.id % 5) * 260;
-  const startDelay = (particle.id % 10) * 90;
+  const x = ((index * 47) % 100) / 100 * width;
+  const y = -80 - (index % 8) * 38;
+  const size = 20 + (index % 4) * 5;
+  const delay = (index % 10) * 90;
+  const duration = 2600 + (index % 5) * 220;
 
   useEffect(() => {
     const animation = Animated.loop(
       Animated.sequence([
-        Animated.delay(startDelay),
+        Animated.delay(delay),
         Animated.parallel([
           Animated.timing(fall, { toValue: 1, duration, easing: Easing.linear, useNativeDriver: true, isInteraction: false }),
           Animated.timing(rotate, { toValue: 1, duration, easing: Easing.linear, useNativeDriver: true, isInteraction: false }),
@@ -56,34 +41,44 @@ const EmojiParticle = ({ particle, width, height }) => {
       swing.stopAnimation();
       rotate.stopAnimation();
     };
-  }, [duration, fall, rotate, startDelay, swing]);
+  }, [decorationKey, delay, duration, fall, rotate, swing]);
 
-  const y = -80 - (particle.id % 6) * 45;
-  const x = (particle.id * 41 % 100) / 100 * width;
   return (
-    <Animated.View style={[styles.particle, {
-      left: x,
-      top: y,
-      opacity: 1,
-      transform: [
-        { translateY: fall.interpolate({ inputRange: [0, 1], outputRange: [0, height + 180] }) },
-        { translateX: swing.interpolate({ inputRange: [0, 1], outputRange: [0, particle.id % 2 ? -34 : 34] }) },
-        { rotate: rotate.interpolate({ inputRange: [0, 1], outputRange: ['0deg', `${particle.id % 2 ? -720 : 720}deg`] }) },
-      ],
-    }]}>
-      <Text style={styles.emoji}>{EMOJIS[particle.id % EMOJIS.length]}</Text>
+    <Animated.View
+      pointerEvents="none"
+      style={[
+        styles.particle,
+        {
+          left: x,
+          top: y,
+          opacity: 1,
+          transform: [
+            { translateY: fall.interpolate({ inputRange: [0, 1], outputRange: [0, height + 180] }) },
+            { translateX: swing.interpolate({ inputRange: [0, 1], outputRange: [0, index % 2 ? -42 : 42] }) },
+            { rotate: rotate.interpolate({ inputRange: [0, 1], outputRange: ['0deg', `${index % 2 ? -720 : 720}deg`] }) },
+          ],
+        },
+      ]}
+    >
+      <Text style={[styles.emoji, { fontSize: size }]}>{EMOJIS[index % EMOJIS.length]}</Text>
     </Animated.View>
   );
 };
 
 const SeasonalSplashEffects = ({ decoration }) => {
   const { width, height } = useWindowDimensions();
-  const particles = useMemo(() => createSplashParticles(decoration), [decoration]);
   if (!decoration) return null;
+
   return (
     <View pointerEvents="none" style={styles.overlay}>
-      {particles.map(particle => (
-        <EmojiParticle key={`${decoration.key}-${particle.id}`} particle={particle} width={width} height={height} />
+      {Array.from({ length: PARTICLE_COUNT }, (_, index) => (
+        <EmojiParticle
+          key={`${decoration.key}-${index}`}
+          index={index}
+          width={width}
+          height={height}
+          decorationKey={decoration.key}
+        />
       ))}
     </View>
   );
@@ -91,18 +86,17 @@ const SeasonalSplashEffects = ({ decoration }) => {
 
 const styles = StyleSheet.create({
   overlay: {
-    ...StyleSheet.absoluteFillObject,
-    zIndex: 9999,
-    elevation: 9999,
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+    zIndex: 99999,
+    elevation: 99999,
     overflow: 'hidden',
   },
   particle: { position: 'absolute' },
-  emoji: {
-    fontSize: 28,
-    lineHeight: 34,
-    textAlign: 'center',
-    includeFontPadding: false,
-  },
+  emoji: { lineHeight: 38, includeFontPadding: false, textAlign: 'center' },
 });
 
 export default SeasonalSplashEffects;
