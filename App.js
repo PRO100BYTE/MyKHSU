@@ -154,8 +154,10 @@ export default Sentry.wrap(function App() {
   });
 
   const [isLoading, setIsLoading] = useState(true);
+  const [initializationReady, setInitializationReady] = useState(false);
   const [showSplashOverlay, setShowSplashOverlay] = useState(true);
   const splashTransition = useRef(new Animated.Value(1)).current;
+  const splashStartedAt = useRef(Date.now());
   const [onboardingRequired, setOnboardingRequired] = useState(null);
   const [activeScreen, setActiveScreen] = useState(SCREENS.SCHEDULE);
   const [theme, setTheme] = useState('auto');
@@ -459,11 +461,7 @@ const handleNewYearModeChange = async (enabled) => {
       console.error('Error initializing app:', error);
       Sentry.captureException(error);
     } finally {
-      // До изменений splash показывался 2 секунды; теперь — 4.5 секунды.
-      console.info(`Splash duration: ${SPLASH_DURATION_BEFORE_MS}ms -> ${SPLASH_DURATION_MS}ms`);
-      setTimeout(() => {
-        setIsLoading(false);
-      }, SPLASH_DURATION_MS);
+      setInitializationReady(true);
     }
   };
 
@@ -534,6 +532,15 @@ const handleNewYearModeChange = async (enabled) => {
 
   const effectiveTheme = getEffectiveTheme();
   
+  useEffect(() => {
+    if (!initializationReady || !fontsLoaded || onboardingRequired === null) return undefined;
+    const startedAt = Date.now();
+    const remaining = Math.max(0, SPLASH_DURATION_MS - (startedAt - splashStartedAt.current));
+    const timer = setTimeout(() => setIsLoading(false), remaining);
+    console.info(`Splash duration: ${SPLASH_DURATION_BEFORE_MS}ms -> ${SPLASH_DURATION_MS}ms`);
+    return () => clearTimeout(timer);
+  }, [fontsLoaded, initializationReady, onboardingRequired]);
+
   const shouldShowSplash = !fontsLoaded || isLoading || onboardingRequired === null;
   const holiday = getHolidayInfo();
   const holidayInfo = holiday && (holiday.type !== 'new-year' || splashNewYearMode) ? holiday : null;
