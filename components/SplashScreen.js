@@ -1,172 +1,140 @@
 import React, { useEffect, useMemo, useRef } from 'react';
-import { View, Text, StyleSheet, StatusBar, Animated, Dimensions, ActivityIndicator, Platform } from 'react-native';
+import { View, Text, StyleSheet, StatusBar, Animated, Dimensions } from 'react-native';
 import { Ionicons as Icon } from '@expo/vector-icons';
-import { GlassView, isGlassEffectAPIAvailable, isLiquidGlassAvailable } from 'expo-glass-effect';
-import { ACCENT_COLORS, LIQUID_GLASS, APP_VERSION } from '../utils/constants';
+import { ACCENT_COLORS, APP_VERSION, BUILD_VER, LIQUID_GLASS } from '../utils/constants';
 import MatrixRain from './MatrixRain';
 import SeasonalSplashEffects, { useSplashReduceMotion } from './SeasonalSplashEffects';
 import { getSplashDecoration } from '../utils/splashSeason';
 
 const { width, height } = Dimensions.get('window');
+const LOGO = require('../assets/icon.png');
 
 const HOLIDAY_COLORS = {
-  'new-year': { dark: ['#FFD700', ['#FFD700', '#FF5722', '#2196F3']], light: ['#D32F2F', ['#FFD700', '#FF5722', '#2196F3']] },
-  'student-day': { dark: ['#64B5F6', ['#1565C0', '#FFD700', '#1565C0']], light: ['#1565C0', ['#1565C0', '#FFD700', '#1565C0']] },
-  'valentines-day': { dark: ['#F48FB1', ['#E91E63', '#FF5252', '#E91E63']], light: ['#C62828', ['#E91E63', '#FF5252', '#E91E63']] },
-  'defender-day': { dark: ['#81C784', ['#2E7D32', '#FF8F00', '#2E7D32']], light: ['#2E7D32', ['#2E7D32', '#FF8F00', '#2E7D32']] },
-  'womens-day': { dark: ['#F48FB1', ['#E91E63', '#FF80AB', '#E91E63']], light: ['#AD1457', ['#E91E63', '#FF80AB', '#E91E63']] },
-  'cosmonautics-day': { dark: ['#90CAF9', ['#1A237E', '#FFD700', '#1A237E']], light: ['#1A237E', ['#1A237E', '#FFD700', '#1A237E']] },
-  'may-day': { dark: ['#A5D6A7', ['#FFD700', '#2E7D32', '#FFD700']], light: ['#2E7D32', ['#FFD700', '#2E7D32', '#FFD700']] },
-  'victory-day': { dark: ['#FFCC80', ['#FF6F00', '#212121', '#FF6F00']], light: ['#BF360C', ['#FF6F00', '#212121', '#FF6F00']] },
-  'children-day': { dark: ['#FFF176', ['#FF5722', '#4CAF50', '#2196F3']], light: ['#F57F17', ['#FF5722', '#4CAF50', '#2196F3']] },
-  'knowledge-day': { dark: ['#90CAF9', ['#FF6F00', '#1565C0', '#FF6F00']], light: ['#1565C0', ['#FF6F00', '#1565C0', '#FF6F00']] },
-  'september-3': { dark: ['#FFCC80', ['#FF8F00', '#D84315', '#FF8F00']], light: ['#BF360C', ['#FF8F00', '#D84315', '#FF8F00']] },
-  'programmer-day': { dark: ['#A5D6A7', ['#4CAF50', '#00E676', '#4CAF50']], light: ['#1B5E20', ['#4CAF50', '#00E676', '#4CAF50']] },
-  'sysadmin-day': { dark: ['#90CAF9', ['#0D47A1', '#2196F3', '#0D47A1']], light: ['#0D47A1', ['#0D47A1', '#2196F3', '#0D47A1']] },
-  'teacher-day': { dark: ['#FFF176', ['#FF6F00', '#FFD700', '#FF6F00']], light: ['#E65100', ['#FF6F00', '#FFD700', '#FF6F00']] },
-  'unity-day': { dark: ['#EF9A9A', ['#FFFFFF', '#1565C0', '#D32F2F']], light: ['#B71C1C', ['#FFFFFF', '#1565C0', '#D32F2F']] },
-  'intl-student-day': { dark: ['#90CAF9', ['#1565C0', '#FFD700', '#1565C0']], light: ['#1565C0', ['#1565C0', '#FFD700', '#1565C0']] },
+  'new-year': { dark: '#FFD166', light: '#C62828' }, 'student-day': { dark: '#64B5F6', light: '#1565C0' },
+  'valentines-day': { dark: '#F48FB1', light: '#C62828' }, 'defender-day': { dark: '#81C784', light: '#2E7D32' },
+  'womens-day': { dark: '#F48FB1', light: '#AD1457' }, 'cosmonautics-day': { dark: '#90CAF9', light: '#1A237E' },
+  'may-day': { dark: '#A5D6A7', light: '#2E7D32' }, 'victory-day': { dark: '#FFCC80', light: '#BF360C' },
+  'children-day': { dark: '#FFF176', light: '#F57F17' }, 'knowledge-day': { dark: '#90CAF9', light: '#1565C0' },
+  'september-3': { dark: '#FFCC80', light: '#BF360C' }, 'programmer-day': { dark: '#A5D6A7', light: '#1B5E20' },
+  'sysadmin-day': { dark: '#90CAF9', light: '#0D47A1' }, 'teacher-day': { dark: '#FFF176', light: '#E65100' },
+  'unity-day': { dark: '#EF9A9A', light: '#B71C1C' }, 'intl-student-day': { dark: '#90CAF9', light: '#1565C0' },
 };
 
 const HOLIDAY_ICONS = {
-  'new-year': ['sparkles', 'sparkles', 'sparkles'], 'student-day': ['school', 'star', 'school'],
-  'valentines-day': ['heart', 'heart', 'heart'], 'defender-day': ['shield', 'star', 'shield'],
-  'womens-day': ['flower', 'heart', 'flower'], 'cosmonautics-day': ['rocket', 'star', 'planet'],
-  'may-day': ['sunny', 'flower', 'sunny'], 'victory-day': ['star', 'ribbon', 'star'],
-  'children-day': ['balloon', 'happy', 'balloon'], 'knowledge-day': ['book', 'pencil', 'book'],
-  'september-3': ['musical-notes', 'calendar', 'musical-notes'],
+  'new-year': ['sparkles', 'snow', 'star'], 'student-day': ['school', 'star', 'school'], 'valentines-day': ['heart', 'heart', 'heart'],
+  'defender-day': ['shield', 'star', 'shield'], 'womens-day': ['flower', 'heart', 'flower'], 'cosmonautics-day': ['rocket', 'star', 'planet'],
+  'may-day': ['sunny', 'flower', 'sunny'], 'victory-day': ['star', 'ribbon', 'star'], 'children-day': ['balloon', 'happy', 'balloon'],
+  'knowledge-day': ['book', 'pencil', 'book'], 'september-3': ['musical-notes', 'calendar', 'musical-notes'],
   'programmer-day': ['code-slash', 'terminal', 'code-slash'], 'sysadmin-day': ['server', 'construct', 'server'],
-  'teacher-day': ['easel', 'book', 'easel'], 'unity-day': ['people', 'flag', 'people'],
-  'intl-student-day': ['earth', 'school', 'earth'],
+  'teacher-day': ['easel', 'book', 'easel'], 'unity-day': ['people', 'flag', 'people'], 'intl-student-day': ['earth', 'school', 'earth'],
 };
 
-const GlassSurface = ({ children, style, glass }) => {
-  let supportsGlass = false;
-  try {
-    supportsGlass = Platform.OS === 'ios' && isLiquidGlassAvailable() && isGlassEffectAPIAvailable();
-  } catch {
-    supportsGlass = false;
-  }
-  if (supportsGlass) {
-    return <GlassView glassEffectStyle="regular" colorScheme={glass?.isSpecialTheme ? 'dark' : 'auto'} style={[style, { backgroundColor: 'transparent' }]}>{children}</GlassView>;
-  }
-  return <View style={[style, { backgroundColor: glass?.surfaceSecondary || 'rgba(255,255,255,0.08)' }]}>{children}</View>;
-};
-
-const SplashScreen = ({ accentColor, theme, holidayInfo, legendUnlocked = false }) => {
+const SplashScreen = ({ accentColor, theme, holidayInfo, legendUnlocked = false, splashDate }) => {
   const reduceMotion = useSplashReduceMotion();
-  const decoration = useMemo(() => getSplashDecoration({ holidayInfo, theme, legendUnlocked }), [holidayInfo, theme, legendUnlocked]);
-  const safeAccentColor = accentColor || 'green';
-  const colors = ACCENT_COLORS[safeAccentColor] || ACCENT_COLORS.green;
-  const safeColors = colors || { primary: '#10b981', light: '#d1fae5' };
+  const decoration = useMemo(() => getSplashDecoration({ date: splashDate, holidayInfo, theme, legendUnlocked }), [splashDate, holidayInfo, theme, legendUnlocked]);
+  const colors = ACCENT_COLORS[accentColor] || ACCENT_COLORS.green;
   const glass = LIQUID_GLASS[theme] || LIQUID_GLASS.light;
   const isMatrix = theme === 'matrix';
   const isLegendSplash = legendUnlocked;
-  const primary = isLegendSplash ? '#FFD666' : safeColors.primary;
-  const backgroundColor = isLegendSplash ? '#140E05' : (isMatrix ? (glass.backgroundSolid || '#0D0208') : glass.background);
-  const textColor = isLegendSplash ? '#F6E7C1' : ((theme === 'dark' || isMatrix) ? '#fff' : '#1c1c1e');
-  const subtextColor = isLegendSplash ? 'rgba(255,214,102,0.72)' : ((theme === 'dark' || isMatrix) ? 'rgba(255,255,255,0.55)' : 'rgba(0,0,0,0.45)');
-  const holidayTheme = theme === 'light' ? 'light' : 'dark';
-  const holidayEntry = HOLIDAY_COLORS[holidayInfo?.type]?.[holidayTheme];
-  const holiday = holidayEntry ? { text: holidayEntry[0], icons: holidayEntry[1] } : { text: theme === 'light' ? '#D32F2F' : '#FFD700', icons: ['#FFD700', '#FF5722', '#2196F3'] };
+  const primary = isLegendSplash ? '#FFD666' : colors.primary;
+  const backgroundColor = isLegendSplash ? '#120D06' : (isMatrix ? (glass.backgroundSolid || '#050C08') : glass.background);
+  const textColor = isLegendSplash ? '#F6E7C1' : ((theme === 'dark' || isMatrix) ? '#fff' : '#15231B');
+  const subtextColor = isLegendSplash ? 'rgba(255,214,102,0.72)' : ((theme === 'dark' || isMatrix) ? 'rgba(255,255,255,0.58)' : 'rgba(21,35,27,0.58)');
+  const holidayColor = HOLIDAY_COLORS[holidayInfo?.type]?.[theme === 'light' ? 'light' : 'dark'] || primary;
   const holidayIcons = HOLIDAY_ICONS[holidayInfo?.type] || ['sparkles', 'star', 'sparkles'];
-  const reveal = useRef(new Animated.Value(0)).current;
-  const sheetDrift = useRef(new Animated.Value(0)).current;
-  const ribbonReveal = useRef(new Animated.Value(0)).current;
+  const intro = useRef(new Animated.Value(0)).current;
+  const pulse = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     if (reduceMotion !== false) {
-      reveal.setValue(1);
-      sheetDrift.setValue(0);
-      ribbonReveal.setValue(1);
+      intro.setValue(1);
+      pulse.setValue(0);
       return undefined;
     }
-    const animations = [
-      Animated.timing(reveal, { toValue: 1, duration: 650, useNativeDriver: true, isInteraction: false }),
-      Animated.timing(ribbonReveal, { toValue: 1, duration: 520, delay: 180, useNativeDriver: true, isInteraction: false }),
-      Animated.loop(Animated.sequence([
-        Animated.timing(sheetDrift, { toValue: 1, duration: 5200, useNativeDriver: true, isInteraction: false }),
-        Animated.timing(sheetDrift, { toValue: 0, duration: 5200, useNativeDriver: true, isInteraction: false }),
-      ])),
-    ];
-    animations.forEach(animation => animation.start());
-    return () => animations.forEach(animation => animation.stop());
+    const introAnimation = Animated.spring(intro, { toValue: 1, friction: 8, tension: 45, useNativeDriver: true, isInteraction: false });
+    const pulseAnimation = Animated.loop(Animated.sequence([
+      Animated.timing(pulse, { toValue: 1, duration: 2600, useNativeDriver: true, isInteraction: false }),
+      Animated.timing(pulse, { toValue: 0, duration: 2600, useNativeDriver: true, isInteraction: false }),
+    ]));
+    introAnimation.start();
+    pulseAnimation.start();
+    return () => { introAnimation.stop(); pulseAnimation.stop(); };
   }, [reduceMotion]);
 
-  const drift = sheetDrift.interpolate({ inputRange: [0, 1], outputRange: [0, 7] });
-  const sheetTranslate = reveal.interpolate({ inputRange: [0, 1], outputRange: [34, 0] });
-  const ribbonTranslate = ribbonReveal.interpolate({ inputRange: [0, 1], outputRange: [26, 0] });
+  const logoScale = intro.interpolate({ inputRange: [0, 1], outputRange: [.72, 1] });
+  const logoOpacity = intro;
+  const haloScale = pulse.interpolate({ inputRange: [0, 1], outputRange: [1, 1.12] });
+  const haloOpacity = pulse.interpolate({ inputRange: [0, 1], outputRange: [.18, .04] });
 
   return (
-    <View style={[styles.container, { backgroundColor }]}>
+    <View style={[styles.container, { backgroundColor }] }>
       <StatusBar barStyle={theme === 'light' ? 'dark-content' : 'light-content'} backgroundColor={backgroundColor} />
       {isMatrix && reduceMotion === false ? <MatrixRain intensity={0.85} /> : <>
-        <Animated.View style={[styles.paperStrip, { backgroundColor: primary, opacity: isLegendSplash ? .08 : .07, transform: [{ translateX: drift }, { rotate: '-14deg' }] }]} />
-        <Animated.View style={[styles.paperStrip, styles.paperStripSecond, { backgroundColor: primary, opacity: isLegendSplash ? .06 : .05, transform: [{ translateX: drift }, { rotate: '18deg' }] }]} />
+        <View style={[styles.cornerBlock, { backgroundColor: primary }]} />
+        <View style={[styles.cornerBlockSmall, { borderColor: `${primary}99` }]} />
       </>}
       <SeasonalSplashEffects decoration={decoration} reduceMotion={reduceMotion} />
 
-      <View style={styles.contentContainer}>
-        <Animated.View style={[styles.sheet, { opacity: reveal, transform: [{ translateX: sheetTranslate }, { translateY: drift }, { rotate: '-2deg' }] }]}>
-          <GlassSurface glass={glass} style={[styles.sheetSurface, { borderColor: `${primary}55`, shadowColor: primary }]}>
-            <View style={[styles.sheetRule, { backgroundColor: primary }]} />
-            <View style={styles.sheetHeader}>
-              <Text style={[styles.sheetKicker, { color: primary }]}>ИТИ · ХГУ</Text>
-              <Text style={[styles.sheetIndex, { color: subtextColor }]}>01 / 01</Text>
-            </View>
-            <View style={[styles.foldMark, { borderBottomColor: primary }]} />
-            <Text style={[styles.title, { color: textColor }]}>Мой ИТИ ХГУ</Text>
-            <Text style={[styles.subtitle, { color: subtextColor }]}>{isLegendSplash ? 'Легенда ИТИ ХГУ' : 'Твой университет в кармане'}</Text>
-            <View style={styles.notes}>
-              <View style={[styles.noteLine, { backgroundColor: `${primary}45`, width: '82%' }]} />
-              <View style={[styles.noteLine, { backgroundColor: `${primary}30`, width: '61%' }]} />
-              <View style={[styles.noteLine, { backgroundColor: `${primary}24`, width: '72%' }]} />
-            </View>
-            {isLegendSplash && <Text style={[styles.legend, { color: '#FFD666' }]}>ВСЕ ДОСТИЖЕНИЯ СОБРАНЫ</Text>}
-            {holidayInfo && <View style={styles.holidayRow}>
-              <Text style={[styles.holidayText, { color: holiday.text }]}>{holidayInfo.text}</Text>
-              <View style={styles.holidayIcons}>{holidayIcons.map((name, index) => <Icon key={index} name={name} size={index === 1 ? 13 : 16} color={holiday.icons[index]} style={styles.holidayIcon} />)}</View>
-            </View>}
-          </GlassSurface>
-        </Animated.View>
+      <Animated.View style={[styles.main, { opacity: intro, transform: [{ translateY: intro.interpolate({ inputRange: [0, 1], outputRange: [22, 0] }) }] }]}>
+        <View style={styles.topLine}>
+          <Text style={[styles.eyebrow, { color: primary }]}>ХГУ · ИНСТИТУТ ИТ</Text>
+          <Text style={[styles.edition, { color: subtextColor }]}>EST. 1991</Text>
+        </View>
+        <View style={[styles.divider, { backgroundColor: `${primary}55` }]} />
 
-        <Animated.View style={[styles.ribbon, { opacity: ribbonReveal, transform: [{ translateX: ribbonTranslate }, { rotate: '4deg' }] }]}>
-          <View style={[styles.ribbonMark, { backgroundColor: primary }]} />
-          <Text style={[styles.ribbonLabel, { color: textColor }]}>ОТКРЫВАЕМ ПРИЛОЖЕНИЕ</Text>
-          <ActivityIndicator size="small" color={primary} />
-        </Animated.View>
+        <View style={styles.logoStage}>
+          <Animated.View style={[styles.halo, { borderColor: primary, opacity: haloOpacity, transform: [{ scale: haloScale }] }]} />
+          <View style={[styles.logoFrame, { borderColor: `${primary}88`, backgroundColor: isLegendSplash ? '#211605' : (theme === 'light' ? '#FFFFFF' : '#102019') }]}>
+            <Animated.Image source={LOGO} resizeMode="contain" style={[styles.logo, { opacity: logoOpacity, transform: [{ scale: logoScale }] }]} />
+          </View>
+          <View style={[styles.crosshair, styles.crosshairTop, { backgroundColor: primary }]} />
+          <View style={[styles.crosshair, styles.crosshairBottom, { backgroundColor: primary }]} />
+        </View>
+
+        <Text style={[styles.title, { color: textColor }]}>Мой ИТИ ХГУ</Text>
+        <Text style={[styles.subtitle, { color: subtextColor }]}>{isLegendSplash ? 'Легенда ИТИ ХГУ' : 'Твой университет в кармане'}</Text>
+        {isLegendSplash && <Text style={[styles.legend, { color: primary }]}>ВСЕ ДОСТИЖЕНИЯ СОБРАНЫ</Text>}
+        {holidayInfo && <View style={styles.holidayRow}>
+          <Text style={[styles.holidayText, { color: holidayColor }]}>{holidayInfo.text}</Text>
+          <View style={styles.holidayIcons}>{holidayIcons.map((name, index) => <Icon key={index} name={name} size={index === 1 ? 14 : 17} color={holidayColor} style={styles.holidayIcon} />)}</View>
+        </View>}
+      </Animated.View>
+
+      <View style={styles.footer}>
+        <Text style={[styles.meta, { color: subtextColor }]}>МОБИЛЬНЫЙ КАБИНЕТ СТУДЕНТА</Text>
+        <View style={styles.buildRow}>
+          <Text style={[styles.version, { color: subtextColor }]}>v{APP_VERSION}</Text>
+          <Text style={[styles.build, { color: subtextColor }]}>BUILD {BUILD_VER}</Text>
+        </View>
       </View>
-
-      <Text style={[styles.version, { color: subtextColor }]}>v{APP_VERSION}</Text>
     </View>
   );
 };
 
 const styles = StyleSheet.create({
   container: { flex: 1, overflow: 'hidden' },
-  paperStrip: { position: 'absolute', width: width * 1.5, height: 92, left: -width * .25, top: height * .17 },
-  paperStripSecond: { top: height * .72, height: 64 },
-  contentContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 25, zIndex: 2 },
-  sheet: { width: Math.min(width - 48, 344), minHeight: 350, shadowOpacity: .2, shadowRadius: 26, elevation: 9 },
-  sheetSurface: { minHeight: 350, borderWidth: 1, borderRadius: 10, padding: 25, overflow: 'hidden' },
-  sheetRule: { width: 38, height: 4, borderRadius: 2, marginBottom: 30 },
-  sheetHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 42 },
-  sheetKicker: { fontSize: 11, letterSpacing: 2, fontFamily: 'Montserrat_700Bold' },
-  sheetIndex: { fontSize: 10, letterSpacing: 1.1, fontFamily: 'Montserrat_500Medium' },
-  foldMark: { position: 'absolute', right: 0, top: 0, width: 0, height: 0, borderStyle: 'solid', borderRightWidth: 42, borderBottomWidth: 42, borderRightColor: 'transparent', borderBottomColor: 'transparent', borderLeftColor: 'transparent', borderTopColor: 'transparent' },
-  title: { fontSize: 31, lineHeight: 37, fontWeight: '700', letterSpacing: .1, fontFamily: 'Montserrat_700Bold' },
-  subtitle: { fontSize: 14, letterSpacing: .3, marginTop: 10, fontFamily: 'Montserrat_500Medium' },
-  notes: { marginTop: 42, gap: 10 },
-  noteLine: { height: 2, borderRadius: 2 },
-  legend: { fontSize: 10, letterSpacing: 1.1, marginTop: 20, fontFamily: 'Montserrat_600SemiBold' },
-  holidayRow: { marginTop: 29, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: 'rgba(127,127,127,.22)', paddingTop: 13, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  holidayText: { fontSize: 14, fontWeight: '700', flex: 1, fontFamily: 'Montserrat_700Bold' },
-  holidayIcons: { flexDirection: 'row' },
-  holidayIcon: { marginLeft: 6 },
-  ribbon: { flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-end', marginTop: -28, marginRight: 8, paddingHorizontal: 16, paddingVertical: 12, borderRadius: 4, backgroundColor: 'rgba(127,127,127,.13)', gap: 9 },
-  ribbonMark: { width: 7, height: 7, borderRadius: 1 },
-  ribbonLabel: { fontSize: 9, letterSpacing: 1, fontFamily: 'Montserrat_600SemiBold' },
-  version: { position: 'absolute', bottom: 40, left: 25, fontSize: 11, letterSpacing: .8, fontFamily: 'Montserrat_400Regular' },
+  cornerBlock: { position: 'absolute', width: 170, height: 170, right: -92, top: -84, transform: [{ rotate: '45deg' }], opacity: .12 },
+  cornerBlockSmall: { position: 'absolute', width: 120, height: 120, left: -82, bottom: 62, borderWidth: 1, transform: [{ rotate: '45deg' }], opacity: .55 },
+  main: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 28, zIndex: 2 },
+  topLine: { width: '100%', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  eyebrow: { fontSize: 11, letterSpacing: 1.8, fontFamily: 'Montserrat_700Bold' },
+  edition: { fontSize: 9, letterSpacing: 1.4, fontFamily: 'Montserrat_500Medium' },
+  divider: { width: '100%', height: 1, marginTop: 15 },
+  logoStage: { width: 218, height: 218, alignItems: 'center', justifyContent: 'center', marginTop: 54, marginBottom: 34 },
+  halo: { position: 'absolute', width: 204, height: 204, borderWidth: 1, borderRadius: 102 },
+  logoFrame: { width: 158, height: 158, borderWidth: 1, alignItems: 'center', justifyContent: 'center', transform: [{ rotate: '45deg' }] },
+  logo: { width: 116, height: 116, transform: [{ rotate: '-45deg' }] },
+  crosshair: { position: 'absolute', width: 6, height: 6, transform: [{ rotate: '45deg' }] },
+  crosshairTop: { top: 0 }, crosshairBottom: { bottom: 0 },
+  title: { fontSize: 32, lineHeight: 39, letterSpacing: -.4, fontFamily: 'Montserrat_700Bold', textAlign: 'center' },
+  subtitle: { marginTop: 11, fontSize: 14, letterSpacing: .4, fontFamily: 'Montserrat_500Medium' },
+  legend: { marginTop: 18, fontSize: 10, letterSpacing: 1.2, fontFamily: 'Montserrat_700Bold' },
+  holidayRow: { marginTop: 26, paddingTop: 13, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: 'rgba(127,127,127,.35)', width: '100%', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  holidayText: { fontSize: 14, fontFamily: 'Montserrat_700Bold', flex: 1 }, holidayIcons: { flexDirection: 'row' }, holidayIcon: { marginLeft: 7 },
+  footer: { position: 'absolute', left: 25, right: 25, bottom: 27, zIndex: 2 },
+  meta: { fontSize: 9, letterSpacing: 1.2, fontFamily: 'Montserrat_500Medium', marginBottom: 10 },
+  buildRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  version: { fontSize: 11, letterSpacing: .8, fontFamily: 'Montserrat_600SemiBold' }, build: { fontSize: 9, letterSpacing: 1, fontFamily: 'Montserrat_500Medium' },
 });
 
 export default SplashScreen;

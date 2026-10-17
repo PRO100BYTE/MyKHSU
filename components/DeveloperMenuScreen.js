@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, TextInput, StyleSheet, Alert, Switch, Clipboard, Platform } from 'react-native';
+import { View, Text, TouchableOpacity, TextInput, StyleSheet, Alert, Switch, Clipboard, Platform, Modal } from 'react-native';
 import ScrollView from './ScreenScrollView';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import * as SecureStore from 'expo-secure-store';
@@ -18,6 +18,7 @@ import notificationService from '../utils/notificationService';
 import backgroundService from '../utils/backgroundService';
 import { exportScheduleToCalendar } from '../utils/calendarExport';
 import SnakeGame from './SnakeGame';
+import SplashScreen from './SplashScreen';
 import { SectionHeader, SettingsGroup } from './SettingsComponents';
 import { resetOnboarding } from '../utils/onboarding';
 import { clearAllCache } from '../utils/cache';
@@ -36,6 +37,7 @@ const DeveloperMenuScreen = ({ theme, accentColor, onCommunityFeatureChange, onL
   const [smokeTestResults, setSmokeTestResults] = useState(null);
   const [communityFeatureEnabled, setCommunityFeatureEnabled] = useState(false);
   const [liquidGlassEnabled, setLiquidGlassEnabled] = useState(true);
+  const [splashPreview, setSplashPreview] = useState(null);
 
   const colors = ACCENT_COLORS[accentColor];
   const glass = LIQUID_GLASS[theme] || LIQUID_GLASS.light;
@@ -456,6 +458,16 @@ const DeveloperMenuScreen = ({ theme, accentColor, onCommunityFeatureChange, onL
         </SettingsGroup>
 
         {/* Отладочные инструменты */}
+        <SectionHeader title="Тест splash screen" placeholderColor={placeholderColor} />
+        <SettingsGroup glass={glass} style={styles.section}>
+          <Text style={[styles.sectionDescription, { color: placeholderColor }]}>Проверка логотипа, сезонов, праздников и специальных тем.</Text>
+          <TouchableOpacity style={[styles.actionButton, { backgroundColor: inputBgColor, borderColor }]} onPress={() => setSplashPreview({ theme, accentColor })}>
+            <Icon name="color-wand-outline" size={20} color={colors.primary} /><Text style={[styles.actionButtonText, { color: textColor }]}>Открыть текущий splash</Text>
+          </TouchableOpacity>
+          <View style={styles.previewGrid}>{[['Зима', 0], ['Весна', 3], ['Лето', 6], ['Осень', 9]].map(([label, month]) => <TouchableOpacity key={label} style={[styles.previewChip, { borderColor, backgroundColor: inputBgColor }]} onPress={() => setSplashPreview({ theme, accentColor, splashDate: new Date(2026, month, 15) })}><Text style={[styles.previewChipText, { color: textColor }]}>{label}</Text></TouchableOpacity>)}</View>
+          <View style={styles.previewGrid}>{[['new-year', 'Новый год'], ['student-day', 'День студента'], ['programmer-day', 'День программиста'], ['victory-day', 'День Победы']].map(([type, text]) => <TouchableOpacity key={type} style={[styles.previewChip, { borderColor, backgroundColor: inputBgColor }]} onPress={() => setSplashPreview({ theme, accentColor, holidayInfo: { type, text } })}><Text style={[styles.previewChipText, { color: textColor }]}>{text}</Text></TouchableOpacity>)}</View>
+          <View style={styles.previewGrid}><TouchableOpacity style={[styles.previewChip, { borderColor, backgroundColor: inputBgColor }]} onPress={() => setSplashPreview({ theme: 'matrix', accentColor })}><Text style={[styles.previewChipText, { color: textColor }]}>Matrix</Text></TouchableOpacity><TouchableOpacity style={[styles.previewChip, { borderColor, backgroundColor: inputBgColor }]} onPress={() => setSplashPreview({ theme, accentColor, legendUnlocked: true })}><Text style={[styles.previewChipText, { color: textColor }]}>Легенда</Text></TouchableOpacity></View>
+        </SettingsGroup>
         <SectionHeader title="Отладка" placeholderColor={placeholderColor} />
         <SettingsGroup glass={glass} style={styles.section}>
           
@@ -1545,6 +1557,11 @@ const DeveloperMenuScreen = ({ theme, accentColor, onCommunityFeatureChange, onL
         </View>
 
       </ScrollView>
+      {splashPreview && (
+        <Modal visible transparent animationType="fade" onRequestClose={() => setSplashPreview(null)}>
+          <View style={styles.splashPreviewModal}><SplashScreen {...splashPreview} /><TouchableOpacity style={styles.closePreview} onPress={() => setSplashPreview(null)}><Icon name="close" size={24} color="#fff" /></TouchableOpacity></View>
+        </Modal>
+      )}
       {snakeVisible && (
         <SnakeGame
           visible={snakeVisible}
@@ -1637,6 +1654,11 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     gap: 8,
   },
+  previewGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 4, marginBottom: 8 },
+  previewChip: { paddingHorizontal: 10, paddingVertical: 9, borderRadius: 10, borderWidth: StyleSheet.hairlineWidth },
+  previewChipText: { fontSize: 12, fontFamily: 'Montserrat_500Medium' },
+  splashPreviewModal: { flex: 1, backgroundColor: '#000' },
+  closePreview: { position: 'absolute', top: 48, right: 20, width: 42, height: 42, borderRadius: 21, backgroundColor: 'rgba(0,0,0,.55)', alignItems: 'center', justifyContent: 'center' },
   infoText: {
     fontSize: 12,
     fontFamily: 'Montserrat_400Regular',

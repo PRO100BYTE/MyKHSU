@@ -1,6 +1,6 @@
-# Splash: Institute Paper-Glass Studio
+# Splash: Institute Signal Grid
 
-The splash is an asymmetric editorial desk rather than a centered emblem or orbit. A tilted translucent course sheet anchors the left of the screen, while a narrow reading ribbon crosses it like a bookmarked page. The institute name is set as the page heading; a small folded corner, rule lines, and side notes make the screen feel made for reading instead of like a product template.
+The splash is an original identity screen built around the supplied institute mark: a rotated logo frame, crosshair accents, editorial metadata, and a restrained signal halo. It is intentionally distinct from the previous paper/glass composition while retaining the existing theme, accent, holiday, season, Matrix, Legend, and reduced-motion behavior.
 
 ## Visual system
 
