@@ -10,7 +10,7 @@ import {
   StatusBar, 
   ActivityIndicator,
   ScrollView,
-  useWindowDimensions
+  useWindowDimensions,
 } from 'react-native';
 import MapView, { Marker, PROVIDER_DEFAULT, UrlTile } from 'react-native-maps';
 import NetInfo from '@react-native-community/netinfo';
@@ -37,7 +37,7 @@ const MapScreen = forwardRef(({ theme, accentColor, isNewYearMode, onFilterCount
   const [showFilterSheet, setShowFilterSheet] = useState(false);
   const [showBuildingsList, setShowBuildingsList] = useState(false);
   const { height: windowHeight } = useWindowDimensions();
-  const filterSheetHeight = Math.min(windowHeight * 0.4, 400);
+  const filterSheetHeight = Math.max(windowHeight * 0.5, 1);
   const [webViewKey, setWebViewKey] = useState(0);
   const [mapError, setMapError] = useState(false);
   const [locationPermission, setLocationPermission] = useState(false);
@@ -55,7 +55,6 @@ const MapScreen = forwardRef(({ theme, accentColor, isNewYearMode, onFilterCount
   
   // Анимации
   const fadeAnim = useRef(new Animated.Value(0)).current;
-  const routeModalAnim = useRef(new Animated.Value(0)).current;
   const mapRef = useRef(null);
   const webViewRef = useRef(null);
 
@@ -110,23 +109,6 @@ const MapScreen = forwardRef(({ theme, accentColor, isNewYearMode, onFilterCount
   useEffect(() => {
     initializeMap();
   }, [theme]);
-
-  // Анимация появления модального окна маршрута
-  useEffect(() => {
-    if (showRouteOptions) {
-      Animated.spring(routeModalAnim, {
-        toValue: 1,
-        duration: 300,
-        useNativeDriver: true,
-      }).start();
-    } else {
-      Animated.timing(routeModalAnim, {
-        toValue: 0,
-        duration: 200,
-        useNativeDriver: true,
-      }).start();
-    }
-  }, [showRouteOptions]);
 
   const initializeMap = async () => {
     setLoading(true);
@@ -188,36 +170,30 @@ const MapScreen = forwardRef(({ theme, accentColor, isNewYearMode, onFilterCount
   };
 
   const handleRouteServiceSelect = async (service) => {
-    Animated.timing(routeModalAnim, {
-      toValue: 0,
-      duration: 200,
-      useNativeDriver: true,
-    }).start(() => {
-      setShowRouteOptions(false);
-      
-      if (!selectedBuilding) return;
+    setShowRouteOptions(false);
+    if (!selectedBuilding) return;
 
-      try {
-        let url;
-        
-        switch (service) {
-          case 'yandex':
-            url = `https://yandex.ru/maps/?rtext=~${selectedBuilding.latitude},${selectedBuilding.longitude}&rtt=auto`;
-            break;
-          case '2gis':
-            const lon = selectedBuilding.longitude;
-            const lat = selectedBuilding.latitude;
-            url = `https://2gis.ru/abakan/directions/points/~${lon}%2C${lat}?m=${lon}%2C${lat}%2F16`;
-            break;
-          default:
-            return;
+    try {
+      let url;
+
+      switch (service) {
+        case 'yandex':
+          url = `https://yandex.ru/maps/?rtext=~${selectedBuilding.latitude},${selectedBuilding.longitude}&rtt=auto`;
+          break;
+        case '2gis': {
+          const lon = selectedBuilding.longitude;
+          const lat = selectedBuilding.latitude;
+          url = `https://2gis.ru/abakan/directions/points/~${lon}%2C${lat}?m=${lon}%2C${lat}%2F16`;
+          break;
         }
-
-        Linking.openURL(url);
-      } catch (error) {
-        console.error('Error opening route URL:', error);
+        default:
+          return;
       }
-    });
+
+      await Linking.openURL(url);
+    } catch (error) {
+      console.error('Error opening route URL:', error);
+    }
   };
 
   const handleBuildingSelect = (building) => {
@@ -237,13 +213,7 @@ const MapScreen = forwardRef(({ theme, accentColor, isNewYearMode, onFilterCount
   };
 
   const handleCloseRouteModal = () => {
-    Animated.timing(routeModalAnim, {
-      toValue: 0,
-      duration: 200,
-      useNativeDriver: true,
-    }).start(() => {
-      setShowRouteOptions(false);
-    });
+    setShowRouteOptions(false);
   };
 
   const handleToggleFilter = (filterId) => {
@@ -787,7 +757,9 @@ const MapScreen = forwardRef(({ theme, accentColor, isNewYearMode, onFilterCount
         onRequestClose={() => setShowFilterSheet(false)}
         accessibilityLabel="Фильтры карты"
         bounded
-        contentStyle={{ maxHeight: filterSheetHeight, backgroundColor: 'transparent' }}
+        minHeight={0.5}
+        expandable
+        contentStyle={{ backgroundColor: 'transparent' }}
       >
         <View style={[styles.filterSheet, { backgroundColor: glass.backgroundElevated, borderColor: glass.border }]}>
           <View style={styles.filterSheetHeader}>
@@ -854,25 +826,20 @@ const MapScreen = forwardRef(({ theme, accentColor, isNewYearMode, onFilterCount
         onRequestClose={handleCloseRouteModal}
         accessibilityLabel="Выбор сервиса навигации"
         bounded
-        contentStyle={{ maxHeight: filterSheetHeight, backgroundColor: 'transparent' }}
+        minHeight={0.5}
+        expandable
+        contentStyle={{ backgroundColor: 'transparent' }}
       >
-        <Animated.View style={{ opacity: routeModalAnim }}>
-          <Animated.View
-            style={[
-              styles.routeModal,
-              {
-                backgroundColor: glass.backgroundElevated,
-                borderColor: glass.border,
-                borderWidth: StyleSheet.hairlineWidth,
-                transform: [{
-                  translateY: routeModalAnim.interpolate({
-                    inputRange: [0, 1],
-                    outputRange: [300, 0]
-                  })
-                }]
-              }
-            ]}
-          >
+        <View
+          style={[
+            styles.routeModal,
+            {
+              backgroundColor: glass.backgroundElevated,
+              borderColor: glass.border,
+              borderWidth: StyleSheet.hairlineWidth,
+            },
+          ]}
+        >
             {/* Header with close button */}
             <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 16 }}>
               <View style={{ width: 44, height: 44, borderRadius: 14, backgroundColor: colors.glass, justifyContent: 'center', alignItems: 'center', marginRight: 12, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.glassBorder }}>
@@ -933,8 +900,7 @@ const MapScreen = forwardRef(({ theme, accentColor, isNewYearMode, onFilterCount
               </View>
               <Icon name="open-outline" size={18} color={placeholderColor} />
             </TouchableOpacity>
-          </Animated.View>
-        </Animated.View>
+        </View>
       </NativeSheet>
     </Animated.View>
     </View>
@@ -987,6 +953,7 @@ const styles = StyleSheet.create({
     fontFamily: 'Montserrat_500Medium',
   },
   filterSheet: {
+    flex: 1,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     borderWidth: StyleSheet.hairlineWidth,
@@ -1071,6 +1038,7 @@ const styles = StyleSheet.create({
     fontFamily: 'Montserrat_600SemiBold',
   },
   routeModal: {
+    flex: 1,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     padding: 20,

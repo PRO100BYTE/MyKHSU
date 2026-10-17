@@ -47,7 +47,6 @@ const OnboardingScreen = ({ visible = true, onComplete, theme = 'light', accentC
   const [privacyVisible, setPrivacyVisible] = useState(false);
   const [reduceMotion, setReduceMotion] = useState(false);
   const [motionReady, setMotionReady] = useState(false);
-  const [introFade, setIntroFade] = useState(true);
   const [confettiVisible, setConfettiVisible] = useState(false);
   const [introStarted, setIntroStarted] = useState(false);
   const motionStarted = useRef(false);
@@ -57,8 +56,8 @@ const OnboardingScreen = ({ visible = true, onComplete, theme = 'light', accentC
   const scrollRef = useRef(null);
   const scrollX = useRef(new Animated.Value(0)).current;
   const introOpacity = useRef(new Animated.Value(0)).current;
-  const pagerOffset = useRef(new Animated.Value(0)).current;
-  const pagerAnimationCancel = useRef(null);
+  const pageOpacity = useRef(new Animated.Value(0)).current;
+
   const width = Math.max(1, pagerWidth);
   const isLast = page === pages.length - 1;
 
@@ -71,16 +70,13 @@ const OnboardingScreen = ({ visible = true, onComplete, theme = 'light', accentC
   useEffect(() => {
     if (!visible || !motionReady || motionStarted.current) return undefined;
     motionStarted.current = true;
-    if (reduceMotion) { setIntroStarted(true); setIntroFade(false); return undefined; }
-    introOpacity.setValue(0);
-    Animated.timing(introOpacity, { toValue: 1, duration: 450, useNativeDriver: true }).start(({ finished }) => {
+    if (reduceMotion) { pageOpacity.setValue(1); setIntroStarted(true); return undefined; }
+    pageOpacity.setValue(0);
+    Animated.timing(pageOpacity, { toValue: 1, duration: 350, useNativeDriver: true }).start(({ finished }) => {
       if (finished && mounted.current) setIntroStarted(true);
     });
     return undefined;
-  }, [introOpacity, motionReady, reduceMotion, visible]);
-  useEffect(() => {
-    if (introStarted) setIntroFade(false);
-  }, [introStarted]);
+  }, [motionReady, pageOpacity, reduceMotion, visible]);
   useEffect(() => {
     if (!visible || !isLast || reduceMotion || confettiShown.current) return undefined;
     confettiShown.current = true;
@@ -120,31 +116,28 @@ const OnboardingScreen = ({ visible = true, onComplete, theme = 'light', accentC
   const goTo = index => {
     const next = Math.max(0, Math.min(pages.length - 1, index));
     setPage(next);
-    pagerAnimationCancel.current?.();
-    pagerOffset.setValue(page * width);
-    pagerAnimationCancel.current = animateOnboardingPage({ Animated, value: pagerOffset, scrollRef, target: next * width, reduceMotion, onComplete: () => { pagerAnimationCancel.current = null; } });
+    animateOnboardingPage({ scrollRef, target: next * width, reduceMotion });
   };
   const notificationLabel = useMemo(() => notificationGranted ? (notificationConfigured ? 'Уведомления разрешены и настроены' : 'Разрешения уведомлений выданы') : 'Уведомления не разрешены', [notificationConfigured, notificationGranted]);
   if (!visible) return null;
   const version = Constants.expoConfig?.version || APP_VERSION;
   const openPrivacy = () => Linking.openURL(PRIVACY_URL).catch(() => Alert.alert('Не удалось открыть страницу', 'Проверьте подключение к интернету.'));
-  return <View style={[styles.container, { backgroundColor: glass.background, paddingTop: insets.top + 16, paddingBottom: insets.bottom + 16 }]}>
+  return <Animated.View style={[styles.container, { backgroundColor: glass.background, paddingTop: insets.top + 16, paddingBottom: insets.bottom + 16, opacity: motionReady ? pageOpacity : 0 }]}>
     <View style={styles.topRow}><Text style={[styles.counter, { color: glass.textSecondary }]}>{page + 1} из {pages.length}</Text><Pressable accessibilityRole="button" accessibilityLabel="Пропустить знакомство" onPress={finish} disabled={busy || !introStarted}><Text style={[styles.skip, { color: colors.primary }]}>Пропустить</Text></Pressable></View>
-    <Animated.ScrollView ref={scrollRef} horizontal pagingEnabled showsHorizontalScrollIndicator={false} scrollEventThrottle={16} style={styles.pager} contentContainerStyle={styles.pages} onLayout={e => setPagerWidth(e.nativeEvent.layout.width)} onMomentumScrollEnd={e => setPage(Math.max(0, Math.min(pages.length - 1, Math.round(e.nativeEvent.contentOffset.x / width))))} onScroll={e => { scrollX.setValue(e.nativeEvent.contentOffset.x); pagerOffset.setValue(e.nativeEvent.contentOffset.x); }} scrollEnabled={!introFade && introStarted}>
+    <Animated.ScrollView ref={scrollRef} horizontal pagingEnabled showsHorizontalScrollIndicator={false} scrollEventThrottle={16} style={styles.pager} contentContainerStyle={styles.pages} onLayout={e => setPagerWidth(e.nativeEvent.layout.width)} onMomentumScrollEnd={e => setPage(Math.max(0, Math.min(pages.length - 1, Math.round(e.nativeEvent.contentOffset.x / width))))} onScroll={e => { scrollX.setValue(e.nativeEvent.contentOffset.x); }} scrollEnabled={introStarted}>
       {pagerWidth > 0 && pages.map((item, index) => { const range = [(index - 1) * width, index * width, (index + 1) * width]; return <Animated.View key={item.title} accessibilityElementsHidden={index !== page} style={[styles.page, { width, opacity: reduceMotion ? 1 : scrollX.interpolate({ inputRange: range, outputRange: [0.55, 1, 0.55], extrapolate: 'clamp' }), transform: [{ scale: reduceMotion ? 1 : scrollX.interpolate({ inputRange: range, outputRange: [0.96, 1, 0.96], extrapolate: 'clamp' }) }] }]}><ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={[styles.iconCircle, { backgroundColor: colors.primary }]}><Icon name={item.icon} size={50} color="#fff" /></View><Text style={[styles.title, { color: glass.text }]}>{item.title}</Text><Text style={[styles.text, { color: glass.textSecondary }]}>{item.text}</Text>
-        {index === 0 && <><Text style={[styles.meta, { color: glass.textTertiary }]}>Разработано {APP_DEVELOPERS}. При поддержке {APP_SUPPORTERS}.</Text><Text style={[styles.version, { color: glass.textTertiary }]}>Версия {version} • сборка {BUILD_VER} • {BUILD_DATE}</Text><Pressable accessibilityRole="button" onPress={openPrivacy}><Text style={[styles.privacy, { color: colors.primary }]}>Политика конфиденциальности</Text></Pressable></>}
+        {index === 0 && <><Text style={[styles.meta, { color: glass.textTertiary }]}>Разработано {APP_DEVELOPERS}. При поддержке {APP_SUPPORTERS}.</Text><Text style={[styles.version, { color: glass.textTertiary }]}>Версия {version} • сборка {BUILD_VER} • {BUILD_DATE}</Text><Pressable accessibilityRole="button" onPress={() => setPrivacyVisible(true)}><Text style={[styles.privacy, { color: colors.primary }]}>Политика конфиденциальности</Text></Pressable></>}
         {item.permission && <View style={styles.actions}><Text style={[styles.status, { color: glass.textSecondary }]}>{notificationLabel}</Text><Pressable accessibilityRole="button" style={[styles.permissionButton, { borderColor: colors.primary }]} onPress={requestNotifications}><Icon name="notifications-outline" size={19} color={colors.primary} /><Text style={[styles.permissionText, { color: colors.primary }]}>Включить уведомления</Text></Pressable><Text style={[styles.status, { color: glass.textSecondary }]}>{statusText(calendarStatus)}</Text><Pressable accessibilityRole="button" style={[styles.permissionButton, { borderColor: colors.primary }]} onPress={requestCalendar}><Icon name="calendar-outline" size={19} color={colors.primary} /><Text style={[styles.permissionText, { color: colors.primary }]}>Разрешить календарь</Text></Pressable><Text style={[styles.status, { color: glass.textSecondary }]}>{statusText(galleryStatus)}</Text><Pressable accessibilityRole="button" style={[styles.permissionButton, { borderColor: colors.primary }]} onPress={requestGallery}><Icon name="images-outline" size={19} color={colors.primary} /><Text style={[styles.permissionText, { color: colors.primary }]}>Разрешить галерею</Text></Pressable></View>}
         {item.features && <View style={styles.featureGrid}>{featureDetails.map(feature => <Pressable accessibilityRole="button" accessibilityLabel={`Подробнее: ${feature.title}`} key={feature.title} onPress={() => setSelectedFeature(feature)} style={[styles.featureCard, { width: pagerWidth < 420 ? (pagerWidth - 9) / 2 : (pagerWidth - 18) / 3, backgroundColor: glass.surfaceCard, borderColor: glass.border }]}><Icon name={feature.icon} size={23} color={colors.primary} /><Text style={[styles.featureTitle, { color: glass.text }]}>{feature.title}</Text><Text style={[styles.featureHint, { color: glass.textTertiary }]}>Подробнее</Text></Pressable>)}</View>}
       </ScrollView></Animated.View>; })}
     </Animated.ScrollView>
     {error && <Text style={styles.error}>{error}</Text>}<View style={styles.footer}><View style={styles.dots}>{pages.map((item, index) => <View key={item.title} style={[styles.dot, { backgroundColor: index === page ? colors.primary : glass.textTertiary }]} />)}</View><OnboardingNavigation onBack={() => goTo(page - 1)} onNext={isLast ? finish : () => goTo(page + 1)} backDisabled={page === 0 || !introStarted} busy={busy || !introStarted} isLast={isLast} accent={colors.primary} textColor={glass.text} theme={theme} /></View>
     <Modal transparent visible={Boolean(selectedFeature)} animationType={reduceMotion ? 'none' : 'slide'} onRequestClose={() => setSelectedFeature(null)}><View style={styles.modalBackdrop}><Pressable style={styles.backdropPress} accessibilityLabel="Закрыть" onPress={() => setSelectedFeature(null)} /><View style={[styles.sheet, { backgroundColor: glass.background }]}><View style={styles.handle} /><Pressable accessibilityRole="button" accessibilityLabel="Закрыть подробности" onPress={() => setSelectedFeature(null)} style={styles.close}><Icon name="close" size={24} color={glass.text} /></Pressable><ScrollView contentContainerStyle={styles.modalContent}><View style={[styles.modalIcon, { backgroundColor: colors.primary }]}><Icon name={selectedFeature?.icon || 'information-circle-outline'} size={32} color="#fff" /></View><Text style={[styles.modalTitle, { color: glass.text }]}>{selectedFeature?.title}</Text>{selectedFeature?.points?.map(point => <View key={point} style={styles.point}><Icon name="checkmark-circle" size={19} color={colors.primary} /><Text style={[styles.pointText, { color: glass.textSecondary }]}>{point}</Text></View>)}<Text style={[styles.tip, { color: glass.textSecondary }]}>Совет: {selectedFeature?.tip}</Text></ScrollView></View></View></Modal>
-    <Modal transparent visible={privacyVisible} animationType={reduceMotion ? 'none' : 'slide'} onRequestClose={() => setPrivacyVisible(false)}><View style={styles.modalBackdrop}><Pressable style={styles.backdropPress} accessibilityLabel="Закрыть" onPress={() => setPrivacyVisible(false)} /><View style={[styles.sheet, { backgroundColor: glass.background }]}><View style={styles.handle} /><Pressable accessibilityRole="button" accessibilityLabel="Закрыть политику конфиденциальности" onPress={() => setPrivacyVisible(false)} style={styles.close}><Icon name="close" size={24} color={glass.text} /></Pressable><ScrollView contentContainerStyle={styles.privacyContent}><Text style={[styles.modalTitle, { color: glass.text }]}>Конфиденциальность</Text><Text style={[styles.notice, { color: glass.textSecondary }]}>Подробная политика конфиденциальности доступна на сайте.</Text><Pressable accessibilityRole="link" onPress={openPrivacy}><Text style={[styles.privacy, { color: colors.primary }]}>Открыть политику конфиденциальности</Text></Pressable></ScrollView></View></View></Modal>
-    {confettiVisible && <ConfettiCannon count={70} origin={{ x: -10, y: 0 }} fadeOut colors={[colors.primary, '#F59E0B', '#3B82F6', '#EC4899']} autoStart />}
-    {introFade && <Animated.View pointerEvents="none" style={[styles.fade, { opacity: reduceMotion ? 0 : Animated.subtract(1, introOpacity) }]} onLayout={() => { if (reduceMotion) { setIntroStarted(true); setIntroFade(false); } }} />}
+    <Modal transparent visible={privacyVisible} animationType={reduceMotion ? 'none' : 'slide'} onRequestClose={() => setPrivacyVisible(false)}><View style={styles.modalBackdrop}><Pressable style={styles.backdropPress} accessibilityLabel="Закрыть" onPress={() => setPrivacyVisible(false)} /><View style={[styles.sheet, { backgroundColor: glass.background }]}><View style={styles.handle} /><Pressable accessibilityRole="button" accessibilityLabel="Закрыть политику конфиденциальности" onPress={() => setPrivacyVisible(false)} style={styles.close}><Icon name="close" size={24} color={glass.text} /></Pressable><ScrollView contentContainerStyle={styles.privacyContent}><Text style={[styles.modalTitle, { color: glass.text }]}>Конфиденциальность</Text><Text style={[styles.notice, { color: glass.textSecondary }]}>Приложение хранит настройки и загруженные данные локально. Расписание и карты могут запрашиваться из внешних сервисов. Геолокация, календарь и галерея используются только для выбранных функций и только после вашего разрешения. Диагностические отчёты Sentry могут содержать сведения об ошибках и состоянии приложения; они не используются для рекламы.</Text><Pressable accessibilityRole="link" onPress={openPrivacy}><Text style={[styles.privacy, { color: colors.primary }]}>Открыть политику конфиденциальности</Text></Pressable></ScrollView></View></View></Modal>
+    {confettiVisible && <ConfettiCannon count={5} origin={{ x: -10, y: 0 }} fadeOut colors={[colors.primary, '#F59E0B', '#3B82F6', '#EC4899']} autoStart />}
 
-  </View>;
+  </Animated.View>;
 };
 
 const font = 'Montserrat_400Regular';
