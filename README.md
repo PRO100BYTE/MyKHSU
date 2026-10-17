@@ -7,7 +7,7 @@
 
   <p>
     <a href="https://github.com/PRO100BYTE/MyKHSU/releases">
-      <img src="https://img.shields.io/badge/версия-2.3.2-blue?style=for-the-badge" alt="Версия" />
+      <img src="https://img.shields.io/badge/версия-2.4.2-blue?style=for-the-badge" alt="Версия" />
     </a>
     <a href="https://www.gnu.org/licenses/lgpl-3.0.ru.html">
       <img src="https://img.shields.io/badge/лицензия-LGPL%20v3-green?style=for-the-badge" alt="Лицензия" />

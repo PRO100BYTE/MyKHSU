@@ -44,51 +44,46 @@ const getMotion = key => SEASONAL_MOTION[key] || SEASONAL_MOTION.holiday;
 const Particle = ({ particle, width, height, season }) => {
   const progress = useRef(new Animated.Value(0)).current;
   const motion = getMotion(season);
-  const phase = progress;
+  const startOffset = particle.y * height;
+  const direction = motion.direction === 'up' ? -1 : 1;
+
   useEffect(() => {
-    const animation = Animated.loop(Animated.sequence([
-      Animated.timing(progress, {
-        toValue: 1,
-        duration: Math.min(particle.duration, 3200),
-        easing: Easing.linear,
-        useNativeDriver: true,
-        isInteraction: false,
-      }),
-      Animated.timing(progress, {
-        toValue: 0,
-        duration: 0,
-        useNativeDriver: true,
-        isInteraction: false,
-      }),
-    ]));
+    progress.setValue(0);
+    const animation = Animated.loop(Animated.timing(progress, {
+      toValue: 1,
+      duration: Math.min(particle.duration, 3000),
+      easing: Easing.linear,
+      useNativeDriver: true,
+      isInteraction: false,
+    }));
     animation.start();
     return () => {
       animation.stop();
       progress.stopAnimation();
     };
-  }, [particle, progress]);
+  }, [particle.duration, progress]);
 
   const sway = motion.drift * (particle.drift < 0 ? -1 : 1);
-  const baseTop = particle.y * Math.max(height - 72, 1);
-  const verticalTravel = motion.direction === 'up' ? [-42, 42] : [-18, 96];
-  const translateY = phase.interpolate({ inputRange: [0, 1], outputRange: verticalTravel });
   return (
     <Animated.View style={{
       position: 'absolute',
       left: particle.x * width,
-      top: baseTop,
-      opacity: phase.interpolate({
-        inputRange: [0, 0.12, 0.5, 0.88, 1],
-        outputRange: [0, 0.82, season === 'summer' ? 1 : 0.78, 0.62, 0],
+      top: -40,
+      opacity: progress.interpolate({
+        inputRange: [0, 0.06, 0.84, 1],
+        outputRange: [0, 0.9, 0.82, 0],
       }),
       transform: [
-        { translateY },
-        { translateX: phase.interpolate({ inputRange: [0, 0.28, 0.62, 1], outputRange: [0, sway, -sway * 0.65, 0] }) },
-        { rotate: phase.interpolate({ inputRange: [0, 0.5, 1], outputRange: ['0deg', `${motion.rotation * (particle.drift < 0 ? -1 : 1)}deg`, '0deg'] }) },
-        { scale: phase.interpolate({ inputRange: [0, 0.5, 1], outputRange: motion.scale }) },
+        { translateY: progress.interpolate({
+          inputRange: [0, 1],
+          outputRange: direction > 0 ? [startOffset, height + 48] : [height - startOffset, -48],
+        }) },
+        { translateX: progress.interpolate({ inputRange: [0, 0.3, 0.7, 1], outputRange: [0, sway, -sway, 0] }) },
+        { rotate: progress.interpolate({ inputRange: [0, 0.5, 1], outputRange: ['0deg', `${motion.rotation * (particle.drift < 0 ? -1 : 1)}deg`, '0deg'] }) },
+        { scale: progress.interpolate({ inputRange: [0, 0.5, 1], outputRange: motion.scale }) },
       ],
     }}>
-      <Icon name={particle.icon} size={particle.size} color={particle.color} />
+      <Icon name={particle.icon} size={particle.size + 4} color={particle.color} />
     </Animated.View>
   );
 };
