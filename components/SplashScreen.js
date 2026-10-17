@@ -44,7 +44,7 @@ const SplashScreen = ({ accentColor, theme, holidayInfo, legendUnlocked = false,
   const holidayColor = HOLIDAY_COLORS[holidayInfo?.type]?.[theme === 'light' ? 'light' : 'dark'] || primary;
   const holidayIcons = HOLIDAY_ICONS[holidayInfo?.type] || ['sparkles', 'star', 'sparkles'];
   const holidayGreeting = useMemo(() => getSplashGreeting(holidayInfo), [holidayInfo]);
-  const contentWidth = Math.min(width - 40, 380);
+  const screenFade = useRef(new Animated.Value(0)).current;
   const intro = useRef(new Animated.Value(0)).current;
   const pulse = useRef(new Animated.Value(0)).current;
   const greeting = useRef(new Animated.Value(0)).current;
@@ -52,14 +52,17 @@ const SplashScreen = ({ accentColor, theme, holidayInfo, legendUnlocked = false,
 
   useEffect(() => {
     if (reduceMotion !== false) {
+      screenFade.setValue(1);
       intro.setValue(1);
       pulse.setValue(0);
       greeting.setValue(1);
       iconFloat.setValue(0);
       return undefined;
     }
+    screenFade.setValue(0);
     greeting.setValue(0);
     iconFloat.setValue(0);
+    const screenFadeAnimation = Animated.timing(screenFade, { toValue: 1, duration: 550, useNativeDriver: true, isInteraction: false });
     const introAnimation = Animated.spring(intro, { toValue: 1, friction: 8, tension: 45, useNativeDriver: true, isInteraction: false });
     const greetingAnimation = Animated.sequence([
       Animated.delay(180),
@@ -73,12 +76,13 @@ const SplashScreen = ({ accentColor, theme, holidayInfo, legendUnlocked = false,
       Animated.timing(iconFloat, { toValue: 1, duration: 1500, useNativeDriver: true, isInteraction: false }),
       Animated.timing(iconFloat, { toValue: 0, duration: 1500, useNativeDriver: true, isInteraction: false }),
     ]));
+    screenFadeAnimation.start();
     introAnimation.start();
     greetingAnimation.start();
     pulseAnimation.start();
     if (holidayInfo) floatAnimation.start();
-    return () => { introAnimation.stop(); greetingAnimation.stop(); pulseAnimation.stop(); floatAnimation.stop(); };
-  }, [greeting, holidayInfo, iconFloat, intro, pulse, reduceMotion]);
+    return () => { screenFadeAnimation.stop(); introAnimation.stop(); greetingAnimation.stop(); pulseAnimation.stop(); floatAnimation.stop(); };
+  }, [greeting, holidayInfo, iconFloat, intro, pulse, reduceMotion, screenFade]);
 
   const logoScale = intro.interpolate({ inputRange: [0, 1], outputRange: [.72, 1] });
   const logoOpacity = intro;
@@ -89,7 +93,7 @@ const SplashScreen = ({ accentColor, theme, holidayInfo, legendUnlocked = false,
   const iconTranslateY = iconFloat.interpolate({ inputRange: [0, 1], outputRange: [0, -6] });
 
   return (
-    <View style={[styles.container, { backgroundColor }] }>
+    <Animated.View style={[styles.container, { backgroundColor, opacity: screenFade }] }>
       <StatusBar barStyle={theme === 'light' ? 'dark-content' : 'light-content'} backgroundColor={backgroundColor} />
       {isMatrix && reduceMotion === false ? <MatrixRain intensity={0.85} /> : <>
         <View style={[styles.cornerBlock, { backgroundColor: primary }]} />
@@ -98,19 +102,11 @@ const SplashScreen = ({ accentColor, theme, holidayInfo, legendUnlocked = false,
       <SeasonalSplashEffects decoration={decoration} reduceMotion={reduceMotion} />
 
       <Animated.View style={[styles.main, { opacity: intro, transform: [{ translateY: intro.interpolate({ inputRange: [0, 1], outputRange: [22, 0] }) }] }]}>
-        <View style={styles.topLine}>
-          <Text style={[styles.eyebrow, { color: primary }]}>ХГУ · ИНСТИТУТ ИТ</Text>
-          <Text style={[styles.edition, { color: subtextColor }]}>EST. 1991</Text>
-        </View>
-        <View style={[styles.divider, { width: contentWidth, backgroundColor: `${primary}55` }]} />
-
         <View style={styles.logoStage}>
           <Animated.View style={[styles.halo, { borderColor: primary, opacity: haloOpacity, transform: [{ scale: haloScale }] }]} />
           <View style={[styles.logoFrame, { borderColor: `${primary}88`, backgroundColor: isLegendSplash ? '#211605' : (theme === 'light' ? '#FFFFFF' : '#102019') }]}>
             <Animated.Image source={LOGO} resizeMode="contain" style={[styles.logo, { opacity: logoOpacity, transform: [{ scale: logoScale }] }]} />
           </View>
-          <View style={[styles.crosshair, styles.crosshairTop, { backgroundColor: primary }]} />
-          <View style={[styles.crosshair, styles.crosshairBottom, { backgroundColor: primary }]} />
         </View>
 
         <Text style={[styles.title, { color: textColor }]}>Мой ИТИ ХГУ</Text>
@@ -136,7 +132,7 @@ const SplashScreen = ({ accentColor, theme, holidayInfo, legendUnlocked = false,
           <Text style={[styles.build, { color: subtextColor }]}>BUILD {BUILD_VER}</Text>
         </View>
       </View>
-    </View>
+    </Animated.View>
   );
 };
 

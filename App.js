@@ -154,6 +154,8 @@ export default Sentry.wrap(function App() {
   });
 
   const [isLoading, setIsLoading] = useState(true);
+  const [showSplashOverlay, setShowSplashOverlay] = useState(true);
+  const splashTransition = useRef(new Animated.Value(1)).current;
   const [onboardingRequired, setOnboardingRequired] = useState(null);
   const [activeScreen, setActiveScreen] = useState(SCREENS.SCHEDULE);
   const [theme, setTheme] = useState('auto');
@@ -162,6 +164,7 @@ export default Sentry.wrap(function App() {
   const [refresh, setRefresh] = useState(0);
   const [refreshKey, setRefreshKey] = useState(0);
   const [legendUnlocked, setLegendUnlocked] = useState(false);
+  const [legendSplashEnabled, setLegendSplashEnabled] = useState(false);
   const [communityFeatureEnabled, setCommunityFeatureEnabled] = useState(false);
   const [liquidGlassEnabled, setLiquidGlassEnabled] = useState(true);
   const insets = useSafeAreaInsets();
@@ -413,6 +416,9 @@ const loadNewYearSettings = async () => {
 };
 
 // Функция для обновления настроек новогоднего режима
+const SPLASH_DURATION_BEFORE_MS = 2000;
+const SPLASH_DURATION_MS = 2500;
+
 const handleNewYearModeChange = async (enabled) => {
   console.log('App: Changing new year mode to:', enabled);
   
@@ -453,10 +459,11 @@ const handleNewYearModeChange = async (enabled) => {
       console.error('Error initializing app:', error);
       Sentry.captureException(error);
     } finally {
-      // Показываем splash screen на 2 секунды
+      // До изменений splash показывался 2 секунды; теперь — 2.5 секунды.
+      console.info(`Splash duration: ${SPLASH_DURATION_BEFORE_MS}ms -> ${SPLASH_DURATION_MS}ms`);
       setTimeout(() => {
         setIsLoading(false);
-      }, 2000);
+      }, SPLASH_DURATION_MS);
     }
   };
 
@@ -474,11 +481,13 @@ const handleNewYearModeChange = async (enabled) => {
       const savedAccentColor = await SecureStore.getItemAsync('accentColor');
       const savedCommunityFeature = await SecureStore.getItemAsync('feature_community_enabled');
       const savedLiquidGlass = await SecureStore.getItemAsync('feature_liquid_glass_enabled');
+      const savedLegendSplash = await SecureStore.getItemAsync('legend_splash_enabled');
       const allUnlocked = await hasUnlockedAllAchievements().catch(() => false);
 
       setCommunityFeatureEnabled(savedCommunityFeature === 'true');
       setLiquidGlassEnabled(savedLiquidGlass !== 'false');
       setLegendUnlocked(allUnlocked);
+      setLegendSplashEnabled(savedLegendSplash === 'true' && allUnlocked);
       
       if (savedTheme === 'legend' && !allUnlocked) {
         setTheme('dark');
@@ -525,20 +534,48 @@ const handleNewYearModeChange = async (enabled) => {
 
   const effectiveTheme = getEffectiveTheme();
   
-  // Рендерим SplashScreen пока шрифты не загружены или приложение загружается
-  if (!fontsLoaded || isLoading || onboardingRequired === null) {
-    const holiday = getHolidayInfo();
-    const holidayInfo = holiday && (holiday.type !== 'new-year' || splashNewYearMode) ? holiday : null;
-    return <SplashScreen 
-      accentColor={accentColor} 
-      theme={getEffectiveTheme()} 
+  const shouldShowSplash = !fontsLoaded || isLoading || onboardingRequired === null;
+  const holiday = getHolidayInfo();
+  const holidayInfo = holiday && (holiday.type !== 'new-year' || splashNewYearMode) ? holiday : null;
+
+  useEffect(() => {
+    if (shouldShowSplash) {
+      setShowSplashOverlay(true);
+      splashTransition.setValue(1);
+      return undefined;
+    }
+    const fadeOut = Animated.timing(splashTransition, {
+      toValue: 0,
+      duration: 500,
+      useNativeDriver: true,
+      isInteraction: false,
+    });
+    fadeOut.start(({ finished }) => {
+      if (finished) setShowSplashOverlay(false);
+    });
+    return () => fadeOut.stop();
+  }, [shouldShowSplash, splashTransition]);
+
+  if (onboardingRequired === null || !fontsLoaded) {
+    return <SplashScreen
+      accentColor={accentColor}
+      theme={getEffectiveTheme()}
       holidayInfo={holidayInfo}
-      legendUnlocked={legendUnlocked}
+      legendUnlocked={legendSplashEnabled}
     />;
   }
-  
+
   if (onboardingRequired) {
-    return <OnboardingScreen visible theme={effectiveTheme} accentColor={accentColor} onComplete={() => setOnboardingRequired(false)} />;
+    return (
+      <View style={{ flex: 1 }}>
+        <OnboardingScreen visible theme={effectiveTheme} accentColor={accentColor} onComplete={() => setOnboardingRequired(false)} />
+        {showSplashOverlay && (
+          <Animated.View style={[StyleSheet.absoluteFillObject, { opacity: splashTransition }]} pointerEvents="none">
+            <SplashScreen accentColor={accentColor} theme={effectiveTheme} holidayInfo={holidayInfo} legendUnlocked={legendSplashEnabled} />
+          </Animated.View>
+        )}
+      </View>
+    );
   }
 
   const glass = LIQUID_GLASS[effectiveTheme] || LIQUID_GLASS.light;
@@ -928,6 +965,11 @@ const handleNewYearModeChange = async (enabled) => {
             setAccentColor={setAccentColor} 
             key={`settings-${refreshKey}`}
             onTabbarSettingsChange={handleTabbarSettingsChange}
+            legendSplashEnabled={legendSplashEnabled}
+            onLegendSplashChange={async value => {
+              setLegendSplashEnabled(value);
+              await SecureStore.setItemAsync('legend_splash_enabled', value.toString());
+            }}
             isNewYearMode={isNewYearMode}
             onNewYearModeChange={handleNewYearModeChange}
             onCommunityFeatureChange={setCommunityFeatureEnabled}
@@ -973,6 +1015,11 @@ const handleNewYearModeChange = async (enabled) => {
       {Platform.OS !== 'ios' && renderTabBar()}
       <AchievementToast theme={effectiveTheme} accentColor={accentColor} />
       <InAppNotificationBanner theme={effectiveTheme} onNavigate={navigateFromNotification} />
+      {showSplashOverlay && (
+        <Animated.View style={[StyleSheet.absoluteFillObject, { opacity: splashTransition }]} pointerEvents="none">
+          <SplashScreen accentColor={accentColor} theme={effectiveTheme} holidayInfo={holidayInfo} legendUnlocked={legendSplashEnabled} />
+        </Animated.View>
+      )}
     </View>
   );
 });

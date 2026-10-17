@@ -13,6 +13,8 @@ const AppearanceSettingsSheet = ({
   theme, 
   accentColor, 
   legendUnlocked,
+  legendSplashEnabled = false,
+  onLegendSplashChange,
   setTheme, 
   setAccentColor, 
   onTabbarSettingsChange,
@@ -209,6 +211,23 @@ const AppearanceSettingsSheet = ({
           ))}
         </View>
         </SettingsGroup>
+        {(legendUnlocked || localLegendUnlocked) && (
+          <TouchableOpacity
+            style={[styles.settingItem, { marginTop: 10, backgroundColor: glass.surfaceSecondary, borderColor }]}
+            onPress={() => onLegendSplashChange?.(!legendSplashEnabled)}
+            accessibilityRole="switch"
+            accessibilityState={{ checked: legendSplashEnabled }}
+          >
+            <View style={styles.settingInfo}>
+              <Icon name="sparkles-outline" size={22} color={legendSplashEnabled ? '#FFD666' : placeholderColor} />
+              <View style={styles.textContainer}>
+                <Text style={[styles.settingLabel, { color: textColor }]}>Легендарный splash screen</Text>
+                <Text style={[styles.settingDescription, { color: placeholderColor }]}>Отдельно включает оформление заставки за все достижения</Text>
+              </View>
+            </View>
+            <Switch value={legendSplashEnabled} onValueChange={value => onLegendSplashChange?.(value)} trackColor={{ true: '#FFD666' }} />
+          </TouchableOpacity>
+        )}
       </View>
       
       {/* Секция акцентного цвета */}
