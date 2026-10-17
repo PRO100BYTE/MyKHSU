@@ -28,7 +28,6 @@ const EmojiParticle = ({ particle, width, height }) => {
   const fall = useRef(new Animated.Value(0)).current;
   const swing = useRef(new Animated.Value(0)).current;
   const rotate = useRef(new Animated.Value(0)).current;
-  const opacity = useRef(new Animated.Value(0)).current;
   const duration = 2600 + (particle.id % 5) * 260;
   const startDelay = (particle.id % 10) * 90;
 
@@ -39,11 +38,6 @@ const EmojiParticle = ({ particle, width, height }) => {
         Animated.parallel([
           Animated.timing(fall, { toValue: 1, duration, easing: Easing.linear, useNativeDriver: true, isInteraction: false }),
           Animated.timing(rotate, { toValue: 1, duration, easing: Easing.linear, useNativeDriver: true, isInteraction: false }),
-          Animated.sequence([
-            Animated.timing(opacity, { toValue: 1, duration: 180, useNativeDriver: true, isInteraction: false }),
-            Animated.delay(duration - 680),
-            Animated.timing(opacity, { toValue: 0, duration: 500, useNativeDriver: true, isInteraction: false }),
-          ]),
           Animated.sequence([
             Animated.timing(swing, { toValue: 1, duration: duration / 2, easing: Easing.inOut(Easing.sin), useNativeDriver: true, isInteraction: false }),
             Animated.timing(swing, { toValue: 0, duration: duration / 2, easing: Easing.inOut(Easing.sin), useNativeDriver: true, isInteraction: false }),
@@ -61,9 +55,8 @@ const EmojiParticle = ({ particle, width, height }) => {
       fall.stopAnimation();
       swing.stopAnimation();
       rotate.stopAnimation();
-      opacity.stopAnimation();
     };
-  }, [duration, fall, opacity, rotate, startDelay, swing]);
+  }, [duration, fall, rotate, startDelay, swing]);
 
   const y = -80 - (particle.id % 6) * 45;
   const x = (particle.id * 41 % 100) / 100 * width;
@@ -71,7 +64,7 @@ const EmojiParticle = ({ particle, width, height }) => {
     <Animated.View style={[styles.particle, {
       left: x,
       top: y,
-      opacity,
+      opacity: 1,
       transform: [
         { translateY: fall.interpolate({ inputRange: [0, 1], outputRange: [0, height + 180] }) },
         { translateX: swing.interpolate({ inputRange: [0, 1], outputRange: [0, particle.id % 2 ? -34 : 34] }) },
