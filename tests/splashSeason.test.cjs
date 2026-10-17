@@ -38,6 +38,17 @@ test('all existing holiday types override the season with appropriate icons', as
   assert.deepEqual([...new Set(declaredTypes)].sort(), Object.keys(holidays).sort());
 });
 
+test('all holiday types have a meaningful greeting and decorative subtitle', async () => {
+  const { getSplashGreeting } = await modulePromise;
+  for (const type of Object.keys(holidays)) {
+    const greeting = getSplashGreeting({ type });
+    assert.ok(greeting.title.length > 8, `${type} needs a greeting title`);
+    assert.ok(greeting.subtitle.length > 15, `${type} needs a decorative subtitle`);
+  }
+  assert.equal(getSplashGreeting({ type: 'unknown', text: 'Особый день' }).title, 'Особый день');
+  assert.ok(getSplashGreeting().title.length > 0);
+});
+
 test('Matrix and Legend suppress all added decoration, even on holidays', async () => {
   const { getSplashDecoration } = await modulePromise;
   assert.equal(getSplashDecoration({ theme: 'matrix', holidayInfo: { type: 'new-year' } }), null);

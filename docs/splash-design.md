@@ -11,8 +11,8 @@ The splash is an original identity screen built around the supplied institute ma
 
 ## Motion and accessibility
 
-The `useSplashReduceMotion` behavior is retained. With reduced motion enabled, all paper elements are immediately settled and seasonal decoration uses its static treatment. Otherwise the sheet arrives with a short lateral reveal, the ribbon enters after it, and background paper strips drift slowly using non-interaction animations.
+The `useSplashReduceMotion` behavior is retained. With reduced motion enabled, all paper elements are immediately settled and seasonal decoration uses its static treatment. Otherwise the sheet arrives with a short lateral reveal, the ribbon enters after it, and background paper strips drift slowly using non-interaction animations. Seasonal particles also animate immediately without delaying loading: autumn leaves drift and rotate, winter snow floats with a soft scale, spring petals sway, and summer sparks shimmer with a brighter pulse. Holiday particles use the same restrained fallback motion.
 
 ## Seasonal and special designs
 
-`getSplashDecoration` and `SeasonalSplashEffects` continue to provide every existing seasonal and holiday treatment. Holiday text and its mapped icons remain visible in the page header. Matrix and Legend still suppress added decoration through the existing helper, while retaining their backgrounds and contrast. No dependency or onboarding effect was added.
+`getSplashDecoration` and `SeasonalSplashEffects` continue to provide every existing seasonal and holiday treatment. Every recognised holiday overrides the seasonal treatment and receives a dedicated Russian greeting, a short celebratory subtitle, and its existing mapped icon trio in an animated Montserrat greeting card. The card reveals after the main composition, has a restrained accent glow, and gently floats its icons; reduced motion renders it immediately without animation. Unknown holiday data safely uses its supplied text (or a general greeting). Matrix and Legend still suppress added decoration through the existing helper, while retaining their backgrounds and contrast. No dependency or onboarding effect was added.

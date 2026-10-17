@@ -4,7 +4,7 @@ import { Ionicons as Icon } from '@expo/vector-icons';
 import { ACCENT_COLORS, APP_VERSION, BUILD_VER, LIQUID_GLASS } from '../utils/constants';
 import MatrixRain from './MatrixRain';
 import SeasonalSplashEffects, { useSplashReduceMotion } from './SeasonalSplashEffects';
-import { getSplashDecoration } from '../utils/splashSeason';
+import { getSplashDecoration, getSplashGreeting } from '../utils/splashSeason';
 
 const { width, height } = Dimensions.get('window');
 const LOGO = require('../assets/icon.png');
@@ -42,29 +42,49 @@ const SplashScreen = ({ accentColor, theme, holidayInfo, legendUnlocked = false,
   const subtextColor = isLegendSplash ? 'rgba(255,214,102,0.72)' : ((theme === 'dark' || isMatrix) ? 'rgba(255,255,255,0.58)' : 'rgba(21,35,27,0.58)');
   const holidayColor = HOLIDAY_COLORS[holidayInfo?.type]?.[theme === 'light' ? 'light' : 'dark'] || primary;
   const holidayIcons = HOLIDAY_ICONS[holidayInfo?.type] || ['sparkles', 'star', 'sparkles'];
+  const holidayGreeting = useMemo(() => getSplashGreeting(holidayInfo), [holidayInfo]);
   const intro = useRef(new Animated.Value(0)).current;
   const pulse = useRef(new Animated.Value(0)).current;
+  const greeting = useRef(new Animated.Value(0)).current;
+  const iconFloat = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     if (reduceMotion !== false) {
       intro.setValue(1);
       pulse.setValue(0);
+      greeting.setValue(1);
+      iconFloat.setValue(0);
       return undefined;
     }
+    greeting.setValue(0);
+    iconFloat.setValue(0);
     const introAnimation = Animated.spring(intro, { toValue: 1, friction: 8, tension: 45, useNativeDriver: true, isInteraction: false });
+    const greetingAnimation = Animated.sequence([
+      Animated.delay(180),
+      Animated.spring(greeting, { toValue: 1, friction: 8, tension: 42, useNativeDriver: true, isInteraction: false }),
+    ]);
     const pulseAnimation = Animated.loop(Animated.sequence([
       Animated.timing(pulse, { toValue: 1, duration: 2600, useNativeDriver: true, isInteraction: false }),
       Animated.timing(pulse, { toValue: 0, duration: 2600, useNativeDriver: true, isInteraction: false }),
     ]));
+    const floatAnimation = Animated.loop(Animated.sequence([
+      Animated.timing(iconFloat, { toValue: 1, duration: 1500, useNativeDriver: true, isInteraction: false }),
+      Animated.timing(iconFloat, { toValue: 0, duration: 1500, useNativeDriver: true, isInteraction: false }),
+    ]));
     introAnimation.start();
+    greetingAnimation.start();
     pulseAnimation.start();
-    return () => { introAnimation.stop(); pulseAnimation.stop(); };
-  }, [reduceMotion]);
+    if (holidayInfo) floatAnimation.start();
+    return () => { introAnimation.stop(); greetingAnimation.stop(); pulseAnimation.stop(); floatAnimation.stop(); };
+  }, [greeting, holidayInfo, iconFloat, intro, pulse, reduceMotion]);
 
   const logoScale = intro.interpolate({ inputRange: [0, 1], outputRange: [.72, 1] });
   const logoOpacity = intro;
   const haloScale = pulse.interpolate({ inputRange: [0, 1], outputRange: [1, 1.12] });
   const haloOpacity = pulse.interpolate({ inputRange: [0, 1], outputRange: [.18, .04] });
+  const greetingTranslateY = greeting.interpolate({ inputRange: [0, 1], outputRange: [14, 0] });
+  const greetingGlow = pulse.interpolate({ inputRange: [0, 1], outputRange: [.26, .08] });
+  const iconTranslateY = iconFloat.interpolate({ inputRange: [0, 1], outputRange: [0, -6] });
 
   return (
     <View style={[styles.container, { backgroundColor }] }>
@@ -94,10 +114,17 @@ const SplashScreen = ({ accentColor, theme, holidayInfo, legendUnlocked = false,
         <Text style={[styles.title, { color: textColor }]}>Мой ИТИ ХГУ</Text>
         <Text style={[styles.subtitle, { color: subtextColor }]}>{isLegendSplash ? 'Легенда ИТИ ХГУ' : 'Твой университет в кармане'}</Text>
         {isLegendSplash && <Text style={[styles.legend, { color: primary }]}>ВСЕ ДОСТИЖЕНИЯ СОБРАНЫ</Text>}
-        {holidayInfo && <View style={styles.holidayRow}>
-          <Text style={[styles.holidayText, { color: holidayColor }]}>{holidayInfo.text}</Text>
-          <View style={styles.holidayIcons}>{holidayIcons.map((name, index) => <Icon key={index} name={name} size={index === 1 ? 14 : 17} color={holidayColor} style={styles.holidayIcon} />)}</View>
-        </View>}
+        {holidayInfo && <Animated.View style={[styles.holidayGreeting, { borderColor: `${holidayColor}66`, opacity: greeting, transform: [{ translateY: greetingTranslateY }] }]}>
+          <Animated.View style={[styles.greetingGlow, { backgroundColor: holidayColor, opacity: greetingGlow }]} />
+          <View style={styles.greetingHeading}>
+            <Text style={[styles.greetingKicker, { color: holidayColor }]}>ОСОБЕННЫЙ ДЕНЬ</Text>
+            <Animated.View style={[styles.holidayIcons, { transform: [{ translateY: iconTranslateY }] }]}>
+              {holidayIcons.map((name, index) => <Icon key={index} name={name} size={index === 1 ? 17 : 20} color={holidayColor} style={styles.holidayIcon} />)}
+            </Animated.View>
+          </View>
+          <Text style={[styles.holidayText, { color: textColor }]}>{holidayGreeting.title}</Text>
+          <Text style={[styles.holidayDescription, { color: subtextColor }]}>{holidayGreeting.subtitle}</Text>
+        </Animated.View>}
       </Animated.View>
 
       <View style={styles.footer}>
@@ -129,8 +156,14 @@ const styles = StyleSheet.create({
   title: { fontSize: 32, lineHeight: 39, letterSpacing: -.4, fontFamily: 'Montserrat_700Bold', textAlign: 'center' },
   subtitle: { marginTop: 11, fontSize: 14, letterSpacing: .4, fontFamily: 'Montserrat_500Medium' },
   legend: { marginTop: 18, fontSize: 10, letterSpacing: 1.2, fontFamily: 'Montserrat_700Bold' },
-  holidayRow: { marginTop: 26, paddingTop: 13, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: 'rgba(127,127,127,.35)', width: '100%', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  holidayText: { fontSize: 14, fontFamily: 'Montserrat_700Bold', flex: 1 }, holidayIcons: { flexDirection: 'row' }, holidayIcon: { marginLeft: 7 },
+  holidayGreeting: { marginTop: 24, paddingHorizontal: 17, paddingVertical: 15, width: '100%', borderWidth: 1, borderRadius: 18, overflow: 'hidden' },
+  greetingGlow: { position: 'absolute', width: 180, height: 110, right: -80, top: -55, borderRadius: 90 },
+  greetingHeading: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 },
+  greetingKicker: { fontSize: 9, letterSpacing: 1.4, fontFamily: 'Montserrat_700Bold' },
+  holidayText: { fontSize: 21, lineHeight: 27, fontFamily: 'Montserrat_700Bold' },
+  holidayDescription: { marginTop: 6, fontSize: 11, lineHeight: 16, fontFamily: 'Montserrat_500Medium' },
+  holidayIcons: { flexDirection: 'row' }, holidayIcon: { marginLeft: 8 },
+
   footer: { position: 'absolute', left: 25, right: 25, bottom: 27, zIndex: 2 },
   meta: { fontSize: 9, letterSpacing: 1.2, fontFamily: 'Montserrat_500Medium', marginBottom: 10 },
   buildRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },

@@ -24,6 +24,35 @@ const HOLIDAYS = {
   'intl-student-day': ['earth', 'school', 'earth'],
 };
 
+const HOLIDAY_GREETINGS = {
+  'new-year': ['С Новым годом!', 'Пусть новый год принесёт вдохновение и яркие открытия'],
+  'student-day': ['С Днём студента!', 'Пусть знания открывают путь к большим мечтам'],
+  'valentines-day': ['С Днём святого Валентина!', 'Пусть рядом будут тепло, забота и любовь'],
+  'defender-day': ['С Днём защитника Отечества!', 'Силы, смелости и уверенности в каждом шаге'],
+  'womens-day': ['С 8 Марта!', 'Пусть каждый день расцветает радостью и вдохновением'],
+  'cosmonautics-day': ['С Днём космонавтики!', 'Мечтайте смелее — космос начинается с идеи'],
+  'may-day': ['С Праздником Весны и Труда!', 'Пусть энергия весны помогает создавать новое'],
+  'victory-day': ['С Днём Победы!', 'Память, мужество и мир — навсегда в наших сердцах'],
+  'children-day': ['С Днём защиты детей!', 'Пусть детство будет светлым, добрым и счастливым'],
+  'knowledge-day': ['С Днём знаний!', 'Новых открытий, интересных встреч и больших успехов'],
+  'september-3': ['С днём хорошей музыки!', 'Пусть настроение звучит на высокой ноте'],
+  'programmer-day': ['С Днём программиста!', 'Чистого кода, смелых решений и удачных релизов'],
+  'sysadmin-day': ['С Днём системного администратора!', 'Стабильных систем, спокойных смен и надёжных сетей'],
+  'teacher-day': ['С Днём преподавателя!', 'Спасибо за знания, терпение и вдохновение'],
+  'unity-day': ['С Днём народного единства!', 'Пусть взаимопонимание объединяет нас каждый день'],
+  'intl-student-day': ['С Международным днём студента!', 'Дружбы, свободы идей и успешного пути'],
+};
+
+export const getSplashGreeting = (holidayInfo) => {
+  const type = holidayInfo && typeof holidayInfo.type === 'string' ? holidayInfo.type : null;
+  const greeting = type && HOLIDAY_GREETINGS[type];
+  if (greeting) return { title: greeting[0], subtitle: greeting[1] };
+  return {
+    title: typeof holidayInfo?.text === 'string' && holidayInfo.text.trim() ? holidayInfo.text : 'С праздником!',
+    subtitle: 'Пусть этот день подарит радость и вдохновение',
+  };
+};
+
 export const getSplashSeason = (date = new Date()) => {
   const month = date instanceof Date ? date.getMonth() : NaN;
   if (!Number.isFinite(month)) return 'winter';
