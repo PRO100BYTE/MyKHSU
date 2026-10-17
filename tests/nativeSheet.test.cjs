@@ -15,6 +15,7 @@ test('bounded NativeSheet keeps backdrop and panel animations independent', () =
 
 test('bounded NativeSheet supports a half-height expandable panel and dismissal gestures', () => {
   assert.match(source, /minHeight = 0\.5/);
+  assert.match(source, /maxHeight = 0\.8/);
   assert.match(source, /expandable = true/);
   assert.match(source, /PanResponder\.create/);
   assert.match(source, /onPanResponderRelease: settleDrag/);

@@ -4,7 +4,7 @@
 
 The map header continues to obtain its action with `mapScreenRef.current?.renderFilterButton()`. The rendered `MapFilterButton` is an accessible trigger; both the header action and legacy imperative `openFilters()` open the same filter sheet in `MapScreen`.
 
-Filters and route selection use the shared bounded `NativeSheet` with `minHeight={0.5}` and `expandable`. They open at half the current window height, can be dragged upward to fill the window, and can be dragged downward from the collapsed position to dismiss. Tapping outside the surface also dismisses either sheet. `NativeSheet` measures the current window with `useWindowDimensions`, so its bounds adapt to rotation and window-size changes.
+Filters and route selection use the shared bounded `NativeSheet` with `minHeight={0.5}`, `maxHeight={0.8}`, and `expandable`. They open at half the current window height, can be dragged upward to 80% of the window, and can be dragged downward from the collapsed position to dismiss. Tapping outside the surface also dismisses either sheet. `NativeSheet` measures the current window with `useWindowDimensions`, so its bounds adapt to rotation and window-size changes.
 
 The dimmer is an independent animated backdrop beneath the panel. Its opacity fades on open and close without being translated along with the draggable panel, preventing moving-backdrop artifacts.
 

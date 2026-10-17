@@ -23,6 +23,7 @@ const NativeSheet = ({
   presentationStyle = 'pageSheet',
   bounded = false,
   minHeight = 0.5,
+  maxHeight = 0.8,
   expandable = true,
 }) => {
   const { height: windowHeight } = useWindowDimensions();
@@ -38,7 +39,12 @@ const NativeSheet = ({
     sheetHeight,
     Math.max(0, minHeight <= 1 ? sheetHeight * minHeight : minHeight),
   );
-  const collapsedOffset = expandable ? sheetHeight - minimumHeight : 0;
+  const maximumHeight = Math.min(
+    sheetHeight,
+    Math.max(minimumHeight, maxHeight <= 1 ? sheetHeight * maxHeight : maxHeight),
+  );
+  const collapsedOffset = expandable ? maximumHeight - minimumHeight : 0;
+  const expandedOffset = 0;
 
   const animateTo = (toValue, callback) => {
     Animated.spring(panelTranslate, {
@@ -90,14 +96,14 @@ const NativeSheet = ({
         requestClose();
         return;
       }
-      const shouldExpand = expandable && currentOffset < collapsedOffset / 2;
+      const shouldExpand = expandable && currentOffset < (collapsedOffset + expandedOffset) / 2;
       expanded.current = shouldExpand;
-      animateTo(shouldExpand ? 0 : collapsedOffset);
+      animateTo(shouldExpand ? expandedOffset : collapsedOffset);
     });
   };
 
   const panResponder = useMemo(() => PanResponder.create({
-    onStartShouldSetPanResponder: () => true,
+    onStartShouldSetPanResponder: () => false,
     onMoveShouldSetPanResponder: (_, gesture) => Math.abs(gesture.dy) > 2,
     onPanResponderGrant: () => {
       panelTranslate.stopAnimation(value => {
@@ -110,7 +116,7 @@ const NativeSheet = ({
     },
     onPanResponderRelease: settleDrag,
     onPanResponderTerminate: settleDrag,
-  }), [collapsedOffset, expandable, minimumHeight, sheetHeight]);
+  }), [collapsedOffset, expandable, expandedOffset, minimumHeight, sheetHeight]);
 
   if (!bounded) {
     return (
@@ -151,13 +157,14 @@ const NativeSheet = ({
           onPress={requestClose}
         />
         <Animated.View
+          {...panResponder.panHandlers}
           style={[
             styles.boundedContent,
-            { height: sheetHeight, transform: [{ translateY: panelTranslate }] },
+            { height: maximumHeight, transform: [{ translateY: panelTranslate }] },
             contentStyle,
           ]}
         >
-          <View accessibilityRole="adjustable" accessibilityLabel="Потяните, чтобы изменить размер листа" {...panResponder.panHandlers} style={styles.dragHandleArea}>
+          <View accessibilityRole="adjustable" accessibilityLabel="Потяните, чтобы изменить размер листа" style={styles.dragHandleArea}>
             <View style={styles.dragHandle} />
           </View>
           {children}
@@ -175,7 +182,13 @@ const styles = StyleSheet.create({
   boundedContainer: { flex: 1, justifyContent: 'flex-end' },
   backdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0, 0, 0, 0.45)' },
   backdropPressable: { ...StyleSheet.absoluteFillObject },
-  boundedContent: { position: 'absolute', bottom: 0, width: '100%' },
+  boundedContent: {
+    position: 'absolute',
+    bottom: 0,
+    width: '100%',
+    zIndex: 2,
+    elevation: 2,
+  },
   dragHandleArea: { alignItems: 'center', paddingTop: 10, paddingBottom: 8 },
   dragHandle: { width: 38, height: 4, borderRadius: 2, backgroundColor: 'rgba(127, 127, 127, 0.55)' },
 });
