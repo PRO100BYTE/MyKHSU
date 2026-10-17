@@ -17,7 +17,8 @@ export const useSplashReduceMotion = () => {
         const value = await AccessibilityInfo.isReduceMotionEnabled();
         if (active && !changed) setReduceMotion(value);
       } catch {
-        if (active && !changed) setReduceMotion(true);
+        // An unavailable accessibility query must not silently disable decoration motion.
+        if (active && !changed) setReduceMotion(false);
       }
     };
     check();
@@ -48,7 +49,7 @@ const Particle = ({ particle, width, height, season }) => {
     const animation = Animated.loop(Animated.sequence([
       Animated.timing(progress, {
         toValue: 1,
-        duration: particle.duration,
+        duration: Math.min(particle.duration, 3200),
         easing: Easing.linear,
         useNativeDriver: true,
         isInteraction: false,
@@ -78,7 +79,7 @@ const Particle = ({ particle, width, height, season }) => {
       top: -28,
       opacity: phase.interpolate({
         inputRange: [0, 0.12, 0.5, 0.88, 1],
-        outputRange: [0, 0.5, season === 'summer' ? 0.8 : 0.42, 0.3, 0],
+        outputRange: [0, 0.82, season === 'summer' ? 1 : 0.78, 0.62, 0],
       }),
       transform: [
         { translateY },
@@ -125,7 +126,7 @@ const SeasonalSplashEffects = ({ decoration, reduceMotion }) => {
 };
 
 const styles = StyleSheet.create({
-  overlay: { ...StyleSheet.absoluteFillObject, overflow: 'hidden' },
+  overlay: { ...StyleSheet.absoluteFillObject, overflow: 'hidden', zIndex: 10, elevation: 10 },
 });
 
 export default SeasonalSplashEffects;
