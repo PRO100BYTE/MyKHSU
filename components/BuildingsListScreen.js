@@ -2,10 +2,8 @@ import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { 
   View, 
   Text, 
-  ScrollView, 
   TouchableOpacity, 
   TouchableWithoutFeedback,
-  TextInput,
   Linking, 
   StyleSheet, 
   Animated, 
@@ -17,6 +15,10 @@ import { Ionicons as Icon } from '@expo/vector-icons';
 import { ACCENT_COLORS, LIQUID_GLASS } from '../utils/constants';
 import { buildings } from '../utils/buildingCoordinates';
 import Snowfall from './Snowfall';
+import ScrollView from './ScreenScrollView';
+import { GlassCard } from './SettingsComponents';
+import SearchField from './SearchField';
+import NativeSheet from './NativeSheet';
 
 const BuildingsListScreen = ({ theme, accentColor, onBuildingSelect, isNewYearMode }) => {
   const [showRouteOptions, setShowRouteOptions] = useState(false);
@@ -197,26 +199,31 @@ const BuildingsListScreen = ({ theme, accentColor, onBuildingSelect, isNewYearMo
   };
 
   const renderBuildingCard = (building, isLast = false) => (
-    <TouchableOpacity 
+    <GlassCard
       key={building.id}
+      glass={glass}
       style={{ 
-        flexDirection: 'row',
-        backgroundColor: glass.surfaceSecondary, 
+        backgroundColor: glass.surfaceSecondary,
         borderRadius: 14, 
         marginBottom: isLast ? 0 : 8,
         marginLeft: 16,
-        alignItems: 'center',
+        overflow: 'hidden',
         borderWidth: StyleSheet.hairlineWidth,
         borderColor: glass.border,
-        overflow: 'hidden',
         shadowColor: glass.shadowColor,
         shadowOffset: { width: 0, height: 1 },
         shadowOpacity: 0.06,
         shadowRadius: 4,
         elevation: 1,
       }}
-      onPress={() => handleBuildingPress(building)}
     >
+      <TouchableOpacity 
+        accessibilityRole="button"
+        accessibilityLabel={`Построить маршрут: ${building.name}`}
+        hitSlop={4}
+        style={{ flexDirection: 'row', alignItems: 'center' }}
+        onPress={() => handleBuildingPress(building)}
+      >
       {/* Цветная полоска-акцент слева */}
       <View style={{
         width: 3,
@@ -257,7 +264,8 @@ const BuildingsListScreen = ({ theme, accentColor, onBuildingSelect, isNewYearMo
         </View>
         <Icon name="navigate-outline" size={20} color={colors.primary} />
       </View>
-    </TouchableOpacity>
+      </TouchableOpacity>
+    </GlassCard>
   );
 
   const renderCategorySection = (category, buildingsList) => {
@@ -267,14 +275,10 @@ const BuildingsListScreen = ({ theme, accentColor, onBuildingSelect, isNewYearMo
     
     return (
       <View key={category} style={{ marginBottom: 16 }}>
-        <TouchableOpacity 
-          style={{
-            flexDirection: 'row',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            padding: 14,
+        <GlassCard glass={glass} style={{
             backgroundColor: glass.surfaceSecondary,
             borderRadius: 14,
+            overflow: 'hidden',
             borderWidth: StyleSheet.hairlineWidth,
             borderColor: glass.border,
             shadowColor: glass.shadowColor,
@@ -282,9 +286,16 @@ const BuildingsListScreen = ({ theme, accentColor, onBuildingSelect, isNewYearMo
             shadowOpacity: 0.06,
             shadowRadius: 4,
             elevation: 1,
-          }}
-          onPress={() => toggleSection(category)}
-        >
+          }}>
+          <TouchableOpacity 
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              padding: 14,
+            }}
+            onPress={() => toggleSection(category)}
+          >
           <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
             <Text style={{ 
               color: textColor, 
@@ -314,7 +325,8 @@ const BuildingsListScreen = ({ theme, accentColor, onBuildingSelect, isNewYearMo
             size={20} 
             color={colors.primary} 
           />
-        </TouchableOpacity>
+          </TouchableOpacity>
+          </GlassCard>
         
         {isExpanded && (
           <View style={{ marginTop: 8 }}>
@@ -338,40 +350,15 @@ const BuildingsListScreen = ({ theme, accentColor, onBuildingSelect, isNewYearMo
           backgroundColor={bgColor}
         />
 
-        <View style={{ flex: 1, padding: 16 }}>
+        <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: 16, paddingBottom: 100 }}>
           {/* Поиск */}
-          <View style={{
-            flexDirection: 'row',
-            alignItems: 'center',
-            backgroundColor: glass.surfaceTertiary,
-            borderRadius: 14,
-            paddingHorizontal: 14,
-            paddingVertical: 10,
-            marginBottom: 16,
-            borderWidth: StyleSheet.hairlineWidth,
-            borderColor: glass.border,
-          }}>
-            <Icon name="search-outline" size={18} color={placeholderColor} />
-            <TextInput
-              style={{
-                flex: 1,
-                marginLeft: 10,
-                fontSize: 15,
-                fontFamily: 'Montserrat_400Regular',
-                color: textColor,
-                paddingVertical: 0,
-              }}
-              placeholder="Поиск корпусов..."
-              placeholderTextColor={placeholderColor}
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-            />
-            {searchQuery.length > 0 && (
-              <TouchableOpacity onPress={() => setSearchQuery('')}>
-                <Icon name="close-circle" size={18} color={placeholderColor} />
-              </TouchableOpacity>
-            )}
-          </View>
+          <SearchField
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            placeholder="Поиск корпусов..."
+            theme={theme}
+            accentColor={accentColor}
+          />
 
           {/* Счётчик результатов */}
           <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
@@ -380,7 +367,7 @@ const BuildingsListScreen = ({ theme, accentColor, onBuildingSelect, isNewYearMo
             </Text>
           </View>
 
-          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 100 }}>
+          <View>
             {Object.entries(filteredGroupedBuildings).map(([category, buildingsList]) => 
               renderCategorySection(category, buildingsList)
             )}
@@ -405,27 +392,34 @@ const BuildingsListScreen = ({ theme, accentColor, onBuildingSelect, isNewYearMo
                 </Text>
               </View>
             )}
-          </ScrollView>
-        </View>
+          </View>
+        </ScrollView>
 
         {/* Модальное окно выбора сервиса для построения маршрута с анимацией */}
-        {showRouteOptions && (
+        <NativeSheet
+          visible={showRouteOptions}
+          onRequestClose={handleCloseRouteModal}
+          accessibilityLabel="Выбор сервиса навигации"
+          contentStyle={{ backgroundColor: Platform.OS === 'ios' ? glass.backgroundElevated : 'transparent' }}
+        >
           <Animated.View 
             style={[
               styles.routeModalOverlay,
-              { 
+              Platform.OS === 'ios' ? styles.nativeSheetContent : {
                 opacity: routeModalAnim,
                 backgroundColor: 'rgba(0, 0, 0, 0.5)'
               }
             ]}
           >
-            <TouchableWithoutFeedback onPress={handleCloseRouteModal}>
-              <View style={{ flex: 1 }} />
-            </TouchableWithoutFeedback>
+            {Platform.OS === 'android' && (
+              <TouchableWithoutFeedback onPress={handleCloseRouteModal}>
+                <View style={{ flex: 1 }} />
+              </TouchableWithoutFeedback>
+            )}
             <Animated.View 
               style={[
                 styles.routeModal,
-                { 
+                Platform.OS === 'ios' ? styles.nativeSheetCard : {
                   backgroundColor: glass.backgroundElevated,
                   borderColor: glass.border,
                   borderWidth: StyleSheet.hairlineWidth,
@@ -501,7 +495,7 @@ const BuildingsListScreen = ({ theme, accentColor, onBuildingSelect, isNewYearMo
               </TouchableOpacity>
             </Animated.View>
           </Animated.View>
-        )}
+        </NativeSheet>
       </Animated.View>
     </View>
   );
@@ -517,6 +511,17 @@ const styles = StyleSheet.create({
   infoText: {
     fontSize: 14,
     fontFamily: 'Montserrat_400Regular',
+  },
+  nativeSheetContent: {
+    flex: 1,
+    backgroundColor: 'transparent',
+  },
+  nativeSheetCard: {
+    flex: 1,
+    maxHeight: undefined,
+    borderRadius: 0,
+    borderWidth: 0,
+    transform: [],
   },
   routeModalOverlay: {
     position: 'absolute',

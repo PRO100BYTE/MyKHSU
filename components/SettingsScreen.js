@@ -2,13 +2,13 @@ import React, { useState, useEffect, useRef, forwardRef, useImperativeHandle } f
 import { 
   View, 
   Text, 
-  ScrollView, 
   TouchableOpacity, 
   Alert, 
   StyleSheet, 
   Animated, 
   StatusBar,
-  Dimensions
+  Dimensions,
+  Platform
 } from 'react-native';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -20,10 +20,16 @@ import NotificationSettingsModal from './NotificationSettingsModal';
 import ScheduleFormatModal from './ScheduleFormatModal';
 import DeveloperMenuScreen from './DeveloperMenuScreen';
 import AchievementsScreen from './AchievementsScreen';
+import AcademicCalendarScreen from './AcademicCalendarScreen';
+import StudyProfileScreen from './StudyProfileScreen';
+import ScheduleChangesHistoryScreen from './ScheduleChangesHistoryScreen';
 import { ACCENT_COLORS, APP_VERSION, APP_DEVELOPERS, APP_SUPPORTERS, GITHUB_REPO_URL, BUILD_VER, BUILD_DATE, LIQUID_GLASS } from '../utils/constants';
 import { getAchievementsCount, unlockAchievement } from '../utils/achievements';
 import { showAchievementToast } from './AchievementToast';
 import { getGlassSettingsCardStyle, getGlassIconBadgeStyle } from '../utils/liquidGlass';
+import { SettingsGroup as SharedSettingsGroup } from './SettingsComponents';
+import ScrollView from './ScreenScrollView';
+import { BlurView } from 'expo-blur';
 import Snowfall from './Snowfall';
 import { clearAllNotes, getNotesCount } from '../utils/notesStorage';
 
@@ -189,9 +195,9 @@ const Confetti = ({ show, theme, colors }) => {
 };
 
 const SettingsScreen = forwardRef(({ 
-  theme, accentColor, setTheme, setAccentColor, 
+  theme, accentColor, legendUnlocked, legendSplashEnabled, onLegendSplashChange, setTheme, setAccentColor,
   onScheduleSettingsChange, onTabbarSettingsChange, 
-  isNewYearMode, onNewYearModeChange, onNavigationChange 
+  isNewYearMode, onNewYearModeChange, onCommunityFeatureChange, onLiquidGlassFeatureChange, onNavigationChange
 }, ref) => {
   const [currentScreen, setCurrentScreen] = useState(null);
   const [scheduleSettings, setScheduleSettings] = useState(null);
@@ -251,6 +257,9 @@ const SettingsScreen = forwardRef(({
   useEffect(() => {
     const titles = {
       schedule: 'Формат расписания',
+      academicCalendar: 'Календарь событий',
+      studyProfile: 'Учебный профиль',
+      scheduleHistory: 'Лента изменений',
       appearance: 'Внешний вид',
       notifications: 'Уведомления',
       achievements: 'Достижения',
@@ -339,6 +348,10 @@ const SettingsScreen = forwardRef(({
         { text: 'Сбросить', style: 'destructive', onPress: async () => {
           setDeveloperMode(false);
           await SecureStore.setItemAsync('developer_mode', 'false');
+          await SecureStore.setItemAsync('feature_community_enabled', 'false');
+          await SecureStore.setItemAsync('feature_liquid_glass_enabled', 'true');
+          onCommunityFeatureChange?.(false);
+          onLiquidGlassFeatureChange?.(true);
           if (accentColor === 'orange' || accentColor === 'matrix') {
             setAccentColor('green');
             await SecureStore.setItemAsync('accentColor', 'green');
@@ -388,8 +401,19 @@ const SettingsScreen = forwardRef(({
           onPress: async () => {
             try {
               const keys = await AsyncStorage.getAllKeys();
-              await AsyncStorage.multiRemove(keys);
-              Alert.alert('Успех', 'Кэш успешно очищен');
+              const cacheKeys = keys.filter((key) =>
+                key.startsWith('api_') ||
+                key.startsWith('schedule_') ||
+                key.startsWith('groups_') ||
+                key.startsWith('news_') ||
+                key.startsWith('teacher_schedule_') ||
+                key.startsWith('auditory_schedule_') ||
+                key.startsWith('pairs_time_') ||
+                key.startsWith('available_courses_') ||
+                key.startsWith('week_numbers_')
+              );
+              await AsyncStorage.multiRemove(cacheKeys);
+              Alert.alert('Успех', 'Кэш расписания и новостей успешно очищен');
             } catch (error) {
               console.error('Error clearing cache:', error);
               Alert.alert('Ошибка', 'Не удалось очистить кэш');
@@ -457,19 +481,9 @@ const SettingsScreen = forwardRef(({
 
   // Группировка настроек в карточку
   const SettingsGroup = ({ children }) => (
-    <View style={{
-      borderRadius: 14,
-      overflow: 'hidden',
-      borderWidth: StyleSheet.hairlineWidth,
-      borderColor: glass.border,
-      shadowColor: glass.shadowColor,
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.08,
-      shadowRadius: 6,
-      elevation: 2,
-    }}>
+    <SharedSettingsGroup glass={glass}>
       {children}
-    </View>
+    </SharedSettingsGroup>
   );
 
   // Строка настройки в группе
@@ -481,7 +495,7 @@ const SettingsScreen = forwardRef(({
         flexDirection: 'row',
         alignItems: 'center',
         padding: 14,
-        backgroundColor: glass.surfaceSecondary,
+        backgroundColor: Platform.OS === 'ios' ? 'transparent' : glass.surfaceSecondary,
         borderTopLeftRadius: isFirst ? 14 : 0,
         borderTopRightRadius: isFirst ? 14 : 0,
         borderBottomLeftRadius: isLast ? 14 : 0,
@@ -512,8 +526,8 @@ const SettingsScreen = forwardRef(({
 
   const renderMainScreen = () => (
     <ScrollView 
-      style={{ padding: 16 }} 
-      contentContainerStyle={{ paddingBottom: 100 }}
+      style={{ flex: 1 }}
+      contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 100 }}
       showsVerticalScrollIndicator={false}
     >
       {/* РАСПИСАНИЕ */}
@@ -524,7 +538,32 @@ const SettingsScreen = forwardRef(({
           title="Формат расписания" 
           subtitle={getScheduleLabel()}
           onPress={() => navigateTo('schedule')} 
-          isFirst isLast 
+          isFirst
+        />
+        <SettingsRow
+          icon="today-outline"
+          title="Календарь учебных событий"
+          subtitle="События, фильтры и локальные напоминания"
+          onPress={() => navigateTo('academicCalendar')}
+          isLast
+        />
+      </SettingsGroup>
+
+      <SectionHeader title="Учебный прогресс" />
+      <SettingsGroup>
+        <SettingsRow
+          icon="bar-chart-outline"
+          title="Персональный учебный профиль"
+          subtitle="Посещаемость, дедлайны и история изменений"
+          onPress={() => navigateTo('studyProfile')}
+          isFirst
+        />
+        <SettingsRow
+          icon="time-outline"
+          title="Лента изменений расписания"
+          subtitle="Отдельная история с деталями отличий"
+          onPress={() => navigateTo('scheduleHistory')}
+          isLast
         />
       </SettingsGroup>
 
@@ -722,6 +761,9 @@ const SettingsScreen = forwardRef(({
             <AppearanceSettingsSheet
               theme={theme}
               accentColor={accentColor}
+              legendUnlocked={legendUnlocked}
+              legendSplashEnabled={legendSplashEnabled}
+              onLegendSplashChange={onLegendSplashChange}
               setTheme={setTheme}
               setAccentColor={setAccentColor}
               onTabbarSettingsChange={handleTabbarSettingsChange}
@@ -740,6 +782,27 @@ const SettingsScreen = forwardRef(({
                 loadScheduleSettings();
                 navigateTo(null);
               }}
+            />
+          )}
+
+          {currentScreen === 'academicCalendar' && (
+            <AcademicCalendarScreen
+              theme={theme}
+              accentColor={accentColor}
+            />
+          )}
+
+          {currentScreen === 'studyProfile' && (
+            <StudyProfileScreen
+              theme={theme}
+              accentColor={accentColor}
+            />
+          )}
+
+          {currentScreen === 'scheduleHistory' && (
+            <ScheduleChangesHistoryScreen
+              theme={theme}
+              accentColor={accentColor}
             />
           )}
 
@@ -768,6 +831,8 @@ const SettingsScreen = forwardRef(({
             <DeveloperMenuScreen
               theme={theme}
               accentColor={accentColor}
+              onCommunityFeatureChange={onCommunityFeatureChange}
+              onLiquidGlassFeatureChange={onLiquidGlassFeatureChange}
               onResetDeveloperMode={resetDeveloperMode}
             />
           )}

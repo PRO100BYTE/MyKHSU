@@ -1,7 +1,8 @@
 // utils/calendarExport.js
-import { File, Paths } from 'expo-file-system/next';
+import { File, Paths } from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
 import * as Calendar from 'expo-calendar';
+import { requestCalendarPermission, CALENDAR_UNAVAILABLE_MESSAGE } from './calendarAccess';
 import { Alert, Platform } from 'react-native';
 import { getDateByWeekAndDay } from './dateUtils';
 
@@ -14,6 +15,13 @@ const formatICSDate = (date) => {
   const minutes = String(date.getMinutes()).padStart(2, '0');
   const seconds = String(date.getSeconds()).padStart(2, '0');
   return `${year}${month}${day}T${hours}${minutes}${seconds}`;
+};
+
+const formatICSDateOnly = (date) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}${month}${day}`;
 };
 
 // Экранирование текста для ICS
@@ -43,6 +51,13 @@ const buildDescription = (lesson, isTeacher, isAuditory) => {
     parts.push(`Группы: ${lesson.group.join(', ')}`);
   }
   return parts.join('\\n');
+};
+
+const buildAcademicEventDescription = (event) => {
+  const parts = [];
+  if (event.typeLabel) parts.push(`Тип: ${event.typeLabel}`);
+  if (event.description) parts.push(event.description);
+  return parts.join('\n');
 };
 
 // Преобразование расписания в массив событий ICS
@@ -165,11 +180,16 @@ const generateICSContent = (events, calendarName = 'Расписание MyKHSU'
   events.forEach(event => {
     lines.push('BEGIN:VEVENT');
     lines.push(`UID:${event.uid}`);
-    lines.push(`DTSTART:${formatICSDate(event.startDate)}`);
-    lines.push(`DTEND:${formatICSDate(event.endDate)}`);
+    if (event.allDay) {
+      lines.push(`DTSTART;VALUE=DATE:${formatICSDateOnly(event.startDate)}`);
+      lines.push(`DTEND;VALUE=DATE:${formatICSDateOnly(event.endDate)}`);
+    } else {
+      lines.push(`DTSTART:${formatICSDate(event.startDate)}`);
+      lines.push(`DTEND:${formatICSDate(event.endDate)}`);
+    }
     lines.push(`SUMMARY:${escapeICSText(event.summary)}`);
     if (event.description) {
-      lines.push(`DESCRIPTION:${event.description}`);
+      lines.push(`DESCRIPTION:${escapeICSText(event.description)}`);
     }
     if (event.location) {
       lines.push(`LOCATION:${escapeICSText(event.location)}`);
@@ -250,50 +270,49 @@ const buildPlainDescription = (event) => {
  * Экспорт в системный календарь через expo-calendar
  */
 const exportToSystemCalendar = async (events, calendarName) => {
-  const { status } = await Calendar.requestCalendarPermissionsAsync();
+  const { status } = await requestCalendarPermission();
+  if (status === 'unavailable') throw new Error(CALENDAR_UNAVAILABLE_MESSAGE);
   if (status !== 'granted') {
     throw new Error('CALENDAR_PERMISSION_DENIED');
   }
 
-  // Получаем доступные календари
-  const calendars = await Calendar.getCalendarsAsync(Calendar.EntityTypes.EVENT);
-  
-  // Ищем дефолтный календарь для записи
-  let targetCalendarId;
-  
+  const calendars = await Calendar.getCalendars(Calendar.EntityTypes.EVENT);
+  let targetCalendar;
+
   if (Platform.OS === 'ios') {
-    const defaultCalendar = await Calendar.getDefaultCalendarAsync();
-    targetCalendarId = defaultCalendar.id;
+    targetCalendar = Calendar.getDefaultCalendarSync();
   } else {
     const writableCalendar = calendars.find(
-      c => c.allowsModifications && c.source && c.source.isLocalAccount !== false
-    ) || calendars.find(c => c.allowsModifications);
-    
+      calendar => calendar.allowsModifications && calendar.source && calendar.source.isLocalAccount !== false
+    ) || calendars.find(calendar => calendar.allowsModifications);
+
     if (writableCalendar) {
-      targetCalendarId = writableCalendar.id;
+      targetCalendar = await Calendar.ExpoCalendar.get(writableCalendar.id);
     } else {
-      // Создаём новый локальный календарь
-      const defaultSource = Platform.OS === 'android' 
-        ? { isLocalAccount: true, name: 'MyKHSU', type: Calendar.SourceType?.LOCAL }
-        : undefined;
-      targetCalendarId = await Calendar.createCalendarAsync({
+      const createdCalendar = await Calendar.createCalendar({
         title: 'MyKHSU',
         color: '#10B981',
         entityType: Calendar.EntityTypes.EVENT,
-        source: defaultSource,
+        source: {
+          isLocalAccount: true,
+          name: 'MyKHSU',
+          type: Calendar.SourceType?.LOCAL,
+        },
         name: 'mykhsu',
         ownerAccount: 'mykhsu',
         accessLevel: Calendar.CalendarAccessLevel.OWNER,
       });
+      targetCalendar = await Calendar.ExpoCalendar.get(createdCalendar.id);
     }
   }
 
   let addedCount = 0;
   for (const event of events) {
-    await Calendar.createEventAsync(targetCalendarId, {
+    await targetCalendar.createEvent({
       title: event.summary,
       startDate: event.startDate,
       endDate: event.endDate,
+      allDay: !!event.allDay,
       location: event.location || undefined,
       notes: buildPlainDescription(event),
       timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
@@ -321,33 +340,26 @@ const exportToICSFile = async (events, calendarName, fileName) => {
 
   await Sharing.shareAsync(file.uri, {
     mimeType: 'text/calendar',
-    dialogTitle: 'Экспорт расписания',
+    dialogTitle: 'Экспорт календаря',
     UTI: 'com.apple.ical.ics',
   });
 };
 
-/**
- * Экспорт расписания — показывает диалог выбора способа экспорта
- */
-export const exportScheduleToCalendar = (params) => {
+const exportEventsCollectionToCalendar = ({
+  events,
+  calendarName,
+  fileName,
+  dialogTitle = 'Экспорт календаря',
+  emptyErrorCode = 'NO_EVENTS',
+}) => {
   return new Promise((resolve, reject) => {
-    // Сначала собираем события, чтобы проверить что экспортировать есть что
-    let collected;
-    try {
-      collected = collectEvents(params);
-    } catch (err) {
-      return reject(err);
-    }
-
-    const { events, calendarName, fileName } = collected;
-
-    if (events.length === 0) {
-      return reject(new Error('NO_EVENTS'));
+    if (!events || events.length === 0) {
+      return reject(new Error(emptyErrorCode));
     }
 
     Alert.alert(
-      'Экспорт расписания',
-      `Найдено занятий: ${events.length}\nКуда экспортировать?`,
+      dialogTitle,
+      `Найдено событий: ${events.length}\nКуда экспортировать?`,
       [
         { text: 'Отмена', style: 'cancel', onPress: () => resolve(false) },
         {
@@ -380,5 +392,50 @@ export const exportScheduleToCalendar = (params) => {
         },
       ]
     );
+  });
+};
+
+/**
+ * Экспорт расписания — показывает диалог выбора способа экспорта
+ */
+export const exportScheduleToCalendar = (params) => {
+  const collected = collectEvents(params);
+  return exportEventsCollectionToCalendar({
+    ...collected,
+    dialogTitle: 'Экспорт расписания',
+    emptyErrorCode: 'NO_EVENTS',
+  });
+};
+
+export const exportAcademicEventsToCalendar = (academicEvents, options = {}) => {
+  const { title = 'Учебные события MyKHSU', fileName = 'academic_events' } = options;
+
+  const events = (academicEvents || []).flatMap(event => {
+    if (!event?.date) return [];
+
+    const [year, month, day] = String(event.date).split('-').map(Number);
+    const startDate = new Date(year, month - 1, day, 0, 0, 0, 0);
+    if (Number.isNaN(startDate.getTime())) return [];
+
+    const endDate = new Date(startDate);
+    endDate.setDate(endDate.getDate() + 1);
+
+    return [{
+      uid: generateUID({ subject: event.title || 'Событие', time: event.type || 'event' }, startDate),
+      startDate,
+      endDate,
+      allDay: true,
+      summary: event.title || 'Учебное событие',
+      description: buildAcademicEventDescription(event),
+      location: event.location || '',
+    }];
+  });
+
+  return exportEventsCollectionToCalendar({
+    events,
+    calendarName: title,
+    fileName,
+    dialogTitle: 'Экспорт учебных событий',
+    emptyErrorCode: 'NO_ACADEMIC_EVENTS',
   });
 };

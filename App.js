@@ -1,15 +1,22 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import { View, Text, Platform, Appearance, StyleSheet, StatusBar, PanResponder, Animated, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, Platform, AppState, Appearance, StyleSheet, StatusBar, PanResponder, Animated, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import * as SecureStore from 'expo-secure-store';
 import { useFonts, Montserrat_400Regular, Montserrat_500Medium, Montserrat_600SemiBold, Montserrat_700Bold } from '@expo-google-fonts/montserrat';
 import * as Notifications from 'expo-notifications';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { BlurView } from 'expo-blur';
+import { GlassView, isGlassEffectAPIAvailable, isLiquidGlassAvailable } from 'expo-glass-effect';
 
 // Импорт компонентов
 import SplashScreen from './components/SplashScreen';
 import TabButton from './components/TabButton';
+import NativeTabBar from './components/NativeTabBar';
+import IOSEdgeSwipeBack from './components/IOSEdgeSwipeBack';
+import HeaderToolbar from './components/HeaderToolbar';
+import InAppNotificationBanner from './components/InAppNotificationBanner';
+import OnboardingScreen from './components/OnboardingScreen';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { isOnboardingCompleted } from './utils/onboarding';
 import NewsScreen from './components/NewsScreen';
 import ScheduleScreen from './components/ScheduleScreen';
 import SettingsScreen from './components/SettingsScreen';
@@ -20,10 +27,10 @@ import AchievementToast from './components/AchievementToast';
 
 // Импорт утилит
 import { ACCENT_COLORS, SCREENS, LIQUID_GLASS, isNewYearPeriod, getNewYearText, getHolidayInfo } from './utils/constants';
-import { getBlurConfig } from './utils/liquidGlass';
 import * as Sentry from '@sentry/react-native';
 import notificationService from './utils/notificationService';
 import backgroundService from './utils/backgroundService';
+import { hasUnlockedAllAchievements } from './utils/achievements';
 
 Sentry.init({
   dsn: 'https://9954c52fe80999a51a6905e3ee180d11@sentry.sculkmetrics.com/5',
@@ -31,15 +38,6 @@ Sentry.init({
   replaysSessionSampleRate: 0.1,
   replaysOnErrorSampleRate: 1,
   integrations: [Sentry.mobileReplayIntegration(), Sentry.feedbackIntegration()],
-});
-
-// Конфигурация уведомлений
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: true,
-    shouldSetBadge: true,
-  }),
 });
 
 const styles = StyleSheet.create({
@@ -57,9 +55,10 @@ const styles = StyleSheet.create({
     marginTop: Platform.OS === 'ios' ? 54 : (StatusBar.currentHeight || 0) + 6,
     borderRadius: 20,
     borderWidth: StyleSheet.hairlineWidth,
+    backgroundColor: 'transparent',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 1,
-    shadowRadius: 12,
+    shadowOpacity: 0,
+    shadowRadius: 0,
   },
   headerInner: {
     flexDirection: 'row',
@@ -99,6 +98,7 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     overflow: 'hidden',
     borderWidth: StyleSheet.hairlineWidth,
+    backgroundColor: 'transparent',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 1,
     shadowRadius: 20,
@@ -112,11 +112,20 @@ const styles = StyleSheet.create({
   // Анимированный индикатор активной вкладки
   tabIndicator: {
     position: 'absolute',
+    left: 0,
     top: 6,
-    bottom: 6,
-    borderRadius: 12,
-    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: 24,
+    overflow: 'hidden',
     zIndex: 1,
+  },
+  tabIndicatorGlass: {
+    ...StyleSheet.absoluteFillObject,
+    borderRadius: 24,
+  },
+  tabIndicatorContent: {
+    ...StyleSheet.absoluteFillObject,
+    borderRadius: 24,
+    borderWidth: StyleSheet.hairlineWidth,
   },
   // Fallback стиль для Android
   tabBarAndroid: {
@@ -130,6 +139,11 @@ const styles = StyleSheet.create({
 });
 
 const TAB_ORDER = [SCREENS.SCHEDULE, SCREENS.MAP, SCREENS.FRESHMAN, SCREENS.NEWS, SCREENS.SETTINGS];
+const NATIVE_TABS = TAB_ORDER.map((key, index) => ({
+  key,
+  label: key,
+  sfSymbol: ['calendar', 'map', 'book', 'newspaper', 'gearshape'][index],
+}));
 
 export default Sentry.wrap(function App() {
   let [fontsLoaded] = useFonts({
@@ -140,12 +154,21 @@ export default Sentry.wrap(function App() {
   });
 
   const [isLoading, setIsLoading] = useState(true);
+  const [initializationReady, setInitializationReady] = useState(false);
+  const [showSplashOverlay, setShowSplashOverlay] = useState(true);
+  const splashTransition = useRef(new Animated.Value(1)).current;
+  const splashStartedAt = useRef(Date.now());
+  const [onboardingRequired, setOnboardingRequired] = useState(null);
   const [activeScreen, setActiveScreen] = useState(SCREENS.SCHEDULE);
   const [theme, setTheme] = useState('auto');
   const [accentColor, setAccentColor] = useState('green');
   const [systemTheme, setSystemTheme] = useState(Appearance.getColorScheme() || 'light');
   const [refresh, setRefresh] = useState(0);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [legendUnlocked, setLegendUnlocked] = useState(false);
+  const [legendSplashEnabled, setLegendSplashEnabled] = useState(false);
+  const [communityFeatureEnabled, setCommunityFeatureEnabled] = useState(false);
+  const [liquidGlassEnabled, setLiquidGlassEnabled] = useState(true);
   const insets = useSafeAreaInsets();
 
   // Refs для дочерних экранов (для управления из хедера)
@@ -155,9 +178,13 @@ export default Sentry.wrap(function App() {
 
   // Состояния для контекстных кнопок в хедере
   const [mapFilterCount, setMapFilterCount] = useState(0);
+  const [, refreshMapFilterControl] = useState(0);
+  const handleMapFilterControlChange = useCallback(() => refreshMapFilterControl(value => value + 1), []);
   const scheduleExportHandler = useRef(null);
   const [scheduleExportAvailable, setScheduleExportAvailable] = useState(false);
   const [scheduleExporting, setScheduleExporting] = useState(false);
+  const scheduleFavoritesHandler = useRef(null);
+  const [scheduleFavoritesAvailable, setScheduleFavoritesAvailable] = useState(false);
   const [mapSubScreen, setMapSubScreen] = useState(null);
   const [freshmanSubScreen, setFreshmanSubScreen] = useState(null);
   const [settingsSubScreen, setSettingsSubScreen] = useState(null);
@@ -172,18 +199,20 @@ export default Sentry.wrap(function App() {
   const tabLayouts = useRef({});   // { index: { x, width } }
   const isDragging = useRef(false);
   const prevTabIndex = useRef(0);
-  const [indicatorReady, setIndicatorReady] = useState(false);
+  const [, setTabLayoutRevision] = useState(0);
 
   // Сохраняем позицию вкладки при её layout
   const handleTabLayout = useCallback((index, event) => {
-    const { x, width } = event.nativeEvent.layout;
-    tabLayouts.current[index] = { x, width };
-    // Инициализируем позицию индикатора для начальной вкладки
+    const { x, width, height } = event.nativeEvent.layout;
+    const previous = tabLayouts.current[index];
+    tabLayouts.current[index] = { x, width, height };
+    if (!previous || previous.x !== x || previous.width !== width || previous.height !== height) {
+      setTabLayoutRevision((revision) => revision + 1);
+    }
     if (index === TAB_ORDER.indexOf(activeScreen) && !isDragging.current) {
       indicatorAnim.setValue(x);
-      if (!indicatorReady) setIndicatorReady(true);
     }
-  }, [activeScreen, indicatorReady]);
+  }, [activeScreen, indicatorAnim]);
 
   // Анимация скольжения при переключении таба
   const animateIndicatorTo = useCallback((tabIndex) => {
@@ -200,7 +229,7 @@ export default Sentry.wrap(function App() {
 
   // PanResponder для перетаскивания индикатора при зажатии активной вкладки
   const indicatorPanResponder = useMemo(() => PanResponder.create({
-    onStartShouldSetPanResponder: () => true,
+    onStartShouldSetPanResponder: () => false,
     onStartShouldSetPanResponderCapture: () => false,
     onMoveShouldSetPanResponder: (_, gesture) => {
       return Math.abs(gesture.dx) > 8 && Math.abs(gesture.dy) < 20;
@@ -289,24 +318,44 @@ export default Sentry.wrap(function App() {
   const [isNewYearMode, setIsNewYearMode] = useState(false);
   const [splashNewYearMode, setSplashNewYearMode] = useState(false);
 
+  const handledNotificationResponse = useRef(null);
+  const navigateFromNotification = useCallback((route) => {
+    const screen = route?.screen === 'news' ? SCREENS.NEWS
+      : route?.screen === 'schedule' ? SCREENS.SCHEDULE : null;
+    if (!screen) return;
+    setActiveScreen(screen);
+    setRefreshKey(value => value + 1);
+  }, []);
+
   useEffect(() => {
-    // Настройка обработчиков уведомлений
-    const subscription = Notifications.addNotificationReceivedListener(notification => {
-      console.log('Notification received:', notification);
+    let mounted = true;
+    const handleResponse = (response) => {
+      if (!mounted || !response) return;
+      const id = `${response.notification?.request?.identifier}:${response.actionIdentifier}`;
+      if (handledNotificationResponse.current === id) return;
+      handledNotificationResponse.current = id;
+      navigateFromNotification(notificationService.getNotificationRoute(response));
+      Notifications.clearLastNotificationResponseAsync().catch(error => {
+        console.warn('Unable to clear handled notification response:', error);
+      });
+    };
+    const responseSubscription = Notifications.addNotificationResponseReceivedListener(handleResponse);
+    Notifications.getLastNotificationResponseAsync().then(handleResponse).catch(error => {
+      console.warn('Unable to restore notification response:', error);
     });
-
-    const responseSubscription = Notifications.addNotificationResponseReceivedListener(response => {
-      console.log('Notification response:', response);
-    });
-
-    // Инициализация уведомлений
     initializeApp();
-
+    const appStateSubscription = AppState.addEventListener('change', state => {
+      if (state !== 'active') return;
+      notificationService.initialize().then(() => backgroundService.registerBackgroundNewsCheck()).catch(error => {
+        console.warn('Unable to synchronize notification permissions:', error);
+      });
+    });
     return () => {
-      subscription.remove();
+      mounted = false;
+      appStateSubscription.remove();
       responseSubscription.remove();
     };
-  }, []);
+  }, [navigateFromNotification]);
 
   // Функция для загрузки настроек таббара
   const loadTabbarSettings = async () => {
@@ -369,6 +418,9 @@ const loadNewYearSettings = async () => {
 };
 
 // Функция для обновления настроек новогоднего режима
+const SPLASH_DURATION_BEFORE_MS = 2000;
+const SPLASH_DURATION_MS = 3500;
+
 const handleNewYearModeChange = async (enabled) => {
   console.log('App: Changing new year mode to:', enabled);
   
@@ -393,9 +445,7 @@ const handleNewYearModeChange = async (enabled) => {
 
   const initializeApp = async () => {
     try {
-      // Запрашиваем разрешения на уведомления
-      await setupNotifications();
-
+      setOnboardingRequired(!await isOnboardingCompleted(AsyncStorage));
       // Инициализируем сервис уведомлений
       await notificationService.initialize();
 
@@ -411,40 +461,7 @@ const handleNewYearModeChange = async (enabled) => {
       console.error('Error initializing app:', error);
       Sentry.captureException(error);
     } finally {
-      // Показываем splash screen на 2 секунды
-      setTimeout(() => {
-        setIsLoading(false);
-      }, 2000);
-    }
-  };
-
-  const setupNotifications = async () => {
-    try {
-      const { status: existingStatus } = await Notifications.getPermissionsAsync();
-      let finalStatus = existingStatus;
-
-      if (existingStatus !== 'granted') {
-        const { status } = await Notifications.requestPermissionsAsync();
-        finalStatus = status;
-      }
-
-      if (finalStatus !== 'granted') {
-        console.log('Notification permissions not granted');
-        return;
-      }
-
-      // Настраиваем канал для Android
-      if (Platform.OS === 'android') {
-        await Notifications.setNotificationChannelAsync('default', {
-          name: 'default',
-          importance: Notifications.AndroidImportance.MAX,
-          vibrationPattern: [0, 250, 250, 250],
-          lightColor: '#FF231F7C',
-        });
-      }
-
-    } catch (error) {
-      console.error('Error setting up notifications:', error);
+      setInitializationReady(true);
     }
   };
 
@@ -460,9 +477,28 @@ const handleNewYearModeChange = async (enabled) => {
     try {
       const savedTheme = await SecureStore.getItemAsync('theme');
       const savedAccentColor = await SecureStore.getItemAsync('accentColor');
+      const savedCommunityFeature = await SecureStore.getItemAsync('feature_community_enabled');
+      const savedLiquidGlass = await SecureStore.getItemAsync('feature_liquid_glass_enabled');
+      const savedLegendSplash = await SecureStore.getItemAsync('legend_splash_enabled');
+      const allUnlocked = await hasUnlockedAllAchievements().catch(() => false);
+
+      setCommunityFeatureEnabled(savedCommunityFeature === 'true');
+      setLiquidGlassEnabled(savedLiquidGlass !== 'false');
+      setLegendUnlocked(allUnlocked);
+      setLegendSplashEnabled(savedLegendSplash === 'true' && allUnlocked);
       
-      if (savedTheme) setTheme(savedTheme);
-      if (savedAccentColor) setAccentColor(savedAccentColor);
+      if (savedTheme === 'legend' && !allUnlocked) {
+        setTheme('dark');
+        await SecureStore.setItemAsync('theme', 'dark');
+      } else if (savedTheme) {
+        setTheme(savedTheme);
+      }
+      if (savedAccentColor === 'legend' && !allUnlocked) {
+        setAccentColor('green');
+        await SecureStore.setItemAsync('accentColor', 'green');
+      } else if (savedAccentColor) {
+        setAccentColor(savedAccentColor);
+      }
     } catch (error) {
       console.error('Error loading settings:', error);
     }
@@ -496,26 +532,73 @@ const handleNewYearModeChange = async (enabled) => {
 
   const effectiveTheme = getEffectiveTheme();
   
-  // Рендерим SplashScreen пока шрифты не загружены или приложение загружается
-  if (!fontsLoaded || isLoading) {
-    const holiday = getHolidayInfo();
-    const holidayInfo = holiday && (holiday.type !== 'new-year' || splashNewYearMode) ? holiday : null;
-    return <SplashScreen 
-      accentColor={accentColor} 
-      theme={getEffectiveTheme()} 
+  useEffect(() => {
+    if (!initializationReady || !fontsLoaded || onboardingRequired === null) return undefined;
+    const startedAt = Date.now();
+    const remaining = Math.max(0, SPLASH_DURATION_MS - (startedAt - splashStartedAt.current));
+    setIsLoading(true);
+    const timer = setTimeout(() => setIsLoading(false), remaining);
+    console.info(`Splash duration: ${SPLASH_DURATION_BEFORE_MS}ms -> ${SPLASH_DURATION_MS}ms`);
+    return () => clearTimeout(timer);
+  }, [fontsLoaded, initializationReady, onboardingRequired]);
+
+  const shouldShowSplash = !fontsLoaded || isLoading || onboardingRequired === null;
+  const holiday = getHolidayInfo();
+  const holidayInfo = holiday && (holiday.type !== 'new-year' || splashNewYearMode) ? holiday : null;
+
+  useEffect(() => {
+    if (shouldShowSplash) {
+      setShowSplashOverlay(true);
+      splashTransition.setValue(1);
+      return undefined;
+    }
+    const fadeOut = Animated.timing(splashTransition, {
+      toValue: 0,
+      duration: 500,
+      useNativeDriver: true,
+      isInteraction: false,
+    });
+    fadeOut.start(({ finished }) => {
+      if (finished) setShowSplashOverlay(false);
+    });
+    return () => fadeOut.stop();
+  }, [shouldShowSplash, splashTransition]);
+
+  if (shouldShowSplash) {
+    return <SplashScreen
+      accentColor={accentColor}
+      theme={getEffectiveTheme()}
       holidayInfo={holidayInfo}
+      legendUnlocked={legendSplashEnabled}
     />;
   }
-  
+
+  if (onboardingRequired) {
+    return (
+      <View style={{ flex: 1 }}>
+        <OnboardingScreen visible theme={effectiveTheme} accentColor={accentColor} onComplete={() => setOnboardingRequired(false)} />
+        {showSplashOverlay && (
+          <Animated.View style={[StyleSheet.absoluteFillObject, { opacity: splashTransition }]} pointerEvents="none">
+            <SplashScreen accentColor={accentColor} theme={effectiveTheme} holidayInfo={holidayInfo} legendUnlocked={legendSplashEnabled} />
+          </Animated.View>
+        )}
+      </View>
+    );
+  }
+
   const glass = LIQUID_GLASS[effectiveTheme] || LIQUID_GLASS.light;
   const bgColor = glass.background;
   const textColor = glass.text;
   const colors = ACCENT_COLORS[accentColor];
-  const blurConfig = getBlurConfig(effectiveTheme);
-  const tabBarBlurConfig = {
-    intensity: glass.tabBarBlurIntensity || blurConfig.intensity,
-    tint: glass.tabBarBlurTint || blurConfig.tint,
-  };
+  let supportsSystemGlass = false;
+  if (liquidGlassEnabled && Platform.OS === 'ios') {
+    try {
+      supportsSystemGlass = isLiquidGlassAvailable() && isGlassEffectAPIAvailable();
+    } catch (error) {
+      console.warn('Liquid Glass API unavailable; using BlurView fallback.', error);
+    }
+  }
+  const systemGlassColorScheme = effectiveTheme === 'light' ? 'light' : 'dark';
   
   const handleTabPress = (screen) => {
     if (activeScreen === screen) {
@@ -536,6 +619,10 @@ const handleNewYearModeChange = async (enabled) => {
     [SCREENS.NEWS]: 'newspaper-outline',
     [SCREENS.SETTINGS]: 'settings-outline',
   };
+
+  const isSubscreenOpen = (activeScreen === SCREENS.MAP && mapSubScreen) ||
+    (activeScreen === SCREENS.FRESHMAN && freshmanSubScreen) ||
+    (activeScreen === SCREENS.SETTINGS && settingsSubScreen);
 
   // Рендер header с glass-эффектом (плавающая капсула)
   const renderHeader = () => {
@@ -609,110 +696,34 @@ const handleNewYearModeChange = async (enabled) => {
       mapScreenRef.current?.openFilters();
     };
 
-    // iOS — плавающая glass-капсула с blur
+    // iOS — системный Liquid Glass при поддержке, BlurView как fallback.
     if (Platform.OS === 'ios') {
       return (
-        <View style={styles.headerFloating} pointerEvents="box-none">
-          <BlurView
-            intensity={tabBarBlurConfig.intensity}
-            tint={tabBarBlurConfig.tint}
-            style={[
-              styles.headerBlur,
-              {
-                borderColor: glass.borderStrong,
-                shadowColor: glass.shadowColor,
-              },
-            ]}
-          >
-            <View style={styles.headerInner}>
-              {showBackButton ? (
-                <TouchableOpacity onPress={handleBackPress} style={{ marginRight: 10 }}>
-                  <Icon name="arrow-back" size={20} color={colors.primary} />
-                </TouchableOpacity>
-              ) : (
-                <Icon name={headerIcon} size={20} color={colors.primary} style={styles.headerIcon} />
-              )}
-              <Text style={[styles.headerText, { color: textColor, flex: 1 }]}>
-                {headerTitle}
-              </Text>
-              {showFilterButton && (
-                <TouchableOpacity 
-                  onPress={handleFilterPress}
-                  style={{ flexDirection: 'row', alignItems: 'center', marginLeft: 8 }}
-                >
-                  <Icon name="filter-outline" size={20} color={colors.primary} />
-                  {mapFilterCount > 0 && (
-                    <View style={{ 
-                      backgroundColor: colors.primary, 
-                      borderRadius: 8, 
-                      minWidth: 16, 
-                      height: 16, 
-                      justifyContent: 'center', 
-                      alignItems: 'center',
-                      marginLeft: 4,
-                    }}>
-                      <Text style={{ color: '#ffffff', fontSize: 10, fontFamily: 'Montserrat_600SemiBold' }}>
-                        {mapFilterCount}
-                      </Text>
-                    </View>
-                  )}
-                </TouchableOpacity>
-              )}
-              {showCacheIcon && (
-                <TouchableOpacity 
-                  onPress={handleCacheIconPress}
-                  activeOpacity={0.7}
-                  style={{ 
-                    flexDirection: 'row', 
-                    alignItems: 'center', 
-                    marginLeft: 8,
-                    backgroundColor: currentCacheStatus === 'offline' ? '#f59e0b18' : colors.glass,
-                    paddingHorizontal: 8,
-                    paddingVertical: 4,
-                    borderRadius: 10,
-                  }}
-                >
-                  <Icon 
-                    name={currentCacheStatus === 'offline' ? 'cloud-offline-outline' : 'cloud-done-outline'} 
-                    size={16} 
-                    color={currentCacheStatus === 'offline' ? '#f59e0b' : colors.primary} 
-                  />
-                  <Text style={{ 
-                    fontSize: 11, 
-                    color: currentCacheStatus === 'offline' ? '#f59e0b' : colors.primary,
-                    fontFamily: 'Montserrat_500Medium',
-                    marginLeft: 4,
-                  }}>
-                    {currentCacheStatus === 'offline' ? 'Оффлайн' : 'Кэш'}
-                  </Text>
-                </TouchableOpacity>
-              )}
-              {activeScreen === SCREENS.SCHEDULE && scheduleExportAvailable && (
-                <TouchableOpacity
-                  onPress={() => scheduleExportHandler.current?.()}
-                  disabled={scheduleExporting}
-                  activeOpacity={0.7}
-                  style={{
-                    marginLeft: 8,
-                    padding: 6,
-                    borderRadius: 10,
-                    backgroundColor: colors.glass,
-                  }}
-                >
-                  {scheduleExporting ? (
-                    <ActivityIndicator size={16} color={colors.primary} />
-                  ) : (
-                    <Icon name="share-outline" size={18} color={colors.primary} />
-                  )}
-                </TouchableOpacity>
-              )}
-            </View>
-          </BlurView>
-        </View>
+        <HeaderToolbar
+          title={headerTitle}
+          icon={headerIcon}
+          onBack={showBackButton ? handleBackPress : undefined}
+          accent={colors.primary}
+          textColor={textColor}
+          glass={glass}
+          supportsGlass={supportsSystemGlass}
+          colorScheme={systemGlassColorScheme}
+          top={insets.top + 6}
+          status={showCacheIcon ? {
+            label: currentCacheStatus === 'offline' ? 'Нет сети. Сведения о сохранённых данных' : 'Показаны сохранённые данные',
+            icon: currentCacheStatus === 'offline' ? 'cloud-offline-outline' : 'cloud-done-outline',
+            warning: currentCacheStatus === 'offline',
+            onPress: handleCacheIconPress,
+          } : null}
+          actions={[
+            showFilterButton && { primary: true, render: () => mapScreenRef.current?.renderFilterButton(), label: 'Фильтры карты' },
+            activeScreen === SCREENS.SCHEDULE && scheduleFavoritesAvailable && { primary: true, icon: 'star-outline', label: 'Избранное расписание', onPress: () => scheduleFavoritesHandler.current?.() },
+            activeScreen === SCREENS.SCHEDULE && scheduleExportAvailable && { direct: true, icon: 'share-outline', label: scheduleExporting ? 'Экспорт выполняется…' : 'Поделиться расписанием', disabled: scheduleExporting, onPress: () => scheduleExportHandler.current?.() },
+          ]}
+        />
       );
     }
 
-    // Android — glass фон без blur
     return (
       <View style={[
         styles.headerAndroid,
@@ -770,8 +781,8 @@ const handleNewYearModeChange = async (enabled) => {
           >
             <Icon 
               name={currentCacheStatus === 'offline' ? 'cloud-offline-outline' : 'cloud-done-outline'} 
-              size={16} 
-              color={currentCacheStatus === 'offline' ? '#f59e0b' : colors.primary} 
+              size={22}
+              color={colors.primary}
             />
             <Text style={{ 
               fontSize: 11, 
@@ -781,6 +792,20 @@ const handleNewYearModeChange = async (enabled) => {
             }}>
               {currentCacheStatus === 'offline' ? 'Оффлайн' : 'Кэш'}
             </Text>
+          </TouchableOpacity>
+        )}
+        {activeScreen === SCREENS.SCHEDULE && scheduleFavoritesAvailable && (
+          <TouchableOpacity
+            onPress={() => scheduleFavoritesHandler.current?.()}
+            activeOpacity={0.7}
+            style={{
+              marginLeft: 8,
+              padding: 6,
+              borderRadius: 10,
+              backgroundColor: colors.glass,
+            }}
+          >
+            <Icon name="star-outline" size={18} color={colors.primary} />
           </TouchableOpacity>
         )}
         {activeScreen === SCREENS.SCHEDULE && scheduleExportAvailable && (
@@ -814,20 +839,33 @@ const handleNewYearModeChange = async (enabled) => {
     const activeLayout = tabLayouts.current[activeIndex];
     const indicatorWidth = activeLayout ? activeLayout.width : 0;
 
-    // Анимированный индикатор (glass pill) — перетаскиваемый
+    // Нейтральная капсула под содержимым вкладки; акцент принадлежит иконке.
     const indicator = indicatorWidth > 0 ? (
       <Animated.View
         style={[
           styles.tabIndicator,
           {
             width: indicatorWidth,
-            backgroundColor: colors.glass,
-            borderColor: colors.glassBorder,
+            height: activeLayout.height,
+            top: Platform.OS === 'ios' ? 6 : 0,
             transform: [{ translateX: indicatorAnim }],
           },
         ]}
-        {...indicatorPanResponder.panHandlers}
-      />
+        pointerEvents="none"
+      >
+        {supportsSystemGlass && (
+          <GlassView
+            colorScheme={systemGlassColorScheme}
+            glassEffectStyle="regular"
+            isInteractive
+            style={styles.tabIndicatorGlass}
+          />
+        )}
+        <View style={[styles.tabIndicatorContent, {
+          backgroundColor: effectiveTheme === 'light' ? 'rgba(0,0,0,0.07)' : 'rgba(255,255,255,0.14)',
+          borderColor: effectiveTheme === 'light' ? 'rgba(255,255,255,0.6)' : 'rgba(255,255,255,0.22)',
+        }]} />
+      </Animated.View>
     ) : null;
 
     const tabButtons = TAB_ORDER.map((screen, index) => (
@@ -841,33 +879,11 @@ const handleNewYearModeChange = async (enabled) => {
         accentColor={accentColor}
         showLabels={showTabbarLabels}
         fontSize={tabbarFontSize}
+        glassAvailable={supportsSystemGlass}
+        activeColor={colors.primary}
         onLayout={(e) => handleTabLayout(index, e)}
       />
     ));
-
-    // iOS — плавающий glass tab bar
-    if (Platform.OS === 'ios') {
-      return (
-        <View style={styles.tabBarFloating}>
-          <BlurView
-            intensity={tabBarBlurConfig.intensity}
-            tint={tabBarBlurConfig.tint}
-            style={[
-              styles.tabBarFloatingIOS,
-              {
-                borderColor: glass.borderStrong,
-                shadowColor: glass.shadowStrong,
-              },
-            ]}
-          >
-            <View style={styles.tabBarInner}>
-              {indicator}
-              {tabButtons}
-            </View>
-          </BlurView>
-        </View>
-      );
-    }
 
     // Android
     return (
@@ -889,22 +905,9 @@ const handleNewYearModeChange = async (enabled) => {
     );
   };
 
-  return (
-    <View style={{ flex: 1, backgroundColor: effectiveTheme === 'matrix' ? glass.backgroundSolid : bgColor }}>
-      {effectiveTheme === 'matrix' && <MatrixRain intensity={0.85} />}
-      {/* Статусбар */}
-      <StatusBar 
-        barStyle={effectiveTheme === 'light' ? 'dark-content' : 'light-content'}
-        backgroundColor={Platform.OS === 'android' ? glass.headerGlass : 'transparent'}
-        translucent={Platform.OS === 'ios'}
-      />
-      
-      {/* Заголовок с Glass-эффектом (плавающий поверх контента на iOS) */}
-      {renderHeader()}
-      
-      {/* Контент — содержимое проходит за header и tab bar для Liquid Glass-эффекта */}
-      <View style={{ flex: 1, paddingTop: Platform.OS === 'ios' ? 104 : 0 }}>
-        {activeScreen === SCREENS.SCHEDULE && (
+  const renderScreen = (screen) => (
+      <View style={{ flex: 1 }}>
+        {screen === SCREENS.SCHEDULE && (
           <ScheduleScreen 
             theme={effectiveTheme} 
             accentColor={accentColor} 
@@ -919,9 +922,13 @@ const handleNewYearModeChange = async (enabled) => {
               setScheduleExportAvailable(!!handler);
               setScheduleExporting(isExporting);
             }}
+            onFavoritesReady={(handler) => {
+              scheduleFavoritesHandler.current = handler;
+              setScheduleFavoritesAvailable(!!handler);
+            }}
           />
         )}
-        {activeScreen === SCREENS.MAP && (
+        {screen === SCREENS.MAP && (
           <MapScreen 
             ref={mapScreenRef}
             theme={effectiveTheme} 
@@ -929,20 +936,22 @@ const handleNewYearModeChange = async (enabled) => {
             key={`map-${refreshKey}`}
             isNewYearMode={isNewYearMode}
             onFilterCountChange={setMapFilterCount}
+            onFilterControlChange={handleMapFilterControlChange}
             onNavigationChange={setMapSubScreen}
           />
         )}
-        {activeScreen === SCREENS.FRESHMAN && (
+        {screen === SCREENS.FRESHMAN && (
           <FreshmanScreen 
             ref={freshmanScreenRef}
             theme={effectiveTheme} 
             accentColor={accentColor} 
             key={`freshman-${refreshKey}`}
             isNewYearMode={isNewYearMode}
+            communityFeatureEnabled={communityFeatureEnabled}
             onNavigationChange={setFreshmanSubScreen}
           />
         )}
-        {activeScreen === SCREENS.NEWS && (
+        {screen === SCREENS.NEWS && (
           <NewsScreen 
             theme={effectiveTheme} 
             accentColor={accentColor} 
@@ -954,27 +963,71 @@ const handleNewYearModeChange = async (enabled) => {
             }}
           />
         )}
-        {activeScreen === SCREENS.SETTINGS && (
+        {screen === SCREENS.SETTINGS && (
           <SettingsScreen 
             ref={settingsScreenRef}
             theme={effectiveTheme} 
             accentColor={accentColor} 
+            legendUnlocked={legendUnlocked}
             setTheme={setTheme} 
             setAccentColor={setAccentColor} 
             key={`settings-${refreshKey}`}
             onTabbarSettingsChange={handleTabbarSettingsChange}
+            legendSplashEnabled={legendSplashEnabled}
+            onLegendSplashChange={async value => {
+              setLegendSplashEnabled(value);
+              await SecureStore.setItemAsync('legend_splash_enabled', value.toString());
+            }}
             isNewYearMode={isNewYearMode}
             onNewYearModeChange={handleNewYearModeChange}
+            onCommunityFeatureChange={setCommunityFeatureEnabled}
+            onLiquidGlassFeatureChange={setLiquidGlassEnabled}
             onNavigationChange={setSettingsSubScreen}
           />
         )}
       </View>
-      
-      {/* Навигация — Liquid Glass tab bar */}
-      {renderTabBar()}
+  );
 
-      {/* Тост уведомление о полученных достижениях */}
+  return (
+    <View style={{ flex: 1, backgroundColor: effectiveTheme === 'matrix' ? glass.backgroundSolid : bgColor }}>
+      {effectiveTheme === 'matrix' && <MatrixRain intensity={0.85} />}
+      <StatusBar
+        barStyle={effectiveTheme === 'light' ? 'dark-content' : 'light-content'}
+        backgroundColor={Platform.OS === 'android' ? glass.headerGlass : 'transparent'}
+        translucent={Platform.OS === 'ios'}
+      />
+      {Platform.OS !== 'ios' && renderHeader()}
+      {Platform.OS === 'ios' ? (
+        <IOSEdgeSwipeBack
+          enabled={Boolean(isSubscreenOpen)}
+          onBack={() => {
+            if (activeScreen === SCREENS.MAP) mapScreenRef.current?.goBack();
+            else if (activeScreen === SCREENS.FRESHMAN) freshmanScreenRef.current?.goBack();
+            else if (activeScreen === SCREENS.SETTINGS) settingsScreenRef.current?.goBack();
+          }}
+        >
+          <NativeTabBar
+          activeScreen={activeScreen}
+          onTabPress={handleTabPress}
+          tabs={NATIVE_TABS}
+          renderScreen={renderScreen}
+          theme={effectiveTheme}
+          accentColor={colors.primary}
+          backgroundColor={bgColor}
+          showLabels={showTabbarLabels}
+          labelFontSize={{ small: 8, medium: 10, large: 12 }[tabbarFontSize]}
+          />
+        </IOSEdgeSwipeBack>
+      ) : renderScreen(activeScreen)}
+      {Platform.OS === 'ios' && renderHeader()}
+      {Platform.OS !== 'ios' && renderTabBar()}
       <AchievementToast theme={effectiveTheme} accentColor={accentColor} />
+      <InAppNotificationBanner theme={effectiveTheme} onNavigate={navigateFromNotification} />
+      {showSplashOverlay && (
+        <Animated.View style={[StyleSheet.absoluteFillObject, { opacity: splashTransition }]} pointerEvents="none">
+          <SplashScreen accentColor={accentColor} theme={effectiveTheme} holidayInfo={holidayInfo} legendUnlocked={legendSplashEnabled} />
+        </Animated.View>
+      )}
     </View>
   );
 });

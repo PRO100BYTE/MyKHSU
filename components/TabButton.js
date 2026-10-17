@@ -3,16 +3,14 @@ import { TouchableOpacity, View, Text, StyleSheet, Platform } from 'react-native
 import { Ionicons as Icon } from '@expo/vector-icons';
 import { ACCENT_COLORS } from '../utils/constants';
 
-const TabButton = ({ icon, label, isActive, onPress, theme, accentColor, showLabels = true, fontSize = 'medium', onLayout }) => {
+const TabButton = ({ icon, label, isActive, onPress, theme, accentColor, showLabels = true, fontSize = 'medium', glassAvailable = false, activeColor: activeColorOverride, onLayout }) => {
   const colors = ACCENT_COLORS[accentColor];
-  
-  const iconColor = isActive ? 
-    colors.primary : 
-    '#8e8e93';
-  
-  const textColor = isActive ? 
-    colors.primary : 
-    '#8e8e93';
+  const isDarkTheme = theme !== 'light';
+  const systemGlassMode = Platform.OS === 'ios' && glassAvailable;
+  const inactiveColor = systemGlassMode ? (isDarkTheme ? '#f2f2f7' : '#3a3a3c') : '#8e8e93';
+  const activeColor = activeColorOverride || colors.primary;
+  const iconColor = isActive ? activeColor : inactiveColor;
+  const textColor = isActive ? activeColor : inactiveColor;
 
   const getFontSize = () => {
     switch (fontSize) {
@@ -29,6 +27,9 @@ const TabButton = ({ icon, label, isActive, onPress, theme, accentColor, showLab
       style={styles.tabButton}
       activeOpacity={0.7}
       onLayout={onLayout}
+      accessibilityRole="tab"
+      accessibilityState={{ selected: isActive }}
+      accessibilityLabel={label}
     >
       <Icon name={icon} size={22} color={iconColor} />
       {showLabels && (
@@ -37,6 +38,7 @@ const TabButton = ({ icon, label, isActive, onPress, theme, accentColor, showLab
           fontFamily: isActive ? 'Montserrat_600SemiBold' : 'Montserrat_500Medium',
           fontSize: getFontSize(),
           marginTop: 3,
+          ...(systemGlassMode && { textShadowColor: isDarkTheme ? 'rgba(0,0,0,0.48)' : 'rgba(255,255,255,0.72)' }),
         }]}>
           {label}
         </Text>

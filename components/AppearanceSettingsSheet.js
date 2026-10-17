@@ -1,15 +1,20 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Switch, Alert } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Switch, Alert } from 'react-native';
+import ScrollView from './ScreenScrollView';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import { useColorScheme } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
 import { ACCENT_COLORS, isNewYearPeriod, LIQUID_GLASS } from '../utils/constants';
-import { unlockAchievement } from '../utils/achievements';
+import { getAchievementsCount, unlockAchievement } from '../utils/achievements';
 import { showAchievementToast } from './AchievementToast';
+import { SectionHeader, SettingsGroup } from './SettingsComponents';
 
 const AppearanceSettingsSheet = ({ 
   theme, 
   accentColor, 
+  legendUnlocked,
+  legendSplashEnabled = false,
+  onLegendSplashChange,
   setTheme, 
   setAccentColor, 
   onTabbarSettingsChange,
@@ -31,10 +36,24 @@ const AppearanceSettingsSheet = ({
   const [showTabbarLabels, setShowTabbarLabels] = useState(true);
   const [tabbarFontSize, setTabbarFontSize] = useState('medium');
   const [newYearSetting, setNewYearSetting] = useState(false);
+  const [localLegendUnlocked, setLocalLegendUnlocked] = useState(false);
 
   useEffect(() => {
     loadSettings();
   }, []);
+
+  useEffect(() => {
+    checkLegendUnlock();
+  }, []);
+
+  const checkLegendUnlock = async () => {
+    try {
+      const stats = await getAchievementsCount();
+      setLocalLegendUnlocked(stats.total > 0 && stats.unlocked >= stats.total);
+    } catch {
+      setLocalLegendUnlocked(false);
+    }
+  };
 
   const loadSettings = async () => {
     try {
@@ -64,6 +83,11 @@ const AppearanceSettingsSheet = ({
   };
 
   const handleThemeChange = async (newTheme) => {
+    if (newTheme === 'legend' && !(legendUnlocked || localLegendUnlocked)) {
+      Alert.alert('Тема недоступна', 'Легендарная тема откроется после получения всех достижений.');
+      return;
+    }
+
     setSelectedTheme(newTheme);
     setTheme(newTheme);
     await SecureStore.setItemAsync('theme', newTheme);
@@ -84,6 +108,11 @@ const AppearanceSettingsSheet = ({
   };
 
   const handleAccentColorChange = async (newColor) => {
+    if (newColor === 'legend' && !(legendUnlocked || localLegendUnlocked)) {
+      Alert.alert('Цвет недоступен', 'Легендарный акцент откроется после получения всех достижений.');
+      return;
+    }
+
     setAccentColor(newColor);
     await SecureStore.setItemAsync('accentColor', newColor);
   };
@@ -135,6 +164,7 @@ const AppearanceSettingsSheet = ({
     { key: 'purple', label: 'Фиолетовый' },
     ...(developerMode ? [{ key: 'orange', label: 'Оранжевый' }] : []),
     ...(developerMode ? [{ key: 'matrix', label: 'Матрица' }] : []),
+    ...((legendUnlocked || localLegendUnlocked) ? [{ key: 'legend', label: 'Легендарный' }] : []),
   ];
 
   const themeOptions = [
@@ -142,17 +172,19 @@ const AppearanceSettingsSheet = ({
     { key: 'dark', icon: 'moon-outline', label: 'Тёмная' },
     { key: 'auto', icon: 'phone-portrait-outline', label: 'Системная', desc: systemColorScheme === 'dark' ? 'Тёмная' : 'Светлая' },
     ...(developerMode ? [{ key: 'matrix', icon: 'code-slash-outline', label: 'Матрица', desc: 'Цифровой дождь' }] : []),
+    ...((legendUnlocked || localLegendUnlocked) ? [{ key: 'legend', icon: 'trophy-outline', label: 'Легендарная', desc: 'Награда за все достижения' }] : []),
   ];
 
   return (
     <ScrollView 
-      style={{ flex: 1, backgroundColor: bgColor, padding: 16 }} 
-      contentContainerStyle={{ paddingBottom: 100 }}
+      style={{ flex: 1, backgroundColor: bgColor }}
+      contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 100 }}
       showsVerticalScrollIndicator={false}
     >
       {/* Секция темы */}
       <View style={styles.section}>
-        <Text style={[styles.sectionTitle, { color: textColor }]}>Тема</Text>
+        <SectionHeader title="Тема" placeholderColor={placeholderColor} />
+        <SettingsGroup glass={glass} style={{ backgroundColor: glass.surfaceSecondary }}>
         <View style={styles.optionsContainer}>
           {themeOptions.map(opt => (
             <TouchableOpacity
@@ -165,7 +197,7 @@ const AppearanceSettingsSheet = ({
             >
               <View style={styles.optionHeader}>
                 <Icon name={opt.icon} size={24} color={selectedTheme === opt.key ? colors.primary : placeholderColor} />
-                <View style={{ marginLeft: 12 }}>
+                <View style={{ marginLeft: 12, flex: 1 }}>
                   <Text style={[styles.optionText, { color: selectedTheme === opt.key ? colors.primary : textColor }]}>
                     {opt.label}
                   </Text>
@@ -178,11 +210,30 @@ const AppearanceSettingsSheet = ({
             </TouchableOpacity>
           ))}
         </View>
+        </SettingsGroup>
+        {(legendUnlocked || localLegendUnlocked) && (
+          <TouchableOpacity
+            style={[styles.settingItem, { marginTop: 10, backgroundColor: glass.surfaceSecondary, borderColor }]}
+            onPress={() => onLegendSplashChange?.(!legendSplashEnabled)}
+            accessibilityRole="switch"
+            accessibilityState={{ checked: legendSplashEnabled }}
+          >
+            <View style={styles.settingInfo}>
+              <Icon name="sparkles-outline" size={22} color={legendSplashEnabled ? '#FFD666' : placeholderColor} />
+              <View style={styles.textContainer}>
+                <Text style={[styles.settingLabel, { color: textColor }]}>Легендарный splash screen</Text>
+                <Text style={[styles.settingDescription, { color: placeholderColor }]}>Отдельно включает оформление заставки за все достижения</Text>
+              </View>
+            </View>
+            <Switch value={legendSplashEnabled} onValueChange={value => onLegendSplashChange?.(value)} trackColor={{ true: '#FFD666' }} />
+          </TouchableOpacity>
+        )}
       </View>
       
       {/* Секция акцентного цвета */}
       <View style={styles.section}>
-        <Text style={[styles.sectionTitle, { color: textColor }]}>Акцентный цвет</Text>
+        <SectionHeader title="Акцентный цвет" placeholderColor={placeholderColor} />
+        <SettingsGroup glass={glass} style={{ backgroundColor: glass.surfaceSecondary }}>
         <View style={styles.colorOptions}>
           {accentColorOptions.map(opt => (
             <TouchableOpacity
@@ -214,12 +265,30 @@ const AppearanceSettingsSheet = ({
             </Text>
           </View>
         )}
+        {(legendUnlocked || localLegendUnlocked) && selectedTheme === 'legend' && (
+          <View style={[styles.infoSection, { backgroundColor: 'rgba(255, 214, 102, 0.12)', marginTop: 12 }]}> 
+            <Icon name="trophy" size={16} color="#FFD666" />
+            <Text style={[styles.infoText, { color: '#FFD666', marginLeft: 8, flex: 1 }]}> 
+              Эксклюзивная тема открыта за полный набор достижений.
+            </Text>
+          </View>
+        )}
+        {(legendUnlocked || localLegendUnlocked) && accentColor === 'legend' && (
+          <View style={[styles.infoSection, { backgroundColor: 'rgba(255, 214, 102, 0.12)', marginTop: 12 }]}> 
+            <Icon name="diamond" size={16} color="#FFD666" />
+            <Text style={[styles.infoText, { color: '#FFD666', marginLeft: 8, flex: 1 }]}> 
+              Легендарный акцент активен.
+            </Text>
+          </View>
+        )}
+        </SettingsGroup>
       </View>
 
       {/* Секция новогоднего настроения */}
       {showNewYearOption && (
         <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: textColor }]}>Новогоднее настроение</Text>
+          <SectionHeader title="Новогоднее настроение" placeholderColor={placeholderColor} />
+          <SettingsGroup glass={glass} style={{ backgroundColor: glass.surfaceSecondary }}>
           <TouchableOpacity
             style={[styles.settingItem, { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: borderColor }]}
             onPress={() => handleNewYearModeChange(!newYearSetting)}
@@ -236,6 +305,7 @@ const AppearanceSettingsSheet = ({
               </View>
             </View>
             <Switch
+              accessibilityRole="switch"
               value={newYearSetting}
               onValueChange={handleNewYearModeChange}
               trackColor={{ false: borderColor, true: colors.light }}
@@ -248,12 +318,14 @@ const AppearanceSettingsSheet = ({
               Новогоднее настроение доступно с 1 декабря по 31 января
             </Text>
           </View>
+          </SettingsGroup>
         </View>
       )}
 
       {/* Секция панели навигации */}
       <View style={styles.section}>
-        <Text style={[styles.sectionTitle, { color: textColor }]}>Панель навигации</Text>
+        <SectionHeader title="Панель навигации" placeholderColor={placeholderColor} />
+        <SettingsGroup glass={glass} style={{ backgroundColor: glass.surfaceSecondary }}>
         <TouchableOpacity
           style={[styles.settingItem, { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: borderColor }]}
           onPress={() => handleShowLabelsChange(!showTabbarLabels)}
@@ -268,14 +340,15 @@ const AppearanceSettingsSheet = ({
             </View>
           </View>
           <Switch
-            value={showTabbarLabels}
+            accessibilityRole="switch"
+              value={showTabbarLabels}
             onValueChange={handleShowLabelsChange}
             trackColor={{ false: borderColor, true: colors.light }}
             thumbColor={showTabbarLabels ? colors.primary : placeholderColor}
           />
         </TouchableOpacity>
         {showTabbarLabels && (
-          <View style={{ marginTop: 16 }}>
+          <View style={{ padding: 14 }}>
             <Text style={[styles.subSectionTitle, { color: textColor }]}>Размер шрифта подписей</Text>
             <Text style={[styles.subSectionDescription, { color: placeholderColor }]}>
               Выберите размер текста под иконками навигации
@@ -304,32 +377,36 @@ const AppearanceSettingsSheet = ({
             </View>
           </View>
         )}
+        </SettingsGroup>
       </View>
 
       {/* Информационная секция */}
+      <SectionHeader title="Информация" placeholderColor={placeholderColor} />
+      <SettingsGroup glass={glass} style={{ backgroundColor: glass.surfaceSecondary }}>
       <View style={[styles.infoSection, { backgroundColor: inputBgColor }]}>
         <Icon name="information-circle-outline" size={16} color={colors.primary} />
         <Text style={[styles.infoText, { color: placeholderColor, marginLeft: 8, flex: 1 }]}>
           Настройки оформления применяются автоматически
         </Text>
       </View>
+      </SettingsGroup>
     </ScrollView>
   );
 };
 
 const styles = StyleSheet.create({
-  section: { marginBottom: 24 },
+  section: { marginBottom: 12 },
   sectionTitle: { fontSize: 16, fontWeight: '600', marginBottom: 12, fontFamily: 'Montserrat_600SemiBold' },
   subSectionTitle: { fontSize: 14, fontWeight: '600', marginBottom: 4, fontFamily: 'Montserrat_600SemiBold' },
   subSectionDescription: { fontSize: 12, marginBottom: 12, fontFamily: 'Montserrat_400Regular' },
-  optionsContainer: { gap: 8 },
+  optionsContainer: { gap: 8, padding: 12 },
   option: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 16, borderRadius: 16, borderWidth: StyleSheet.hairlineWidth },
-  optionHeader: { flexDirection: 'row', alignItems: 'center' },
+  optionHeader: { flexDirection: 'row', alignItems: 'center', flex: 1 },
   optionText: { fontSize: 16, fontFamily: 'Montserrat_500Medium' },
   optionDescription: { fontSize: 12, fontFamily: 'Montserrat_400Regular', marginTop: 2 },
-  colorOptions: { flexDirection: 'row', justifyContent: 'center', gap: 16, paddingHorizontal: 20 },
+  colorOptions: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 16, padding: 14 },
   colorOption: { width: 44, height: 44, borderRadius: 22, justifyContent: 'center', alignItems: 'center' },
-  settingItem: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 12 },
+  settingItem: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 14, gap: 12 },
   settingInfo: { flexDirection: 'row', alignItems: 'center', flex: 1 },
   textContainer: { marginLeft: 12, flex: 1 },
   settingLabel: { fontSize: 16, fontFamily: 'Montserrat_500Medium', marginBottom: 2 },
@@ -337,7 +414,7 @@ const styles = StyleSheet.create({
   fontSizeOptions: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 8, gap: 8 },
   fontSizeOption: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 12, paddingHorizontal: 8, borderRadius: 12, borderWidth: StyleSheet.hairlineWidth },
   fontSizeOptionText: { fontFamily: 'Montserrat_500Medium' },
-  infoSection: { flexDirection: 'row', alignItems: 'center', padding: 12, borderRadius: 12, marginTop: 8 },
+  infoSection: { flexDirection: 'row', alignItems: 'center', padding: 14, borderRadius: 12 },
   infoText: { fontSize: 12, fontFamily: 'Montserrat_400Regular' },
 });
 
