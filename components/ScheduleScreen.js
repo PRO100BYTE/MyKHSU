@@ -14,6 +14,7 @@ import {
   LayoutAnimation,
   Platform,
   UIManager,
+  Linking,
 } from 'react-native';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import { getWeekNumber, formatDate, getDateByWeekAndDay } from '../utils/dateUtils';
@@ -31,6 +32,7 @@ import * as SecureStore from 'expo-secure-store';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Snowfall from './Snowfall';
 import { exportScheduleToCalendar } from '../utils/calendarExport';
+import { getGalleryPermission, requestGalleryPermission, saveScheduleImage } from '../utils/galleryExport';
 import { unlockAchievement } from '../utils/achievements';
 import { showAchievementToast } from './AchievementToast';
 import LessonNoteModal from './LessonNoteModal';
@@ -158,6 +160,7 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
   
   // Скриншот расписания
   const shareImageRef = useRef(null);
+  const imageExportBusyRef = useRef(false);
   
   // Анимация появления
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -1470,10 +1473,12 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
   };
 
   const handleShareSchedule = useCallback(async () => {
-    if (exporting || !shareImageRef.current) return;
+    if (exporting || imageExportBusyRef.current || !shareImageRef.current) return;
+    imageExportBusyRef.current = true;
     setExporting(true);
+    let uri;
     try {
-      const uri = await shareImageRef.current.capture();
+      uri = await shareImageRef.current.capture({ format: 'png', quality: 1 });
       const isAvailable = await Sharing.isAvailableAsync();
       if (!isAvailable) {
         Alert.alert('Ошибка', 'Функция "Поделиться" недоступна на этом устройстве');
@@ -1485,12 +1490,66 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
         dialogTitle: 'Поделиться расписанием',
       });
     } catch (err) {
+      if (/cancel|dismiss/i.test(String(err?.code || '') + ' ' + String(err?.message || ''))) return;
       console.error('Share schedule error:', err);
       Alert.alert('Ошибка', 'Не удалось создать скриншот расписания');
     } finally {
+      imageExportBusyRef.current = false;
       setExporting(false);
+      if (uri) ViewShot.releaseCapture(uri);
     }
   }, [exporting]);
+
+  const handleSaveScheduleImage = useCallback(async () => {
+    if (exporting || imageExportBusyRef.current || !shareImageRef.current) return;
+    imageExportBusyRef.current = true;
+    setExporting(true);
+    let uri;
+    try {
+      let permission = await getGalleryPermission();
+      if (permission.status !== 'granted' && permission.status !== 'limited' && permission.status !== 'unavailable' && permission.canAskAgain !== false) {
+        permission = await requestGalleryPermission();
+      }
+      if (permission.status !== 'granted' && permission.status !== 'limited') {
+        if (permission.status === 'unavailable') {
+          Alert.alert('Галерея недоступна', 'Для сохранения расписания установите новую нативную сборку приложения с модулем галереи. Перезагрузка или OTA не добавляют этот модуль.');
+        } else {
+          Alert.alert(
+            'Нет доступа к галерее',
+            'Разрешите доступ к фото в настройках, чтобы сохранить расписание.',
+            [
+              { text: 'Отмена', style: 'cancel' },
+              { text: 'Открыть настройки', onPress: () => Linking.openSettings().catch(() => {}) },
+            ]
+          );
+        }
+        return;
+      }
+
+      uri = await shareImageRef.current.capture({ format: 'png', quality: 1 });
+      await saveScheduleImage(uri);
+      Alert.alert('Готово', 'Изображение расписания сохранено в галерею.');
+    } catch (err) {
+      console.error('Save schedule image error:', err);
+      Alert.alert('Ошибка', 'Не удалось сохранить изображение расписания.');
+    } finally {
+      imageExportBusyRef.current = false;
+      setExporting(false);
+      if (uri) ViewShot.releaseCapture(uri);
+    }
+  }, [exporting]);
+
+  const handleImageExportAction = useCallback(() => {
+    Alert.alert(
+      'Изображение расписания',
+      'Выберите действие',
+      [
+        { text: 'Отмена', style: 'cancel' },
+        { text: 'Поделиться', onPress: handleShareSchedule },
+        { text: 'Сохранить в галерею', onPress: handleSaveScheduleImage },
+      ]
+    );
+  }, [handleSaveScheduleImage, handleShareSchedule]);
 
   const handleExportAction = useCallback(() => {
     Alert.alert(
@@ -1499,10 +1558,10 @@ const ScheduleScreen = ({ theme, accentColor, scheduleSettings: externalSettings
       [
         { text: 'Отмена', style: 'cancel' },
         { text: '📅 Календарь (.ics)', onPress: handleExportCalendar },
-        { text: '📸 Скриншот', onPress: handleShareSchedule },
+        { text: '📸 Изображение', onPress: handleImageExportAction },
       ]
     );
-  }, [handleExportCalendar, handleShareSchedule]);
+  }, [handleExportCalendar, handleImageExportAction]);
 
   const getTimeForLesson = (timeNumber) => {
     if (!pairsTime || !Array.isArray(pairsTime)) return null;

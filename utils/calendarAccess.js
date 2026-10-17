@@ -1,0 +1,18 @@
+import * as Calendar from 'expo-calendar';
+
+export const CALENDAR_UNAVAILABLE_MESSAGE = 'В установленной сборке недоступен новый модуль календаря. Обновите приложение нативной сборкой с Expo SDK 57; перезагрузка JavaScript или OTA не добавляет нативные методы.';
+
+const permission = async (method) => {
+  if (typeof Calendar[method] !== 'function') return { status: 'unavailable', canAskAgain: false };
+  try {
+    return await Calendar[method]();
+  } catch (error) {
+    if (/not available|unavailable|native module|undefined is not a function|not implemented/i.test(String(error?.message || error))) {
+      return { status: 'unavailable', canAskAgain: false };
+    }
+    throw error;
+  }
+};
+
+export const getCalendarPermission = () => permission('getCalendarPermissions');
+export const requestCalendarPermission = () => permission('requestCalendarPermissions');

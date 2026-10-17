@@ -6,12 +6,18 @@ const path = require('node:path');
 const readSource = relative => fs.readFileSync(path.join(__dirname, '..', relative), 'utf8');
 
 test('calendar consumers use the SDK57 root object API', () => {
-  for (const relative of ['components/OnboardingScreen.js', 'utils/calendarExport.js']) {
+  for (const relative of ['utils/calendarAccess.js', 'utils/calendarExport.js']) {
     const source = readSource(relative);
     assert.match(source, /from ['"]expo-calendar['"]/);
     assert.doesNotMatch(source, /from ['"]expo-calendar\/legacy['"]/);
     assert.doesNotMatch(source, /(?:getCalendarPermissions|requestCalendarPermissions|getCalendars|createCalendar|createEvent|deleteEvent|updateEvent|createReminder|deleteReminder|updateReminder)(?:Async|\s*Async)\b/);
   }
+});
+
+test('onboarding reads permissions through the guarded adapter', () => {
+  const source = readSource('components/OnboardingScreen.js');
+  assert.match(source, /from ['"]\.\.\/utils\/calendarAccess['"]/);
+  assert.doesNotMatch(source, /Calendar\.(getCalendarPermissions|requestCalendarPermissions)\(/);
 });
 
 test('calendar export uses object methods for calendar and event creation', () => {

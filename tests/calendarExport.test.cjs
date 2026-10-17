@@ -47,12 +47,17 @@ function loadExporter({ os = 'android', status = 'granted', calendars = [], targ
       return { id: 'created' };
     },
   };
-  const context = vm.createContext({ Calendar, Platform: { OS: os }, Intl });
+  const context = vm.createContext({ Calendar, Platform: { OS: os }, Intl, requestCalendarPermission: () => Calendar.requestCalendarPermissions(), CALENDAR_UNAVAILABLE_MESSAGE: 'Calendar unavailable' });
   vm.runInContext(`${source}\nglobalThis.exportToSystemCalendar = exportToSystemCalendar;`, context, {
     filename: 'utils/calendarExport.js',
   });
   return { exportToSystemCalendar: context.exportToSystemCalendar, calls, createdEvents };
 }
+
+test('unsupported calendar binary produces an actionable export error', async () => {
+  const { exportToSystemCalendar } = loadExporter({ status: 'unavailable' });
+  await assert.rejects(exportToSystemCalendar([], 'Schedule'), /Calendar unavailable/);
+});
 
 function makeEvents() {
   return [

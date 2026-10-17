@@ -62,6 +62,15 @@
       "expo-web-browser",
       "expo-background-fetch",
       [
+        "expo-media-library",
+        {
+          "photosPermission": false,
+          "savePhotosPermission": "Разрешите приложению Мой ИТИ ХГУ сохранять изображение расписания в галерею.",
+          "granularPermissions": [],
+          "isAccessMediaLocationEnabled": false
+        }
+      ],
+      [
         "expo-calendar",
         {
           "calendarPermission": "Приложению Мой ИТИ ХГУ требуется доступ к календарю для экспорта расписания занятий."

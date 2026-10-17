@@ -2,6 +2,7 @@
 import { File, Paths } from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
 import * as Calendar from 'expo-calendar';
+import { requestCalendarPermission, CALENDAR_UNAVAILABLE_MESSAGE } from './calendarAccess';
 import { Alert, Platform } from 'react-native';
 import { getDateByWeekAndDay } from './dateUtils';
 
@@ -269,7 +270,8 @@ const buildPlainDescription = (event) => {
  * Экспорт в системный календарь через expo-calendar
  */
 const exportToSystemCalendar = async (events, calendarName) => {
-  const { status } = await Calendar.requestCalendarPermissions();
+  const { status } = await requestCalendarPermission();
+  if (status === 'unavailable') throw new Error(CALENDAR_UNAVAILABLE_MESSAGE);
   if (status !== 'granted') {
     throw new Error('CALENDAR_PERMISSION_DENIED');
   }

@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef } from 'react';
-import { View, Text, StyleSheet, StatusBar, Animated, Dimensions, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, StatusBar, Animated, Dimensions, ActivityIndicator, Platform } from 'react-native';
 import { Ionicons as Icon } from '@expo/vector-icons';
+import { GlassView, isGlassEffectAPIAvailable, isLiquidGlassAvailable } from 'expo-glass-effect';
 import { ACCENT_COLORS, LIQUID_GLASS, APP_VERSION } from '../utils/constants';
 import MatrixRain from './MatrixRain';
 import SeasonalSplashEffects, { useSplashReduceMotion } from './SeasonalSplashEffects';
@@ -8,544 +9,171 @@ import { getSplashDecoration } from '../utils/splashSeason';
 
 const { width, height } = Dimensions.get('window');
 
+const HOLIDAY_COLORS = {
+  'new-year': { dark: ['#FFD700', ['#FFD700', '#FF5722', '#2196F3']], light: ['#D32F2F', ['#FFD700', '#FF5722', '#2196F3']] },
+  'student-day': { dark: ['#64B5F6', ['#1565C0', '#FFD700', '#1565C0']], light: ['#1565C0', ['#1565C0', '#FFD700', '#1565C0']] },
+  'valentines-day': { dark: ['#F48FB1', ['#E91E63', '#FF5252', '#E91E63']], light: ['#C62828', ['#E91E63', '#FF5252', '#E91E63']] },
+  'defender-day': { dark: ['#81C784', ['#2E7D32', '#FF8F00', '#2E7D32']], light: ['#2E7D32', ['#2E7D32', '#FF8F00', '#2E7D32']] },
+  'womens-day': { dark: ['#F48FB1', ['#E91E63', '#FF80AB', '#E91E63']], light: ['#AD1457', ['#E91E63', '#FF80AB', '#E91E63']] },
+  'cosmonautics-day': { dark: ['#90CAF9', ['#1A237E', '#FFD700', '#1A237E']], light: ['#1A237E', ['#1A237E', '#FFD700', '#1A237E']] },
+  'may-day': { dark: ['#A5D6A7', ['#FFD700', '#2E7D32', '#FFD700']], light: ['#2E7D32', ['#FFD700', '#2E7D32', '#FFD700']] },
+  'victory-day': { dark: ['#FFCC80', ['#FF6F00', '#212121', '#FF6F00']], light: ['#BF360C', ['#FF6F00', '#212121', '#FF6F00']] },
+  'children-day': { dark: ['#FFF176', ['#FF5722', '#4CAF50', '#2196F3']], light: ['#F57F17', ['#FF5722', '#4CAF50', '#2196F3']] },
+  'knowledge-day': { dark: ['#90CAF9', ['#FF6F00', '#1565C0', '#FF6F00']], light: ['#1565C0', ['#FF6F00', '#1565C0', '#FF6F00']] },
+  'september-3': { dark: ['#FFCC80', ['#FF8F00', '#D84315', '#FF8F00']], light: ['#BF360C', ['#FF8F00', '#D84315', '#FF8F00']] },
+  'programmer-day': { dark: ['#A5D6A7', ['#4CAF50', '#00E676', '#4CAF50']], light: ['#1B5E20', ['#4CAF50', '#00E676', '#4CAF50']] },
+  'sysadmin-day': { dark: ['#90CAF9', ['#0D47A1', '#2196F3', '#0D47A1']], light: ['#0D47A1', ['#0D47A1', '#2196F3', '#0D47A1']] },
+  'teacher-day': { dark: ['#FFF176', ['#FF6F00', '#FFD700', '#FF6F00']], light: ['#E65100', ['#FF6F00', '#FFD700', '#FF6F00']] },
+  'unity-day': { dark: ['#EF9A9A', ['#FFFFFF', '#1565C0', '#D32F2F']], light: ['#B71C1C', ['#FFFFFF', '#1565C0', '#D32F2F']] },
+  'intl-student-day': { dark: ['#90CAF9', ['#1565C0', '#FFD700', '#1565C0']], light: ['#1565C0', ['#1565C0', '#FFD700', '#1565C0']] },
+};
+
+const HOLIDAY_ICONS = {
+  'new-year': ['sparkles', 'sparkles', 'sparkles'], 'student-day': ['school', 'star', 'school'],
+  'valentines-day': ['heart', 'heart', 'heart'], 'defender-day': ['shield', 'star', 'shield'],
+  'womens-day': ['flower', 'heart', 'flower'], 'cosmonautics-day': ['rocket', 'star', 'planet'],
+  'may-day': ['sunny', 'flower', 'sunny'], 'victory-day': ['star', 'ribbon', 'star'],
+  'children-day': ['balloon', 'happy', 'balloon'], 'knowledge-day': ['book', 'pencil', 'book'],
+  'september-3': ['musical-notes', 'calendar', 'musical-notes'],
+  'programmer-day': ['code-slash', 'terminal', 'code-slash'], 'sysadmin-day': ['server', 'construct', 'server'],
+  'teacher-day': ['easel', 'book', 'easel'], 'unity-day': ['people', 'flag', 'people'],
+  'intl-student-day': ['earth', 'school', 'earth'],
+};
+
+const GlassSurface = ({ children, style, glass }) => {
+  let supportsGlass = false;
+  try {
+    supportsGlass = Platform.OS === 'ios' && isLiquidGlassAvailable() && isGlassEffectAPIAvailable();
+  } catch {
+    supportsGlass = false;
+  }
+  if (supportsGlass) {
+    return <GlassView glassEffectStyle="regular" colorScheme={glass?.isSpecialTheme ? 'dark' : 'auto'} style={[style, { backgroundColor: 'transparent' }]}>{children}</GlassView>;
+  }
+  return <View style={[style, { backgroundColor: glass?.surfaceSecondary || 'rgba(255,255,255,0.08)' }]}>{children}</View>;
+};
+
 const SplashScreen = ({ accentColor, theme, holidayInfo, legendUnlocked = false }) => {
   const reduceMotion = useSplashReduceMotion();
-  const decoration = useMemo(
-    () => getSplashDecoration({ holidayInfo, theme, legendUnlocked }),
-    [holidayInfo, theme, legendUnlocked]
-  );
+  const decoration = useMemo(() => getSplashDecoration({ holidayInfo, theme, legendUnlocked }), [holidayInfo, theme, legendUnlocked]);
   const safeAccentColor = accentColor || 'green';
   const colors = ACCENT_COLORS[safeAccentColor] || ACCENT_COLORS.green;
   const safeColors = colors || { primary: '#10b981', light: '#d1fae5' };
-  
   const glass = LIQUID_GLASS[theme] || LIQUID_GLASS.light;
   const isMatrix = theme === 'matrix';
   const isLegendSplash = legendUnlocked;
-  const legendPrimary = '#FFD666';
-  const backgroundColor = isLegendSplash
-    ? '#140E05'
-    : (isMatrix ? (glass.backgroundSolid || '#0D0208') : glass.background);
-  const iconColor = isLegendSplash
-    ? legendPrimary
-    : ((theme === 'dark' || isMatrix) ? safeColors.light : safeColors.primary);
-  const textColor = isLegendSplash
-    ? '#F6E7C1'
-    : ((theme === 'dark' || isMatrix) ? '#ffffff' : '#1c1c1e');
-  const subtextColor = isLegendSplash
-    ? 'rgba(255,214,102,0.72)'
-    : ((theme === 'dark' || isMatrix) ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.4)');
+  const primary = isLegendSplash ? '#FFD666' : safeColors.primary;
+  const backgroundColor = isLegendSplash ? '#140E05' : (isMatrix ? (glass.backgroundSolid || '#0D0208') : glass.background);
+  const textColor = isLegendSplash ? '#F6E7C1' : ((theme === 'dark' || isMatrix) ? '#fff' : '#1c1c1e');
+  const subtextColor = isLegendSplash ? 'rgba(255,214,102,0.72)' : ((theme === 'dark' || isMatrix) ? 'rgba(255,255,255,0.55)' : 'rgba(0,0,0,0.45)');
+  const holidayTheme = theme === 'light' ? 'light' : 'dark';
+  const holidayEntry = HOLIDAY_COLORS[holidayInfo?.type]?.[holidayTheme];
+  const holiday = holidayEntry ? { text: holidayEntry[0], icons: holidayEntry[1] } : { text: theme === 'light' ? '#D32F2F' : '#FFD700', icons: ['#FFD700', '#FF5722', '#2196F3'] };
+  const holidayIcons = HOLIDAY_ICONS[holidayInfo?.type] || ['sparkles', 'star', 'sparkles'];
 
-  // Цвета праздников
-  const getHolidayColors = (type) => {
-    const isDark = theme === 'dark';
-    const holidayColorMap = {
-      'new-year':         { text: isDark ? '#FFD700' : '#D32F2F', icons: ['#FFD700', '#FF5722', '#2196F3'] },
-      'student-day':      { text: isDark ? '#64B5F6' : '#1565C0', icons: ['#1565C0', '#FFD700', '#1565C0'] },
-      'valentines-day':   { text: isDark ? '#F48FB1' : '#C62828', icons: ['#E91E63', '#FF5252', '#E91E63'] },
-      'defender-day':     { text: isDark ? '#81C784' : '#2E7D32', icons: ['#2E7D32', '#FF8F00', '#2E7D32'] },
-      'womens-day':       { text: isDark ? '#F48FB1' : '#AD1457', icons: ['#E91E63', '#FF80AB', '#E91E63'] },
-      'cosmonautics-day': { text: isDark ? '#90CAF9' : '#1A237E', icons: ['#1A237E', '#FFD700', '#1A237E'] },
-      'may-day':          { text: isDark ? '#A5D6A7' : '#2E7D32', icons: ['#FFD700', '#2E7D32', '#FFD700'] },
-      'victory-day':      { text: isDark ? '#FFCC80' : '#BF360C', icons: ['#FF6F00', '#212121', '#FF6F00'] },
-      'children-day':     { text: isDark ? '#FFF176' : '#F57F17', icons: ['#FF5722', '#4CAF50', '#2196F3'] },
-      'knowledge-day':    { text: isDark ? '#90CAF9' : '#1565C0', icons: ['#FF6F00', '#1565C0', '#FF6F00'] },
-      'september-3':      { text: isDark ? '#FFCC80' : '#BF360C', icons: ['#FF8F00', '#D84315', '#FF8F00'] },
-      'programmer-day':   { text: isDark ? '#A5D6A7' : '#1B5E20', icons: ['#4CAF50', '#00E676', '#4CAF50'] },
-      'sysadmin-day':     { text: isDark ? '#90CAF9' : '#0D47A1', icons: ['#0D47A1', '#2196F3', '#0D47A1'] },
-      'teacher-day':      { text: isDark ? '#FFF176' : '#E65100', icons: ['#FF6F00', '#FFD700', '#FF6F00'] },
-      'unity-day':        { text: isDark ? '#EF9A9A' : '#B71C1C', icons: ['#FFFFFF', '#1565C0', '#D32F2F'] },
-      'intl-student-day': { text: isDark ? '#90CAF9' : '#1565C0', icons: ['#1565C0', '#FFD700', '#1565C0'] },
-    };
-    return holidayColorMap[type] || { text: isDark ? '#FFD700' : '#D32F2F', icons: ['#FFD700', '#FF5722', '#2196F3'] };
-  };
-
-  // Декоративные иконки для праздников
-  const getHolidayDecorIcons = (type) => {
-    const decorMap = {
-      'new-year':         [{ name: 'sparkles', size: 18 }, { name: 'sparkles', size: 14 }, { name: 'sparkles', size: 16 }],
-      'student-day':      [{ name: 'school', size: 16 }, { name: 'star', size: 14 }, { name: 'school', size: 16 }],
-      'valentines-day':   [{ name: 'heart', size: 16 }, { name: 'heart', size: 12 }, { name: 'heart', size: 16 }],
-      'defender-day':     [{ name: 'shield', size: 16 }, { name: 'star', size: 14 }, { name: 'shield', size: 16 }],
-      'womens-day':       [{ name: 'flower', size: 16 }, { name: 'heart', size: 14 }, { name: 'flower', size: 16 }],
-      'cosmonautics-day': [{ name: 'rocket', size: 16 }, { name: 'star', size: 14 }, { name: 'planet', size: 16 }],
-      'may-day':          [{ name: 'sunny', size: 16 }, { name: 'flower', size: 14 }, { name: 'sunny', size: 16 }],
-      'victory-day':      [{ name: 'star', size: 16 }, { name: 'ribbon', size: 14 }, { name: 'star', size: 16 }],
-      'children-day':     [{ name: 'balloon', size: 16 }, { name: 'happy', size: 14 }, { name: 'balloon', size: 16 }],
-      'knowledge-day':    [{ name: 'book', size: 16 }, { name: 'pencil', size: 14 }, { name: 'book', size: 16 }],
-      'september-3':      [{ name: 'musical-notes', size: 16 }, { name: 'calendar', size: 14, rotate: true }, { name: 'musical-notes', size: 16 }],
-      'programmer-day':   [{ name: 'code-slash', size: 16 }, { name: 'terminal', size: 14 }, { name: 'code-slash', size: 16 }],
-      'sysadmin-day':     [{ name: 'server', size: 16 }, { name: 'construct', size: 14 }, { name: 'server', size: 16 }],
-      'teacher-day':      [{ name: 'easel', size: 16 }, { name: 'book', size: 14 }, { name: 'easel', size: 16 }],
-      'unity-day':        [{ name: 'people', size: 16 }, { name: 'flag', size: 14 }, { name: 'people', size: 16 }],
-      'intl-student-day': [{ name: 'earth', size: 16 }, { name: 'school', size: 14 }, { name: 'earth', size: 16 }],
-    };
-    return decorMap[type] || [{ name: 'sparkles', size: 18 }, { name: 'sparkles', size: 14 }, { name: 'sparkles', size: 16 }];
-  };
-
-  // Анимации для плавающих блобов
-  const blobAnims = useRef(
-    Array.from({ length: 6 }, () => ({
-      translateX: new Animated.Value(0),
-      translateY: new Animated.Value(0),
-      scale: new Animated.Value(0),
-    }))
-  ).current;
-
-  // Анимации логотипа
-  const logoScale = useRef(new Animated.Value(0.3)).current;
-  const logoOpacity = useRef(new Animated.Value(0)).current;
-  const glowOpacity = useRef(new Animated.Value(0.3)).current;
-
-  // Анимации текста
-  const titleTranslateY = useRef(new Animated.Value(30)).current;
-  const titleOpacity = useRef(new Animated.Value(0)).current;
-  const subtitleTranslateY = useRef(new Animated.Value(20)).current;
-  const subtitleOpacity = useRef(new Animated.Value(0)).current;
-  const loaderOpacity = useRef(new Animated.Value(0)).current;
-  const versionOpacity = useRef(new Animated.Value(0)).current;
-
-  // Анимация праздничного текста
-  const holidayAnim = useRef(new Animated.Value(0)).current;
-
-  // Параметры блобов
-  const blobs = [
-    { x: width * 0.12, y: height * 0.12, size: 130, opacity: 0.07 },
-    { x: width * 0.75, y: height * 0.08, size: 170, opacity: 0.05 },
-    { x: width * 0.88, y: height * 0.42, size: 110, opacity: 0.07 },
-    { x: width * 0.05, y: height * 0.58, size: 150, opacity: 0.04 },
-    { x: width * 0.65, y: height * 0.78, size: 190, opacity: 0.06 },
-    { x: width * 0.18, y: height * 0.88, size: 120, opacity: 0.05 },
-  ];
+  const blobAnims = useRef(Array.from({ length: 6 }, () => ({ x: new Animated.Value(0), y: new Animated.Value(0), scale: new Animated.Value(0) }))).current;
+  const reveal = useRef(new Animated.Value(0)).current;
+  const orbit = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     if (reduceMotion !== false) {
-      blobAnims.forEach(blob => {
-        blob.scale.setValue(1);
-        blob.translateX.setValue(0);
-        blob.translateY.setValue(0);
-      });
-      logoScale.setValue(1);
-      logoOpacity.setValue(1);
-      glowOpacity.setValue(0.7);
-      titleTranslateY.setValue(0);
-      titleOpacity.setValue(1);
-      subtitleTranslateY.setValue(0);
-      subtitleOpacity.setValue(1);
-      loaderOpacity.setValue(1);
-      versionOpacity.setValue(0.4);
-      holidayAnim.setValue(1);
-      return;
+      reveal.setValue(1);
+      orbit.setValue(0);
+      blobAnims.forEach(blob => { blob.scale.setValue(1); blob.x.setValue(0); blob.y.setValue(0); });
+      return undefined;
     }
     const animations = [];
-    const startAnimation = animation => {
-      animations.push(animation);
-      animation.start();
-    };
-    // Запускаем плавающие анимации блобов
+    const start = animation => { animations.push(animation); animation.start(); };
     blobAnims.forEach((blob, index) => {
-      const duration = 3000 + Math.random() * 4000;
-      const amplitude = 15 + Math.random() * 25;
-
-      // Появление блоба
-      startAnimation(Animated.timing(blob.scale, {
-        toValue: 1,
-        duration: 800 + index * 150,
-        useNativeDriver: true,
-        isInteraction: false,
-      }));
-
-      // Плавное дрейфование по Y
-      startAnimation(Animated.loop(
-        Animated.sequence([
-          Animated.timing(blob.translateY, {
-            toValue: -amplitude,
-            duration,
-            useNativeDriver: true,
-            isInteraction: false,
-          }),
-          Animated.timing(blob.translateY, {
-            toValue: amplitude,
-            duration,
-            useNativeDriver: true,
-            isInteraction: false,
-          }),
-        ])
-      ));
-
-      // Плавное дрейфование по X
-      startAnimation(Animated.loop(
-        Animated.sequence([
-          Animated.timing(blob.translateX, {
-            toValue: amplitude * 0.6,
-            duration: duration * 1.2,
-            useNativeDriver: true,
-            isInteraction: false,
-          }),
-          Animated.timing(blob.translateX, {
-            toValue: -amplitude * 0.6,
-            duration: duration * 1.2,
-            useNativeDriver: true,
-            isInteraction: false,
-          }),
-        ])
-      ));
+      start(Animated.timing(blob.scale, { toValue: 1, duration: 500 + index * 80, useNativeDriver: true, isInteraction: false }));
+      start(Animated.loop(Animated.sequence([
+        Animated.timing(blob.y, { toValue: index % 2 ? 18 : -18, duration: 3200 + index * 240, useNativeDriver: true, isInteraction: false }),
+        Animated.timing(blob.y, { toValue: index % 2 ? -18 : 18, duration: 3200 + index * 240, useNativeDriver: true, isInteraction: false }),
+      ])));
     });
-
-    // Пульсирующее свечение
-    startAnimation(Animated.loop(
-      Animated.sequence([
-        Animated.timing(glowOpacity, {
-          toValue: 1,
-          duration: 1800,
-          useNativeDriver: true,
-          isInteraction: false,
-        }),
-        Animated.timing(glowOpacity, {
-          toValue: 0.4,
-          duration: 1800,
-          useNativeDriver: true,
-          isInteraction: false,
-        }),
-      ])
-    ));
-
-    // Появление логотипа
-    const logoAnimation = Animated.parallel([
-      Animated.spring(logoScale, {
-        toValue: 1,
-        tension: 18,
-        friction: 5,
-        useNativeDriver: true,
-      }),
-      Animated.timing(logoOpacity, {
-        toValue: 1,
-        duration: 600,
-        useNativeDriver: true,
-      }),
-    ]);
-
-    // Появление заголовка
-    const titleAnimation = Animated.parallel([
-      Animated.spring(titleTranslateY, {
-        toValue: 0,
-        tension: 40,
-        friction: 8,
-        useNativeDriver: true,
-      }),
-      Animated.timing(titleOpacity, {
-        toValue: 1,
-        duration: 500,
-        useNativeDriver: true,
-      }),
-    ]);
-
-    // Появление подзаголовка
-    const subtitleAnimation = Animated.parallel([
-      Animated.spring(subtitleTranslateY, {
-        toValue: 0,
-        tension: 40,
-        friction: 8,
-        useNativeDriver: true,
-      }),
-      Animated.timing(subtitleOpacity, {
-        toValue: 1,
-        duration: 500,
-        useNativeDriver: true,
-      }),
-    ]);
-
-    // Loader
-    const loaderAnimation = Animated.timing(loaderOpacity, {
-      toValue: 1,
-      duration: 600,
-      useNativeDriver: true,
-    });
-
-    // Версия
-    const versionAnimation = Animated.timing(versionOpacity, {
-      toValue: 0.4,
-      duration: 800,
-      useNativeDriver: true,
-    });
-
-    // Праздничный текст
-    const holidayAnimation = holidayInfo
-      ? Animated.sequence([
-          Animated.delay(600),
-          Animated.spring(holidayAnim, {
-            toValue: 1,
-            tension: 50,
-            friction: 7,
-            useNativeDriver: true,
-            isInteraction: false,
-          }),
-        ])
-      : Animated.delay(0);
-
-    // Последовательный запуск анимаций
-    startAnimation(Animated.stagger(180, [
-      logoAnimation,
-      titleAnimation,
-      subtitleAnimation,
-      loaderAnimation,
-      versionAnimation,
-      holidayAnimation,
-    ]));
+    start(Animated.timing(reveal, { toValue: 1, duration: 650, useNativeDriver: true, isInteraction: false }));
+    start(Animated.loop(Animated.timing(orbit, { toValue: 1, duration: 18000, useNativeDriver: true, isInteraction: false })));
     return () => animations.forEach(animation => animation.stop());
-  }, [holidayInfo, reduceMotion]);
+  }, [reduceMotion]);
+
+  const blobs = [
+    { x: width * .08, y: height * .14, size: 170 }, { x: width * .9, y: height * .1, size: 210 },
+    { x: width * .92, y: height * .7, size: 140 }, { x: width * .05, y: height * .75, size: 190 },
+    { x: width * .72, y: height * .9, size: 180 }, { x: width * .25, y: height * .04, size: 100 },
+  ];
+  const orbitRotate = orbit.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] });
 
   return (
     <View style={[styles.container, { backgroundColor }]}>
-      <StatusBar
-        barStyle={theme === 'light' ? 'dark-content' : 'light-content'}
-        backgroundColor={backgroundColor}
-      />
-
-      {/* Плавающие блобы / Matrix Rain */}
-      {isMatrix && reduceMotion === false ? (
-        <MatrixRain intensity={0.85} />
-      ) : (
-        blobs.map((blob, index) => (
-          <Animated.View
-            key={`blob-${index}`}
-            style={{
-              position: 'absolute',
-              left: blob.x - blob.size / 2,
-              top: blob.y - blob.size / 2,
-              width: blob.size,
-              height: blob.size,
-              borderRadius: blob.size / 2,
-              backgroundColor: isLegendSplash ? legendPrimary : safeColors.primary,
-              opacity: blob.opacity,
-              transform: [
-                { translateX: blobAnims[index].translateX },
-                { translateY: blobAnims[index].translateY },
-                { scale: blobAnims[index].scale },
-              ],
-            }}
-          />
-        ))
-      )}
-
+      <StatusBar barStyle={theme === 'light' ? 'dark-content' : 'light-content'} backgroundColor={backgroundColor} />
+      {isMatrix && reduceMotion === false ? <MatrixRain intensity={0.85} /> : blobs.map((blob, index) => (
+        <Animated.View key={`blob-${index}`} style={[styles.blob, { left: blob.x - blob.size / 2, top: blob.y - blob.size / 2, width: blob.size, height: blob.size, borderRadius: blob.size / 2, backgroundColor: primary, opacity: isLegendSplash ? .08 : .065, transform: [{ translateX: blobAnims[index].x }, { translateY: blobAnims[index].y }, { scale: blobAnims[index].scale }] }]} />
+      ))}
       <SeasonalSplashEffects decoration={decoration} reduceMotion={reduceMotion} />
 
-      {/* Центральный контент */}
       <View style={styles.contentContainer}>
-        {/* Праздничный текст (над логотипом) */}
-        {holidayInfo && (
-          <Animated.View
-            style={{
-              marginBottom: 24,
-              opacity: holidayAnim,
-              transform: [
-                {
-                  scale: holidayAnim.interpolate({
-                    inputRange: [0, 1],
-                    outputRange: [0.5, 1],
-                  }),
-                },
-                {
-                  translateY: holidayAnim.interpolate({
-                    inputRange: [0, 1],
-                    outputRange: [30, 0],
-                  }),
-                },
-              ],
-            }}
-          >
-            <Text
-              style={{
-                fontSize: 22,
-                fontWeight: 'bold',
-                fontFamily: 'Montserrat_700Bold',
-                color: getHolidayColors(holidayInfo.type).text,
-                textAlign: 'center',
-                textShadowColor: 'rgba(0, 0, 0, 0.15)',
-                textShadowOffset: { width: 0, height: 1 },
-                textShadowRadius: 4,
-              }}
-            >
-              {holidayInfo.text}
-            </Text>
-            <View style={{ flexDirection: 'row', justifyContent: 'center', marginTop: 8 }}>
-              {getHolidayDecorIcons(holidayInfo.type).map((icon, idx) => (
-                <Icon
-                  key={idx}
-                  name={icon.name}
-                  size={icon.size}
-                  color={getHolidayColors(holidayInfo.type).icons[idx]}
-                  style={{
-                    marginHorizontal: 4,
-                    ...(icon.rotate ? { transform: [{ rotate: '180deg' }] } : {}),
-                  }}
-                />
-              ))}
+        {holidayInfo && <Animated.View style={[styles.holiday, { opacity: reveal, transform: [{ translateY: reveal.interpolate({ inputRange: [0, 1], outputRange: [12, 0] }) }] }]}>
+          <Text style={[styles.holidayText, { color: holiday.text }]}>{holidayInfo.text}</Text>
+          <View style={styles.holidayIcons}>{holidayIcons.map((name, index) => <Icon key={index} name={name} size={index === 1 ? 14 : 17} color={holiday.icons[index]} style={styles.holidayIcon} />)}</View>
+        </Animated.View>}
+
+        <Animated.View style={[styles.observatory, { opacity: reveal, transform: [{ scale: reveal.interpolate({ inputRange: [0, 1], outputRange: [.86, 1] }) }] }]}>
+          <Animated.View style={[styles.orbit, styles.orbitWide, { borderColor: `${primary}30`, transform: [{ rotate: orbitRotate }] }]}>
+            <View style={[styles.orbitNode, { backgroundColor: primary }]} />
+          </Animated.View>
+          <View style={[styles.orbit, styles.orbitTight, { borderColor: `${primary}22` }]} />
+          <GlassSurface glass={glass} style={[styles.badge, { borderColor: `${primary}55`, shadowColor: primary }]}>
+            <View style={[styles.badgeMark, { backgroundColor: `${primary}18`, borderColor: `${primary}45` }]}>
+              <Icon name={isLegendSplash ? 'trophy' : 'school'} size={45} color={isLegendSplash ? '#FFD666' : (theme === 'dark' || isMatrix ? safeColors.light : primary)} />
             </View>
-          </Animated.View>
-        )}
-
-        {/* Логотип с кольцом свечения */}
-        <Animated.View
-          style={{
-            alignItems: 'center',
-            justifyContent: 'center',
-            transform: [{ scale: logoScale }],
-            opacity: logoOpacity,
-          }}
-        >
-          {/* Внешнее кольцо свечения */}
-          <Animated.View
-            style={{
-              width: 160,
-              height: 160,
-              borderRadius: 42,
-              backgroundColor: safeColors.primary + '0A',
-              borderWidth: 1,
-              borderColor: safeColors.primary + '15',
-              justifyContent: 'center',
-              alignItems: 'center',
-              opacity: glowOpacity,
-            }}
-          >
-            {/* Внутренняя стеклянная карточка */}
-            <View
-              style={{
-                width: 120,
-                height: 120,
-                borderRadius: 32,
-                backgroundColor: theme === 'dark'
-                  ? 'rgba(255,255,255,0.06)'
-                  : 'rgba(255,255,255,0.7)',
-                borderWidth: 1,
-                borderColor: theme === 'dark'
-                  ? 'rgba(255,255,255,0.12)'
-                  : safeColors.primary + '20',
-                justifyContent: 'center',
-                alignItems: 'center',
-                shadowColor: safeColors.primary,
-                shadowOffset: { width: 0, height: 4 },
-                shadowOpacity: 0.15,
-                shadowRadius: 20,
-                elevation: 8,
-              }}
-            >
-              <Icon name={isLegendSplash ? 'trophy' : 'school'} size={56} color={iconColor} />
-            </View>
-          </Animated.View>
+            <Text style={[styles.badgeCode, { color: primary }]}>ITI · KHSU</Text>
+          </GlassSurface>
         </Animated.View>
 
-        {/* Заголовок */}
-        <Animated.View
-          style={{
-            marginTop: 28,
-            opacity: titleOpacity,
-            transform: [{ translateY: titleTranslateY }],
-          }}
-        >
-          <Text
-            style={[
-              styles.title,
-              {
-                color: textColor,
-                fontFamily: 'Montserrat_700Bold',
-              },
-            ]}
-          >
-            Мой ИТИ ХГУ
-          </Text>
+        <Animated.View style={[styles.copy, { opacity: reveal, transform: [{ translateY: reveal.interpolate({ inputRange: [0, 1], outputRange: [18, 0] }) }] }]}>
+          <Text style={[styles.eyebrow, { color: primary }]}>SIGNAL / 2026</Text>
+          <Text style={[styles.title, { color: textColor }]}>Мой ИТИ ХГУ</Text>
+          <Text style={[styles.subtitle, { color: subtextColor }]}>{isLegendSplash ? 'Легенда ИТИ ХГУ' : 'Твой университет в кармане'}</Text>
+          {isLegendSplash && <Text style={[styles.legend, { color: '#FFD666' }]}>ВСЕ ДОСТИЖЕНИЯ СОБРАНЫ</Text>}
         </Animated.View>
 
-        {/* Подзаголовок */}
-        <Animated.View
-          style={{
-            marginTop: 6,
-            opacity: subtitleOpacity,
-            transform: [{ translateY: subtitleTranslateY }],
-          }}
-        >
-          <Text
-            style={[
-              styles.subtitle,
-              {
-                color: subtextColor,
-                fontFamily: 'Montserrat_500Medium',
-              },
-            ]}
-          >
-            {isLegendSplash ? 'Легенда ИТИ ХГУ' : 'Твой университет в кармане'}
-          </Text>
-        </Animated.View>
-
-        {isLegendSplash && (
-          <Animated.View style={{ marginTop: 10, opacity: subtitleOpacity }}>
-            <Text
-              style={{
-                color: '#FFD666',
-                fontSize: 12,
-                fontFamily: 'Montserrat_600SemiBold',
-                letterSpacing: 0.6,
-                textTransform: 'uppercase',
-                textAlign: 'center',
-              }}
-            >
-              Все достижения собраны
-            </Text>
-          </Animated.View>
-        )}
-
-        {/* Индикатор загрузки */}
-        <Animated.View style={{ marginTop: 40, opacity: loaderOpacity }}>
-          <ActivityIndicator size="small" color={isLegendSplash ? legendPrimary : safeColors.primary} />
+        <Animated.View style={[styles.statusGlass, { opacity: reveal }]}>
+          <View style={[styles.statusDot, { backgroundColor: primary }]} />
+          <Text style={[styles.statusLabel, { color: subtextColor }]}>СИНХРОНИЗАЦИЯ ДАННЫХ</Text>
+          <ActivityIndicator size="small" color={primary} />
         </Animated.View>
       </View>
 
-      {/* Версия внизу */}
-      <Animated.View
-        style={{
-          position: 'absolute',
-          bottom: 50,
-          alignSelf: 'center',
-          opacity: versionOpacity,
-        }}
-      >
-        <Text
-          style={{
-            color: subtextColor,
-            fontSize: 12,
-            fontFamily: 'Montserrat_400Regular',
-            letterSpacing: 0.5,
-          }}
-        >
-          v{APP_VERSION}
-        </Text>
-      </Animated.View>
+      <Text style={[styles.version, { color: subtextColor }]}>v{APP_VERSION}  ·  ACADEMIC SIGNAL</Text>
     </View>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    overflow: 'hidden',
-  },
-  contentContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    zIndex: 2,
-    paddingBottom: 40,
-  },
-  title: {
-    fontSize: 32,
-    fontWeight: 'bold',
-    letterSpacing: 0.3,
-    textAlign: 'center',
-  },
-  subtitle: {
-    fontSize: 15,
-    letterSpacing: 0.3,
-    textAlign: 'center',
-  },
+  container: { flex: 1, overflow: 'hidden' },
+  blob: { position: 'absolute' },
+  contentContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', zIndex: 2, paddingHorizontal: 24 },
+  holiday: { alignItems: 'center', marginBottom: 18 },
+  holidayText: { fontSize: 20, fontWeight: '700', fontFamily: 'Montserrat_700Bold', textAlign: 'center' },
+  holidayIcons: { flexDirection: 'row', marginTop: 7 },
+  holidayIcon: { marginHorizontal: 4 },
+  observatory: { width: 218, height: 218, alignItems: 'center', justifyContent: 'center' },
+  orbit: { position: 'absolute', borderWidth: 1, borderRadius: 200 },
+  orbitWide: { width: 210, height: 126, transform: [{ rotate: '-24deg' }] },
+  orbitTight: { width: 178, height: 178 },
+  orbitNode: { position: 'absolute', width: 7, height: 7, borderRadius: 5, right: 19, top: 9 },
+  badge: { width: 134, height: 158, borderRadius: 34, borderWidth: 1, alignItems: 'center', justifyContent: 'center', shadowOpacity: .22, shadowRadius: 24, elevation: 8 },
+  badgeMark: { width: 78, height: 78, borderRadius: 25, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
+  badgeCode: { marginTop: 13, fontSize: 10, letterSpacing: 1.8, fontFamily: 'Montserrat_700Bold' },
+  copy: { alignItems: 'center', marginTop: 10 },
+  eyebrow: { fontSize: 10, letterSpacing: 2.4, fontFamily: 'Montserrat_700Bold', marginBottom: 7 },
+  title: { fontSize: 31, fontWeight: '700', letterSpacing: .2, textAlign: 'center', fontFamily: 'Montserrat_700Bold' },
+  subtitle: { fontSize: 14, letterSpacing: .3, textAlign: 'center', marginTop: 7, fontFamily: 'Montserrat_500Medium' },
+  legend: { fontSize: 11, letterSpacing: 1.2, marginTop: 11, fontFamily: 'Montserrat_600SemiBold' },
+  statusGlass: { flexDirection: 'row', alignItems: 'center', marginTop: 31, paddingHorizontal: 15, paddingVertical: 10, borderRadius: 18, borderWidth: StyleSheet.hairlineWidth, borderColor: 'rgba(255,255,255,.16)', backgroundColor: 'rgba(255,255,255,.06)', gap: 9 },
+  statusDot: { width: 6, height: 6, borderRadius: 4 },
+  statusLabel: { fontSize: 9, letterSpacing: 1.1, fontFamily: 'Montserrat_600SemiBold' },
+  version: { position: 'absolute', bottom: 40, alignSelf: 'center', fontSize: 11, letterSpacing: .8, fontFamily: 'Montserrat_400Regular' },
 });
 
 export default SplashScreen;

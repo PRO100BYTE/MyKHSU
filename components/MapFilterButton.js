@@ -1,6 +1,5 @@
 import React from 'react';
-import { ActionSheetIOS, Alert, Platform, StyleSheet, Text, TouchableOpacity, UIManager, View } from 'react-native';
-import { MenuView } from '@react-native-menu/menu';
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Ionicons as Icon } from '@expo/vector-icons';
 
 export const MAP_FILTER_CATEGORIES = [
@@ -14,49 +13,7 @@ export const MAP_FILTER_CATEGORIES = [
   { id: 'other', name: 'Прочее' },
 ];
 
-export function openMapFilterFallback({ selectedFilters, onToggleFilter, onClearFilters }) {
-  const actions = [
-    { title: `${selectedFilters.length === 0 ? '✓ ' : ''}Показать всё (сбросить фильтры)`, onPress: onClearFilters },
-    ...MAP_FILTER_CATEGORIES.map(category => ({
-      title: `${category.name}: ${selectedFilters.includes(category.id) ? 'выбрано' : 'не выбрано'}`,
-      onPress: () => onToggleFilter(category.id),
-    })),
-  ];
-  if (Platform.OS === 'ios') {
-    ActionSheetIOS.showActionSheetWithOptions({
-      title: 'Фильтры карты',
-      message: 'Выберите категории. Без выбранных категорий показаны все объекты.',
-      options: [...actions.map(action => action.title), 'Отмена'],
-      cancelButtonIndex: actions.length,
-    }, index => actions[index]?.onPress());
-  } else {
-    // Android Alert supports at most three buttons, so choose a category first.
-    const chooseCategory = index => {
-      const category = MAP_FILTER_CATEGORIES[index];
-      if (!category) return;
-      const selected = selectedFilters.includes(category.id);
-      Alert.alert(category.name, selected ? 'Категория выбрана' : 'Категория не выбрана', [
-        { text: 'Отмена', style: 'cancel' },
-        { text: selected ? 'Убрать из фильтра' : 'Добавить в фильтр', onPress: () => onToggleFilter(category.id) },
-      ]);
-    };
-    const choosePage = (index = 0) => {
-      Alert.alert('Фильтры карты', actions[index + 1].title, [
-        { text: 'Закрыть', style: 'cancel' },
-        { text: 'Выбрать', onPress: () => chooseCategory(index) },
-        { text: 'Следующая категория', onPress: () => choosePage((index + 1) % MAP_FILTER_CATEGORIES.length) },
-      ]);
-    };
-    Alert.alert('Фильтры карты', selectedFilters.length ? `Выбрано категорий: ${selectedFilters.length}` : 'Показаны все объекты', [
-      { text: 'Отмена', style: 'cancel' },
-      { text: 'Показать всё', onPress: onClearFilters },
-      { text: 'Категории', onPress: () => choosePage() },
-    ]);
-  }
-}
-
-export default function MapFilterButton({ selectedFilters = [], onToggleFilter, onClearFilters, color, theme, children, style }) {
-  const menuProps = { selectedFilters, onToggleFilter, onClearFilters };
+export default function MapFilterButton({ selectedFilters = [], onPress, color, children, style }) {
   const label = selectedFilters.length ? `Фильтры карты (${selectedFilters.length})` : 'Фильтры карты: все объекты';
   const content = children || (
     <View style={styles.button}>
@@ -66,33 +23,17 @@ export default function MapFilterButton({ selectedFilters = [], onToggleFilter, 
       )}
     </View>
   );
-  const nativeMenuAvailable = Platform.OS === 'ios' && !!UIManager.hasViewManagerConfig('MenuView');
-  if (!nativeMenuAvailable) {
-    return <TouchableOpacity style={style} accessibilityRole="button" accessibilityLabel={label} onPress={() => openMapFilterFallback(menuProps)}>{content}</TouchableOpacity>;
-  }
+
   return (
-    <MenuView
+    <TouchableOpacity
       style={style}
-      title="Фильтры карты"
-      themeVariant={theme}
-      shouldOpenOnLongPress={false}
       accessibilityRole="button"
       accessibilityLabel={label}
-      actions={[
-        { id: 'all', title: 'Показать всё', state: selectedFilters.length === 0 ? 'on' : 'off' },
-        ...MAP_FILTER_CATEGORIES.map(category => ({
-          id: category.id,
-          title: category.name,
-          state: selectedFilters.includes(category.id) ? 'on' : 'off',
-        })),
-      ]}
-      onPressAction={({ nativeEvent }) => {
-        if (nativeEvent.event === 'all') onClearFilters();
-        else if (MAP_FILTER_CATEGORIES.some(category => category.id === nativeEvent.event)) onToggleFilter(nativeEvent.event);
-      }}
+      accessibilityHint="Открывает фильтры карты"
+      onPress={onPress}
     >
       {content}
-    </MenuView>
+    </TouchableOpacity>
   );
 }
 

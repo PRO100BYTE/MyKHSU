@@ -6,6 +6,8 @@ SDK 57 exposes the new object API from the root `expo-calendar` entry point. Cal
 
 Calendar config plugin remains `expo-calendar`, as does the native module. Because the object API is backed by the `CalendarNext` native module, install a freshly prebuilt/rebuilt development or release app after this migration; Metro reload and OTA updates cannot add that native module to an existing binary. Expo Go is not a substitute for testing the rebuilt native configuration.
 
+`utils/calendarAccess.js` проверяет наличие новых методов перед вызовом. В старом бинарнике алиас `getCalendarPermissions` может оказаться `undefined`: теперь это статус «недоступно в сборке», а не TypeError, и не отказ пользователя в разрешении. Неожиданные ошибки не маскируются под отказ. Проверки разрешений знакомства независимы: сбой одного сервиса не отменяет статусы остальных. Экспорт использует тот же защитный слой.
+
 ## Background Fetch
 
 `app.json` уже содержит `ios.infoPlist.UIBackgroundModes: ['remote-notification', 'fetch']`; добавлен также явный plugin `expo-background-fetch`, который применяет нужные настройки при prebuild.

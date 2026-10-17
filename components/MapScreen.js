@@ -3,14 +3,14 @@ import {
   View, 
   Text, 
   StyleSheet, 
-  Alert, 
   Linking, 
   Platform,
   TouchableOpacity, 
-  TouchableWithoutFeedback,
   Animated, 
   StatusBar, 
-  ActivityIndicator
+  ActivityIndicator,
+  ScrollView,
+  useWindowDimensions
 } from 'react-native';
 import MapView, { Marker, PROVIDER_DEFAULT, UrlTile } from 'react-native-maps';
 import NetInfo from '@react-native-community/netinfo';
@@ -24,7 +24,7 @@ import BuildingsListScreen from './BuildingsListScreen';
 import { WebView } from 'react-native-webview';
 import Snowfall from './Snowfall';
 import NativeSheet from './NativeSheet';
-import MapFilterButton, { openMapFilterFallback } from './MapFilterButton';
+import MapFilterButton, { MAP_FILTER_CATEGORIES } from './MapFilterButton';
 
 const MapScreen = forwardRef(({ theme, accentColor, isNewYearMode, onFilterCountChange, onFilterControlChange, onNavigationChange }, ref) => {
   const [isOnline, setIsOnline] = useState(true);
@@ -34,7 +34,10 @@ const MapScreen = forwardRef(({ theme, accentColor, isNewYearMode, onFilterCount
   const [selectedBuilding, setSelectedBuilding] = useState(null);
   const [mapLoaded, setMapLoaded] = useState(false);
   const [selectedFilters, setSelectedFilters] = useState([]);
+  const [showFilterSheet, setShowFilterSheet] = useState(false);
   const [showBuildingsList, setShowBuildingsList] = useState(false);
+  const { height: windowHeight } = useWindowDimensions();
+  const filterSheetHeight = Math.min(windowHeight * 0.4, 400);
   const [webViewKey, setWebViewKey] = useState(0);
   const [mapError, setMapError] = useState(false);
   const [locationPermission, setLocationPermission] = useState(false);
@@ -58,15 +61,13 @@ const MapScreen = forwardRef(({ theme, accentColor, isNewYearMode, onFilterCount
 
   // Expose methods to parent via ref
   useImperativeHandle(ref, () => ({
-    openFilters: () => openMapFilterFallback({ selectedFilters, onToggleFilter: handleToggleFilter, onClearFilters: handleClearFilters }),
+    openFilters: () => setShowFilterSheet(true),
     renderFilterButton: (props = {}) => (
       <MapFilterButton
         {...props}
         selectedFilters={selectedFilters}
-        onToggleFilter={handleToggleFilter}
-        onClearFilters={handleClearFilters}
+        onPress={() => setShowFilterSheet(true)}
         color={colors.primary}
-        theme={theme}
       />
     ),
     goBack: () => setShowBuildingsList(false),
@@ -215,7 +216,6 @@ const MapScreen = forwardRef(({ theme, accentColor, isNewYearMode, onFilterCount
         Linking.openURL(url);
       } catch (error) {
         console.error('Error opening route URL:', error);
-        Alert.alert('Ошибка', 'Не удалось открыть веб-сервис для построения маршрута');
       }
     });
   };
@@ -782,35 +782,88 @@ const MapScreen = forwardRef(({ theme, accentColor, isNewYearMode, onFilterCount
         </View>
       )}
 
+      <NativeSheet
+        visible={showFilterSheet}
+        onRequestClose={() => setShowFilterSheet(false)}
+        accessibilityLabel="Фильтры карты"
+        bounded
+        contentStyle={{ maxHeight: filterSheetHeight, backgroundColor: 'transparent' }}
+      >
+        <View style={[styles.filterSheet, { backgroundColor: glass.backgroundElevated, borderColor: glass.border }]}>
+          <View style={styles.filterSheetHeader}>
+            <View>
+              <Text style={[styles.filterSheetTitle, { color: textColor }]}>Фильтры карты</Text>
+              <Text style={[styles.filterSheetSubtitle, { color: placeholderColor }]}>Выберите категории объектов</Text>
+            </View>
+            <TouchableOpacity
+              accessibilityRole="button"
+              accessibilityLabel="Закрыть фильтры"
+              onPress={() => setShowFilterSheet(false)}
+              style={[styles.filterCloseButton, { backgroundColor: glass.surfaceTertiary }]}
+            >
+              <Icon name="close" size={18} color={placeholderColor} />
+            </TouchableOpacity>
+          </View>
+          <ScrollView style={styles.filterList} contentContainerStyle={styles.filterListContent} showsVerticalScrollIndicator>
+            {MAP_FILTER_CATEGORIES.map(category => {
+              const selected = selectedFilters.includes(category.id);
+              return (
+                <TouchableOpacity
+                  key={category.id}
+                  accessibilityRole="checkbox"
+                  accessibilityLabel={category.name}
+                  accessibilityState={{ checked: selected }}
+                  onPress={() => handleToggleFilter(category.id)}
+                  style={[styles.filterOption, { borderColor: glass.border }]}
+                >
+                  <View style={[styles.checkbox, { borderColor: selected ? colors.primary : placeholderColor, backgroundColor: selected ? colors.primary : 'transparent' }]}>
+                    {selected && <Icon name="checkmark" size={16} color="#ffffff" />}
+                  </View>
+                  <Text style={[styles.filterOptionText, { color: textColor }]}>{category.name}</Text>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+          <View style={styles.filterActions}>
+            <TouchableOpacity
+              accessibilityRole="button"
+              accessibilityLabel="Сбросить фильтры"
+              onPress={() => {
+                handleClearFilters();
+                setShowFilterSheet(false);
+              }}
+              style={[styles.filterSecondaryButton, { borderColor: glass.border }]}
+            >
+              <Text style={[styles.filterSecondaryButtonText, { color: textColor }]}>Сбросить</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              accessibilityRole="button"
+              accessibilityLabel="Применить фильтры"
+              onPress={() => setShowFilterSheet(false)}
+              style={[styles.filterPrimaryButton, { backgroundColor: colors.primary }]}
+            >
+              <Text style={styles.filterPrimaryButtonText}>Применить</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </NativeSheet>
+
       {/* Модальное окно выбора сервиса для построения маршрута с анимацией */}
       <NativeSheet
         visible={showRouteOptions}
         onRequestClose={handleCloseRouteModal}
         accessibilityLabel="Выбор сервиса навигации"
-        contentStyle={{ backgroundColor: Platform.OS === 'ios' ? glass.backgroundElevated : 'transparent' }}
+        bounded
+        contentStyle={{ maxHeight: filterSheetHeight, backgroundColor: 'transparent' }}
       >
-        <Animated.View 
-          style={[
-            styles.routeModalOverlay,
-            Platform.OS === 'ios' ? styles.nativeSheetContent : {
-              opacity: routeModalAnim,
-              backgroundColor: 'rgba(0, 0, 0, 0.5)'
-            }
-          ]}
-        >
-          {Platform.OS === 'android' && (
-            <TouchableWithoutFeedback onPress={handleCloseRouteModal}>
-              <View style={{ flex: 1 }} />
-            </TouchableWithoutFeedback>
-          )}
-          <Animated.View 
+        <Animated.View style={{ opacity: routeModalAnim }}>
+          <Animated.View
             style={[
               styles.routeModal,
-              Platform.OS === 'ios' ? styles.nativeSheetCard : {
+              {
                 backgroundColor: glass.backgroundElevated,
                 borderColor: glass.border,
                 borderWidth: StyleSheet.hairlineWidth,
-                borderBottomWidth: 0,
                 transform: [{
                   translateY: routeModalAnim.interpolate({
                     inputRange: [0, 1],
@@ -933,25 +986,89 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontFamily: 'Montserrat_500Medium',
   },
-  nativeSheetContent: {
-    flex: 1,
-    backgroundColor: 'transparent',
+  filterSheet: {
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    borderWidth: StyleSheet.hairlineWidth,
+    padding: 20,
+    paddingBottom: 12,
   },
-  nativeSheetCard: {
-    flex: 1,
-    maxHeight: undefined,
-    borderRadius: 0,
-    borderWidth: 0,
-    transform: [],
+  filterSheetHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 10,
   },
-  routeModalOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    justifyContent: 'flex-end',
-    zIndex: 1002,
+  filterSheetTitle: {
+    fontSize: 18,
+    fontFamily: 'Montserrat_600SemiBold',
+  },
+  filterSheetSubtitle: {
+    fontSize: 12,
+    fontFamily: 'Montserrat_400Regular',
+    marginTop: 3,
+  },
+  filterCloseButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  filterList: {
+    flexShrink: 1,
+  },
+  filterListContent: {
+    paddingBottom: 8,
+  },
+  filterOption: {
+    minHeight: 42,
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  checkbox: {
+    width: 22,
+    height: 22,
+    borderRadius: 6,
+    borderWidth: 1.5,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  filterOptionText: {
+    flex: 1,
+    fontSize: 14,
+    fontFamily: 'Montserrat_500Medium',
+  },
+  filterActions: {
+    flexDirection: 'row',
+    gap: 10,
+    paddingTop: 10,
+  },
+  filterSecondaryButton: {
+    flex: 1,
+    minHeight: 44,
+    borderRadius: 12,
+    borderWidth: StyleSheet.hairlineWidth,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  filterSecondaryButtonText: {
+    fontSize: 14,
+    fontFamily: 'Montserrat_600SemiBold',
+  },
+  filterPrimaryButton: {
+    flex: 1,
+    minHeight: 44,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  filterPrimaryButtonText: {
+    color: '#ffffff',
+    fontSize: 14,
+    fontFamily: 'Montserrat_600SemiBold',
   },
   routeModal: {
     borderTopLeftRadius: 24,

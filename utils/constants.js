@@ -175,8 +175,8 @@ export const LIQUID_GLASS = {
 export const APP_VERSION = '2.3.2';
 export const APP_DEVELOPERS = 'студентами группы 125-1 в составе команды PRO100BYTE Team';
 export const APP_SUPPORTERS = 'ХГУ им. Н.Ф. Катанова и ООО "Скалк Софт"';
-export const BUILD_VER = 'git-0d44c62';
-export const BUILD_DATE = '07.08.2026';
+export const BUILD_VER = 'git-ba3ae8e';
+export const BUILD_DATE = '16.10.2026 14:58:40 UTC+7';
 
 // Дни недели
 export const WEEKDAYS = [
@@ -216,6 +216,7 @@ export const SCHEDULE_VIEW_MODES = {
 
 // GitHub репозиторий
 export const GITHUB_REPO_URL = 'https://github.com/PRO100BYTE/MyKHSU';
+export const PRIVACY_POLICY_URL = 'https://myiti.pro100byte.ru/privacy-policy';
 
 // Сообщения об ошибках
 export const ERROR_MESSAGES = {
