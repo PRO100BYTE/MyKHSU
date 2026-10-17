@@ -8,6 +8,7 @@ import { getSplashDecoration, getSplashGreeting } from '../utils/splashSeason';
 
 const { width, height } = Dimensions.get('window');
 const LOGO = require('../assets/icon.png');
+const CURRENT_YEAR = new Date().getFullYear();
 
 const HOLIDAY_COLORS = {
   'new-year': { dark: '#FFD166', light: '#C62828' }, 'student-day': { dark: '#64B5F6', light: '#1565C0' },
@@ -43,6 +44,7 @@ const SplashScreen = ({ accentColor, theme, holidayInfo, legendUnlocked = false,
   const holidayColor = HOLIDAY_COLORS[holidayInfo?.type]?.[theme === 'light' ? 'light' : 'dark'] || primary;
   const holidayIcons = HOLIDAY_ICONS[holidayInfo?.type] || ['sparkles', 'star', 'sparkles'];
   const holidayGreeting = useMemo(() => getSplashGreeting(holidayInfo), [holidayInfo]);
+  const contentWidth = Math.min(width - 40, 380);
   const intro = useRef(new Animated.Value(0)).current;
   const pulse = useRef(new Animated.Value(0)).current;
   const greeting = useRef(new Animated.Value(0)).current;
@@ -100,7 +102,7 @@ const SplashScreen = ({ accentColor, theme, holidayInfo, legendUnlocked = false,
           <Text style={[styles.eyebrow, { color: primary }]}>ХГУ · ИНСТИТУТ ИТ</Text>
           <Text style={[styles.edition, { color: subtextColor }]}>EST. 1991</Text>
         </View>
-        <View style={[styles.divider, { backgroundColor: `${primary}55` }]} />
+        <View style={[styles.divider, { width: contentWidth, backgroundColor: `${primary}55` }]} />
 
         <View style={styles.logoStage}>
           <Animated.View style={[styles.halo, { borderColor: primary, opacity: haloOpacity, transform: [{ scale: haloScale }] }]} />
@@ -128,7 +130,7 @@ const SplashScreen = ({ accentColor, theme, holidayInfo, legendUnlocked = false,
       </Animated.View>
 
       <View style={styles.footer}>
-        <Text style={[styles.meta, { color: subtextColor }]}>МОБИЛЬНЫЙ КАБИНЕТ СТУДЕНТА</Text>
+        <Text style={[styles.meta, { color: subtextColor }]}>(c) 2025-{CURRENT_YEAR} PRO100BYTE Team</Text>
         <View style={styles.buildRow}>
           <Text style={[styles.version, { color: subtextColor }]}>v{APP_VERSION}</Text>
           <Text style={[styles.build, { color: subtextColor }]}>BUILD {BUILD_VER}</Text>
@@ -142,25 +144,25 @@ const styles = StyleSheet.create({
   container: { flex: 1, overflow: 'hidden' },
   cornerBlock: { position: 'absolute', width: 170, height: 170, right: -92, top: -84, transform: [{ rotate: '45deg' }], opacity: .12 },
   cornerBlockSmall: { position: 'absolute', width: 120, height: 120, left: -82, bottom: 62, borderWidth: 1, transform: [{ rotate: '45deg' }], opacity: .55 },
-  main: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 28, zIndex: 2 },
+  main: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 20, paddingTop: 52, paddingBottom: 96, zIndex: 2 },
   topLine: { position: 'absolute', top: 18, left: 28, right: 28, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   eyebrow: { fontSize: 11, letterSpacing: 1.8, fontFamily: 'Montserrat_700Bold' },
   edition: { fontSize: 9, letterSpacing: 1.4, fontFamily: 'Montserrat_500Medium' },
   divider: { width: '100%', height: 1, marginTop: 15 },
-  logoStage: { position: 'absolute', width: 218, height: 218, left: '50%', top: '50%', marginLeft: -109, marginTop: -109, alignItems: 'center', justifyContent: 'center' },
-  halo: { position: 'absolute', width: 204, height: 204, borderWidth: 1, borderRadius: 102 },
+  logoStage: { width: 190, height: 190, alignItems: 'center', justifyContent: 'center', marginBottom: 20 },
+  halo: { position: 'absolute', width: 184, height: 184, borderWidth: 1, borderRadius: 92 },
   logoFrame: { width: 158, height: 158, borderWidth: 1, borderRadius: 30, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
   logo: { width: 116, height: 116, borderRadius: 22 },
   crosshair: { position: 'absolute', width: 6, height: 6, transform: [{ rotate: '45deg' }] },
-  crosshairTop: { top: 0 }, crosshairBottom: { bottom: 0 },
-  title: { fontSize: 32, lineHeight: 39, letterSpacing: -.4, fontFamily: 'Montserrat_700Bold', textAlign: 'center' },
+  crosshairTop: { top: 3 }, crosshairBottom: { bottom: 3 },
+  title: { fontSize: 30, lineHeight: 36, letterSpacing: -.4, fontFamily: 'Montserrat_700Bold', textAlign: 'center' },
   subtitle: { marginTop: 11, fontSize: 14, letterSpacing: .4, fontFamily: 'Montserrat_500Medium' },
   legend: { marginTop: 18, fontSize: 10, letterSpacing: 1.2, fontFamily: 'Montserrat_700Bold' },
-  holidayGreeting: { marginTop: 24, paddingHorizontal: 17, paddingVertical: 15, width: '100%', borderWidth: 1, borderRadius: 18, overflow: 'hidden' },
+  holidayGreeting: { marginTop: 18, paddingHorizontal: 14, paddingVertical: 12, width: '100%', maxWidth: 380, borderWidth: 1, borderRadius: 18, overflow: 'hidden' },
   greetingGlow: { position: 'absolute', width: 180, height: 110, right: -80, top: -55, borderRadius: 90 },
   greetingHeading: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 },
   greetingKicker: { fontSize: 9, letterSpacing: 1.4, fontFamily: 'Montserrat_700Bold' },
-  holidayText: { fontSize: 21, lineHeight: 27, fontFamily: 'Montserrat_700Bold' },
+  holidayText: { fontSize: 19, lineHeight: 24, fontFamily: 'Montserrat_700Bold' },
   holidayDescription: { marginTop: 6, fontSize: 11, lineHeight: 16, fontFamily: 'Montserrat_500Medium' },
   holidayIcons: { flexDirection: 'row' }, holidayIcon: { marginLeft: 8 },
 
