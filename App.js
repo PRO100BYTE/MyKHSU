@@ -417,7 +417,7 @@ const loadNewYearSettings = async () => {
 
 // Функция для обновления настроек новогоднего режима
 const SPLASH_DURATION_BEFORE_MS = 2000;
-const SPLASH_DURATION_MS = 2500;
+const SPLASH_DURATION_MS = 4500;
 
 const handleNewYearModeChange = async (enabled) => {
   console.log('App: Changing new year mode to:', enabled);
@@ -459,7 +459,7 @@ const handleNewYearModeChange = async (enabled) => {
       console.error('Error initializing app:', error);
       Sentry.captureException(error);
     } finally {
-      // До изменений splash показывался 2 секунды; теперь — 2.5 секунды.
+      // До изменений splash показывался 2 секунды; теперь — 4.5 секунды.
       console.info(`Splash duration: ${SPLASH_DURATION_BEFORE_MS}ms -> ${SPLASH_DURATION_MS}ms`);
       setTimeout(() => {
         setIsLoading(false);
