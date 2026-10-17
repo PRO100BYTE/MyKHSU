@@ -130,7 +130,7 @@ const SplashScreen = ({ accentColor, theme, holidayInfo, legendUnlocked = false,
           <Text style={[styles.build, { color: subtextColor }]}>BUILD {BUILD_VER}</Text>
         </View>
       </View>
-      <SeasonalSplashEffects decoration={decoration} reduceMotion={reduceMotion} />
+      <SeasonalSplashEffects decoration={decoration} />
     </Animated.View>
   );
 };

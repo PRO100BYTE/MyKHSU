@@ -7,21 +7,16 @@ export const useSplashReduceMotion = () => {
   const [reduceMotion, setReduceMotion] = useState(null);
   useEffect(() => {
     let active = true;
-    let changed = false;
     const subscription = AccessibilityInfo.addEventListener('reduceMotionChanged', value => {
-      changed = true;
       if (active) setReduceMotion(value);
     });
-    const check = async () => {
-      try {
-        const value = await AccessibilityInfo.isReduceMotionEnabled();
-        if (active && !changed) setReduceMotion(value);
-      } catch {
-        // An unavailable accessibility query must not silently disable decoration motion.
-        if (active && !changed) setReduceMotion(false);
-      }
-    };
-    check();
+    AccessibilityInfo.isReduceMotionEnabled()
+      .then(value => {
+        if (active) setReduceMotion(value);
+      })
+      .catch(() => {
+        if (active) setReduceMotion(false);
+      });
     return () => {
       active = false;
       subscription?.remove();
@@ -30,98 +25,122 @@ export const useSplashReduceMotion = () => {
   return reduceMotion;
 };
 
-// Keep the movement gentle, but give each season a recognisable motion language.
 export const SEASONAL_MOTION = {
-  autumn: { drift: 34, rotation: 220, direction: 'down', scale: [0.82, 1, 0.9] },
-  winter: { drift: 24, rotation: 55, direction: 'down', scale: [0.9, 1.08, 0.94] },
-  spring: { drift: 30, rotation: 70, direction: 'down', scale: [0.88, 1, 0.94] },
-  summer: { drift: 18, rotation: 28, direction: 'up', scale: [0.72, 1.18, 0.76] },
-  holiday: { drift: 22, rotation: 90, direction: 'down', scale: [0.86, 1.04, 0.9] },
+  autumn: { drift: 34, rotation: 220, upward: false, scale: [0.88, 1.08, 0.92] },
+  winter: { drift: 24, rotation: 55, upward: false, scale: [0.92, 1.12, 0.96] },
+  spring: { drift: 30, rotation: 70, upward: false, scale: [0.9, 1.08, 0.94] },
+  summer: { drift: 18, rotation: 28, upward: true, scale: [0.78, 1.2, 0.8] },
+  holiday: { drift: 22, rotation: 90, upward: false, scale: [0.9, 1.1, 0.94] },
 };
 
 const getMotion = key => SEASONAL_MOTION[key] || SEASONAL_MOTION.holiday;
 
-const Particle = ({ particle, width, height, season }) => {
+const Particle = ({ particle, width, height, kind }) => {
   const progress = useRef(new Animated.Value(0)).current;
-  const motion = getMotion(season);
-  const startOffset = particle.y * height;
-  const direction = motion.direction === 'up' ? -1 : 1;
+  const motion = getMotion(kind);
+  const direction = motion.upward ? -1 : 1;
+  const startY = motion.upward
+    ? height - particle.y * height
+    : particle.y * height;
 
   useEffect(() => {
     progress.setValue(0);
-    const animation = Animated.loop(Animated.timing(progress, {
-      toValue: 1,
-      duration: Math.min(particle.duration, 3000),
-      easing: Easing.linear,
-      useNativeDriver: true,
-      isInteraction: false,
-    }));
+    const animation = Animated.loop(
+      Animated.timing(progress, {
+        toValue: 1,
+        duration: 2400 + (particle.id % 4) * 180,
+        easing: Easing.linear,
+        useNativeDriver: true,
+        isInteraction: false,
+      }),
+      { resetBeforeIteration: true },
+    );
     animation.start();
     return () => {
       animation.stop();
       progress.stopAnimation();
     };
-  }, [particle.duration, progress]);
+  }, [particle.id, progress]);
 
   const sway = motion.drift * (particle.drift < 0 ? -1 : 1);
   return (
-    <Animated.View style={{
-      position: 'absolute',
-      left: particle.x * width,
-      top: -40,
-      opacity: progress.interpolate({
-        inputRange: [0, 0.06, 0.84, 1],
-        outputRange: [0, 0.9, 0.82, 0],
-      }),
-      transform: [
-        { translateY: progress.interpolate({
-          inputRange: [0, 1],
-          outputRange: direction > 0 ? [startOffset, height + 48] : [height - startOffset, -48],
-        }) },
-        { translateX: progress.interpolate({ inputRange: [0, 0.3, 0.7, 1], outputRange: [0, sway, -sway, 0] }) },
-        { rotate: progress.interpolate({ inputRange: [0, 0.5, 1], outputRange: ['0deg', `${motion.rotation * (particle.drift < 0 ? -1 : 1)}deg`, '0deg'] }) },
-        { scale: progress.interpolate({ inputRange: [0, 0.5, 1], outputRange: motion.scale }) },
-      ],
-    }}>
-      <Icon name={particle.icon} size={particle.size + 4} color={particle.color} />
+    <Animated.View
+      collapsable={false}
+      style={[
+        styles.particle,
+        {
+          left: particle.x * width,
+          opacity: progress.interpolate({
+            inputRange: [0, 0.08, 0.86, 1],
+            outputRange: [0, 0.9, 0.82, 0],
+          }),
+          transform: [
+            {
+              translateY: progress.interpolate({
+                inputRange: [0, 1],
+                outputRange: [startY, direction > 0 ? height + 56 : -56],
+              }),
+            },
+            {
+              translateX: progress.interpolate({
+                inputRange: [0, 0.25, 0.75, 1],
+                outputRange: [0, sway, -sway, 0],
+              }),
+            },
+            {
+              rotate: progress.interpolate({
+                inputRange: [0, 0.5, 1],
+                outputRange: ['0deg', `${motion.rotation * (particle.drift < 0 ? -1 : 1)}deg`, '0deg'],
+              }),
+            },
+            { scale: progress.interpolate({ inputRange: [0, 0.5, 1], outputRange: motion.scale }) },
+          ],
+        },
+      ]}
+    >
+      <Icon name={particle.icon} size={particle.size + 5} color={particle.color} />
     </Animated.View>
   );
 };
 
-const SeasonalSplashEffects = ({ decoration, reduceMotion }) => {
+const SeasonalSplashEffects = ({ decoration }) => {
   const { width, height } = useWindowDimensions();
   const particles = useMemo(() => createSplashParticles(decoration), [decoration]);
   if (!decoration) return null;
+
   return (
     <View
       pointerEvents="none"
+      collapsable={false}
       accessible={false}
       accessibilityElementsHidden
       importantForAccessibility="no-hide-descendants"
       style={styles.overlay}
     >
-      {reduceMotion !== true ? particles.map(particle => (
+      {particles.map(particle => (
         <Particle
           key={`${decoration.key}-${particle.id}`}
           particle={particle}
           width={width}
           height={height}
-          season={decoration.kind === 'season' ? decoration.key : 'holiday'}
+          kind={decoration.kind === 'season' ? decoration.key : 'holiday'}
         />
-      )) : decoration.icons.map((icon, index) => (
-        <Icon key={index} name={icon} color={decoration.colors[index]} size={20} style={{
-          position: 'absolute',
-          left: index === 1 ? width * 0.87 : width * 0.07,
-          top: height * (0.12 + index * 0.32),
-          opacity: 0.25,
-        }} />
       ))}
     </View>
   );
 };
 
 const styles = StyleSheet.create({
-  overlay: { ...StyleSheet.absoluteFillObject, overflow: 'visible', zIndex: 999, elevation: 999 },
+  overlay: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 9999,
+    elevation: 9999,
+    overflow: 'hidden',
+  },
+  particle: {
+    position: 'absolute',
+    top: -28,
+  },
 });
 
 export default SeasonalSplashEffects;
