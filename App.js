@@ -419,7 +419,7 @@ const loadNewYearSettings = async () => {
 
 // Функция для обновления настроек новогоднего режима
 const SPLASH_DURATION_BEFORE_MS = 2000;
-const SPLASH_DURATION_MS = 4500;
+const SPLASH_DURATION_MS = 3500;
 
 const handleNewYearModeChange = async (enabled) => {
   console.log('App: Changing new year mode to:', enabled);

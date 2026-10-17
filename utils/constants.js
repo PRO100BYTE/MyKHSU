@@ -314,6 +314,11 @@ export const getHolidayInfo = () => {
     return { text: 'С Днём защиты детей!', icon: 'happy', type: 'children-day' };
   }
 
+  // 12 июня — День России
+  if (month === 6 && day === 12) {
+    return { text: 'С Днём России!', icon: 'flag', type: 'russia-day' };
+  }
+
   // 1 сентября — День знаний
   if (month === 9 && day === 1) {
     return { text: 'С Днём знаний!', icon: 'book', type: 'knowledge-day' };

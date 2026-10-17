@@ -15,7 +15,7 @@ const HOLIDAY_COLORS = {
   'valentines-day': { dark: '#F48FB1', light: '#C62828' }, 'defender-day': { dark: '#81C784', light: '#2E7D32' },
   'womens-day': { dark: '#F48FB1', light: '#AD1457' }, 'cosmonautics-day': { dark: '#90CAF9', light: '#1A237E' },
   'may-day': { dark: '#A5D6A7', light: '#2E7D32' }, 'victory-day': { dark: '#FFCC80', light: '#BF360C' },
-  'children-day': { dark: '#FFF176', light: '#F57F17' }, 'knowledge-day': { dark: '#90CAF9', light: '#1565C0' },
+  'children-day': { dark: '#FFF176', light: '#F57F17' }, 'russia-day': { dark: '#FFFFFF', light: '#1565C0' }, 'knowledge-day': { dark: '#90CAF9', light: '#1565C0' },
   'september-3': { dark: '#FFCC80', light: '#BF360C' }, 'programmer-day': { dark: '#A5D6A7', light: '#1B5E20' },
   'sysadmin-day': { dark: '#90CAF9', light: '#0D47A1' }, 'teacher-day': { dark: '#FFF176', light: '#E65100' },
   'unity-day': { dark: '#EF9A9A', light: '#B71C1C' }, 'intl-student-day': { dark: '#90CAF9', light: '#1565C0' },
@@ -25,7 +25,7 @@ const HOLIDAY_ICONS = {
   'new-year': ['sparkles', 'snow', 'star'], 'student-day': ['school', 'star', 'school'], 'valentines-day': ['heart', 'heart', 'heart'],
   'defender-day': ['shield', 'star', 'shield'], 'womens-day': ['flower', 'heart', 'flower'], 'cosmonautics-day': ['rocket', 'star', 'planet'],
   'may-day': ['sunny', 'flower', 'sunny'], 'victory-day': ['star', 'ribbon', 'star'], 'children-day': ['balloon', 'happy', 'balloon'],
-  'knowledge-day': ['book', 'pencil', 'book'], 'september-3': ['musical-notes', 'calendar', 'musical-notes'],
+  'knowledge-day': ['book', 'pencil', 'book'], 'russia-day': ['flag', 'star', 'flag'], 'september-3': ['musical-notes', 'calendar', 'musical-notes'],
   'programmer-day': ['code-slash', 'terminal', 'code-slash'], 'sysadmin-day': ['server', 'construct', 'server'],
   'teacher-day': ['easel', 'book', 'easel'], 'unity-day': ['people', 'flag', 'people'], 'intl-student-day': ['earth', 'school', 'earth'],
 };

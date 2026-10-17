@@ -9,7 +9,7 @@ const holidays = {
   'new-year': 'sparkles', 'student-day': 'school', 'valentines-day': 'heart',
   'defender-day': 'shield', 'womens-day': 'flower', 'cosmonautics-day': 'rocket',
   'may-day': 'sunny', 'victory-day': 'star', 'children-day': 'balloon',
-  'knowledge-day': 'book', 'september-3': 'musical-notes', 'programmer-day': 'code-slash',
+  'knowledge-day': 'book', 'russia-day': 'flag', 'september-3': 'musical-notes', 'programmer-day': 'code-slash',
   'sysadmin-day': 'server', 'teacher-day': 'easel', 'unity-day': 'people', 'intl-student-day': 'earth',
 };
 

@@ -485,7 +485,7 @@ const DeveloperMenuScreen = ({ theme, accentColor, onCommunityFeatureChange, onL
           </View>
           <Text style={[styles.previewLabel, { color: placeholderColor }]}>Праздники</Text>
           <View style={styles.previewGrid}>
-            {[['new-year', 'Новый год'], ['student-day', 'День студента'], ['programmer-day', 'День программиста'], ['victory-day', 'День Победы']].map(([type, text]) => (
+            {[['new-year', 'Новый год'], ['student-day', 'День студента'], ['cosmonautics-day', 'День космонавтики'], ['sysadmin-day', 'День сисадмина'], ['russia-day', 'День России'], ['programmer-day', 'День программиста'], ['victory-day', 'День Победы']].map(([type, text]) => (
               <TouchableOpacity
                 key={type}
                 style={[styles.previewChip, { borderColor, backgroundColor: inputBgColor }]}
