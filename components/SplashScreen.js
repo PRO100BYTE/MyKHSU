@@ -99,6 +99,7 @@ const SplashScreen = ({ accentColor, theme, holidayInfo, legendUnlocked = false,
         <View style={[styles.cornerBlock, { backgroundColor: primary }]} />
         <View style={[styles.cornerBlockSmall, { borderColor: `${primary}99` }]} />
       </>}
+      <SeasonalSplashEffects decoration={decoration} />
       <Animated.View style={[styles.main,  { opacity: intro, transform: [{ translateY: intro.interpolate({ inputRange: [0, 1], outputRange: [22, 0] }) }] }]}>
         <View style={styles.logoStage}>
           <Animated.View style={[styles.halo, { borderColor: primary, opacity: haloOpacity, transform: [{ scale: haloScale }] }]} />
@@ -130,7 +131,6 @@ const SplashScreen = ({ accentColor, theme, holidayInfo, legendUnlocked = false,
           <Text style={[styles.build, { color: subtextColor }]}>BUILD {BUILD_VER}</Text>
         </View>
       </View>
-      <SeasonalSplashEffects decoration={decoration} />
     </Animated.View>
   );
 };
