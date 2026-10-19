@@ -232,8 +232,8 @@ const ScheduleShareImage = forwardRef(({
   if (isHorizontal) {
     const rows = getHorizontalRows();
     return (
-      <View style={s.offscreen} pointerEvents="none">
-        <ViewShot ref={ref} options={{ format: 'png', quality: 1, result: 'tmpfile' }}>
+      <View style={[s.offscreen, { width: sh.card.width }]} pointerEvents="none" collapsable={false}>
+        <ViewShot ref={ref} style={{ width: sh.card.width }} collapsable={false} options={{ format: 'png', quality: 1, result: 'tmpfile' }}>
           <View style={[sh.card, { backgroundColor: bg }]}>
             {/* Шапка */}
             <View style={[sh.header, { borderBottomColor: border }]}>
@@ -281,8 +281,8 @@ const ScheduleShareImage = forwardRef(({
 
   // --- Вертикальный рендер (студенты) ---
   return (
-    <View style={s.offscreen} pointerEvents="none">
-      <ViewShot ref={ref} options={{ format: 'png', quality: 1, result: 'tmpfile' }}>
+    <View style={[s.offscreen, { width: s.card.width }]} pointerEvents="none" collapsable={false}>
+      <ViewShot ref={ref} style={{ width: s.card.width }} collapsable={false} options={{ format: 'png', quality: 1, result: 'tmpfile' }}>
         <View style={[s.card, { backgroundColor: bg }]}>
           {/* Шапка */}
           <View style={[s.header, { borderBottomColor: border }]}>
@@ -327,7 +327,6 @@ const s = StyleSheet.create({
     position: 'absolute',
     left: -9999,
     top: 0,
-    opacity: 0,
   },
   card: {
     width: 420,

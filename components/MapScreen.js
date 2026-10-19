@@ -3,42 +3,44 @@ import {
   View, 
   Text, 
   StyleSheet, 
-  Alert, 
   Linking, 
   Platform,
-  Dimensions, 
   TouchableOpacity, 
-  TouchableWithoutFeedback,
   Animated, 
   StatusBar, 
   ActivityIndicator,
-  ScrollView
+  ScrollView,
+  useWindowDimensions,
 } from 'react-native';
 import MapView, { Marker, PROVIDER_DEFAULT, UrlTile } from 'react-native-maps';
 import NetInfo from '@react-native-community/netinfo';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import Constants from 'expo-constants';
+import * as Location from 'expo-location';
 import { ACCENT_COLORS, LIQUID_GLASS } from '../utils/constants';
 import ConnectionError from './ConnectionError';
 import { buildings, initialRegion } from '../utils/buildingCoordinates';
 import BuildingsListScreen from './BuildingsListScreen';
 import { WebView } from 'react-native-webview';
 import Snowfall from './Snowfall';
+import NativeSheet from './NativeSheet';
+import MapFilterButton, { MAP_FILTER_CATEGORIES } from './MapFilterButton';
 
-const { width, height } = Dimensions.get('window');
-
-const MapScreen = forwardRef(({ theme, accentColor, isNewYearMode, onFilterCountChange, onNavigationChange }, ref) => {
+const MapScreen = forwardRef(({ theme, accentColor, isNewYearMode, onFilterCountChange, onFilterControlChange, onNavigationChange }, ref) => {
   const [isOnline, setIsOnline] = useState(true);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [showRouteOptions, setShowRouteOptions] = useState(false);
   const [selectedBuilding, setSelectedBuilding] = useState(null);
   const [mapLoaded, setMapLoaded] = useState(false);
-  const [showFiltersModal, setShowFiltersModal] = useState(false);
   const [selectedFilters, setSelectedFilters] = useState([]);
+  const [showFilterSheet, setShowFilterSheet] = useState(false);
   const [showBuildingsList, setShowBuildingsList] = useState(false);
+  const { height: windowHeight } = useWindowDimensions();
+  const filterSheetHeight = Math.max(windowHeight * 0.5, 1);
   const [webViewKey, setWebViewKey] = useState(0);
   const [mapError, setMapError] = useState(false);
+  const [locationPermission, setLocationPermission] = useState(false);
   
   const colors = ACCENT_COLORS[accentColor];
   const glass = LIQUID_GLASS[theme] || LIQUID_GLASS.light;
@@ -53,38 +55,33 @@ const MapScreen = forwardRef(({ theme, accentColor, isNewYearMode, onFilterCount
   
   // Анимации
   const fadeAnim = useRef(new Animated.Value(0)).current;
-  const routeModalAnim = useRef(new Animated.Value(0)).current;
-  const filtersModalAnim = useRef(new Animated.Value(0)).current;
   const mapRef = useRef(null);
   const webViewRef = useRef(null);
 
   // Expose methods to parent via ref
   useImperativeHandle(ref, () => ({
-    openFilters: () => setShowFiltersModal(true),
+    openFilters: () => setShowFilterSheet(true),
+    renderFilterButton: (props = {}) => (
+      <MapFilterButton
+        {...props}
+        selectedFilters={selectedFilters}
+        onPress={() => setShowFilterSheet(true)}
+        color={colors.primary}
+      />
+    ),
     goBack: () => setShowBuildingsList(false),
   }));
 
-  // Notify parent about filter count changes
+  // Update the header even when the selection changes without changing its count.
   useEffect(() => {
     if (onFilterCountChange) onFilterCountChange(selectedFilters.length);
-  }, [selectedFilters]);
+    onFilterControlChange?.();
+  }, [selectedFilters, theme, accentColor]);
 
   // Notify parent about navigation state changes
   useEffect(() => {
     if (onNavigationChange) onNavigationChange(showBuildingsList ? 'Корпуса ХГУ' : null);
   }, [showBuildingsList]);
-
-  // Категории фильтров
-  const filterCategories = [
-    { id: 'main', name: 'Административный корпус', icon: 'business-outline' },
-    { id: 'academic', name: 'Учебные корпуса', icon: 'school-outline' },
-    { id: 'dormitory', name: 'Общежития', icon: 'home-outline' },
-    { id: 'library', name: 'Библиотеки ХГУ', icon: 'library-outline' },
-    { id: 'cafeteria', name: 'Столовые ХГУ', icon: 'restaurant-outline' },
-    { id: 'cardatm', name: 'Банкоматы', icon: 'card-outline' },
-    { id: 'sports', name: 'Спортивные площадки', icon: 'barbell-outline' },
-    { id: 'other', name: 'Прочее', icon: 'ellipse-outline' }
-  ];
 
   // Фильтрация зданий
   const filteredBuildings = useMemo(() => {
@@ -113,40 +110,6 @@ const MapScreen = forwardRef(({ theme, accentColor, isNewYearMode, onFilterCount
     initializeMap();
   }, [theme]);
 
-  // Анимация появления модального окна маршрута
-  useEffect(() => {
-    if (showRouteOptions) {
-      Animated.spring(routeModalAnim, {
-        toValue: 1,
-        duration: 300,
-        useNativeDriver: true,
-      }).start();
-    } else {
-      Animated.timing(routeModalAnim, {
-        toValue: 0,
-        duration: 200,
-        useNativeDriver: true,
-      }).start();
-    }
-  }, [showRouteOptions]);
-
-  // Анимация появления модального окна фильтров
-  useEffect(() => {
-    if (showFiltersModal) {
-      Animated.spring(filtersModalAnim, {
-        toValue: 1,
-        duration: 300,
-        useNativeDriver: true,
-      }).start();
-    } else {
-      Animated.timing(filtersModalAnim, {
-        toValue: 0,
-        duration: 200,
-        useNativeDriver: true,
-      }).start();
-    }
-  }, [showFiltersModal]);
-
   const initializeMap = async () => {
     setLoading(true);
     setError(null);
@@ -174,6 +137,17 @@ const MapScreen = forwardRef(({ theme, accentColor, isNewYearMode, onFilterCount
         return;
       }
 
+      // Location is optional: the map remains usable when permission is denied.
+      if (Platform.OS === 'ios') {
+        try {
+          const permission = await Location.requestForegroundPermissionsAsync();
+          setLocationPermission(permission.status === 'granted');
+        } catch (locationError) {
+          console.warn('Location permission unavailable:', locationError);
+          setLocationPermission(false);
+        }
+      }
+
       setLoading(false);
     } catch (error) {
       console.error('Error initializing map:', error);
@@ -196,37 +170,30 @@ const MapScreen = forwardRef(({ theme, accentColor, isNewYearMode, onFilterCount
   };
 
   const handleRouteServiceSelect = async (service) => {
-    Animated.timing(routeModalAnim, {
-      toValue: 0,
-      duration: 200,
-      useNativeDriver: true,
-    }).start(() => {
-      setShowRouteOptions(false);
-      
-      if (!selectedBuilding) return;
+    setShowRouteOptions(false);
+    if (!selectedBuilding) return;
 
-      try {
-        let url;
-        
-        switch (service) {
-          case 'yandex':
-            url = `https://yandex.ru/maps/?rtext=~${selectedBuilding.latitude},${selectedBuilding.longitude}&rtt=auto`;
-            break;
-          case '2gis':
-            const lon = selectedBuilding.longitude;
-            const lat = selectedBuilding.latitude;
-            url = `https://2gis.ru/abakan/directions/points/~${lon}%2C${lat}?m=${lon}%2C${lat}%2F16`;
-            break;
-          default:
-            return;
+    try {
+      let url;
+
+      switch (service) {
+        case 'yandex':
+          url = `https://yandex.ru/maps/?rtext=~${selectedBuilding.latitude},${selectedBuilding.longitude}&rtt=auto`;
+          break;
+        case '2gis': {
+          const lon = selectedBuilding.longitude;
+          const lat = selectedBuilding.latitude;
+          url = `https://2gis.ru/abakan/directions/points/~${lon}%2C${lat}?m=${lon}%2C${lat}%2F16`;
+          break;
         }
-
-        Linking.openURL(url);
-      } catch (error) {
-        console.error('Error opening route URL:', error);
-        Alert.alert('Ошибка', 'Не удалось открыть веб-сервис для построения маршрута');
+        default:
+          return;
       }
-    });
+
+      await Linking.openURL(url);
+    } catch (error) {
+      console.error('Error opening route URL:', error);
+    }
   };
 
   const handleBuildingSelect = (building) => {
@@ -246,13 +213,7 @@ const MapScreen = forwardRef(({ theme, accentColor, isNewYearMode, onFilterCount
   };
 
   const handleCloseRouteModal = () => {
-    Animated.timing(routeModalAnim, {
-      toValue: 0,
-      duration: 200,
-      useNativeDriver: true,
-    }).start(() => {
-      setShowRouteOptions(false);
-    });
+    setShowRouteOptions(false);
   };
 
   const handleToggleFilter = (filterId) => {
@@ -267,16 +228,6 @@ const MapScreen = forwardRef(({ theme, accentColor, isNewYearMode, onFilterCount
 
   const handleClearFilters = () => {
     setSelectedFilters([]);
-  };
-
-  const handleCloseFiltersModal = () => {
-    Animated.timing(filtersModalAnim, {
-      toValue: 0,
-      duration: 200,
-      useNativeDriver: true,
-    }).start(() => {
-      setShowFiltersModal(false);
-    });
   };
 
   const getBuildingIcon = (type) => {
@@ -391,22 +342,36 @@ const MapScreen = forwardRef(({ theme, accentColor, isNewYearMode, onFilterCount
 
   // Если есть ошибка или загрузка, показываем соответствующий экран
   if (loading || error) {
-    let errorType = error;
-    let errorMessage = 'Не удалось загрузить карту';
-    
-    if (error === 'NO_INTERNET') {
-      errorType = 'no-internet';
-      errorMessage = 'Карта недоступна без подключения к интернету';
-    } else if (error === 'LOAD_ERROR') {
-      errorType = 'load-error';
-      errorMessage = 'Не удалось загрузить карту';
-    } else if (error === 'NO_API_KEY') {
-      errorType = 'load-error';
-      errorMessage = 'API ключ 2ГИС не настроен';
-    } else if (error === 'ANDROID_NOT_SUPPORTED') {
-      errorType = 'android-not-supported';
-      errorMessage = 'В данный момент карта недоступна на платформе Android из-за отсутствия необходимых API ключей и ресурсов. Мы делаем все возможное, чтобы восстановить работоспособность карты на Android в кратчайшие сроки. Следите за обновлениями!';
-    }
+    const mapErrorConfig = {
+      NO_INTERNET: {
+        errorType: 'no-internet',
+        icon: 'map-outline',
+        title: 'Карта недоступна',
+        description: 'Карта недоступна без подключения к интернету',
+      },
+      LOAD_ERROR: {
+        errorType: 'load-error',
+        icon: 'warning-outline',
+        title: 'Ошибка загрузки карты',
+        description: 'Не удалось загрузить карту',
+      },
+      NO_API_KEY: {
+        errorType: 'api-unavailable',
+        icon: 'key-outline',
+        title: 'Карта не настроена',
+        description: 'API ключ 2ГИС не настроен',
+      },
+      ANDROID_NOT_SUPPORTED: {
+        errorType: 'android-not-supported',
+        icon: 'build-outline',
+        title: 'Карта временно недоступна',
+        description: 'В данный момент карта недоступна на платформе Android из-за отсутствия необходимых API ключей и ресурсов. Мы делаем все возможное, чтобы восстановить работоспособность карты на Android в кратчайшие сроки. Следите за обновлениями!',
+      },
+    };
+
+    const resolvedErrorConfig = mapErrorConfig[error] || {
+      errorType: error || 'load-error',
+    };
 
     return (
       <View style={{ flex: 1, backgroundColor: bgColor }}>
@@ -417,13 +382,15 @@ const MapScreen = forwardRef(({ theme, accentColor, isNewYearMode, onFilterCount
             backgroundColor={bgColor}
           />
           <ConnectionError 
-            type={errorType}
+            screen="map"
+            errorType={resolvedErrorConfig.errorType}
+            icon={resolvedErrorConfig.icon}
+            title={resolvedErrorConfig.title}
+            description={resolvedErrorConfig.description}
             loading={loading}
             onRetry={handleRetry}
             theme={theme}
             accentColor={accentColor}
-            contentType="map"
-            message={errorMessage}
             showFreshmanHint={true}
           />
         </Animated.View>
@@ -713,8 +680,8 @@ const MapScreen = forwardRef(({ theme, accentColor, isNewYearMode, onFilterCount
             latitudeDelta: 0.01,
             longitudeDelta: 0.01,
           }}
-          showsUserLocation={true}
-          showsMyLocationButton={true}
+          showsUserLocation={locationPermission}
+          showsMyLocationButton={locationPermission}
           onMapReady={() => setMapLoaded(true)}
           onMarkerPress={(e) => {
             const building = filteredBuildings.find(b => b.latitude === e.nativeEvent.coordinate.latitude && b.longitude === e.nativeEvent.coordinate.longitude);
@@ -785,152 +752,94 @@ const MapScreen = forwardRef(({ theme, accentColor, isNewYearMode, onFilterCount
         </View>
       )}
 
-      {/* Модальное окно фильтров */}
-      {showFiltersModal && Platform.OS === 'ios' && (
-        <Animated.View 
-          style={[
-            styles.filtersModalOverlay,
-            { 
-              opacity: filtersModalAnim,
-              backgroundColor: 'rgba(0, 0, 0, 0.5)'
-            }
-          ]}
-        >
-          <TouchableWithoutFeedback onPress={handleCloseFiltersModal}>
-            <View style={{ flex: 1 }} />
-          </TouchableWithoutFeedback>
-          <Animated.View 
-            style={[
-              styles.filtersModal,
-              { 
-                backgroundColor: glass.backgroundElevated,
-                borderColor: glass.border,
-                borderWidth: StyleSheet.hairlineWidth,
-                borderBottomWidth: 0,
-                transform: [{
-                  translateY: filtersModalAnim.interpolate({
-                    inputRange: [0, 1],
-                    outputRange: [300, 0]
-                  })
-                }]
-              }
-            ]}
-          >
-            {/* Drag handle */}
-            <View style={{ width: 36, height: 4, borderRadius: 2, backgroundColor: glass.textSecondary + '40', alignSelf: 'center', marginBottom: 16 }} />
-            
-            <View style={styles.filtersHeader}>
-              <Text style={[styles.filtersTitle, { color: textColor, fontFamily: 'Montserrat_600SemiBold' }]}>
-                Фильтры
-              </Text>
-              <TouchableOpacity 
-                onPress={handleCloseFiltersModal}
-                style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: glass.surfaceTertiary, justifyContent: 'center', alignItems: 'center' }}
-              >
-                <Icon name="close" size={18} color={placeholderColor} />
-              </TouchableOpacity>
+      <NativeSheet
+        visible={showFilterSheet}
+        onRequestClose={() => setShowFilterSheet(false)}
+        accessibilityLabel="Фильтры карты"
+        bounded
+        minHeight={0.5}
+        expandable
+        contentStyle={{ backgroundColor: 'transparent' }}
+      >
+        <View style={[styles.filterSheet, { backgroundColor: glass.backgroundElevated, borderColor: glass.border }]}>
+          <View style={styles.filterSheetHeader}>
+            <View>
+              <Text style={[styles.filterSheetTitle, { color: textColor }]}>Фильтры карты</Text>
+              <Text style={[styles.filterSheetSubtitle, { color: placeholderColor }]}>Выберите категории объектов</Text>
             </View>
-
-            <ScrollView style={styles.filtersList} showsVerticalScrollIndicator={false}>
-              {filterCategories.map((category, index) => (
+            <TouchableOpacity
+              accessibilityRole="button"
+              accessibilityLabel="Закрыть фильтры"
+              onPress={() => setShowFilterSheet(false)}
+              style={[styles.filterCloseButton, { backgroundColor: glass.surfaceTertiary }]}
+            >
+              <Icon name="close" size={18} color={placeholderColor} />
+            </TouchableOpacity>
+          </View>
+          <ScrollView style={styles.filterList} contentContainerStyle={styles.filterListContent} showsVerticalScrollIndicator>
+            {MAP_FILTER_CATEGORIES.map(category => {
+              const selected = selectedFilters.includes(category.id);
+              return (
                 <TouchableOpacity
                   key={category.id}
-                  style={[
-                    styles.filterItem,
-                    { 
-                      backgroundColor: selectedFilters.includes(category.id) ? colors.glass : 'transparent',
-                      borderColor: selectedFilters.includes(category.id) ? colors.glassBorder : 'transparent',
-                      borderWidth: StyleSheet.hairlineWidth,
-                      borderRadius: 14,
-                      marginBottom: 6,
-                    }
-                  ]}
+                  accessibilityRole="checkbox"
+                  accessibilityLabel={category.name}
+                  accessibilityState={{ checked: selected }}
                   onPress={() => handleToggleFilter(category.id)}
+                  style={[styles.filterOption, { borderColor: glass.border }]}
                 >
-                  <View style={styles.filterItemLeft}>
-                    <View style={[styles.filterIcon, { 
-                      backgroundColor: selectedFilters.includes(category.id) ? colors.primary : colors.glass,
-                      borderRadius: 12,
-                      borderWidth: selectedFilters.includes(category.id) ? 0 : StyleSheet.hairlineWidth,
-                      borderColor: colors.glassBorder,
-                    }]}>
-                      <Icon name={category.icon} size={18} color={selectedFilters.includes(category.id) ? '#ffffff' : colors.primary} />
-                    </View>
-                    <Text style={[styles.filterName, { 
-                      color: selectedFilters.includes(category.id) ? colors.primary : textColor, 
-                      fontFamily: selectedFilters.includes(category.id) ? 'Montserrat_600SemiBold' : 'Montserrat_500Medium' 
-                    }]}>
-                      {category.name}
-                    </Text>
+                  <View style={[styles.checkbox, { borderColor: selected ? colors.primary : placeholderColor, backgroundColor: selected ? colors.primary : 'transparent' }]}>
+                    {selected && <Icon name="checkmark" size={16} color="#ffffff" />}
                   </View>
-                  <View style={{ 
-                    width: 24, height: 24, borderRadius: 12, 
-                    backgroundColor: selectedFilters.includes(category.id) ? colors.primary : 'transparent',
-                    borderWidth: selectedFilters.includes(category.id) ? 0 : 1.5,
-                    borderColor: glass.border,
-                    justifyContent: 'center', alignItems: 'center',
-                  }}>
-                    {selectedFilters.includes(category.id) && (
-                      <Icon name="checkmark" size={14} color="#ffffff" />
-                    )}
-                  </View>
+                  <Text style={[styles.filterOptionText, { color: textColor }]}>{category.name}</Text>
                 </TouchableOpacity>
-              ))}
-            </ScrollView>
-
-            <View style={styles.filtersFooter}>
-              <TouchableOpacity 
-                style={[styles.clearButton, { borderColor: glass.border, backgroundColor: glass.surfaceTertiary }]}
-                onPress={handleClearFilters}
-              >
-                <Text style={[styles.clearButtonText, { color: textColor, fontFamily: 'Montserrat_500Medium' }]}>
-                  Сбросить
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity 
-                style={[styles.applyButton, { backgroundColor: colors.primary }]}
-                onPress={handleCloseFiltersModal}
-              >
-                <Text style={[styles.applyButtonText, { fontFamily: 'Montserrat_600SemiBold' }]}>
-                  Применить
-                </Text>
-              </TouchableOpacity>
-            </View>
-          </Animated.View>
-        </Animated.View>
-      )}
+              );
+            })}
+          </ScrollView>
+          <View style={styles.filterActions}>
+            <TouchableOpacity
+              accessibilityRole="button"
+              accessibilityLabel="Сбросить фильтры"
+              onPress={() => {
+                handleClearFilters();
+                setShowFilterSheet(false);
+              }}
+              style={[styles.filterSecondaryButton, { borderColor: glass.border }]}
+            >
+              <Text style={[styles.filterSecondaryButtonText, { color: textColor }]}>Сбросить</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              accessibilityRole="button"
+              accessibilityLabel="Применить фильтры"
+              onPress={() => setShowFilterSheet(false)}
+              style={[styles.filterPrimaryButton, { backgroundColor: colors.primary }]}
+            >
+              <Text style={styles.filterPrimaryButtonText}>Применить</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </NativeSheet>
 
       {/* Модальное окно выбора сервиса для построения маршрута с анимацией */}
-      {showRouteOptions && Platform.OS === 'ios' && (
-        <Animated.View 
+      <NativeSheet
+        visible={showRouteOptions}
+        onRequestClose={handleCloseRouteModal}
+        accessibilityLabel="Выбор сервиса навигации"
+        bounded
+        minHeight={0.5}
+        expandable
+        contentStyle={{ backgroundColor: 'transparent' }}
+      >
+        <View
           style={[
-            styles.routeModalOverlay,
-            { 
-              opacity: routeModalAnim,
-              backgroundColor: 'rgba(0, 0, 0, 0.5)'
-            }
+            styles.routeModal,
+            {
+              backgroundColor: glass.backgroundElevated,
+              borderColor: glass.border,
+              borderWidth: StyleSheet.hairlineWidth,
+            },
           ]}
         >
-          <TouchableWithoutFeedback onPress={handleCloseRouteModal}>
-            <View style={{ flex: 1 }} />
-          </TouchableWithoutFeedback>
-          <Animated.View 
-            style={[
-              styles.routeModal,
-              { 
-                backgroundColor: glass.backgroundElevated,
-                borderColor: glass.border,
-                borderWidth: StyleSheet.hairlineWidth,
-                borderBottomWidth: 0,
-                transform: [{
-                  translateY: routeModalAnim.interpolate({
-                    inputRange: [0, 1],
-                    outputRange: [300, 0]
-                  })
-                }]
-              }
-            ]}
-          >
             {/* Header with close button */}
             <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 16 }}>
               <View style={{ width: 44, height: 44, borderRadius: 14, backgroundColor: colors.glass, justifyContent: 'center', alignItems: 'center', marginRight: 12, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.glassBorder }}>
@@ -991,9 +900,8 @@ const MapScreen = forwardRef(({ theme, accentColor, isNewYearMode, onFilterCount
               </View>
               <Icon name="open-outline" size={18} color={placeholderColor} />
             </TouchableOpacity>
-          </Animated.View>
-        </Animated.View>
-      )}
+        </View>
+      </NativeSheet>
     </Animated.View>
     </View>
   );
@@ -1044,98 +952,93 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontFamily: 'Montserrat_500Medium',
   },
-  filtersModalOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    justifyContent: 'flex-end',
-    zIndex: 1001,
-  },
-  filtersModal: {
+  filterSheet: {
+    flex: 1,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
+    borderWidth: StyleSheet.hairlineWidth,
     padding: 20,
-    paddingBottom: Platform.OS === 'ios' ? 100 : 24,
-    maxHeight: '80%',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 16,
-    elevation: 8,
+    paddingBottom: 12,
   },
-  filtersHeader: {
+  filterSheetHeader: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 20,
+    justifyContent: 'space-between',
+    marginBottom: 10,
   },
-  filtersTitle: {
+  filterSheetTitle: {
     fontSize: 18,
+    fontFamily: 'Montserrat_600SemiBold',
   },
-  filtersList: {
-    maxHeight: 400,
+  filterSheetSubtitle: {
+    fontSize: 12,
+    fontFamily: 'Montserrat_400Regular',
+    marginTop: 3,
   },
-  filterItem: {
-    flexDirection: 'row',
+  filterCloseButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 12,
-    paddingHorizontal: 14,
-  },
-  filterItemLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-  },
-  filterIcon: {
-    width: 38,
-    height: 38,
-    borderRadius: 12,
     justifyContent: 'center',
+  },
+  filterList: {
+    flexShrink: 1,
+  },
+  filterListContent: {
+    paddingBottom: 8,
+  },
+  filterOption: {
+    minHeight: 42,
+    flexDirection: 'row',
     alignItems: 'center',
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  checkbox: {
+    width: 22,
+    height: 22,
+    borderRadius: 6,
+    borderWidth: 1.5,
+    alignItems: 'center',
+    justifyContent: 'center',
     marginRight: 12,
   },
-  filterName: {
-    fontSize: 16,
+  filterOptionText: {
     flex: 1,
+    fontSize: 14,
+    fontFamily: 'Montserrat_500Medium',
   },
-  filtersFooter: {
+  filterActions: {
     flexDirection: 'row',
-    gap: 12,
-    marginTop: 20,
+    gap: 10,
+    paddingTop: 10,
   },
-  clearButton: {
+  filterSecondaryButton: {
     flex: 1,
-    paddingVertical: 14,
-    borderRadius: 14,
+    minHeight: 44,
+    borderRadius: 12,
     borderWidth: StyleSheet.hairlineWidth,
     alignItems: 'center',
+    justifyContent: 'center',
   },
-  clearButtonText: {
-    fontSize: 16,
+  filterSecondaryButtonText: {
+    fontSize: 14,
+    fontFamily: 'Montserrat_600SemiBold',
   },
-  applyButton: {
+  filterPrimaryButton: {
     flex: 1,
-    paddingVertical: 14,
-    borderRadius: 14,
+    minHeight: 44,
+    borderRadius: 12,
     alignItems: 'center',
+    justifyContent: 'center',
   },
-  applyButtonText: {
+  filterPrimaryButtonText: {
     color: '#ffffff',
-    fontSize: 16,
-  },
-  routeModalOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    justifyContent: 'flex-end',
-    zIndex: 1002,
+    fontSize: 14,
+    fontFamily: 'Montserrat_600SemiBold',
   },
   routeModal: {
+    flex: 1,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     padding: 20,

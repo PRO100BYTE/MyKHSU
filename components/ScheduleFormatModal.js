@@ -1,9 +1,13 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { View, Text, TouchableOpacity, TextInput, ScrollView, StyleSheet, Alert, ActivityIndicator, Switch, FlatList } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Alert, ActivityIndicator, Switch, FlatList } from 'react-native';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import * as SecureStore from 'expo-secure-store';
 import { ACCENT_COLORS, COURSES, LIQUID_GLASS } from '../utils/constants';
 import ApiService from '../utils/api';
+import { getScheduleGroups, resolveScheduleSelection } from '../utils/scheduleSelection';
+import { SectionHeader, SettingsGroup } from './SettingsComponents';
+import ScrollView from './ScreenScrollView';
+import SearchField from './SearchField';
 
 const ScheduleFormatModal = ({ theme, accentColor, onSettingsChange, onSave }) => {
   const [scheduleFormat, setScheduleFormat] = useState('student');
@@ -14,7 +18,14 @@ const ScheduleFormatModal = ({ theme, accentColor, onSettingsChange, onSave }) =
   const [availableGroups, setAvailableGroups] = useState([]);
   const [selectedCourse, setSelectedCourse] = useState(1);
   const [loadingGroups, setLoadingGroups] = useState(false);
+  const groupsRequestId = useRef(0);
+  const [settingsLoaded, setSettingsLoaded] = useState(false);
+  const initialSelection = useRef(null);
+  const currentCourse = useRef(1);
+  const groupRef = useRef('');
   const [showCourseSelector, setShowCourseSelector] = useState(true);
+  const [attendanceTrackingEnabled, setAttendanceTrackingEnabled] = useState(true);
+  const [freeAuditoriesEnabled, setFreeAuditoriesEnabled] = useState(true);
   const [availableCourses, setAvailableCourses] = useState([]);
   const [loadingCourses, setLoadingCourses] = useState(false);
   
@@ -23,12 +34,14 @@ const ScheduleFormatModal = ({ theme, accentColor, onSettingsChange, onSave }) =
   const [loadingTeacherSearch, setLoadingTeacherSearch] = useState(false);
   const [showTeacherSuggestions, setShowTeacherSuggestions] = useState(false);
   const teacherSearchTimeout = useRef(null);
+  const teacherSearchRequestId = useRef(0);
   
   // Поиск аудиторий
   const [auditorySearchResults, setAuditorySearchResults] = useState([]);
   const [loadingAuditorySearch, setLoadingAuditorySearch] = useState(false);
   const [showAuditorySuggestions, setShowAuditorySuggestions] = useState(false);
   const auditorySearchTimeout = useRef(null);
+  const auditorySearchRequestId = useRef(0);
 
   const colors = ACCENT_COLORS[accentColor];
   const glass = LIQUID_GLASS[theme] || LIQUID_GLASS.light;
@@ -44,8 +57,11 @@ const ScheduleFormatModal = ({ theme, accentColor, onSettingsChange, onSave }) =
   }, []);
 
   useEffect(() => {
+    if (!settingsLoaded) return;
     loadGroupsForCourse(selectedCourse);
-  }, [selectedCourse]);
+  }, [selectedCourse, settingsLoaded]);
+
+  useEffect(() => () => { groupsRequestId.current += 1; }, []);
 
   const fetchAvailableCourses = async () => {
     setLoadingCourses(true);
@@ -76,44 +92,67 @@ const ScheduleFormatModal = ({ theme, accentColor, onSettingsChange, onSave }) =
       const savedTeacher = await SecureStore.getItemAsync('teacher_name');
       const savedAuditory = await SecureStore.getItemAsync('auditory_name');
       const savedShowSelector = await SecureStore.getItemAsync('show_course_selector');
+      const savedAttendanceTracking = await SecureStore.getItemAsync('attendance_tracking_enabled');
+      const savedFreeAuditories = await SecureStore.getItemAsync('free_auditories_enabled');
       
       if (savedFormat) setScheduleFormat(savedFormat);
-      if (savedGroup) setDefaultGroup(savedGroup);
-      if (savedCourse) setDefaultCourse(parseInt(savedCourse));
+      if (savedGroup) {
+        groupRef.current = savedGroup;
+        setDefaultGroup(savedGroup);
+      }
       if (savedTeacher) setTeacherName(savedTeacher);
       if (savedAuditory) setAuditoryName(savedAuditory);
       if (savedShowSelector !== null) setShowCourseSelector(savedShowSelector === 'true');
-      if (savedCourse) setSelectedCourse(parseInt(savedCourse));
+      if (savedAttendanceTracking !== null) setAttendanceTrackingEnabled(savedAttendanceTracking === 'true');
+      if (savedFreeAuditories !== null) setFreeAuditoriesEnabled(savedFreeAuditories === 'true');
+      if (savedCourse) {
+        const parsedCourse = Number.parseInt(savedCourse, 10);
+        if (Number.isFinite(parsedCourse)) {
+          setDefaultCourse(parsedCourse);
+          currentCourse.current = parsedCourse;
+          setSelectedCourse(parsedCourse);
+        }
+      }
+      initialSelection.current = { course: currentCourse.current, group: savedGroup };
     } catch (error) {
       console.error('Error loading schedule format settings:', error);
+    } finally {
+      setSettingsLoaded(true);
     }
   };
 
   const loadGroupsForCourse = async (course) => {
+    const requestId = ++groupsRequestId.current;
+    const isCurrent = () => requestId === groupsRequestId.current && currentCourse.current === course;
     setLoadingGroups(true);
     try {
       const result = await ApiService.getGroups(course);
-      if (result.data && result.data.groups) {
-        setAvailableGroups(result.data.groups);
-        if (defaultGroup && result.data.groups.includes(defaultGroup)) {
-          setDefaultGroup(defaultGroup);
-        } else if (result.data.groups.length > 0) {
-          setDefaultGroup(result.data.groups[0]);
-        }
-      } else {
-        setAvailableGroups([]);
-        setDefaultGroup('');
-      }
+      if (!isCurrent()) return;
+      const initial = initialSelection.current;
+      const selection = initial?.course === course
+        ? await resolveScheduleSelection({ course, group: initial.group, result, courses: COURSES,
+          getGroups: id => ApiService.getGroups(id), isCurrent })
+        : { course, group: getScheduleGroups(result).includes(groupRef.current) ? groupRef.current : '',
+          groups: getScheduleGroups(result) };
+      if (!selection || !isCurrent()) return;
+      initialSelection.current = null;
+      currentCourse.current = selection.course;
+      groupRef.current = selection.group || '';
+      setSelectedCourse(selection.course);
+      setDefaultCourse(selection.course);
+      setDefaultGroup(groupRef.current);
+      setAvailableGroups(selection.groups);
     } catch (error) {
+      if (!isCurrent()) return;
       console.error('Error loading groups:', error);
       setAvailableGroups([]);
-      setDefaultGroup('');
     } finally {
-      setLoadingGroups(false);
+      if (requestId === groupsRequestId.current) setLoadingGroups(false);
     }
   };
-
   const saveSettings = async () => {
+    if (!settingsLoaded || loadingGroups) return;
+    groupsRequestId.current += 1;
     try {
       if (scheduleFormat === 'teacher' && !teacherName.trim()) {
         Alert.alert('Ошибка', 'Пожалуйста, укажите ФИО преподавателя');
@@ -124,7 +163,9 @@ const ScheduleFormatModal = ({ theme, accentColor, onSettingsChange, onSave }) =
         return;
       }
       if (scheduleFormat === 'student' && !defaultGroup && !showCourseSelector) {
-        Alert.alert('Ошибка', 'При скрытом селекторе необходимо выбрать группу по умолчанию');
+        Alert.alert('Ошибка', availableGroups.length === 0
+          ? 'Для выбранного курса не удалось подтвердить доступную группу. Сначала выберите актуальный курс и группу.'
+          : 'При скрытом селекторе необходимо выбрать группу по умолчанию');
         return;
       }
 
@@ -134,6 +175,8 @@ const ScheduleFormatModal = ({ theme, accentColor, onSettingsChange, onSave }) =
       await SecureStore.setItemAsync('teacher_name', teacherName.trim());
       await SecureStore.setItemAsync('auditory_name', auditoryName.trim());
       await SecureStore.setItemAsync('show_course_selector', showCourseSelector.toString());
+      await SecureStore.setItemAsync('attendance_tracking_enabled', attendanceTrackingEnabled.toString());
+      await SecureStore.setItemAsync('free_auditories_enabled', freeAuditoriesEnabled.toString());
       
       if (onSettingsChange) {
         onSettingsChange({
@@ -142,7 +185,9 @@ const ScheduleFormatModal = ({ theme, accentColor, onSettingsChange, onSave }) =
           course: selectedCourse,
           teacher: teacherName.trim(),
           auditory: auditoryName.trim(),
-          showSelector: showCourseSelector
+          showSelector: showCourseSelector,
+          attendanceTrackingEnabled,
+          freeAuditoriesEnabled,
         });
       }
       
@@ -159,6 +204,12 @@ const ScheduleFormatModal = ({ theme, accentColor, onSettingsChange, onSave }) =
   };
 
   const handleCourseChange = (courseId) => {
+    if (currentCourse.current === courseId) return;
+    groupsRequestId.current += 1;
+    initialSelection.current = null;
+    currentCourse.current = courseId;
+    groupRef.current = '';
+    setAvailableGroups([]);
     setSelectedCourse(courseId);
     setDefaultGroup('');
   };
@@ -170,6 +221,7 @@ const ScheduleFormatModal = ({ theme, accentColor, onSettingsChange, onSave }) =
 
   // Поиск преподавателей через API
   const searchTeachers = useCallback((query) => {
+    const requestId = ++teacherSearchRequestId.current;
     if (teacherSearchTimeout.current) {
       clearTimeout(teacherSearchTimeout.current);
     }
@@ -184,6 +236,7 @@ const ScheduleFormatModal = ({ theme, accentColor, onSettingsChange, onSave }) =
       setLoadingTeacherSearch(true);
       try {
         const result = await ApiService.search(query.trim());
+        if (requestId !== teacherSearchRequestId.current) return;
         if (result.data && result.data.tnames) {
           setTeacherSearchResults(result.data.tnames);
           setShowTeacherSuggestions(result.data.tnames.length > 0);
@@ -203,6 +256,7 @@ const ScheduleFormatModal = ({ theme, accentColor, onSettingsChange, onSave }) =
 
   // Поиск аудиторий через API
   const searchAuditories = useCallback((query) => {
+    const requestId = ++auditorySearchRequestId.current;
     if (auditorySearchTimeout.current) {
       clearTimeout(auditorySearchTimeout.current);
     }
@@ -217,6 +271,7 @@ const ScheduleFormatModal = ({ theme, accentColor, onSettingsChange, onSave }) =
       setLoadingAuditorySearch(true);
       try {
         const result = await ApiService.search(query.trim());
+        if (requestId !== auditorySearchRequestId.current) return;
         if (result.data && result.data.auditories) {
           setAuditorySearchResults(result.data.auditories);
           setShowAuditorySuggestions(result.data.auditories.length > 0);
@@ -265,7 +320,8 @@ const ScheduleFormatModal = ({ theme, accentColor, onSettingsChange, onSave }) =
       >
         {/* Выбор формата */}
         <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: textColor }]}>Режим отображения</Text>
+          <SectionHeader title="Режим отображения" placeholderColor={placeholderColor} />
+          <SettingsGroup glass={glass} style={{ backgroundColor: glass.surfaceSecondary, padding: 12 }}>
           
           <TouchableOpacity
             style={[styles.formatOption, { 
@@ -329,13 +385,15 @@ const ScheduleFormatModal = ({ theme, accentColor, onSettingsChange, onSave }) =
               <Icon name="checkmark-circle" size={20} color={colors.primary} style={styles.formatCheckmark} />
             )}
           </TouchableOpacity>
+          </SettingsGroup>
         </View>
 
         {/* Настройки для студента */}
         {scheduleFormat === 'student' && (
           <>
             <View style={styles.section}>
-              <Text style={[styles.sectionTitle, { color: textColor }]}>Группа по умолчанию</Text>
+              <SectionHeader title="Группа по умолчанию" placeholderColor={placeholderColor} />
+              <SettingsGroup glass={glass} style={{ backgroundColor: glass.surfaceSecondary, padding: 12 }}>
               <Text style={[styles.sectionDescription, { color: placeholderColor }]}>
                 Выберите курс и группу, которые будут автоматически загружаться при открытии расписания
               </Text>
@@ -389,7 +447,7 @@ const ScheduleFormatModal = ({ theme, accentColor, onSettingsChange, onSave }) =
                         backgroundColor: defaultGroup === group ? colors.primary : inputBgColor,
                         borderColor: defaultGroup === group ? colors.primary : borderColor
                       }]}
-                      onPress={() => setDefaultGroup(group)}
+                      onPress={() => { groupRef.current = group; setDefaultGroup(group); }}
                     >
                       <Text style={[styles.groupOptionText, { color: defaultGroup === group ? '#ffffff' : textColor }]}>
                         {group}
@@ -413,10 +471,12 @@ const ScheduleFormatModal = ({ theme, accentColor, onSettingsChange, onSave }) =
                   </Text>
                 </View>
               )}
+              </SettingsGroup>
             </View>
 
             <View style={styles.section}>
-              <Text style={[styles.sectionTitle, { color: textColor }]}>Отображение селектора</Text>
+              <SectionHeader title="Отображение селектора" placeholderColor={placeholderColor} />
+              <SettingsGroup glass={glass} style={{ backgroundColor: glass.surfaceSecondary, padding: 12 }}>
               
               <TouchableOpacity
                 style={[styles.selectorOption, { borderColor }]}
@@ -440,7 +500,8 @@ const ScheduleFormatModal = ({ theme, accentColor, onSettingsChange, onSave }) =
                   </View>
                 </View>
                 <Switch
-                  value={showCourseSelector}
+                  accessibilityRole="switch"
+              value={showCourseSelector}
                   onValueChange={setShowCourseSelector}
                   trackColor={{ false: borderColor, true: colors.light }}
                   thumbColor={showCourseSelector ? colors.primary : placeholderColor}
@@ -458,6 +519,77 @@ const ScheduleFormatModal = ({ theme, accentColor, onSettingsChange, onSave }) =
                   При скрытом селекторе будет показано расписание для группы {defaultGroup} ({availableCourses.find(c => c.id === selectedCourse)?.label || `Курс ${selectedCourse}`})
                 </Text>
               )}
+              </SettingsGroup>
+            </View>
+
+            <View style={styles.section}>
+              <SectionHeader title="Посещаемость" placeholderColor={placeholderColor} />
+              <SettingsGroup glass={glass} style={{ backgroundColor: glass.surfaceSecondary, padding: 12 }}>
+              <TouchableOpacity
+                style={[styles.selectorOption, { borderColor }]}
+                onPress={() => setAttendanceTrackingEnabled(!attendanceTrackingEnabled)}
+              >
+                <View style={styles.selectorOptionHeader}>
+                  <Icon
+                    name="checkmark-done-outline"
+                    size={24}
+                    color={attendanceTrackingEnabled ? colors.primary : placeholderColor}
+                  />
+                  <View style={styles.selectorTextContainer}>
+                    <Text style={[styles.selectorOptionTitle, { color: textColor }]}>
+                      Отмечать свою посещаемость
+                    </Text>
+                    <Text style={[styles.selectorOptionDescription, { color: placeholderColor }]}>
+                      {attendanceTrackingEnabled
+                        ? 'В карточках пар и в панели будет доступна отметка посещаемости'
+                        : 'Функции отметки посещаемости и статистики будут скрыты'}
+                    </Text>
+                  </View>
+                </View>
+                <Switch
+                  accessibilityRole="switch"
+              value={attendanceTrackingEnabled}
+                  onValueChange={setAttendanceTrackingEnabled}
+                  trackColor={{ false: borderColor, true: colors.light }}
+                  thumbColor={attendanceTrackingEnabled ? colors.primary : placeholderColor}
+                />
+              </TouchableOpacity>
+              </SettingsGroup>
+            </View>
+
+            <View style={styles.section}>
+              <SectionHeader title="Свободные аудитории" placeholderColor={placeholderColor} />
+              <SettingsGroup glass={glass} style={{ backgroundColor: glass.surfaceSecondary, padding: 12 }}>
+              <TouchableOpacity
+                style={[styles.selectorOption, { borderColor }]}
+                onPress={() => setFreeAuditoriesEnabled(!freeAuditoriesEnabled)}
+              >
+                <View style={styles.selectorOptionHeader}>
+                  <Icon
+                    name="grid-outline"
+                    size={24}
+                    color={freeAuditoriesEnabled ? colors.primary : placeholderColor}
+                  />
+                  <View style={styles.selectorTextContainer}>
+                    <Text style={[styles.selectorOptionTitle, { color: textColor }]}>
+                      Показывать поиск свободных аудиторий
+                    </Text>
+                    <Text style={[styles.selectorOptionDescription, { color: placeholderColor }]}>
+                      {freeAuditoriesEnabled
+                        ? 'Кнопка поиска свободных аудиторий отображается в расписании'
+                        : 'Кнопка поиска свободных аудиторий скрыта'}
+                    </Text>
+                  </View>
+                </View>
+                <Switch
+                  accessibilityRole="switch"
+              value={freeAuditoriesEnabled}
+                  onValueChange={setFreeAuditoriesEnabled}
+                  trackColor={{ false: borderColor, true: colors.light }}
+                  thumbColor={freeAuditoriesEnabled ? colors.primary : placeholderColor}
+                />
+              </TouchableOpacity>
+              </SettingsGroup>
             </View>
           </>
         )}
@@ -465,25 +597,24 @@ const ScheduleFormatModal = ({ theme, accentColor, onSettingsChange, onSave }) =
         {/* Настройки для преподавателя */}
         {scheduleFormat === 'teacher' && (
           <View style={styles.section}>
-            <Text style={[styles.sectionTitle, { color: textColor }]}>ФИО преподавателя</Text>
+            <SectionHeader title="ФИО преподавателя" placeholderColor={placeholderColor} />
+            <SettingsGroup glass={glass} style={{ backgroundColor: glass.surfaceSecondary, padding: 12 }}>
             <Text style={[styles.sectionDescription, { color: placeholderColor }]}>
               Начните вводить фамилию преподавателя для поиска
             </Text>
             
             <View style={{ position: 'relative', zIndex: 10 }}>
               <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                <TextInput
-                  style={[styles.textInput, {
-                    backgroundColor: inputBgColor,
-                    borderColor: teacherName.trim() ? colors.primary : borderColor,
-                    color: textColor,
-                    flex: 1,
-                  }]}
-                  placeholder="Начните вводить ФИО..."
-                  placeholderTextColor={placeholderColor}
+                <SearchField
                   value={teacherName}
                   onChangeText={handleTeacherNameChange}
-                  autoCapitalize="words"
+                  onCancel={() => {
+                    setShowTeacherSuggestions(false);
+                    setTeacherSearchResults([]);
+                  }}
+                  placeholder="Начните вводить ФИО..."
+                  theme={theme}
+                  accentColor={accentColor}
                 />
                 {loadingTeacherSearch && (
                   <ActivityIndicator size="small" color={colors.primary} style={{ position: 'absolute', right: 12, top: 20 }} />
@@ -520,30 +651,31 @@ const ScheduleFormatModal = ({ theme, accentColor, onSettingsChange, onSave }) =
                 </Text>
               </View>
             )}
+            </SettingsGroup>
           </View>
         )}
 
         {/* Настройки для аудитории */}
         {scheduleFormat === 'auditory' && (
           <View style={styles.section}>
-            <Text style={[styles.sectionTitle, { color: textColor }]}>Номер аудитории</Text>
+            <SectionHeader title="Номер аудитории" placeholderColor={placeholderColor} />
+            <SettingsGroup glass={glass} style={{ backgroundColor: glass.surfaceSecondary, padding: 12 }}>
             <Text style={[styles.sectionDescription, { color: placeholderColor }]}>
               Начните вводить номер аудитории для поиска
             </Text>
             
             <View style={{ position: 'relative', zIndex: 10 }}>
               <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                <TextInput
-                  style={[styles.textInput, {
-                    backgroundColor: inputBgColor,
-                    borderColor: auditoryName.trim() ? colors.primary : borderColor,
-                    color: textColor,
-                    flex: 1,
-                  }]}
-                  placeholder="Например: 2-221"
-                  placeholderTextColor={placeholderColor}
+                <SearchField
                   value={auditoryName}
                   onChangeText={handleAuditoryNameChange}
+                  onCancel={() => {
+                    setShowAuditorySuggestions(false);
+                    setAuditorySearchResults([]);
+                  }}
+                  placeholder="Например: 2-221"
+                  theme={theme}
+                  accentColor={accentColor}
                 />
                 {loadingAuditorySearch && (
                   <ActivityIndicator size="small" color={colors.primary} style={{ position: 'absolute', right: 12, top: 20 }} />
@@ -580,10 +712,13 @@ const ScheduleFormatModal = ({ theme, accentColor, onSettingsChange, onSave }) =
                 </Text>
               </View>
             )}
+            </SettingsGroup>
           </View>
         )}
 
         {/* Информация о режимах */}
+        <SectionHeader title="Информация о режимах" placeholderColor={placeholderColor} />
+        <SettingsGroup glass={glass} style={{ backgroundColor: glass.surfaceSecondary }}>
         <View style={[styles.infoSection, { backgroundColor: inputBgColor }]}>
           <Text style={[styles.infoTitle, { color: textColor }]}>Информация о режимах</Text>
           <View style={styles.infoItem}>
@@ -605,6 +740,7 @@ const ScheduleFormatModal = ({ theme, accentColor, onSettingsChange, onSave }) =
             </Text>
           </View>
         </View>
+        </SettingsGroup>
       </ScrollView>
 
       {/* Кнопка сохранения */}
@@ -622,7 +758,7 @@ const ScheduleFormatModal = ({ theme, accentColor, onSettingsChange, onSave }) =
 };
 
 const styles = StyleSheet.create({
-  section: { marginBottom: 24 },
+  section: { marginBottom: 12 },
   sectionTitle: { fontSize: 16, fontWeight: '600', marginBottom: 8, fontFamily: 'Montserrat_600SemiBold' },
   subSectionTitle: { fontSize: 14, fontWeight: '600', marginBottom: 8, marginTop: 12, fontFamily: 'Montserrat_600SemiBold' },
   sectionDescription: { fontSize: 14, marginBottom: 12, fontFamily: 'Montserrat_400Regular' },

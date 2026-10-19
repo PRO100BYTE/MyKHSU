@@ -107,7 +107,16 @@ export const clearCacheByKey = async (key) => {
 export const clearAllCache = async () => {
   try {
     const keys = await AsyncStorage.getAllKeys();
-    await AsyncStorage.multiRemove(keys);
+    const items = await AsyncStorage.multiGet(keys);
+    const cacheKeys = items.filter(([, raw]) => {
+      try {
+        const value = JSON.parse(raw);
+        return value && typeof value === 'object' && Object.prototype.hasOwnProperty.call(value, 'value') && Number.isFinite(value.expiry);
+      } catch {
+        return false;
+      }
+    }).map(([key]) => key);
+    if (cacheKeys.length) await AsyncStorage.multiRemove(cacheKeys);
     return true;
   } catch (error) {
     console.error('Error clearing all cache:', error);

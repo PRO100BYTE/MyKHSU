@@ -1,21 +1,19 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, Switch, ScrollView, StyleSheet } from 'react-native';
+import React, { useState, useEffect, useRef } from 'react';
+import { View, Text, TouchableOpacity, Switch, StyleSheet, AppState, Linking } from 'react-native';
+import ScrollView from './ScreenScrollView';
 import { Ionicons as Icon } from '@expo/vector-icons';
-import * as SecureStore from 'expo-secure-store';
+import notificationService from '../utils/notificationService';
 import { ACCENT_COLORS, LIQUID_GLASS } from '../utils/constants';
+import { SectionHeader, SettingsGroup } from './SettingsComponents';
 
 const NotificationSettingsModal = ({ theme, accentColor }) => {
-  const [settings, setSettings] = useState({
-    enabled: false,
-    news: false,
-    schedule: false,
-    beforeLesson: true,
-    lessonStart: true,
-    beforeLessonEnd: true,
-    lessonEnd: true
-  });
+  const [settings, setSettings] = useState(notificationService.getDefaultSettings());
+  const [busy, setBusy] = useState(true);
+  const [permissionGranted, setPermissionGranted] = useState(false);
+  const [error, setError] = useState('');
+  const saving = useRef(false);
 
-  const colors = ACCENT_COLORS[accentColor];
+  const colors = ACCENT_COLORS[accentColor] || ACCENT_COLORS.green;
   const glass = LIQUID_GLASS[theme] || LIQUID_GLASS.light;
   const bgColor = glass.background;
   const textColor = glass.text;
@@ -24,52 +22,77 @@ const NotificationSettingsModal = ({ theme, accentColor }) => {
   const inputBgColor = glass.surfaceTertiary;
 
   useEffect(() => {
-    loadSettings();
+    let active = true;
+    const load = async () => {
+      try {
+        const [saved, granted] = await Promise.all([
+          notificationService.getNotificationSettings(), notificationService.hasPermission(),
+        ]);
+        if (active) { setSettings(saved); setPermissionGranted(granted); }
+      } catch {
+        if (active) setError('Не удалось загрузить настройки.');
+      } finally {
+        if (active) setBusy(false);
+      }
+    };
+    load();
+    const unsubscribe = notificationService.subscribe(event => {
+      if (active && event.type === 'settingsChanged') setSettings(event.settings);
+    });
+    const subscription = AppState.addEventListener('change', state => {
+      if (state === 'active') load();
+    });
+    return () => { active = false; unsubscribe(); subscription.remove(); };
   }, []);
 
-  const loadSettings = async () => {
+  const toggleSetting = async key => {
+    if (saving.current || busy) return;
+    saving.current = true;
+    setBusy(true);
+    setError('');
     try {
-      const saved = await SecureStore.getItemAsync('notification_settings');
-      if (saved) {
-        setSettings(JSON.parse(saved));
+      const newSettings = { ...settings, [key]: !settings[key] };
+      // Master/category toggles gate delivery without destroying the saved sub-preferences.
+      if (key === 'enabled' && newSettings.enabled) {
+        const granted = await notificationService.requestPermissions();
+        setPermissionGranted(granted);
+        if (!granted) setError('Системные уведомления запрещены. В приложении уведомления доступны при открытом экране.');
       }
-    } catch (error) {
-      console.error('Error loading settings:', error);
+      setSettings(await notificationService.saveNotificationSettings(newSettings));
+    } catch (failure) {
+      console.error('Error saving notification settings:', failure);
+      setError('Не удалось применить настройки. Повторите попытку.');
+    } finally {
+      saving.current = false;
+      setBusy(false);
     }
   };
 
-  const saveSettings = async (newSettings) => {
-    try {
-      await SecureStore.setItemAsync('notification_settings', JSON.stringify(newSettings));
-      setSettings(newSettings);
-    } catch (error) {
-      console.error('Error saving settings:', error);
-    }
-  };
-
-  const toggleSetting = (key) => {
-    const newSettings = { ...settings, [key]: !settings[key] };
-    
-    // Логика зависимостей
-    if (key === 'enabled' && !newSettings.enabled) {
-      newSettings.news = false;
-      newSettings.schedule = false;
-    } else if ((key === 'news' || key === 'schedule') && newSettings[key] && !newSettings.enabled) {
-      newSettings.enabled = true;
-    }
-    
-    saveSettings(newSettings);
+  const openSystemSettings = async () => {
+    try { await Linking.openSettings(); }
+    catch { setError('Не удалось открыть настройки устройства.'); }
   };
 
   return (
     <View style={{ flex: 1, backgroundColor: bgColor }}>
       <ScrollView 
-        style={{ flex: 1, padding: 16 }} 
-        contentContainerStyle={{ paddingBottom: 100 }}
+        style={{ flex: 1 }}
+        contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 100 }}
         showsVerticalScrollIndicator={false}
       >
+            {error ? <Text accessibilityRole="alert" style={{ color: textColor, paddingVertical: 16 }}>{error}</Text> : null}
+            {settings.enabled && !permissionGranted && (
+              <TouchableOpacity onPress={openSystemSettings} accessibilityRole="button" style={{ paddingVertical: 16, minHeight: 44 }}>
+                <Text style={{ color: colors.primary }}>Разрешить уведомления в настройках устройства</Text>
+              </TouchableOpacity>
+            )}
+            {busy && <Text style={{ color: placeholderColor }}>Применение настроек…</Text>}
             {/* Основные настройки */}
-            <View style={[styles.sectionCard, { backgroundColor: inputBgColor, borderColor }]}>
+            <SectionHeader 
+              title="Общие уведомления"
+              placeholderColor={placeholderColor}
+            />
+            <SettingsGroup glass={glass}>
             <View style={[styles.settingItem, { borderBottomColor: borderColor }]}>
               <View style={styles.settingInfo}>
                 <Icon name="notifications-outline" size={24} color={colors.primary} />
@@ -81,6 +104,7 @@ const NotificationSettingsModal = ({ theme, accentColor }) => {
                 </View>
               </View>
               <Switch
+                disabled={busy}
                 value={settings.enabled}
                 onValueChange={() => toggleSetting('enabled')}
                 trackColor={{ false: borderColor, true: colors.light }}
@@ -104,7 +128,7 @@ const NotificationSettingsModal = ({ theme, accentColor }) => {
                 onValueChange={() => toggleSetting('news')}
                 trackColor={{ false: borderColor, true: colors.light }}
                 thumbColor={settings.news && settings.enabled ? colors.primary : placeholderColor}
-                disabled={!settings.enabled}
+                disabled={busy || !settings.enabled}
               />
             </View>
 
@@ -124,16 +148,37 @@ const NotificationSettingsModal = ({ theme, accentColor }) => {
                 onValueChange={() => toggleSetting('schedule')}
                 trackColor={{ false: borderColor, true: colors.light }}
                 thumbColor={settings.schedule && settings.enabled ? colors.primary : placeholderColor}
-                disabled={!settings.enabled}
+                disabled={busy || !settings.enabled}
               />
             </View>
+
+            <View style={[styles.settingItem, { borderBottomColor: borderColor }]}>
+              <View style={styles.settingInfo}>
+                <Icon name="sync-outline" size={24} color={placeholderColor} />
+                <View style={styles.textContainer}>
+                  <Text style={[styles.settingLabel, { color: textColor }]}>Изменения расписания</Text>
+                  <Text style={[styles.settingDescription, { color: placeholderColor }]}>
+                    Уведомления при изменении пар
+                  </Text>
+                </View>
+              </View>
+              <Switch
+                value={settings.scheduleChanges && settings.schedule && settings.enabled}
+                onValueChange={() => toggleSetting('scheduleChanges')}
+                trackColor={{ false: borderColor, true: colors.light }}
+                thumbColor={settings.scheduleChanges && settings.schedule && settings.enabled ? colors.primary : placeholderColor}
+                disabled={busy || !settings.enabled || !settings.schedule}
+              />
             </View>
+            </SettingsGroup>
 
             {settings.schedule && settings.enabled && (
-              <View style={[styles.sectionCard, { backgroundColor: inputBgColor, borderColor, marginTop: 16 }]}>
-                <Text style={[styles.sectionTitle, { color: textColor, marginBottom: 8 }]}>
-                  Уведомления о начале пары
-                </Text>
+              <>
+              <SectionHeader 
+                title="Уведомления о парах"
+                placeholderColor={placeholderColor}
+              />
+              <SettingsGroup glass={glass}>
                 
                 <View style={[styles.settingItem, { borderBottomColor: borderColor }]}>
                   <View style={styles.settingInfo}>
@@ -146,6 +191,7 @@ const NotificationSettingsModal = ({ theme, accentColor }) => {
                     </View>
                   </View>
                   <Switch
+                    disabled={busy}
                     value={settings.beforeLesson}
                     onValueChange={() => toggleSetting('beforeLesson')}
                     trackColor={{ false: borderColor, true: colors.light }}
@@ -164,6 +210,7 @@ const NotificationSettingsModal = ({ theme, accentColor }) => {
                     </View>
                   </View>
                   <Switch
+                    disabled={busy}
                     value={settings.lessonStart}
                     onValueChange={() => toggleSetting('lessonStart')}
                     trackColor={{ false: borderColor, true: colors.light }}
@@ -171,9 +218,6 @@ const NotificationSettingsModal = ({ theme, accentColor }) => {
                   />
                 </View>
 
-                <Text style={[styles.sectionTitle, { color: textColor, marginTop: 8, marginBottom: 8 }]}>
-                  Уведомления о конце пары
-                </Text>
 
                 <View style={[styles.settingItem, { borderBottomColor: borderColor }]}>
                   <View style={styles.settingInfo}>
@@ -186,6 +230,7 @@ const NotificationSettingsModal = ({ theme, accentColor }) => {
                     </View>
                   </View>
                   <Switch
+                    disabled={busy}
                     value={settings.beforeLessonEnd}
                     onValueChange={() => toggleSetting('beforeLessonEnd')}
                     trackColor={{ false: borderColor, true: colors.light }}
@@ -204,20 +249,22 @@ const NotificationSettingsModal = ({ theme, accentColor }) => {
                     </View>
                   </View>
                   <Switch
+                    disabled={busy}
                     value={settings.lessonEnd}
                     onValueChange={() => toggleSetting('lessonEnd')}
                     trackColor={{ false: borderColor, true: colors.light }}
                     thumbColor={settings.lessonEnd ? colors.primary : placeholderColor}
                   />
                 </View>
-              </View>
+              </SettingsGroup>
+              </>
             )}
 
             {/* Информация */}
-            <View style={[styles.infoSection, { backgroundColor: inputBgColor, borderColor }]}>
+            <View style={[styles.infoSection, { backgroundColor: glass?.surfaceTertiary, borderColor }]}>
               <Icon name="information-circle-outline" size={16} color={colors.primary} />
               <Text style={[styles.infoText, { color: placeholderColor, marginLeft: 8, flex: 1 }]}>
-                Настройки уведомлений применяются автоматически
+                Настройки применяются автоматически. Напоминания о парах планируются из загруженного расписания. Новости и изменения без сервера push проверяются только при работе приложения или при разрешённом ОС фоновом запуске; доставка после закрытия не гарантируется.
               </Text>
             </View>
           </ScrollView>
@@ -243,7 +290,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 12,
+    padding: 14,
+    gap: 12,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: 'transparent',
   },
