@@ -28,7 +28,7 @@ const HOLIDAY_EMOJIS = {
   'intl-student-day': ['🎓', '🌍', '📚', '⭐'],
 };
 
-const PARTICLE_COUNT = 26;
+const PARTICLE_COUNT = 60;
 
 export const useSplashReduceMotion = () => false;
 
@@ -57,7 +57,7 @@ const ConfettiParticle = ({ particle }) => {
   );
 };
 
-const SeasonalSplashEffects = ({ decoration }) => {
+const SeasonalSplashEffects = ({ decoration, durationMs = 3500 }) => {
   const { width, height } = useWindowDimensions();
   const [particles, setParticles] = useState([]);
 
@@ -73,6 +73,9 @@ const SeasonalSplashEffects = ({ decoration }) => {
     const timers = [];
     const created = [];
 
+    const totalDuration = Math.max(Number(durationMs) || 3500, 1200);
+    const stagger = totalDuration * 0.32 / PARTICLE_COUNT;
+
     for (let index = 0; index < PARTICLE_COUNT; index += 1) {
       const x = (index * 47 % 96) / 100 * width;
       const y = -60 - (index % 6) * 70;
@@ -80,8 +83,9 @@ const SeasonalSplashEffects = ({ decoration }) => {
       const travel = height + 160;
       const sway = index % 2 === 0 ? 46 : -46;
       const spin = index % 2 === 0 ? 540 : -540;
-      const duration = 2600 + (index % 5) * 320;
-      const startDelay = (index % 8) * 120;
+      const startDelay = Math.round(index * stagger);
+      // Поздние частицы летят быстрее, чтобы все успели завершить путь к концу splash.
+      const duration = totalDuration - startDelay;
 
       const particle = {
         id: index,
@@ -143,7 +147,7 @@ const SeasonalSplashEffects = ({ decoration }) => {
         particle.swingAnim.stopAnimation();
       });
     };
-  }, [decoration, decorationKey, emojis, height, width]);
+  }, [decoration, decorationKey, durationMs, emojis, height, width]);
 
   if (!decoration || particles.length === 0) return null;
 

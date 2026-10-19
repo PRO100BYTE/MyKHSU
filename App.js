@@ -26,7 +26,7 @@ import MatrixRain from './components/MatrixRain';
 import AchievementToast from './components/AchievementToast';
 
 // Импорт утилит
-import { ACCENT_COLORS, SCREENS, LIQUID_GLASS, isNewYearPeriod, getNewYearText, getHolidayInfo } from './utils/constants';
+import { ACCENT_COLORS, SCREENS, LIQUID_GLASS, SPLASH_DURATION_MS, SPLASH_DURATION_BEFORE_MS, isNewYearPeriod, getNewYearText, getHolidayInfo } from './utils/constants';
 import * as Sentry from '@sentry/react-native';
 import notificationService from './utils/notificationService';
 import backgroundService from './utils/backgroundService';
@@ -167,6 +167,7 @@ export default Sentry.wrap(function App() {
   const [refreshKey, setRefreshKey] = useState(0);
   const [legendUnlocked, setLegendUnlocked] = useState(false);
   const [legendSplashEnabled, setLegendSplashEnabled] = useState(false);
+  const [splashConfettiEnabled, setSplashConfettiEnabled] = useState(true);
   const [communityFeatureEnabled, setCommunityFeatureEnabled] = useState(false);
   const [liquidGlassEnabled, setLiquidGlassEnabled] = useState(true);
   const insets = useSafeAreaInsets();
@@ -418,9 +419,6 @@ const loadNewYearSettings = async () => {
 };
 
 // Функция для обновления настроек новогоднего режима
-const SPLASH_DURATION_BEFORE_MS = 2000;
-const SPLASH_DURATION_MS = 3500;
-
 const handleNewYearModeChange = async (enabled) => {
   console.log('App: Changing new year mode to:', enabled);
   
@@ -480,12 +478,14 @@ const handleNewYearModeChange = async (enabled) => {
       const savedCommunityFeature = await SecureStore.getItemAsync('feature_community_enabled');
       const savedLiquidGlass = await SecureStore.getItemAsync('feature_liquid_glass_enabled');
       const savedLegendSplash = await SecureStore.getItemAsync('legend_splash_enabled');
+      const savedSplashConfetti = await SecureStore.getItemAsync('splash_confetti_enabled');
       const allUnlocked = await hasUnlockedAllAchievements().catch(() => false);
 
       setCommunityFeatureEnabled(savedCommunityFeature === 'true');
       setLiquidGlassEnabled(savedLiquidGlass !== 'false');
       setLegendUnlocked(allUnlocked);
       setLegendSplashEnabled(savedLegendSplash === 'true' && allUnlocked);
+      setSplashConfettiEnabled(savedSplashConfetti !== 'false');
       
       if (savedTheme === 'legend' && !allUnlocked) {
         setTheme('dark');
@@ -570,6 +570,8 @@ const handleNewYearModeChange = async (enabled) => {
       theme={getEffectiveTheme()}
       holidayInfo={holidayInfo}
       legendUnlocked={legendSplashEnabled}
+      confettiEnabled={splashConfettiEnabled}
+      durationMs={SPLASH_DURATION_MS}
     />;
   }
 
@@ -579,7 +581,7 @@ const handleNewYearModeChange = async (enabled) => {
         <OnboardingScreen visible theme={effectiveTheme} accentColor={accentColor} onComplete={() => setOnboardingRequired(false)} />
         {showSplashOverlay && (
           <Animated.View style={[StyleSheet.absoluteFillObject, { opacity: splashTransition }]} pointerEvents="none">
-            <SplashScreen accentColor={accentColor} theme={effectiveTheme} holidayInfo={holidayInfo} legendUnlocked={legendSplashEnabled} />
+            <SplashScreen accentColor={accentColor} theme={effectiveTheme} holidayInfo={holidayInfo} legendUnlocked={legendSplashEnabled} confettiEnabled={splashConfettiEnabled} durationMs={SPLASH_DURATION_MS} />
           </Animated.View>
         )}
       </View>
@@ -978,6 +980,11 @@ const handleNewYearModeChange = async (enabled) => {
               setLegendSplashEnabled(value);
               await SecureStore.setItemAsync('legend_splash_enabled', value.toString());
             }}
+            splashConfettiEnabled={splashConfettiEnabled}
+            onSplashConfettiChange={async value => {
+              setSplashConfettiEnabled(value);
+              await SecureStore.setItemAsync('splash_confetti_enabled', value.toString());
+            }}
             isNewYearMode={isNewYearMode}
             onNewYearModeChange={handleNewYearModeChange}
             onCommunityFeatureChange={setCommunityFeatureEnabled}
@@ -1025,7 +1032,7 @@ const handleNewYearModeChange = async (enabled) => {
       <InAppNotificationBanner theme={effectiveTheme} onNavigate={navigateFromNotification} />
       {showSplashOverlay && (
         <Animated.View style={[StyleSheet.absoluteFillObject, { opacity: splashTransition }]} pointerEvents="none">
-          <SplashScreen accentColor={accentColor} theme={effectiveTheme} holidayInfo={holidayInfo} legendUnlocked={legendSplashEnabled} />
+          <SplashScreen accentColor={accentColor} theme={effectiveTheme} holidayInfo={holidayInfo} legendUnlocked={legendSplashEnabled} confettiEnabled={splashConfettiEnabled} durationMs={SPLASH_DURATION_MS} />
         </Animated.View>
       )}
     </View>

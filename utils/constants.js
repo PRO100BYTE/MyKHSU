@@ -173,6 +173,9 @@ export const LIQUID_GLASS = {
 
 // Версия приложения
 export const APP_VERSION = '2.4.2';
+// Длительность показа splash: до 2.4.2 было 2000 мс.
+export const SPLASH_DURATION_BEFORE_MS = 2000;
+export const SPLASH_DURATION_MS = 3500;
 export const APP_DEVELOPERS = 'студентами группы 125-1 в составе команды PRO100BYTE Team';
 export const APP_SUPPORTERS = 'ХГУ им. Н.Ф. Катанова и ООО "Скалк Софт"';
 export const BUILD_VER = 'git-ba3ae8e';

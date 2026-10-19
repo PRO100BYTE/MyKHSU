@@ -30,7 +30,7 @@ const HOLIDAY_ICONS = {
   'teacher-day': ['easel', 'book', 'easel'], 'unity-day': ['people', 'flag', 'people'], 'intl-student-day': ['earth', 'school', 'earth'],
 };
 
-const SplashScreen = ({ accentColor, theme, holidayInfo, legendUnlocked = false, splashDate }) => {
+const SplashScreen = ({ accentColor, theme, holidayInfo, legendUnlocked = false, confettiEnabled = true, durationMs = 3500, splashDate }) => {
   const reduceMotion = useSplashReduceMotion();
   const decoration = useMemo(() => getSplashDecoration({ date: splashDate, holidayInfo, theme, legendUnlocked }), [splashDate, holidayInfo, theme, legendUnlocked]);
   const colors = ACCENT_COLORS[accentColor] || ACCENT_COLORS.green;
@@ -99,7 +99,7 @@ const SplashScreen = ({ accentColor, theme, holidayInfo, legendUnlocked = false,
         <View style={[styles.cornerBlock, { backgroundColor: primary }]} />
         <View style={[styles.cornerBlockSmall, { borderColor: `${primary}99` }]} />
       </>}
-      <SeasonalSplashEffects decoration={decoration} />
+      {confettiEnabled && <SeasonalSplashEffects decoration={decoration} durationMs={durationMs} />}
       <Animated.View style={[styles.main,  { opacity: intro, transform: [{ translateY: intro.interpolate({ inputRange: [0, 1], outputRange: [22, 0] }) }] }]}>
         <View style={styles.logoStage}>
           <Animated.View style={[styles.halo, { borderColor: primary, opacity: haloOpacity, transform: [{ scale: haloScale }] }]} />

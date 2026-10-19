@@ -15,6 +15,8 @@ const AppearanceSettingsSheet = ({
   legendUnlocked,
   legendSplashEnabled = false,
   onLegendSplashChange,
+  splashConfettiEnabled = true,
+  onSplashConfettiChange,
   setTheme, 
   setAccentColor, 
   onTabbarSettingsChange,
@@ -228,6 +230,21 @@ const AppearanceSettingsSheet = ({
             <Switch value={legendSplashEnabled} onValueChange={value => onLegendSplashChange?.(value)} trackColor={{ true: '#FFD666' }} />
           </TouchableOpacity>
         )}
+        <TouchableOpacity
+          style={[styles.settingItem, { marginTop: 10, backgroundColor: glass.surfaceSecondary, borderColor }]}
+          onPress={() => onSplashConfettiChange?.(!splashConfettiEnabled)}
+          accessibilityRole="switch"
+          accessibilityState={{ checked: splashConfettiEnabled }}
+        >
+          <View style={styles.settingInfo}>
+            <Icon name="sparkles" size={22} color={splashConfettiEnabled ? colors.primary : placeholderColor} />
+            <View style={styles.textContainer}>
+              <Text style={[styles.settingLabel, { color: textColor }]}>Конфетти на заставке</Text>
+              <Text style={[styles.settingDescription, { color: placeholderColor }]}>Сезонные и праздничные эмодзи при запуске</Text>
+            </View>
+          </View>
+          <Switch value={splashConfettiEnabled} onValueChange={value => onSplashConfettiChange?.(value)} trackColor={{ true: colors.light }} />
+        </TouchableOpacity>
       </View>
       
       {/* Секция акцентного цвета */}
