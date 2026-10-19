@@ -70,23 +70,64 @@ const SeasonalSplashEffects = ({ decoration, durationMs = 3500 }) => {
       return undefined;
     }
 
+    let stopped = false;
     const timers = [];
     const created = [];
-
     const totalDuration = Math.max(Number(durationMs) || 3500, 1200);
-    const stagger = totalDuration * 0.32 / PARTICLE_COUNT;
+
+    const launch = (particle, delay, fallDuration) => {
+      const timer = setTimeout(() => {
+        if (stopped) return;
+        particle.fallAnim.setValue(0);
+        particle.swingAnim.setValue(0);
+        particle.rotateAnim.setValue(0);
+
+        Animated.parallel([
+          Animated.timing(particle.fallAnim, {
+            toValue: 1,
+            duration: fallDuration,
+            easing: Easing.linear,
+            useNativeDriver: true,
+            isInteraction: false,
+          }),
+          Animated.timing(particle.rotateAnim, {
+            toValue: 1,
+            duration: fallDuration,
+            easing: Easing.linear,
+            useNativeDriver: true,
+            isInteraction: false,
+          }),
+          Animated.sequence([
+            Animated.timing(particle.swingAnim, {
+              toValue: 0.5,
+              duration: fallDuration / 2,
+              easing: Easing.inOut(Easing.sin),
+              useNativeDriver: true,
+              isInteraction: false,
+            }),
+            Animated.timing(particle.swingAnim, {
+              toValue: 1,
+              duration: fallDuration / 2,
+              easing: Easing.inOut(Easing.sin),
+              useNativeDriver: true,
+              isInteraction: false,
+            }),
+          ]),
+        ]).start();
+      }, delay);
+      timers.push(timer);
+    };
 
     for (let index = 0; index < PARTICLE_COUNT; index += 1) {
-      const x = (index * 47 % 96) / 100 * width;
-      const y = -60 - (index % 6) * 70;
-      const size = 18 + (index % 4) * 5;
-      // Каждая частица должна уйти ниже нижней границы экрана, независимо от своей стартовой высоты.
+      // Стартовая точка и момент появления случайны — поток получается непрерывным.
+      const size = 18 + Math.floor(Math.random() * 4) * 5;
+      const x = Math.random() * Math.max(width - size, 1);
+      const y = -40 - Math.random() * 220;
+      // Каждая частица уходит ниже границы экрана независимо от своей стартовой высоты.
       const travel = height + 220 - y;
-      const sway = index % 2 === 0 ? 46 : -46;
-      const spin = index % 2 === 0 ? 540 : -540;
-      const startDelay = Math.round(index * stagger);
-      // Поздние частицы летят быстрее, чтобы все успели завершить путь к концу splash.
-      const duration = totalDuration - startDelay;
+      const sway = Math.random() > 0.5 ? 46 : -46;
+      const spin = Math.random() > 0.5 ? 540 : -540;
+      const fallDuration = 1400 + Math.round(Math.random() * 700);
 
       const particle = {
         id: index,
@@ -104,43 +145,18 @@ const SeasonalSplashEffects = ({ decoration, durationMs = 3500 }) => {
 
       created.push(particle);
 
-      timers.push(setTimeout(() => {
-        Animated.timing(particle.fallAnim, {
-          toValue: 1,
-          duration,
-          easing: Easing.linear,
-          useNativeDriver: true,
-          isInteraction: false,
-        }).start();
-        Animated.timing(particle.rotateAnim, {
-          toValue: 1,
-          duration,
-          easing: Easing.linear,
-          useNativeDriver: true,
-          isInteraction: false,
-        }).start();
-        Animated.sequence([
-          Animated.timing(particle.swingAnim, {
-            toValue: 0.5,
-            duration: duration / 2,
-            easing: Easing.inOut(Easing.sin),
-            useNativeDriver: true,
-            isInteraction: false,
-          }),
-          Animated.timing(particle.swingAnim, {
-            toValue: 1,
-            duration: duration / 2,
-            easing: Easing.inOut(Easing.sin),
-            useNativeDriver: true,
-            isInteraction: false,
-          }),
-        ]).start();
-      }, startDelay));
+      // Несколько волн на частицу, чтобы конфетти падали всё время показа splash.
+      let delay = Math.round(Math.random() * 900);
+      while (delay < totalDuration) {
+        launch(particle, delay, fallDuration);
+        delay += fallDuration + 120 + Math.round(Math.random() * 280);
+      }
     }
 
     setParticles(created);
 
     return () => {
+      stopped = true;
       timers.forEach(clearTimeout);
       created.forEach(particle => {
         particle.rotateAnim.stopAnimation();
