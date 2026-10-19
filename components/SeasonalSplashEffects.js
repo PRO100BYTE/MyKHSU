@@ -127,7 +127,7 @@ const SeasonalSplashEffects = ({ decoration, durationMs = 3500 }) => {
       const travel = height + 220 - y;
       const sway = Math.random() > 0.5 ? 46 : -46;
       const spin = Math.random() > 0.5 ? 540 : -540;
-      const fallDuration = 1400 + Math.round(Math.random() * 700);
+      const fallDuration = 2400 + Math.round(Math.random() * 1300);
 
       const particle = {
         id: index,
