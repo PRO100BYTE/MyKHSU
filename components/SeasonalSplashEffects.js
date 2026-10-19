@@ -80,7 +80,8 @@ const SeasonalSplashEffects = ({ decoration, durationMs = 3500 }) => {
       const x = (index * 47 % 96) / 100 * width;
       const y = -60 - (index % 6) * 70;
       const size = 18 + (index % 4) * 5;
-      const travel = height + 160;
+      // Каждая частица должна уйти ниже нижней границы экрана, независимо от своей стартовой высоты.
+      const travel = height + 220 - y;
       const sway = index % 2 === 0 ? 46 : -46;
       const spin = index % 2 === 0 ? 540 : -540;
       const startDelay = Math.round(index * stagger);

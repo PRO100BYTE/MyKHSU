@@ -215,7 +215,7 @@ const AppearanceSettingsSheet = ({
         </SettingsGroup>
         {(legendUnlocked || localLegendUnlocked) && (
           <TouchableOpacity
-            style={[styles.settingItem, { marginTop: 10, backgroundColor: glass.surfaceSecondary, borderColor }]}
+            style={[styles.settingItem, styles.splashOption, { backgroundColor: glass.surfaceSecondary, borderColor }]}
             onPress={() => onLegendSplashChange?.(!legendSplashEnabled)}
             accessibilityRole="switch"
             accessibilityState={{ checked: legendSplashEnabled }}
@@ -231,7 +231,7 @@ const AppearanceSettingsSheet = ({
           </TouchableOpacity>
         )}
         <TouchableOpacity
-          style={[styles.settingItem, { marginTop: 10, backgroundColor: glass.surfaceSecondary, borderColor }]}
+          style={[styles.settingItem, styles.splashOption, { backgroundColor: glass.surfaceSecondary, borderColor }]}
           onPress={() => onSplashConfettiChange?.(!splashConfettiEnabled)}
           accessibilityRole="switch"
           accessibilityState={{ checked: splashConfettiEnabled }}
@@ -424,6 +424,7 @@ const styles = StyleSheet.create({
   colorOptions: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 16, padding: 14 },
   colorOption: { width: 44, height: 44, borderRadius: 22, justifyContent: 'center', alignItems: 'center' },
   settingItem: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 14, gap: 12 },
+  splashOption: { marginTop: 10, borderRadius: 16, borderWidth: StyleSheet.hairlineWidth, overflow: 'hidden' },
   settingInfo: { flexDirection: 'row', alignItems: 'center', flex: 1 },
   textContainer: { marginLeft: 12, flex: 1 },
   settingLabel: { fontSize: 16, fontFamily: 'Montserrat_500Medium', marginBottom: 2 },
