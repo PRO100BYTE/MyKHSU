@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Animated, Easing, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 
 const SEASON_EMOJIS = {
@@ -12,7 +12,7 @@ const HOLIDAY_EMOJIS = {
   'new-year': ['🎄', '❄️', '🎁', '✨'],
   'student-day': ['🎓', '📚', '⭐', '✏️'],
   'valentines-day': ['💖', '💕', '🌹', '💌'],
-  'defender-day': ['🛡️', '⭐', '🎖️', '🇷🇺'],
+  'defender-day': ['🛡️', '⭐', '🎖️', '🎗️'],
   'womens-day': ['🌷', '💐', '🌸', '💖'],
   'cosmonautics-day': ['🚀', '🪐', '🌟', '🌌'],
   'may-day': ['🌿', '🌸', '☀️', '🕊️'],
@@ -24,91 +24,147 @@ const HOLIDAY_EMOJIS = {
   'programmer-day': ['💻', '⌨️', '🧑‍💻', '⚡'],
   'sysadmin-day': ['🖥️', '🛠️', '🖧', '⚙️'],
   'teacher-day': ['📚', '🍎', '✏️', '🌷'],
-  'unity-day': ['🤝', '🇷🇺', '🕊️', '✨'],
+  'unity-day': ['🤝', '🤲', '🕊️', '✨'],
   'intl-student-day': ['🎓', '🌍', '📚', '⭐'],
 };
 
-const PARTICLE_COUNT = 28;
+const PARTICLE_COUNT = 26;
 
 export const useSplashReduceMotion = () => false;
 
-const EmojiParticle = ({ index, emojis, width, height, decorationKey }) => {
-  const fall = useRef(new Animated.Value(0)).current;
-  const swing = useRef(new Animated.Value(0)).current;
-  const rotate = useRef(new Animated.Value(0)).current;
-  const x = ((index * 47) % 100) / 100 * width;
-  const y = -70 - (index % 7) * 44;
-  const size = 17 + (index % 4) * 4;
-  const delay = (index % 9) * 120;
-  const duration = 3000 + (index % 5) * 220;
+const chooseEmojis = decoration => {
+  if (decoration.kind === 'holiday') return HOLIDAY_EMOJIS[decoration.key] || ['🎉', '✨', '⭐'];
+  return SEASON_EMOJIS[decoration.key] || SEASON_EMOJIS.winter;
+};
 
-  useEffect(() => {
-    const animation = Animated.loop(Animated.sequence([
-      Animated.delay(delay),
-      Animated.parallel([
-        Animated.timing(fall, { toValue: 1, duration, easing: Easing.linear, useNativeDriver: true, isInteraction: false }),
-        Animated.timing(rotate, { toValue: 1, duration, easing: Easing.linear, useNativeDriver: true, isInteraction: false }),
-        Animated.sequence([
-          Animated.timing(swing, { toValue: 1, duration: duration / 2, easing: Easing.inOut(Easing.sin), useNativeDriver: true, isInteraction: false }),
-          Animated.timing(swing, { toValue: 0, duration: duration / 2, easing: Easing.inOut(Easing.sin), useNativeDriver: true, isInteraction: false }),
-        ]),
-      ]),
-      Animated.parallel([
-        Animated.timing(fall, { toValue: 0, duration: 0, useNativeDriver: true }),
-        Animated.timing(rotate, { toValue: 0, duration: 0, useNativeDriver: true }),
-      ]),
-    ]));
-    animation.start();
-    return () => {
-      animation.stop();
-      fall.stopAnimation();
-      swing.stopAnimation();
-      rotate.stopAnimation();
-    };
-  }, [decorationKey, delay, duration, fall, rotate, swing]);
+const ConfettiParticle = ({ particle }) => {
+  const { emoji, x, y, size, rotateAnim, fallAnim, swingAnim } = particle;
 
   return (
-    <Animated.View style={[styles.particle, {
+    <Animated.View style={{
+      position: 'absolute',
       left: x,
       top: y,
+      opacity: 0.92,
       transform: [
-        { translateY: fall.interpolate({ inputRange: [0, 1], outputRange: [0, height + 160] }) },
-        { translateX: swing.interpolate({ inputRange: [0, 1], outputRange: [0, index % 2 ? -30 : 30] }) },
-        { rotate: rotate.interpolate({ inputRange: [0, 1], outputRange: ['0deg', `${index % 2 ? -540 : 540}deg`] }) },
+        { translateY: fallAnim.interpolate({ inputRange: [0, 1], outputRange: [0, particle.travel] }) },
+        { translateX: swingAnim.interpolate({ inputRange: [0, 0.5, 1], outputRange: [0, particle.sway * 0.3, 0] }) },
+        { rotate: rotateAnim.interpolate({ inputRange: [0, 1], outputRange: ['0deg', `${particle.spin}deg`] }) },
       ],
-    }]}>
-      <Text style={[styles.emoji, { fontSize: size }]}>{emojis[index % emojis.length]}</Text>
+    }}>
+      <Text style={{ fontSize: size, lineHeight: size * 1.2, includeFontPadding: false }}>{emoji}</Text>
     </Animated.View>
   );
 };
 
 const SeasonalSplashEffects = ({ decoration }) => {
   const { width, height } = useWindowDimensions();
-  if (!decoration) return null;
-  const emojis = decoration.kind === 'holiday'
-    ? (HOLIDAY_EMOJIS[decoration.key] || ['🎉', '✨', '⭐'])
-    : (SEASON_EMOJIS[decoration.key] || SEASON_EMOJIS.winter);
+  const [particles, setParticles] = useState([]);
+
+  const emojis = useMemo(() => (decoration ? chooseEmojis(decoration) : []), [decoration]);
+  const decorationKey = decoration?.key;
+
+  useEffect(() => {
+    if (!decoration) {
+      setParticles([]);
+      return undefined;
+    }
+
+    const timers = [];
+    const created = [];
+
+    for (let index = 0; index < PARTICLE_COUNT; index += 1) {
+      const x = (index * 47 % 96) / 100 * width;
+      const y = -60 - (index % 6) * 70;
+      const size = 18 + (index % 4) * 5;
+      const travel = height + 160;
+      const sway = index % 2 === 0 ? 46 : -46;
+      const spin = index % 2 === 0 ? 540 : -540;
+      const duration = 2600 + (index % 5) * 320;
+      const startDelay = (index % 8) * 120;
+
+      const particle = {
+        id: index,
+        emoji: emojis[index % emojis.length],
+        x,
+        y,
+        size,
+        travel,
+        sway,
+        spin,
+        rotateAnim: new Animated.Value(0),
+        fallAnim: new Animated.Value(0),
+        swingAnim: new Animated.Value(0),
+      };
+
+      created.push(particle);
+
+      timers.push(setTimeout(() => {
+        Animated.timing(particle.fallAnim, {
+          toValue: 1,
+          duration,
+          easing: Easing.linear,
+          useNativeDriver: true,
+          isInteraction: false,
+        }).start();
+        Animated.timing(particle.rotateAnim, {
+          toValue: 1,
+          duration,
+          easing: Easing.linear,
+          useNativeDriver: true,
+          isInteraction: false,
+        }).start();
+        Animated.sequence([
+          Animated.timing(particle.swingAnim, {
+            toValue: 0.5,
+            duration: duration / 2,
+            easing: Easing.inOut(Easing.sin),
+            useNativeDriver: true,
+            isInteraction: false,
+          }),
+          Animated.timing(particle.swingAnim, {
+            toValue: 1,
+            duration: duration / 2,
+            easing: Easing.inOut(Easing.sin),
+            useNativeDriver: true,
+            isInteraction: false,
+          }),
+        ]).start();
+      }, startDelay));
+    }
+
+    setParticles(created);
+
+    return () => {
+      timers.forEach(clearTimeout);
+      created.forEach(particle => {
+        particle.rotateAnim.stopAnimation();
+        particle.fallAnim.stopAnimation();
+        particle.swingAnim.stopAnimation();
+      });
+    };
+  }, [decoration, decorationKey, emojis, height, width]);
+
+  if (!decoration || particles.length === 0) return null;
 
   return (
     <View pointerEvents="none" style={styles.overlay}>
-      {Array.from({ length: PARTICLE_COUNT }, (_, index) => (
-        <EmojiParticle
-          key={`${decoration.key}-${index}`}
-          index={index}
-          emojis={emojis}
-          width={width}
-          height={height}
-          decorationKey={decoration.key}
-        />
-      ))}
+      {particles.map(particle => <ConfettiParticle key={particle.id} particle={particle} />)}
     </View>
   );
 };
 
 const styles = StyleSheet.create({
-  overlay: { ...StyleSheet.absoluteFillObject, zIndex: 1, elevation: 1, overflow: 'hidden' },
-  particle: { position: 'absolute' },
-  emoji: { lineHeight: 34, includeFontPadding: false, textAlign: 'center' },
+  overlay: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+    zIndex: 1,
+    elevation: 1,
+    overflow: 'hidden',
+  },
 });
 
 export default SeasonalSplashEffects;
