@@ -89,7 +89,7 @@
 - Подтверждённая доступность API не равна подтверждённому визуальному результату: устройство iOS 27 должно быть проверено после нативной сборки приложения. Проверить header, tab bar, карточки и все темы; сравнить с системными панелями, проверить Reduce Transparency.
 - Установка `expo-glass-effect` требует пересборки native binary / development build, если используемая сборка не содержит этот модуль. Переключатель в Меню разработчика переключает системный эффект и BlurView без reload; он позволяет сравнить варианты на устройстве.
 
-Ссылки: [Expo GlassEffect SDK 57](https://docs.expo.dev/versions/v57.0.0/sdk/glass-effect/), [Apple UIVisualEffectView](https://developer.apple.com/documentation/uikit/uivisualeffectview).
+Ссылки: [Expo GlassEffect SDK 58](https://docs.expo.dev/versions/v58.0.0/sdk/glass-effect/), [Apple UIVisualEffectView](https://developer.apple.com/documentation/uikit/uivisualeffectview).
 
 ## Потоки данных
 

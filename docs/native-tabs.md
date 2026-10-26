@@ -1,7 +1,7 @@
 # Native iOS tabs
 
 `components/NativeTabBar.js` uses `Tabs.Host` / `Tabs.Screen` exported by
-`react-native-screens` 4.26.x (Expo SDK 57 / React Native 0.86).
+`react-native-screens` 4.30.x (Expo SDK 58 / React Native 0.88).
 These are native `UITabBarController` / `UITabBar` views, not GlassView overlays.
 No React Navigation container is required. The system chooses Liquid Glass on
 supported iOS versions and its classic tab bar on older versions. Do not gate

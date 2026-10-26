@@ -1,6 +1,6 @@
 import * as Calendar from 'expo-calendar';
 
-export const CALENDAR_UNAVAILABLE_MESSAGE = 'В установленной сборке недоступен новый модуль календаря. Обновите приложение нативной сборкой с Expo SDK 57; перезагрузка JavaScript или OTA не добавляет нативные методы.';
+export const CALENDAR_UNAVAILABLE_MESSAGE = 'В установленной сборке недоступен новый модуль календаря. Обновите приложение нативной сборкой с Expo SDK 58; перезагрузка JavaScript или OTA не добавляет нативные методы.';
 
 const permission = async (method, writeOnly = false) => {
   if (typeof Calendar[method] !== 'function') return { status: 'unavailable', canAskAgain: false };
