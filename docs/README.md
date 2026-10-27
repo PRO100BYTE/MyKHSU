@@ -23,6 +23,7 @@
 - [notifications-and-background.md](notifications-and-background.md): уведомления и фоновые задачи.
 - [development-guidelines.md](development-guidelines.md): регламент изменений, стандарты качества и чеклисты.
 - [diagrams.md](diagrams.md): концентрированный набор диаграмм, графов и схем проекта.
+- [map-native-ui.md](map-native-ui.md): native map sheets, location fallback, and routing behavior.
 
 ## Документация по слоям
 

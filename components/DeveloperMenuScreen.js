@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, TextInput, StyleSheet, Alert, Switch, Clipboard, Platform } from 'react-native';
+import { View, Text, TouchableOpacity, TextInput, StyleSheet, Alert, Switch, Clipboard, Platform, Modal } from 'react-native';
+import ScrollView from './ScreenScrollView';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import * as SecureStore from 'expo-secure-store';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ACCENT_COLORS, API_BASE_URL, APP_VERSION, BUILD_VER, BUILD_DATE, LIQUID_GLASS } from '../utils/constants';
 import { loadAllNotes, clearAllNotes, getNotesCount, saveNote } from '../utils/notesStorage';
 import { unlockAchievement, clearAchievements, getAchievementsCount, ACHIEVEMENT_DEFINITIONS } from '../utils/achievements';
+import { addAcademicEvent, getAcademicEvents, saveAcademicEvents } from '../utils/academicEventsStorage';
 import * as Updates from 'expo-updates';
 import * as Notifications from 'expo-notifications';
 import * as TaskManager from 'expo-task-manager';
@@ -15,15 +17,32 @@ import ApiService from '../utils/api';
 import notificationService from '../utils/notificationService';
 import backgroundService from '../utils/backgroundService';
 import { exportScheduleToCalendar } from '../utils/calendarExport';
+import SnakeGame from './SnakeGame';
+import SplashScreen from './SplashScreen';
+import { SectionHeader, SettingsGroup } from './SettingsComponents';
+import { resetOnboarding } from '../utils/onboarding';
+import { clearAllCache } from '../utils/cache';
 
-const DeveloperMenuScreen = ({ theme, accentColor, onResetDeveloperMode }) => {
+const DeveloperMenuScreen = ({ theme, accentColor, onCommunityFeatureChange, onLiquidGlassFeatureChange, onResetDeveloperMode }) => {
   const [customApiUrl, setCustomApiUrl] = useState('');
   const [useCustomApi, setUseCustomApi] = useState(false);
+  const [effectiveApiUrl, setEffectiveApiUrl] = useState(API_BASE_URL);
   const [cacheKeys, setCacheKeys] = useState([]);
   const [secureKeys, setSecureKeys] = useState([]);
   const [showDebugInfo, setShowDebugInfo] = useState(false);
+  const [snakeVisible, setSnakeVisible] = useState(false);
+  const [storageKeyInput, setStorageKeyInput] = useState('');
+  const [storageKeyValue, setStorageKeyValue] = useState(null);
+  const [apiPingResults, setApiPingResults] = useState(null);
+  const [smokeTestResults, setSmokeTestResults] = useState(null);
+  const [communityFeatureEnabled, setCommunityFeatureEnabled] = useState(false);
+  const [liquidGlassEnabled, setLiquidGlassEnabled] = useState(true);
+  const [splashPreview, setSplashPreview] = useState(null);
 
   const colors = ACCENT_COLORS[accentColor];
+  const openSplashPreview = (options = {}) => {
+    setSplashPreview({ theme, accentColor, ...options });
+  };
   const glass = LIQUID_GLASS[theme] || LIQUID_GLASS.light;
   const bgColor = glass.background;
   const textColor = glass.text;
@@ -39,10 +58,34 @@ const DeveloperMenuScreen = ({ theme, accentColor, onResetDeveloperMode }) => {
     try {
       const savedUrl = await SecureStore.getItemAsync('custom_api_url');
       const savedUseCustom = await SecureStore.getItemAsync('use_custom_api');
+      const savedCommunityFeature = await SecureStore.getItemAsync('feature_community_enabled');
+      const savedLiquidGlass = await SecureStore.getItemAsync('feature_liquid_glass_enabled');
       if (savedUrl) setCustomApiUrl(savedUrl);
       if (savedUseCustom === 'true') setUseCustomApi(true);
+      setCommunityFeatureEnabled(savedCommunityFeature === 'true');
+      setLiquidGlassEnabled(savedLiquidGlass !== 'false');
+      const isCustomEnabled = savedUseCustom === 'true';
+      setEffectiveApiUrl(isCustomEnabled && savedUrl ? savedUrl : API_BASE_URL);
     } catch (e) {
       console.error('Error loading dev settings:', e);
+    }
+  };
+
+  const clearApiRelatedCache = async () => {
+    const keys = await AsyncStorage.getAllKeys();
+    const apiKeys = keys.filter((key) =>
+      key.startsWith('api_') ||
+      key.startsWith('news_') ||
+      key.startsWith('groups_') ||
+      key.startsWith('schedule_') ||
+      key.startsWith('pairs_time') ||
+      key.startsWith('available_courses') ||
+      key.startsWith('week_numbers') ||
+      key.startsWith('teacher_schedule_') ||
+      key.startsWith('auditory_schedule_')
+    );
+    if (apiKeys.length > 0) {
+      await AsyncStorage.multiRemove(apiKeys);
     }
   };
 
@@ -58,9 +101,13 @@ const DeveloperMenuScreen = ({ theme, accentColor, onResetDeveloperMode }) => {
         }
         await SecureStore.setItemAsync('custom_api_url', customApiUrl.trim());
         await SecureStore.setItemAsync('use_custom_api', 'true');
-        Alert.alert('Сохранено', 'Кастомный API-эндпоинт сохранён. Перезапустите приложение для применения.');
+        await clearApiRelatedCache();
+        setEffectiveApiUrl(customApiUrl.trim());
+        Alert.alert('Сохранено', `Кастомный API-эндпоинт применён:\n${customApiUrl.trim()}`);
       } else {
         await SecureStore.setItemAsync('use_custom_api', 'false');
+        await clearApiRelatedCache();
+        setEffectiveApiUrl(API_BASE_URL);
         Alert.alert('Сохранено', 'Используется стандартный API-эндпоинт.');
       }
     } catch (e) {
@@ -72,6 +119,31 @@ const DeveloperMenuScreen = ({ theme, accentColor, onResetDeveloperMode }) => {
     setUseCustomApi(value);
     if (!value) {
       await SecureStore.setItemAsync('use_custom_api', 'false');
+      await clearApiRelatedCache();
+      setEffectiveApiUrl(API_BASE_URL);
+    } else {
+      setEffectiveApiUrl(customApiUrl.trim() || API_BASE_URL);
+    }
+  };
+
+  const toggleCommunityFeature = async (enabled) => {
+    try {
+      await SecureStore.setItemAsync('feature_community_enabled', String(enabled));
+      setCommunityFeatureEnabled(enabled);
+      onCommunityFeatureChange?.(enabled);
+    } catch (error) {
+      Alert.alert('Ошибка', 'Не удалось изменить состояние экспериментального раздела.');
+    }
+  };
+
+  const toggleLiquidGlassFeature = async (enabled) => {
+    try {
+      await SecureStore.setItemAsync('feature_liquid_glass_enabled', String(enabled));
+      setLiquidGlassEnabled(enabled);
+      onLiquidGlassFeatureChange?.(enabled);
+      Alert.alert('Системный Liquid Glass', `Теперь используется ${enabled ? 'нативный эффект' : 'fallback BlurView'} в поддерживаемых поверхностях.`);
+    } catch {
+      Alert.alert('Ошибка', 'Не удалось изменить режим Liquid Glass.');
     }
   };
 
@@ -85,7 +157,7 @@ const DeveloperMenuScreen = ({ theme, accentColor, onResetDeveloperMode }) => {
         'default_course', 'teacher_name', 'show_course_selector',
         'notification_settings', 'developer_mode', 'custom_api_url',
         'use_custom_api', 'cache_settings', 'tabbar_labels_enabled',
-        'tabbar_font_size', 'new_year_mode'
+        'tabbar_font_size', 'new_year_mode', 'feature_community_enabled', 'feature_liquid_glass_enabled'
       ];
       
       const keyValues = [];
@@ -104,10 +176,32 @@ const DeveloperMenuScreen = ({ theme, accentColor, onResetDeveloperMode }) => {
     }
   };
 
+  const resetOnboardingFlow = () => {
+    Alert.alert(
+      'Сбросить первое знакомство?',
+      'При следующем запуске приложения снова откроется экран первого знакомства. Текущие настройки, кэш и другие данные не будут удалены.',
+      [
+        { text: 'Отмена', style: 'cancel' },
+        {
+          text: 'Сбросить',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await resetOnboarding(AsyncStorage);
+              Alert.alert('Готово', 'Первое знакомство будет показано при следующем запуске приложения.');
+            } catch (error) {
+              Alert.alert('Ошибка', 'Не удалось сбросить первое знакомство.');
+            }
+          },
+        },
+      ]
+    );
+  };
+
   const clearAllSecureStore = () => {
     Alert.alert(
       'Очистить SecureStore?',
-      'Все настройки приложения будут сброшены. Это действие необратимо.',
+      'Все настройки приложения будут сброшены. Экспериментальные функции отключатся. Это действие необратимо.',
       [
         { text: 'Отмена', style: 'cancel' },
         { text: 'Очистить', style: 'destructive', onPress: async () => {
@@ -117,12 +211,16 @@ const DeveloperMenuScreen = ({ theme, accentColor, onResetDeveloperMode }) => {
               'default_course', 'teacher_name', 'show_course_selector',
               'notification_settings', 'developer_mode', 'custom_api_url',
               'use_custom_api', 'cache_settings', 'tabbar_labels_enabled',
-              'tabbar_font_size', 'new_year_mode'
+              'tabbar_font_size', 'new_year_mode', 'feature_community_enabled', 'feature_liquid_glass_enabled'
             ];
             for (const key of keys) {
               await SecureStore.deleteItemAsync(key);
             }
-            Alert.alert('Готово', 'SecureStore очищен. Перезапустите приложение.');
+            setCommunityFeatureEnabled(false);
+            setLiquidGlassEnabled(true);
+            onCommunityFeatureChange?.(false);
+            onLiquidGlassFeatureChange?.(true);
+            Alert.alert('Готово', 'SecureStore очищен. Экспериментальные функции сброшены.');
           } catch (e) {
             Alert.alert('Ошибка', 'Не удалось очистить SecureStore');
           }
@@ -144,18 +242,140 @@ const DeveloperMenuScreen = ({ theme, accentColor, onResetDeveloperMode }) => {
     );
   };
 
+  const createPlannerFixtures = async () => {
+    const today = new Date();
+    const inTwoDays = new Date(today);
+    inTwoDays.setDate(today.getDate() + 2);
+    const inFiveDays = new Date(today);
+    inFiveDays.setDate(today.getDate() + 5);
+    const toISO = (date) => {
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    };
+
+    await addAcademicEvent({
+      title: 'Тестовый экзамен по аналитике',
+      date: toISO(inFiveDays),
+      type: 'exam',
+      description: 'Аудитория 305, взять зачетку и ручку.',
+      reminderEnabled: false,
+    });
+
+    await addAcademicEvent({
+      title: 'Тестовая практика по проекту',
+      date: toISO(inTwoDays),
+      type: 'practice',
+      description: 'Подготовить прототип и презентацию.',
+      reminderEnabled: false,
+    });
+
+    await saveNote({
+      subject: 'Тестовый предмет',
+      weekday: 1,
+      timeSlot: 1,
+      group: 'ТСТ-01',
+      noteText: 'Тестовая заметка из учебного планера',
+      homework: 'Подготовить отчет по лабораторной работе',
+      homeworkStatus: 'in_progress',
+      homeworkDueDate: toISO(inTwoDays),
+    });
+
+    await notificationService.appendScheduleChangeHistory([
+      {
+        type: 'changed',
+        weekday: 2,
+        prev: { subject: 'Алгоритмы', teacher: 'Иванов И.И.', auditory: '201', time: '2' },
+        lesson: { subject: 'Алгоритмы', teacher: 'Петров П.П.', auditory: '410', time: '2' },
+      },
+    ], 'ТСТ-01');
+  };
+
+  const clearPlannerFixtures = async () => {
+    await saveAcademicEvents([]);
+    await AsyncStorage.removeItem('schedule_changes_history_v1');
+  };
+
+  const runSmokeTest = async () => {
+    try {
+      setSmokeTestResults('Выполняется комплексная проверка...');
+
+      const [netState, newsResult, groupsResult, scheduleResult, permissions, scheduled, backgroundStatus] = await Promise.allSettled([
+        NetInfo.fetch(),
+        ApiService.getNews(0, 1),
+        ApiService.getGroups(1),
+        ApiService.getSchedule('125-1', new Date()),
+        Notifications.getPermissionsAsync(),
+        Notifications.getAllScheduledNotificationsAsync(),
+        BackgroundFetch.getStatusAsync(),
+      ]);
+
+      const lines = [];
+      if (netState.status === 'fulfilled') {
+        lines.push(`Сеть: ${netState.value.isConnected ? 'OK' : 'OFFLINE'} (${netState.value.type})`);
+      } else {
+        lines.push('Сеть: ошибка');
+      }
+
+      const pushLine = (label, result) => {
+        if (result.status === 'fulfilled') {
+          lines.push(`${label}: OK [${result.value?.source || '?'}]`);
+        } else {
+          lines.push(`${label}: ошибка`);
+        }
+      };
+
+      pushLine('Новости', newsResult);
+      pushLine('Группы', groupsResult);
+      pushLine('Расписание', scheduleResult);
+
+      if (permissions.status === 'fulfilled') {
+        lines.push(`Уведомления: ${permissions.value.status}`);
+      } else {
+        lines.push('Уведомления: ошибка');
+      }
+
+      if (scheduled.status === 'fulfilled') {
+        lines.push(`Запланировано уведомлений: ${scheduled.value.length}`);
+      } else {
+        lines.push('Запланированные уведомления: ошибка');
+      }
+
+      if (backgroundStatus.status === 'fulfilled') {
+        const statusMap = {
+          [BackgroundFetch.BackgroundFetchStatus.Restricted]: 'Ограничен',
+          [BackgroundFetch.BackgroundFetchStatus.Denied]: 'Запрещён',
+          [BackgroundFetch.BackgroundFetchStatus.Available]: 'Доступен',
+        };
+        lines.push(`BackgroundFetch: ${statusMap[backgroundStatus.value] || 'Неизвестно'}`);
+      } else {
+        lines.push('BackgroundFetch: ошибка');
+      }
+
+      const report = lines.join('\n');
+      setSmokeTestResults(report);
+      Clipboard.setString(report);
+      Alert.alert('Smoke-test', `${report}\n\nОтчёт скопирован в буфер обмена.`);
+    } catch (error) {
+      const report = `Smoke-test завершился с ошибкой: ${error?.message || 'unknown'}`;
+      setSmokeTestResults(report);
+      Alert.alert('Smoke-test', report);
+    }
+  };
+
   return (
     <View style={{ flex: 1, backgroundColor: bgColor }}>
       <ScrollView 
-        style={{ flex: 1, padding: 16 }} 
-        contentContainerStyle={{ paddingBottom: 100 }}
+        style={{ flex: 1 }}
+        contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 100 }}
         showsVerticalScrollIndicator={false}
       >
         {/* API-эндпоинт */}
-        <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: textColor }]}>API-эндпоинт</Text>
+        <SectionHeader title="API-эндпоинт" placeholderColor={placeholderColor} />
+        <SettingsGroup glass={glass} style={styles.section}>
           <Text style={[styles.sectionDescription, { color: placeholderColor }]}>
-            Текущий: {API_BASE_URL}
+            Текущий: {effectiveApiUrl}
           </Text>
 
           <TouchableOpacity
@@ -172,6 +392,7 @@ const DeveloperMenuScreen = ({ theme, accentColor, onResetDeveloperMode }) => {
               </View>
             </View>
             <Switch
+              accessibilityRole="switch"
               value={useCustomApi}
               onValueChange={toggleCustomApi}
               trackColor={{ false: borderColor, true: colors.light }}
@@ -200,11 +421,110 @@ const DeveloperMenuScreen = ({ theme, accentColor, onResetDeveloperMode }) => {
               </TouchableOpacity>
             </>
           )}
-        </View>
+        </SettingsGroup>
+
+        <SectionHeader title="Экспериментальные функции" placeholderColor={placeholderColor} />
+        <SettingsGroup glass={glass} style={styles.section}>
+          <View style={[styles.settingRow, { borderColor }]}>
+            <View style={styles.settingInfo}>
+              <Icon name="people-outline" size={24} color={communityFeatureEnabled ? colors.primary : placeholderColor} />
+              <View style={styles.textContainer}>
+                <Text style={[styles.settingLabel, { color: textColor }]}>Сообщество ИТИ</Text>
+                <Text style={[styles.settingDesc, { color: placeholderColor }]}>Локальные черновики и отзывы; раздел скрыт по умолчанию</Text>
+              </View>
+            </View>
+            <Switch
+              accessibilityRole="switch"
+              value={communityFeatureEnabled}
+              onValueChange={toggleCommunityFeature}
+              trackColor={{ false: borderColor, true: colors.light }}
+              thumbColor={communityFeatureEnabled ? colors.primary : placeholderColor}
+            />
+          </View>
+          <View style={[styles.settingRow, { borderColor }]}>
+            <View style={styles.settingInfo}>
+              <Icon name="layers-outline" size={24} color={liquidGlassEnabled ? colors.primary : placeholderColor} />
+              <View style={styles.textContainer}>
+                <Text style={[styles.settingLabel, { color: textColor }]}>Системный Liquid Glass</Text>
+                <Text style={[styles.settingDesc, { color: placeholderColor }]}>Сравнить системный эффект и BlurView в хедере и tab bar</Text>
+              </View>
+            </View>
+            <Switch
+              accessibilityRole="switch"
+              value={liquidGlassEnabled}
+              onValueChange={toggleLiquidGlassFeature}
+              trackColor={{ false: borderColor, true: colors.light }}
+              thumbColor={liquidGlassEnabled ? colors.primary : placeholderColor}
+              disabled={Platform.OS !== 'ios'}
+            />
+          </View>
+        </SettingsGroup>
 
         {/* Отладочные инструменты */}
-        <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: textColor }]}>Отладка</Text>
+        <SectionHeader title="Тест splash screen" placeholderColor={placeholderColor} />
+        <SettingsGroup glass={glass} style={styles.section}>
+          <Text style={[styles.sectionDescription, { color: placeholderColor }]}>Проверка логотипа, сезонов, праздников и специальных тем.</Text>
+          <TouchableOpacity
+            style={[styles.actionButton, { backgroundColor: inputBgColor, borderColor }]}
+            onPress={() => openSplashPreview()}
+          >
+            <Icon name="color-wand-outline" size={20} color={colors.primary} />
+            <Text style={[styles.actionButtonText, { color: textColor }]}>Открыть текущий splash</Text>
+          </TouchableOpacity>
+          <Text style={[styles.previewLabel, { color: placeholderColor }]}>Сезонные сценарии</Text>
+          <View style={styles.previewGrid}>
+            {[['Зима', 0], ['Весна', 3], ['Лето', 6], ['Осень', 9]].map(([label, month]) => (
+              <TouchableOpacity
+                key={label}
+                style={[styles.previewChip, { borderColor, backgroundColor: inputBgColor }]}
+                onPress={() => openSplashPreview({ splashDate: new Date(2026, month, 15) })}
+              >
+                <Text style={[styles.previewChipText, { color: textColor }]}>{label}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+          <Text style={[styles.previewLabel, { color: placeholderColor }]}>Праздники</Text>
+          <View style={styles.previewGrid}>
+            {[
+              ['new-year', 'Новый год'],
+              ['student-day', 'День студента'],
+              ['valentines-day', 'День влюблённых'],
+              ['defender-day', 'День защитника Отечества'],
+              ['womens-day', '8 Марта'],
+              ['cosmonautics-day', 'День космонавтики'],
+              ['may-day', 'Праздник Весны и Труда'],
+              ['victory-day', 'День Победы'],
+              ['children-day', 'День защиты детей'],
+              ['russia-day', 'День России'],
+              ['knowledge-day', 'День знаний'],
+              ['september-3', '3 сентября'],
+              ['programmer-day', 'День программиста'],
+              ['sysadmin-day', 'День сисадмина'],
+              ['teacher-day', 'День преподавателя'],
+              ['unity-day', 'День народного единства'],
+              ['intl-student-day', 'Международный день студента'],
+            ].map(([type, text]) => (
+              <TouchableOpacity
+                key={type}
+                style={[styles.previewChip, { borderColor, backgroundColor: inputBgColor }]}
+                onPress={() => openSplashPreview({ holidayInfo: { type, text } })}
+              >
+                <Text style={[styles.previewChipText, { color: textColor }]}>{text}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+          <Text style={[styles.previewLabel, { color: placeholderColor }]}>Специальные темы</Text>
+          <View style={styles.previewGrid}>
+            <TouchableOpacity style={[styles.previewChip, { borderColor, backgroundColor: inputBgColor }]} onPress={() => openSplashPreview({ theme: 'matrix' })}>
+              <Text style={[styles.previewChipText, { color: textColor }]}>Matrix</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={[styles.previewChip, { borderColor, backgroundColor: inputBgColor }]} onPress={() => openSplashPreview({ legendUnlocked: true })}>
+              <Text style={[styles.previewChipText, { color: textColor }]}>Легенда</Text>
+            </TouchableOpacity>
+          </View>
+        </SettingsGroup>
+        <SectionHeader title="Отладка" placeholderColor={placeholderColor} />
+        <SettingsGroup glass={glass} style={styles.section}>
           
           <TouchableOpacity
             style={[styles.actionButton, { backgroundColor: inputBgColor, borderColor }]}
@@ -229,6 +549,34 @@ const DeveloperMenuScreen = ({ theme, accentColor, onResetDeveloperMode }) => {
             <Text style={[styles.actionButtonText, { color: textColor }]}>
               Перезагрузить приложение
             </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.actionButton, { backgroundColor: colors.primary + '12', borderColor: colors.primary + '35' }]}
+            onPress={runSmokeTest}
+          >
+            <Icon name="flask-outline" size={20} color={colors.primary} />
+            <Text style={[styles.actionButtonText, { color: textColor }]}>
+              Комплексный smoke-test
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.actionButton, { backgroundColor: inputBgColor, borderColor }]}
+            onPress={async () => {
+              try {
+                const permissions = await Notifications.getPermissionsAsync();
+                const scheduled = await Notifications.getAllScheduledNotificationsAsync();
+                const report = `Разрешение: ${permissions.status}\nЗапланировано: ${scheduled.length}`;
+                setSmokeTestResults(report);
+                Alert.alert('Уведомления', report);
+              } catch (e) {
+                Alert.alert('Ошибка', e.message);
+              }
+            }}
+          >
+            <Icon name="notifications-circle-outline" size={20} color={colors.primary} />
+            <Text style={[styles.actionButtonText, { color: textColor }]}>Проверить permissions уведомлений</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -275,11 +623,23 @@ const DeveloperMenuScreen = ({ theme, accentColor, onResetDeveloperMode }) => {
               ))}
             </View>
           )}
-        </View>
+
+          {smokeTestResults && (
+            <TouchableOpacity
+              style={[styles.actionButton, { backgroundColor: inputBgColor, borderColor }]}
+              onPress={() => Clipboard.setString(smokeTestResults)}
+            >
+              <Icon name="copy-outline" size={20} color={colors.primary} />
+              <Text style={[styles.actionButtonText, { color: textColor }]}>
+                Скопировать отчёт smoke-test
+              </Text>
+            </TouchableOpacity>
+          )}
+        </SettingsGroup>
 
         {/* Тестовые уведомления */}
-        <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: textColor }]}>Тестовые уведомления</Text>
+        <SectionHeader title="Тестовые уведомления" placeholderColor={placeholderColor} />
+        <SettingsGroup glass={glass} style={styles.section}>
 
           <TouchableOpacity
             style={[styles.actionButton, { backgroundColor: inputBgColor, borderColor }]}
@@ -383,11 +743,29 @@ const DeveloperMenuScreen = ({ theme, accentColor, onResetDeveloperMode }) => {
               Тестовое уведомление: конец пары
             </Text>
           </TouchableOpacity>
-        </View>
+        </SettingsGroup>
 
         {/* Уведомления и фоновые задачи */}
-        <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: textColor }]}>Уведомления и фоновые задачи</Text>
+        <SectionHeader title="Уведомления и фоновые задачи" placeholderColor={placeholderColor} />
+        <SettingsGroup glass={glass} style={styles.section}>
+
+          <TouchableOpacity
+            style={[styles.actionButton, { backgroundColor: inputBgColor, borderColor }]}
+            onPress={async () => {
+              try {
+                const permissions = await Notifications.getPermissionsAsync();
+                const scheduled = await Notifications.getAllScheduledNotificationsAsync();
+                const report = `Разрешение: ${permissions.status}\nЗапланировано: ${scheduled.length}`;
+                setSmokeTestResults(report);
+                Alert.alert('Уведомления', report);
+              } catch (e) {
+                Alert.alert('Ошибка', e.message);
+              }
+            }}
+          >
+            <Icon name="notifications-circle-outline" size={20} color={colors.primary} />
+            <Text style={[styles.actionButtonText, { color: textColor }]}>Проверить permissions уведомлений</Text>
+          </TouchableOpacity>
 
           <TouchableOpacity
             style={[styles.actionButton, { backgroundColor: inputBgColor, borderColor }]}
@@ -512,11 +890,11 @@ const DeveloperMenuScreen = ({ theme, accentColor, onResetDeveloperMode }) => {
               Отменить все запланированные уведомления
             </Text>
           </TouchableOpacity>
-        </View>
+        </SettingsGroup>
 
         {/* Экспорт */}
-        <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: textColor }]}>Экспорт</Text>
+        <SectionHeader title="Экспорт" placeholderColor={placeholderColor} />
+        <SettingsGroup glass={glass} style={styles.section}>
 
           <TouchableOpacity
             style={[styles.actionButton, { backgroundColor: inputBgColor, borderColor }]}
@@ -597,11 +975,11 @@ const DeveloperMenuScreen = ({ theme, accentColor, onResetDeveloperMode }) => {
               Тест экспорта в календарь (.ics)
             </Text>
           </TouchableOpacity>
-        </View>
+        </SettingsGroup>
 
         {/* Сеть и API */}
-        <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: textColor }]}>Сеть и API</Text>
+        <SectionHeader title="Сеть и API" placeholderColor={placeholderColor} />
+        <SettingsGroup glass={glass} style={styles.section}>
 
           <TouchableOpacity
             style={[styles.actionButton, { backgroundColor: inputBgColor, borderColor }]}
@@ -675,11 +1053,11 @@ const DeveloperMenuScreen = ({ theme, accentColor, onResetDeveloperMode }) => {
               Тест API: Группы
             </Text>
           </TouchableOpacity>
-        </View>
+        </SettingsGroup>
 
         {/* Кэш */}
-        <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: textColor }]}>Кэш</Text>
+        <SectionHeader title="Кэш" placeholderColor={placeholderColor} />
+        <SettingsGroup glass={glass} style={styles.section}>
 
           <TouchableOpacity
             style={[styles.actionButton, { backgroundColor: inputBgColor, borderColor }]}
@@ -721,14 +1099,15 @@ const DeveloperMenuScreen = ({ theme, accentColor, onResetDeveloperMode }) => {
             style={[styles.actionButton, { backgroundColor: inputBgColor, borderColor }]}
             onPress={() => {
               Alert.alert(
-                'Очистить AsyncStorage?',
-                'Весь кэш приложения (расписание, новости, группы) будет удалён.',
+                'Очистить кэш API?',
+                'Будут удалены только кэшированные данные API (расписание, новости и группы). Настройки, первое знакомство и другие данные приложения сохранятся.',
                 [
                   { text: 'Отмена', style: 'cancel' },
                   { text: 'Очистить', style: 'destructive', onPress: async () => {
                     try {
-                      await AsyncStorage.clear();
-                      Alert.alert('Готово', 'AsyncStorage полностью очищен');
+                      const cleared = await clearAllCache();
+                       if (!cleared) throw new Error('CACHE_CLEAR_FAILED');
+                      Alert.alert('Готово', 'Кэш очищен. Настройки и первое ��накомство сохранены.');
                     } catch (e) {
                       Alert.alert('Ошибка', e.message);
                     }
@@ -808,11 +1187,11 @@ const DeveloperMenuScreen = ({ theme, accentColor, onResetDeveloperMode }) => {
               Очистить кэш расписания
             </Text>
           </TouchableOpacity>
-        </View>
+        </SettingsGroup>
 
         {/* Заметки и ДЗ */}
-        <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: textColor }]}>Заметки и ДЗ</Text>
+        <SectionHeader title="Заметки и ДЗ" placeholderColor={placeholderColor} />
+        <SettingsGroup glass={glass} style={styles.section}>
 
           <TouchableOpacity
             style={[styles.actionButton, { backgroundColor: inputBgColor, borderColor }]}
@@ -920,11 +1299,78 @@ const DeveloperMenuScreen = ({ theme, accentColor, onResetDeveloperMode }) => {
               Очистить все заметки
             </Text>
           </TouchableOpacity>
-        </View>
+        </SettingsGroup>
+
+        {/* Учебный планер */}
+        <SectionHeader title="Учебный планер" placeholderColor={placeholderColor} />
+        <SettingsGroup glass={glass} style={styles.section}>
+
+          <TouchableOpacity
+            style={[styles.actionButton, { backgroundColor: inputBgColor, borderColor }]}
+            onPress={async () => {
+              try {
+                await createPlannerFixtures();
+                Alert.alert('Готово', 'Добавлены тестовые учебные события, дедлайн и запись в историю изменений.');
+              } catch (e) {
+                Alert.alert('Ошибка', e.message);
+              }
+            }}
+          >
+            <Icon name="flask-outline" size={20} color={colors.primary} />
+            <Text style={[styles.actionButtonText, { color: textColor }]}>Создать тестовые данные планера</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.actionButton, { backgroundColor: inputBgColor, borderColor }]}
+            onPress={async () => {
+              try {
+                const events = await getAcademicEvents();
+                const history = await notificationService.getScheduleChangesHistory(30);
+                Alert.alert(
+                  'Статистика планера',
+                  `Учебных событий: ${events.length}\nИстория изменений: ${history.length}`
+                );
+              } catch (e) {
+                Alert.alert('Ошибка', e.message);
+              }
+            }}
+          >
+            <Icon name="analytics-outline" size={20} color={colors.primary} />
+            <Text style={[styles.actionButtonText, { color: textColor }]}>Статистика учебного планера</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.actionButton, { backgroundColor: 'rgba(239, 68, 68, 0.1)', borderColor: 'rgba(239, 68, 68, 0.3)' }]}
+            onPress={() => {
+              Alert.alert(
+                'Очистить данные планера?',
+                'Будут удалены учебные события и история изменений расписания.',
+                [
+                  { text: 'Отмена', style: 'cancel' },
+                  {
+                    text: 'Очистить',
+                    style: 'destructive',
+                    onPress: async () => {
+                      try {
+                        await clearPlannerFixtures();
+                        Alert.alert('Готово', 'Данные учебного планера очищены');
+                      } catch (e) {
+                        Alert.alert('Ошибка', e.message);
+                      }
+                    },
+                  },
+                ]
+              );
+            }}
+          >
+            <Icon name="trash-outline" size={20} color="#ef4444" />
+            <Text style={[styles.actionButtonText, { color: '#ef4444' }]}>Очистить данные планера</Text>
+          </TouchableOpacity>
+        </SettingsGroup>
 
         {/* Достижения */}
-        <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: textColor }]}>Достижения</Text>
+        <SectionHeader title="Достижения" placeholderColor={placeholderColor} />
+        <SettingsGroup glass={glass} style={styles.section}>
 
           <TouchableOpacity
             style={[styles.actionButton, { backgroundColor: inputBgColor, borderColor: borderColor }]}
@@ -974,6 +1420,46 @@ const DeveloperMenuScreen = ({ theme, accentColor, onResetDeveloperMode }) => {
           </TouchableOpacity>
 
           <TouchableOpacity
+            style={[styles.actionButton, { backgroundColor: inputBgColor, borderColor: borderColor }]}
+            onPress={async () => {
+              const result = await unlockAchievement('offline_hero');
+              if (result) {
+                Alert.alert('Успех', 'Ачивка "Партизан" разблокирована');
+              } else {
+                Alert.alert('Инфо', 'Ачивка "Партизан" уже получена');
+              }
+            }}
+          >
+            <Icon name="cloud-offline-outline" size={20} color={colors.primary} />
+            <Text style={[styles.actionButtonText, { color: textColor }]}>Тест: offline_hero ачивка</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.actionButton, { backgroundColor: inputBgColor, borderColor }]}
+            onPress={async () => {
+              let count = 0;
+              for (const id of Object.keys(ACHIEVEMENT_DEFINITIONS)) {
+                const result = await unlockAchievement(id);
+                if (result) count += 1;
+              }
+              Alert.alert('Готово', `Разблокировано новых ачивок: ${count}`);
+            }}
+          >
+            <Icon name="ribbon-outline" size={20} color={colors.primary} />
+            <Text style={[styles.actionButtonText, { color: textColor }]}>Разблокировать все ачивки</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            accessibilityRole="button"
+            accessibilityLabel="Открыть мини-игру Змейка"
+            style={[styles.actionButton, { backgroundColor: colors.primary + '12', borderColor: colors.primary + '35' }]}
+            onPress={() => setSnakeVisible(true)}
+          >
+            <Icon name="game-controller-outline" size={20} color={colors.primary} />
+            <Text style={[styles.actionButtonText, { color: textColor }]}>Змейка · мини-игра</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
             style={[styles.actionButton, { backgroundColor: 'rgba(239, 68, 68, 0.1)', borderColor: 'rgba(239, 68, 68, 0.3)' }]}
             onPress={() => {
               Alert.alert(
@@ -994,11 +1480,11 @@ const DeveloperMenuScreen = ({ theme, accentColor, onResetDeveloperMode }) => {
               Сбросить все ачивки
             </Text>
           </TouchableOpacity>
-        </View>
+        </SettingsGroup>
 
         {/* Опасные действия */}
-        <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: textColor }]}>Опасная зона</Text>
+        <SectionHeader title="Опасная зона" placeholderColor={placeholderColor} />
+        <SettingsGroup glass={glass} style={styles.section}>
 
           <TouchableOpacity
             style={[styles.actionButton, { backgroundColor: 'rgba(239, 68, 68, 0.1)', borderColor: 'rgba(239, 68, 68, 0.3)' }]}
@@ -1009,6 +1495,17 @@ const DeveloperMenuScreen = ({ theme, accentColor, onResetDeveloperMode }) => {
               Тестовый краш (Sentry)
             </Text>
           </TouchableOpacity>
+
+           <TouchableOpacity
+             accessibilityRole="button"
+             accessibilityLabel="Сбросить первое знакомство"
+             style={[styles.actionButton, { backgroundColor: inputBgColor, borderColor }]}
+             onPress={resetOnboardingFlow}
+           >
+             <Icon name="refresh-circle-outline" size={20} color={colors.primary} />
+             <Text style={[styles.actionButtonText, { color: textColor }]}>Сбросить первое знакомство</Text>
+           </TouchableOpacity>
+
 
           <TouchableOpacity
             style={[styles.actionButton, { backgroundColor: 'rgba(239, 68, 68, 0.1)', borderColor: 'rgba(239, 68, 68, 0.3)' }]}
@@ -1029,29 +1526,138 @@ const DeveloperMenuScreen = ({ theme, accentColor, onResetDeveloperMode }) => {
               Сбросить режим разработчика
             </Text>
           </TouchableOpacity>
-        </View>
+        </SettingsGroup>
 
         {/* Информация */}
-        <View style={[styles.infoBox, { backgroundColor: inputBgColor }]}>
+        <View style={[styles.infoBox, { backgroundColor: inputBgColor, marginBottom: 16 }]}>
           <Icon name="information-circle-outline" size={16} color={colors.primary} />
           <Text style={[styles.infoText, { color: placeholderColor }]}>
             Некоторые изменения требуют перезапуска приложения
           </Text>
         </View>
+
+        {/* Пинг всех API */}
+        <View style={styles.section}>
+          <Text style={[styles.sectionTitle, { color: textColor }]}>Пинг всех API</Text>
+          <TouchableOpacity
+            style={[styles.actionButton, { backgroundColor: inputBgColor, borderColor }]}
+            onPress={async () => {
+              setApiPingResults(null);
+              const endpoints = [
+                { label: 'Новости', fn: () => ApiService.getNews(0, 1) },
+                { label: 'Группы', fn: () => ApiService.getGroups(1) },
+                { label: 'Расписание', fn: () => ApiService.getSchedule('125-1', new Date()) },
+              ];
+              const results = await Promise.allSettled(
+                endpoints.map(async e => {
+                  const start = Date.now();
+                  const r = await e.fn();
+                  return { label: e.label, ms: Date.now() - start, source: r?.source || '?' };
+                })
+              );
+              const lines = results.map((r, i) =>
+                r.status === 'fulfilled'
+                  ? `${endpoints[i].label}: ${r.value.ms} мс [${r.value.source}]`
+                  : `${endpoints[i].label}: ошибка`
+              );
+              setApiPingResults(lines.join('\n'));
+              Alert.alert('Пинг API', lines.join('\n'));
+            }}
+          >
+            <Icon name="speedometer-outline" size={20} color={colors.primary} />
+            <Text style={[styles.actionButtonText, { color: textColor }]}>Запустить пинг всех эндпоинтов</Text>
+          </TouchableOpacity>
+          {apiPingResults ? (
+            <View style={[styles.debugCard, { backgroundColor: inputBgColor, borderColor }]}>
+              <Text style={[styles.debugText, { color: placeholderColor }]}>{apiPingResults}</Text>
+            </View>
+          ) : null}
+        </View>
+
+        {/* Инспектор AsyncStorage */}
+        <View style={styles.section}>
+          <Text style={[styles.sectionTitle, { color: textColor }]}>Инспектор AsyncStorage</Text>
+          <TextInput
+            style={[styles.textInput, { backgroundColor: inputBgColor, borderColor, color: textColor }]}
+            placeholder="Ключ AsyncStorage..."
+            placeholderTextColor={placeholderColor}
+            value={storageKeyInput}
+            onChangeText={setStorageKeyInput}
+            autoCapitalize="none"
+            autoCorrect={false}
+          />
+          <TouchableOpacity
+            style={[styles.saveButton, { backgroundColor: colors.primary }]}
+            onPress={async () => {
+              const key = storageKeyInput.trim();
+              if (!key) { Alert.alert('Ошибка', 'Введите ключ'); return; }
+              try {
+                const value = await AsyncStorage.getItem(key);
+                setStorageKeyValue(value !== null ? value : '(null)');
+              } catch (e) {
+                setStorageKeyValue(`Ошибка: ${e.message}`);
+              }
+            }}
+          >
+            <Text style={styles.saveButtonText}>Прочитать значение</Text>
+          </TouchableOpacity>
+          {storageKeyValue !== null ? (
+            <View style={[styles.debugCard, { backgroundColor: inputBgColor, borderColor }]}>
+              <Text style={[styles.debugTitle, { color: textColor }]}>Значение:</Text>
+              <Text style={[styles.debugText, { color: placeholderColor }]} selectable>
+                {storageKeyValue}
+              </Text>
+            </View>
+          ) : null}
+        </View>
+
       </ScrollView>
+      {splashPreview && (
+        <Modal
+          visible
+          transparent
+          animationType="fade"
+          statusBarTranslucent
+          onRequestClose={() => setSplashPreview(null)}
+        >
+          <View style={styles.splashPreviewModal}>
+            <SplashScreen {...splashPreview} />
+            <TouchableOpacity
+              accessibilityRole="button"
+              accessibilityLabel="Закрыть предпросмотр splash screen"
+              style={styles.closePreview}
+              onPress={() => setSplashPreview(null)}
+            >
+              <Icon name="close" size={24} color="#fff" />
+            </TouchableOpacity>
+          </View>
+        </Modal>
+      )}
+      {snakeVisible && (
+        <SnakeGame
+          visible={snakeVisible}
+          onClose={() => setSnakeVisible(false)}
+          theme={theme}
+          accentColor={accentColor}
+        />
+      )}
     </View>
   );
 };
 
 const styles = StyleSheet.create({
-  section: { marginBottom: 24 },
-  sectionTitle: { fontSize: 16, fontWeight: '600', marginBottom: 8, fontFamily: 'Montserrat_600SemiBold' },
-  sectionDescription: { fontSize: 13, marginBottom: 12, fontFamily: 'Montserrat_400Regular' },
+  section: {
+    marginBottom: 16,
+    padding: 14,
+  },
+  sectionDescription: { fontSize: 12, marginBottom: 10, fontFamily: 'Montserrat_400Regular' },
   settingRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 12,
+    minHeight: 44,
+    paddingVertical: 10,
+    gap: 12,
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
   settingInfo: { flexDirection: 'row', alignItems: 'center', flex: 1 },
@@ -1083,7 +1689,8 @@ const styles = StyleSheet.create({
   actionButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 14,
+    minHeight: 44,
+    padding: 12,
     borderRadius: 14,
     borderWidth: StyleSheet.hairlineWidth,
     marginBottom: 8,
@@ -1092,6 +1699,7 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontFamily: 'Montserrat_500Medium',
     marginLeft: 12,
+    flex: 1,
   },
   debugCard: {
     padding: 16,
@@ -1117,6 +1725,12 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     gap: 8,
   },
+  previewLabel: { fontSize: 12, fontFamily: 'Montserrat_600SemiBold', marginTop: 8, marginBottom: 2 },
+  previewGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 4, marginBottom: 8 },
+  previewChip: { paddingHorizontal: 10, paddingVertical: 9, borderRadius: 10, borderWidth: StyleSheet.hairlineWidth },
+  previewChipText: { fontSize: 12, fontFamily: 'Montserrat_500Medium' },
+  splashPreviewModal: { flex: 1, backgroundColor: '#000' },
+  closePreview: { position: 'absolute', top: 48, right: 20, width: 42, height: 42, borderRadius: 21, backgroundColor: 'rgba(0,0,0,.55)', alignItems: 'center', justifyContent: 'center' },
   infoText: {
     fontSize: 12,
     fontFamily: 'Montserrat_400Regular',

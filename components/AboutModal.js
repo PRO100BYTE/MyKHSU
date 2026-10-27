@@ -1,8 +1,10 @@
 // components/AboutModal.js
 import React from 'react';
-import { View, Text, ScrollView, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet } from 'react-native';
+import ScrollView from './ScreenScrollView';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import { ACCENT_COLORS, APP_VERSION, APP_DEVELOPERS, APP_SUPPORTERS, BUILD_VER, BUILD_DATE, LIQUID_GLASS } from '../utils/constants';
+import { SectionHeader, SettingsGroup } from './SettingsComponents';
 
 const AboutModal = ({ theme, accentColor }) => {
   const colors = ACCENT_COLORS[accentColor];
@@ -10,18 +12,18 @@ const AboutModal = ({ theme, accentColor }) => {
   const bgColor = glass.background;
   const textColor = glass.text;
   const placeholderColor = glass.textSecondary;
-  const inputBgColor = glass.surfaceTertiary;
-  const borderColor = glass.border;
 
   return (
     <View style={{ flex: 1, backgroundColor: bgColor }}>
       <ScrollView 
-        style={{ flex: 1, padding: 16 }} 
-        contentContainerStyle={{ paddingBottom: 100 }}
+        style={{ flex: 1 }}
+        contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 100 }}
         showsVerticalScrollIndicator={false}
       >
             {/* Идентификация приложения */}
-            <View style={[styles.appIdentity, { backgroundColor: colors.glass, borderColor: colors.glassBorder }]}>
+            <SectionHeader title="О приложении" placeholderColor={placeholderColor} />
+            <SettingsGroup glass={glass}>
+            <View style={[styles.appIdentity, { backgroundColor: colors.glass }]}>
               <View style={[styles.appIconCircle, { backgroundColor: colors.primary }]}>
                 <Icon name="school" size={32} color="#ffffff" />
               </View>
@@ -33,9 +35,12 @@ const AboutModal = ({ theme, accentColor }) => {
                 Мобильное приложение для студентов и преподавателей Инженерно-технологического института ХГУ
               </Text>
             </View>
+            </SettingsGroup>
 
             {/* Основные возможности */}
-            <View style={[styles.sectionCard, { backgroundColor: inputBgColor, borderColor }]}>
+            <SectionHeader title="Возможности" placeholderColor={placeholderColor} />
+            <SettingsGroup glass={glass}>
+            <View style={styles.sectionCard}>
               <View style={styles.sectionHeader}>
                 <Icon name="sparkles-outline" size={18} color={colors.primary} />
                 <Text style={[styles.sectionTitle, { color: textColor }]}>Возможности</Text>
@@ -56,13 +61,13 @@ const AboutModal = ({ theme, accentColor }) => {
               <View style={styles.featureItem}>
                 <Icon name="map-outline" size={16} color={colors.primary} style={styles.featureIcon} />
                 <Text style={[styles.featureText, { color: textColor }]}>
-                  Интерактивная карта учебных корпусов
+                  Карта учебных корпусов на iOS и список корпусов с маршрутами на Android
                 </Text>
               </View>
               <View style={styles.featureItem}>
                 <Icon name="school-outline" size={16} color={colors.primary} style={styles.featureIcon} />
                 <Text style={[styles.featureText, { color: textColor }]}>
-                  Раздел «Первокурснику» с полезной информацией
+                  Раздел «Студгородок» с полезной информацией
                 </Text>
               </View>
               <View style={styles.featureItem}>
@@ -78,15 +83,22 @@ const AboutModal = ({ theme, accentColor }) => {
                 </Text>
               </View>
               <View style={styles.featureItem}>
+                <Icon name="layers-outline" size={16} color={colors.primary} style={styles.featureIcon} />
+                <Text style={[styles.featureText, { color: textColor }]}>Нативный системный Liquid Glass на поддерживаемых версиях iOS</Text>
+              </View>
+              <View style={styles.featureItem}>
                 <Icon name="cloud-offline-outline" size={16} color={colors.primary} style={styles.featureIcon} />
                 <Text style={[styles.featureText, { color: textColor }]}>
                   Полная офлайн-работа с кэшированием
                 </Text>
               </View>
             </View>
+            </SettingsGroup>
 
             {/* Для преподавателей */}
-            <View style={[styles.sectionCard, { backgroundColor: inputBgColor, borderColor }]}>
+            <SectionHeader title="Для преподавателей" placeholderColor={placeholderColor} />
+            <SettingsGroup glass={glass}>
+            <View style={styles.sectionCard}>
               <View style={styles.sectionHeader}>
                 <Icon name="person-outline" size={18} color={colors.primary} />
                 <Text style={[styles.sectionTitle, { color: textColor }]}>Для преподавателей</Text>
@@ -105,20 +117,26 @@ const AboutModal = ({ theme, accentColor }) => {
                 </Text>
               </View>
             </View>
+            </SettingsGroup>
 
             {/* Отслеживание ошибок */}
-            <View style={[styles.sectionCard, { backgroundColor: inputBgColor, borderColor }]}>
+            <SectionHeader title="Отслеживание ошибок" placeholderColor={placeholderColor} />
+            <SettingsGroup glass={glass}>
+            <View style={styles.sectionCard}>
               <View style={styles.sectionHeader}>
                 <Icon name="bug-outline" size={18} color={colors.primary} />
                 <Text style={[styles.sectionTitle, { color: textColor }]}>Отслеживание ошибок</Text>
               </View>
               <Text style={[styles.sectionDescription, { color: placeholderColor }]}>
-                Приложение использует Self-hosted сервис Sentry (ООО «Скалк Софт» / Sculk Ltd.) для отслеживания ошибок. Собираемые данные включают техническую информацию об устройстве и контекст ошибки, но не содержат персональных данных.
+                Приложение использует сервис Sentry, размещённый на серверах ООО «Скалк Софт» (Sculk Ltd.), для отслеживания ошибок. Передаются сведения об устройстве, контекст ошибок и, для части сессий, записи взаимодействия с интерфейсом. В текущей конфигурации разрешена передача стандартных персональных данных; переключателя отключения диагностики в приложении пока нет.
               </Text>
             </View>
+            </SettingsGroup>
 
             {/* Информация о версии */}
-            <View style={[styles.infoSection, { backgroundColor: inputBgColor, borderColor }]}>
+            <SectionHeader title="Версия и авторы" placeholderColor={placeholderColor} />
+            <SettingsGroup glass={glass}>
+            <View style={styles.infoSection}>
               <View style={styles.infoItem}>
                 <Icon name="calendar-outline" size={14} color={colors.primary} />
                 <Text style={[styles.infoText, { color: placeholderColor }]}>
@@ -138,6 +156,7 @@ const AboutModal = ({ theme, accentColor }) => {
                 </Text>
               </View>
             </View>
+            </SettingsGroup>
           </ScrollView>
     </View>
   );
@@ -148,9 +167,6 @@ const styles = StyleSheet.create({
   appIdentity: {
     alignItems: 'center',
     padding: 20,
-    borderRadius: 20,
-    borderWidth: StyleSheet.hairlineWidth,
-    marginBottom: 20,
   },
   appIconCircle: {
     width: 64,
@@ -179,10 +195,7 @@ const styles = StyleSheet.create({
   },
   // Section cards
   sectionCard: {
-    borderRadius: 16,
     padding: 16,
-    borderWidth: StyleSheet.hairlineWidth,
-    marginBottom: 12,
   },
   sectionHeader: {
     flexDirection: 'row',
@@ -218,9 +231,6 @@ const styles = StyleSheet.create({
   // Info section
   infoSection: {
     padding: 16,
-    borderRadius: 16,
-    borderWidth: StyleSheet.hairlineWidth,
-    marginBottom: 8,
   },
   infoItem: {
     flexDirection: 'row',

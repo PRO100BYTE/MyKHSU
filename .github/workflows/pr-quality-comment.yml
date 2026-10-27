@@ -1,0 +1,54 @@
+name: PR Quality Comment
+
+on:
+  workflow_run:
+    workflows: [PR Quality Checks]
+    types: [completed]
+
+permissions:
+  actions: read
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: pr-quality-comment-${{ github.event.workflow_run.head_branch }}
+  cancel-in-progress: false
+
+jobs:
+  comment:
+    if: github.event.workflow_run.event == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      # Never checkout or execute PR code in this privileged workflow.
+      - uses: actions/github-script@v7
+        with:
+          script: |
+            const run = context.payload.workflow_run;
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            let prs = run.pull_requests || [];
+            if (!prs.length) {
+              const response = await github.rest.repos.listPullRequestsAssociatedWithCommit({ owner, repo, commit_sha: run.head_sha });
+              prs = response.data;
+            }
+            const jobs = await github.paginate(github.rest.actions.listJobsForWorkflowRun, { owner, repo, run_id: run.id, per_page: 100 });
+            const marker = '<!-- mykhsu-pr-quality -->';
+            const labels = { success: '✅ success', failure: '❌ failure', skipped: '⏭️ skipped', cancelled: '⚪ cancelled', timed_out: '⌛ timed out' };
+            const result = value => labels[value] || '⚪ not completed';
+            const rows = jobs.flatMap(job => (job.steps || []).filter(step => [
+              'Install dependencies', 'Internal tests', 'ESLint', 'Babel syntax validation', 'Diff whitespace validation', 'Export iOS and Android bundles',
+            ].includes(step.name)).map(step => `| ${step.name} | ${result(step.conclusion)} |`));
+            const body = [marker, '## PR Quality Checks', '', `**Status:** ${result(run.conclusion)}`, `**Commit:** \`${run.head_sha.slice(0, 12)}\``, '', '| Check | Result |', '| --- | --- |', ...rows,
+              '', `[Full logs and summary](${run.html_url})`, '', 'Bundle export validates JavaScript/assets, not a native build or device UI. Expo Doctor runs separately.'].join('\n');
+            for (const candidate of prs) {
+              const { data: pr } = await github.rest.pulls.get({ owner, repo, pull_number: candidate.number });
+              if (pr.state !== 'open' || pr.base.repo.full_name !== `${owner}/${repo}` || pr.head.sha !== run.head_sha) continue;
+              const comments = await github.paginate(github.rest.issues.listComments, { owner, repo, issue_number: pr.number, per_page: 100 });
+              const previous = comments.find(comment => comment.user.type === 'Bot' && comment.user.login === 'github-actions[bot]' && comment.body?.includes(marker));
+              if (previous) {
+                await github.rest.issues.updateComment({ owner, repo, comment_id: previous.id, body });
+              } else {
+                await github.rest.issues.createComment({ owner, repo, issue_number: pr.number, body });
+              }
+            }

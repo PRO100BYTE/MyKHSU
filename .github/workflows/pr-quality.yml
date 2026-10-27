@@ -1,0 +1,72 @@
+name: PR Quality Checks
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pr-quality-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  quality:
+    name: Tests, lint and bundle
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      CI: '1'
+      EXPO_NO_TELEMETRY: '1'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.x'
+          cache: npm
+      - name: Install dependencies
+        id: install
+        run: npm ci
+      - name: Internal tests
+        id: tests
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+        run: npm test
+      - name: ESLint
+        id: lint
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+        run: npm run lint
+      - name: Babel syntax validation
+        id: syntax
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+        run: npm run check:syntax
+      - name: Diff whitespace validation
+        id: whitespace
+        if: ${{ !cancelled() }}
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: git diff --check "$BASE_SHA...HEAD"
+      - name: Export iOS and Android bundles
+        id: bundle
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+        run: npm run check:bundle
+      - name: Check summary
+        if: always()
+        env:
+          INSTALL: ${{ steps.install.outcome }}
+          TESTS: ${{ steps.tests.outcome }}
+          LINT: ${{ steps.lint.outcome }}
+          SYNTAX: ${{ steps.syntax.outcome }}
+          WHITESPACE: ${{ steps.whitespace.outcome }}
+          BUNDLE: ${{ steps.bundle.outcome }}
+        run: |
+          node <<'NODE'
+          const fs = require('node:fs');
+          const checks = ['INSTALL', 'TESTS', 'LINT', 'SYNTAX', 'WHITESPACE', 'BUNDLE'];
+          const lines = ['## PR Quality Checks', '', '| Check | Result |', '| --- | --- |', ...checks.map(key => `| ${key} | ${process.env[key] || 'skipped'} |`)];
+          fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, lines.join('\n') + '\n');
+          if (checks.some(key => process.env[key] !== 'success')) process.exitCode = 1;
+          NODE
