@@ -16,7 +16,7 @@
       <img src="https://img.shields.io/badge/React%20Native-0.86.3-61DAFB?style=for-the-badge&logo=react" alt="React Native" />
     </a>
     <a href="https://expo.dev/">
-      <img src="https://img.shields.io/badge/Expo-57.0.25-000020?style=for-the-badge&logo=expo" alt="Expo" />
+      <img src="https://img.shields.io/badge/Expo-58.0.23-000020?style=for-the-badge&logo=expo" alt="Expo" />
     </a>
     <a href="https://developer.mozilla.org/ru/docs/Web/JavaScript">
       <img src="https://img.shields.io/badge/JavaScript-ES6+-F7DF1E?style=for-the-badge&logo=javascript&logoColor=black" alt="JavaScript" />
