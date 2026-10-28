@@ -60,15 +60,15 @@ plugins:
 nav:
   - Главная: index.md
   - Проект:
+    - Обзор: project/README.md
     - Архитектура: project/architecture.md
-    - Соглашения по разработке: project/development-guidelines.md
     - Диаграммы: project/diagrams.md
-    - Хранение данных: project/data-and-storage.md
+    - Соглашения по разработке: project/development-guidelines.md
     - Проверки качества PR: project/pr-quality-checks.md
     - Политика конфиденциальности: project/privacy-notice.md
-    - README: project/README.md
+    - Хранение данных: project/data-and-storage.md
   - Бэкенд:
-    - Обзор: backend/overview.md
+    - Об��ор: backend/overview.md
     - Установка и запуск: backend/installation-and-run.md
     - Архитектура: backend/architecture.md
     - База данных: backend/database.md
@@ -76,34 +76,26 @@ nav:
     - Развёртывание: backend/deployment.md
     - Веб-интерфейсы: backend/frontend.md
   - Компоненты:
-    - Архитектура: project/architecture.md
-    - Соглашения по разработке: project/development-guidelines.md
-    - Диаграммы: project/diagrams.md
-    - Хранение данных: project/data-and-storage.md
-    - Проверки качества PR: project/pr-quality-checks.md
-    - Политика конфиденциальности: project/privacy-notice.md
-    - README: project/README.md
-  - Компоненты:
-    - SplashScreen: project/splash-design.md
-    - Сезонные эффекты Splash: project/splash-seasons.md
-    - Меню разработчика: project/developer-menu.md
     - Экраны: project/screens.md
     - Вводный экран: project/onboarding.md
-    - Чеклист вводн��го экрана: project/onboarding-device-checklist.md
-    - Нативная навигация: project/native-tabs.md
-    - Нативная панель инструментов: project/header-toolbar.md
-    - Выпадающее меню: project/header-menu-fallback.md
-    - Нативные элементы UI: project/native-ui-verification.md
-    - Нативные модальные окна: project/modal-native-ui.md
-    - Настройки UI: project/settings-native-ui.md
-    - Карта: project/map-native-ui.md
-    - Экспорт расписания: project/schedule-tools.md
-    - Экспорт в галерею: project/gallery-export.md
-    - Уведомления и фон: project/notifications-and-background.md
-    - Навигация по уведомлениям: project/notification-navigation.md
-    - Улучшения уведомлений: project/notifications-improvements.md
-    - Календарь и фон: project/calendar-background-compatibility.md
-    - Действия контекстного поиска: project/search-context-actions.md
+    - Чеклист вводного экрана: project/onboarding-device-checklist.md
+    - Дизайн сплэша: project/splash-design.md
+    - Сезонные эффекты сплэша: project/splash-seasons.md
+    - Меню разработчика: project/developer-menu.md
+    - Нативные вкладки iOS: project/native-tabs.md
+    - Верхняя панель: project/header-toolbar.md
+    - Совместимость меню верхней панели: project/header-menu-fallback.md
     - Прямые действия панели инструментов: project/toolbar-direct-actions.md
-    - Подложка экрана: project/screen-underlap.md
+    - Нативный UI модальных окон: project/modal-native-ui.md
+    - Нативный UI карты: project/map-native-ui.md
+    - Нативный UI настроек: project/settings-native-ui.md
+    - Проверка нативного UI: project/native-ui-verification.md
+    - Инструменты расписания: project/schedule-tools.md
+    - Экспорт в галерею: project/gallery-export.md
+    - Уведомления и фоновые задачи: project/notifications-and-background.md
+    - Навигация по уведомлениям: project/notification-navigation.md
+    - Доработки уведомл��ний: project/notifications-improvements.md
+    - Календарь и фоновые проверки: project/calendar-background-compatibility.md
+    - Поиск и контекстные действия: project/search-context-actions.md
+    - Прокрутка под плавающим заголовком: project/screen-underlap.md
     - Змейка: project/snake.md
