@@ -17,7 +17,7 @@
     "@2gis/mapgl": "^1.66.0",
     "@expo-google-fonts/montserrat": "^0.4.1",
     "@expo/metro-runtime": "~58.0.15",
-    "@expo/ui": "~58.0.23",
+    "@expo/ui": "~58.0.24",
     "@expo/vector-icons": "^15.0.2",
     "@react-native-async-storage/async-storage": "2.2.0",
     "@react-native-community/datetimepicker": "9.2.1",
@@ -25,12 +25,12 @@
     "@react-native-menu/menu": "^2.0.0",
     "@react-native/gradle-plugin": "^0.81.4",
     "@sentry/react-native": "~8.28.0",
-    "expo": "~58.0.19",
+    "expo": "~58.0.20",
     "expo-background-fetch": "~58.0.11",
     "expo-blur": "~58.0.5",
     "expo-calendar": "~58.0.6",
     "expo-constants": "~58.0.13",
-    "expo-dev-client": "~58.0.15",
+    "expo-dev-client": "~58.0.16",
     "expo-device": "~58.0.5",
     "expo-file-system": "~58.0.11",
     "expo-font": "~58.0.10",
@@ -48,7 +48,7 @@
     "expo-system-ui": "~58.0.6",
     "expo-task-manager": "~58.0.12",
     "expo-updates": "~58.0.18",
-    "expo-web-browser": "~58.0.6",
+    "expo-web-browser": "~58.0.7",
     "react": "19.3.0",
     "react-dom": "19.3.0",
     "react-native": "0.88.0",
@@ -72,6 +72,7 @@
   },
   "private": true,
   "allowScripts": {
-    "@sentry/cli@2.58.4": true
+    "@sentry/cli@2.58.6": true,
+    "@sentry/cli@3.8.0": true
   }
 }
