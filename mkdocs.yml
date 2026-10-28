@@ -1,0 +1,109 @@
+site_name: Документация Мой ИТИ ХГУ
+site_url: https://wiki.myiti.pro100byte.ru/
+repo_url: https://github.com/PRO100BYTE/MyKHSU
+repo_name: PRO100BYTE/MyKHSU
+
+theme:
+  name: material
+  language: ru
+  palette:
+    - scheme: default
+      primary: blue
+      accent: light blue
+      toggle:
+        icon: material/brightness-4
+        name: Переключиться на тёмную тему
+    - scheme: slate
+      primary: blue
+      accent: light blue
+      toggle:
+        icon: material/brightness-7
+        name: Переключиться на светлую тему
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - toc.integrate
+    - search.suggest
+    - search.highlight
+    - content.tabs.link
+    - content.code.annotation
+    - content.code.copy
+  icon:
+    repo: fontawesome/brands/github
+  favicon: assets/favicon.png
+  logo: assets/logo.png
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/PRO100BYTE/MyKHSU
+
+markdown_extensions:
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.superfences
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences
+  - attr_list
+  - md_in_html
+  - toc:
+      permalink: true
+
+plugins:
+  - search
+
+nav:
+  - Главная: index.md
+  - Проект:
+    - Архитектура: project/architecture.md
+    - Соглашения по разработке: project/development-guidelines.md
+    - Диаграммы: project/diagrams.md
+    - Хранение данных: project/data-and-storage.md
+    - Проверки качества PR: project/pr-quality-checks.md
+    - Политика конфиденциальности: project/privacy-notice.md
+    - README: project/README.md
+  - Бэкенд:
+    - Обзор: backend/overview.md
+    - Установка и запуск: backend/installation-and-run.md
+    - Архитектура: backend/architecture.md
+    - База данных: backend/database.md
+    - API: backend/api.md
+    - Развёртывание: backend/deployment.md
+    - Веб-интерфейсы: backend/frontend.md
+  - Компоненты:
+    - Архитектура: project/architecture.md
+    - Соглашения по разработке: project/development-guidelines.md
+    - Диаграммы: project/diagrams.md
+    - Хранение данных: project/data-and-storage.md
+    - Проверки качества PR: project/pr-quality-checks.md
+    - Политика конфиденциальности: project/privacy-notice.md
+    - README: project/README.md
+  - Компоненты:
+    - SplashScreen: project/splash-design.md
+    - Сезонные эффекты Splash: project/splash-seasons.md
+    - Меню разработчика: project/developer-menu.md
+    - Экраны: project/screens.md
+    - Вводный экран: project/onboarding.md
+    - Чеклист вводн��го экрана: project/onboarding-device-checklist.md
+    - Нативная навигация: project/native-tabs.md
+    - Нативная панель инструментов: project/header-toolbar.md
+    - Выпадающее меню: project/header-menu-fallback.md
+    - Нативные элементы UI: project/native-ui-verification.md
+    - Нативные модальные окна: project/modal-native-ui.md
+    - Настройки UI: project/settings-native-ui.md
+    - Карта: project/map-native-ui.md
+    - Экспорт расписания: project/schedule-tools.md
+    - Экспорт в галерею: project/gallery-export.md
+    - Уведомления и фон: project/notifications-and-background.md
+    - Навигация по уведомлениям: project/notification-navigation.md
+    - Улучшения уведомлений: project/notifications-improvements.md
+    - Календарь и фон: project/calendar-background-compatibility.md
+    - Действия контекстного поиска: project/search-context-actions.md
+    - Прямые действия панели инструментов: project/toolbar-direct-actions.md
+    - Подложка экрана: project/screen-underlap.md
+    - Змейка: project/snake.md

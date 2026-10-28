@@ -1,17 +1,10 @@
-# Native iOS tabs
+# Нативные вкладки iOS
 
-`components/NativeTabBar.js` uses `Tabs.Host` / `Tabs.Screen` exported by
-`react-native-screens` 4.30.x (Expo SDK 58 / React Native 0.88).
-These are native `UITabBarController` / `UITabBar` views, not GlassView overlays.
-No React Navigation container is required. The system chooses Liquid Glass on
-supported iOS versions and its classic tab bar on older versions. Do not gate
-this component behind `supportsSystemGlass` or the application's glass preference.
-The appearance on future OS versions is controlled by UIKit, not emulated here.
+`components/NativeTabBar.js` использует `Tabs.Host` / `Tabs.Screen`, экспортируемые `react-native-screens` 4.30.x (Expo SDK 58 / React Native 0.88). Это нативные представления `UITabBarController` / `UITabBar`, а не оверлеи `GlassView`. Контейнер React Navigation не требуется. Система выбирает Liquid Glass на поддерживаемых версиях iOS и классический таббар на старых версиях. Не следует ограничивать этот компонент флагом `supportsSystemGlass` или предпочтением стекла приложения. Внешний вид на будущих версиях ОС контролируется `UIKit`, а не эмулируется здесь.
 
-## App integration
+## Интеграция в приложение
 
-Import `NativeTabBar` from `./components/NativeTabBar`. Provide these tab definitions
-in existing `TAB_ORDER` order (keys must be the existing `SCREENS` values):
+Импортируйте `NativeTabBar` из `./components/NativeTabBar`. Предоставьте следующие определения вкладок в существующем порядке `TAB_ORDER` (ключи должны быть существующими значениями `SCREENS`):
 
 ```jsx
 const nativeTabs = [
@@ -23,7 +16,7 @@ const nativeTabs = [
 ];
 ```
 
-Replace the content region (not just the visual bottom bar) on iOS:
+Замените область содержимого (не только визуальную нижнюю панель) на iOS:
 
 ```jsx
 <View style={{ flex: 1 }}>
@@ -43,52 +36,22 @@ Replace the content region (not just the visual bottom bar) on iOS:
 {Platform.OS !== 'ios' && renderTabBar()}
 ```
 
-Keep the header outside the native hierarchy as a sibling overlay with its
-existing absolute positioning and higher `zIndex`. Do not move it into each
-`Tabs.Screen`. Do not leave the previous custom iOS bar rendered alongside this
-component, add bottom padding around the host, or render the screen separately
-outside it: the native controller must own the screen content.
+Держите заголовок вне нативной иерархии как соседний оверлей с его существующим абсолютным позиционированием и более высоким `zIndex`. Не перемещайте его в каждый `Tabs.Screen`. Не оставляйте предыдущую пользовательскую панель iOS отрисованной рядом с этим компонентом, не добавляйте нижний отступ вокруг хоста и не отрисовывайте экран отдельно вне его: нативный контроллер должен владеть содержимым экрана.
 
-`renderScreen(key)` returns the existing component with all its props and
-`refreshKey` key intact. Only the active screen's callback is evaluated; inactive
-native screen shells remain mounted with no React content. This preserves the
-old remount-on-switch behavior and avoids background screen refs/callbacks
-replacing active handlers. As an alternative to `renderScreen`, `children` may be
-an object mapping tab keys to React nodes; use the callback form to avoid
-constructing inactive content. Empty or invalid tab collections render nothing;
-an unknown active key falls back to the first valid tab.
+`renderScreen(key)` возвращает существующий компонент со всеми его пропсами и ключом `refreshKey` в целости. Оценивается только колбэк актив��ого экрана; неактивные нативные оболочки экрана остаются смонтированными без содержимого React. Это сохраняет старое поведение перемонтирования при переключении и избегает замены активных обработчиков фоновыми ссылками/колбэками экрана. В качестве альтернативы `renderScreen`, `children` может быть объектом, сопоставляющим ключи вкладок с узлами React; используйте форму колбэка, чтобы избежать создания неактивного содержимого. Пустые или недействительные коллекции вкладок ничего не отображают; неизвестный активный ключ возвращается к первой действительной вкладке.
 
-`onTabPress(key)` fires for user selection including repeated taps. Keep the
-existing `handleTabPress`: repeated tap refreshes/pops via `refreshKey`, changed
-tab updates `activeScreen`. UIKit's own repeated-tap pop/scroll effects are
-explicitly disabled to avoid competing with this handler. Programmatic selection
-acknowledgements do not invoke the handler again. The native provenance is tracked
-to base subsequent JS selection requests on the last acknowledged native state.
+`onTabPress(key)` срабатывает при выборе пользователем, включая повторные нажатия. Сохраните существующий `handleTabPress`: повторное нажатие обновляет/выталкивает через `refreshKey`, изменённая вкла��ка обновляет `activeScreen`. Собственные эффекты `UIKit` для повторного нажатия/прокрутки явно отключены, чтобы избежать конфликтов с этим обработчиком. Программные подтверждения выбора не вызывают обработчик снова. Нативное происхождение отслеживается для основы последующих запросов выбора JS на последнем подтверждённом нативном состоянии.
 
-`accentColor` is a resolved native color (`colors.primary`), not a palette key
-such as `green`. `theme === 'light'` selects the light native appearance; other
-application themes select dark. The default background is transparent to retain
-the parent's theme/Matrix background. Optional `backgroundColor` sets the native
-content-container background, not the tab bar material. SF Symbols are native
-icons: no Ionicons font rasterization or extra icon dependency is needed.
+`accentColor` — это разрешённый нативный цвет (`colors.primary`), а не ключ палитры, такой как `green`. `theme === 'light'` выбирает светлый нативный внешний вид; другие темы приложения выбирают тёмный. Фоновый цвет по умолчанию прозрачен, чтобы сохранить фоновый цвет родителя/Matrix. Необязательный `backgroundColor` устанавливает нативный фон контейнера содержимого, а не материал таббара. SF Symbols — это нативные иконки: не требуется растеризация шрифта Ionicons или дополнительная зависимость от иконок.
 
-Scroll-view inset auto-overrides are disabled because the existing screens own
-their insets. Check bottom content clearance on device; do not combine UIKit's
-automatic adjustment with the application's manual tab-bar clearance. UIKit
-controls native bar dimensions and margins; the old custom pill geometry and
-pan responder are not applicable.
+Автоматические переопределения отступов Scroll-view отключены, потому что существующие экраны владеют своими отступами. Проверьте нижний отступ содержимого на устройстве; не комбинируйте автоматическую настройку `UIKit` с ручной очисткой таббара приложения. `UIKit` контролирует размеры и отступы нативной панели; старая пользовательская геометрия пилюли и `pan responder` неприменимы.
 
-## Build and manual validation
+## Сборка и ручная проверка
 
-The added native dependency requires a new development/EAS binary (or an Expo Go
-build containing the SDK-matched screens module); an OTA JS update alone cannot
-add native views to an older binary. Build with an iOS 26+ SDK and without
-`UIDesignRequiresCompatibility` to obtain the OS's Liquid Glass design.
+Добавленная нативная зависимость требует нового `development`/`EAS` бинарника (или сборки Expo Go, содержащей модуль `screens`, соответствующий SDK); одно только JS-обновление OTA не может добавить нативные представления в старый бинарник. Собирайте с iOS 26+ SDK и без `UIDesignRequiresCompatibility`, чтобы получить дизайн Liquid Glass ОС.
 
-Verify on a physical iPhone or simulator running iOS 26+, plus a supported older
-iOS release: native pill/classic appearance, all five selections, fast consecutive
-taps, repeated-tab refresh/pop behavior, programmatic tab changes, theme/accent
-changes, labels on/off, VoiceOver, rotation/iPad layout, screen/header overlap,
-and last scrollable item clearance. Verify Android keeps its existing bar.
-Windows Metro bundle validation checks JS imports/transforms only; it cannot
-validate UIKit layout or native linking.
+**Проверка на устройстве:**
+
+Проверьте на физическом iPhone или симуляторе под управлением iOS 26+, а также на поддерживаемой старой версии iOS: нативный вид пилюли/классический вид, все пять выборов, быстрые последовательные нажатия, поведение обновления/выталкивания при повторном нажатии вкладки, программные изменения вкладок, изменения темы/акцента, включение/выключение меток, VoiceOver, макет при повороте/на iPad, перекрытие экрана/заголовка и очистка последнего прокручиваемого элемента. Убедитесь, что Android сохраняет свою существующую панель.
+
+Валидация пакета Windows Metro проверяет только импорты/преобразования JS; она не может проверять макет `UIKit` или нативную компоновку.

@@ -1,39 +1,39 @@
-# Notification delivery and integration
+# Доработки уведомлений и интеграции
 
-## Scope and guarantees
+## Область действия и гарантии
 
-There is no backend push sender. Lesson reminders are **local scheduled notifications**, built from the latest loaded day/week. News polling and schedule change comparisons run while using the application; OS background fetch for news is best effort, not an exact timer and not guaranteed after termination. Schedule changes are not polled while closed. A native device build is required to validate OS delivery; Expo Go/web are not a substitute.
+Бэкенд-отправитель push-уведомлений отсутствует. Напоминания о занятиях — это **локальные запланированные уведомления**, созданные на основе последнего загруженного дня/недели. Опрос новостей и сравнение изменений расписания выполняются во время использования приложения; фоновая выборка новостей ОС является `best effort`, не является точным таймером и не гарантируется после завершения работы приложения. Изменения расписания не опрашиваются, когда приложение закрыто. Для проверки доставки ОС требуется нативная сборка устройства; Expo Go/веб не являются заменой.
 
-## Settings and permissions
+## Настройки и разрешения
 
-`notificationService.initialize()` creates Android channels, reads permission state and installs the foreground handler/listener. It never asks permission. Only an explicit master-switch enable invokes `requestPermissions()`. Denial retains the user's intent (foreground news/change banners still work) and the settings UI offers the OS settings link. Turning the master/category switches off retains all subordinate preferences. Existing `notification_settings` SecureStore data is merged with defaults, unknown keys retained; no destructive migration.
+`notificationService.initialize()` создаёт каналы Android, считывает состояние разрешений и устанавливает обработчик/слушатель переднего плана. Он никогда не запрашивает разрешение. Только явное включение главного переключателя вызывает `requestPermissions()`. Отказ сохраняет намерение пользователя (баннеры новостей/изменений на переднем плане по-прежнему работают), и UI настроек предлагает ссылку на системные настройки ОС. Отключение главного переключателя/категорий сохраняет все подчинённые предпочтения. Существующие данные `notification_settings` из `SecureStore` объединяются с значениями по умолчанию, неизвестные ключи сохраняются; деструктивной миграции нет.
 
-`saveNotificationSettings(patch)` serializes writes, publishes `settingsChanged`, and reapplies the last loaded lesson schedule. Background registration listens for settings changes and unregisters only `BACKGROUND_NEWS_CHECK` when disabled or permission is missing. When no schedule is loaded, disabling individual reminder kinds cancels those pending kinds; enabling a kind requires a schedule load to create new reminders. Errors applying native changes are shown by settings UI and logged.
+`saveNotificationSettings(patch)` сериализ��ет записи, публикует `settingsChanged` и повторно применяет последнее загруженное расписание занятий. Фоновая регистрация прослушивает изменения настроек и отменяет регистрацию только `BACKGROUND_NEWS_CHECK`, если она отключена или отсутствует разрешение. Если расписание не загружено, отключение отдельных видов напоминаний отменяет эти ожидающие виды; включение вида требует загрузки расписания для создания новых напоминаний. Ошибки применения нативных изменений отображаются в UI настроек и логируются.
 
-## Scheduling and deduplication
+## Планирование и дедупликация
 
-- Lesson scheduling operations are serialized. Local wall-clock times are validated, past events skipped, malformed/reversed times rejected, and duplicate events collapsed.
-- Android channel IDs live on triggers, not content. News uses `news`; lessons/changes use `schedule`.
-- Rebuild cancels only requests tagged `{ owner: 'mykhsu.notifications.v1', kind: 'lesson' }` or IDs in the legacy `schedule_notification_ids` list. Homework/calendar requests are untouched.
-- At most 60 total pending requests are budgeted (allowing space below iOS's small pending limit); nearest lesson events win. This does not guarantee an entire week when all four events per lesson are enabled.
-- News identity uses canonical date/content, ignoring raw API IDs and generated presentation IDs so foreground and background observations share the same baseline.
-- Missing/empty pair timings defer replacement of enabled lesson requests, retaining existing reminders. Explicitly disabled reminder kinds can still be canceled. `useScheduleLogic` reconciles in an effect depending on both `scheduleData` and `pairsTime`, so timings arriving after schedule data trigger scheduling without a duplicate fetch-path call. A genuinely empty lesson schedule with loaded timings still clears old owned requests.
-- News uses a persistent bounded 200-item baseline independent of the expiring feed cache. First observation is silent; overlapping checks are serialized and duplicate IDs ignored. Up to three newly observed stories are delivered. Changes while notifications are disabled are baselined, not replayed on enable.
-- Schedule snapshots are date-scoped and ignore cache/stale-cache results. Existing history key remains readable. First observation of a date is silent. The legacy non-date-scoped snapshots are not compared, avoiding false upgrade alerts.
+*   Операции планирования занятий сериализуются. Проверяются локальные времена по часам, пропускаются прошедшие события, отклоняются некорректно сформированные/обратные времена, а дублирующиеся события объединяются.
+*   Идентификато��ы каналов Android находятся на триггерах, а не в содержимом. Новости используют `news`; занятия/изменения используют `schedule`.
+*   Пересборка отменяет только запросы, помеченные `{ owner: 'mykhsu.notifications.v1', kind: 'lesson' }` или идентификаторы из устаревшего списка `schedule_notification_ids`. Запросы домашних заданий/календаря не затрагиваются.
+*   Бюджетируется не более 60 общих ожидающих запросов (оставляя место ниже небольшого лимита iOS); ближайшие события занятий выигрывают. Это не гарантирует целую неделю, когда включены все четыре события на занятие.
+*   Идентификация новостей использует каноническую дату/содержимое, игнорируя необработанные идентификаторы API и сгенерированные идентификаторы представления, так что наблюдения переднего плана и фона используют одну и ту же базовую линию.
+*   Отсутствующие/пустые времена пар откладывают замену включённых запросов занятий, сохраняя существующие напоминания. Явно отключённые виды напоминаний всё ещё могут быть отменены. `useScheduleLogic` согласует в эффекте, зависящем как от `scheduleData`, так и от `pairsTime`, так что времена, поступающие после данных расписания, запускают планирование без дублирующего вызова пути выборки. Действительно пустое расписание занятий с загруженными временами по-прежнему очищает старые собственные запросы.
+*   Новости используют постоянную базовую линию из 200 элементов, не зависящую от кэша истекающего срока действия ленты. Первое наблюдение является бесшумным; перекрывающиеся проверки сериализуются, а дублирующиеся ��дентификаторы игнорируются. Доставляется до трёх новых обнаруженных историй. Изменения, когда уведомления отключены, устанавливаются в базовую линию, а не воспроизводятся при включении.
+*   Снимки расписания имеют область действия по дате и игнорируют результаты кэша/устаревшего кэша. Существующий ключ истории остаётся читаемым. Первое наблюдение даты является бесшумным. Устаревшие снимки без области действия по дате не сравниваются, избегая ложных предупреждений об обновлении.
 
-## Required App.js integration (App.js is owned by parent agent)
+## Требуемая интеграция App.js
 
-1. Remove App's module-level `Notifications.setNotificationHandler` (service owns the handler). Remove startup permission requests / `setupNotifications()` invocation. Keep `await notificationService.initialize()` at startup.
-2. Mount exactly one `<InAppNotificationBanner theme={theme} onNavigate={handleNotificationRoute} />` inside the existing `SafeAreaProvider` and above the normal screen content. It registers `subscribeForeground` on mount, unsubscribes on unmount, queues up to five banners, and auto-dismisses after seven seconds. Its background is the opaque theme `backgroundElevated`.
-3. Both the live `Notifications.addNotificationResponseReceivedListener` and the cold-launch `Notifications.getLastNotificationResponseAsync()` should call `notificationService.getNotificationRoute(response)`. Deduplicate by `response.notification.request.identifier` (use a ref/Set) so cold/live replay navigates once. Catch initial-response errors and remove the subscription on unmount. Delay routing until application startup/navigation is ready if necessary. `clearLastNotificationResponseAsync()` is optional after successful handling.
-4. `getNotificationRoute` returns exactly:
-   - `{ screen: 'news', newsId: string | null }` for `new_news`;
-   - `{ screen: 'schedule', date: 'YYYY-MM-DD' | null, scheduleKey: string | null }` for lesson and schedule-change types;
-   - `null` for unrecognized notifications (including homework/academic notifications, which retain their existing routing).
-   It accepts an Expo response, a Notification object, or a raw data object. `onNavigate` receives this same route, not an Expo response. Use the existing tab navigation. News ID/date/context are optional: if detail/date navigation is unavailable, opening the corresponding tab is safe. Do not parse a missing date or infer a group from `scheduleKey`.
-5. Keep startup `backgroundService.registerBackgroundNewsCheck()`. On AppState active, re-read OS permissions (`initialize()` is idempotent), synchronize background registration, and optionally rebuild the last schedule via the existing schedule fetch flow. No permission prompt on resume.
+1.  Удалите `Notifications.setNotificationHandler` на уровне модуля `App` (сервис владеет обработчиком). Удалите запросы разрешений при запуске / вызов `setupNotifications()`. Сохраните `await notificationService.initialize()` при запуске.
+2.  Смонтируйте ровно один `<InAppNotificationBanner theme={theme} onNavigate={handleNotificationRoute} />` внутри существующего `SafeAreaProvider` и над обычным содержимым экрана. Он регистрирует `subscribeForeground` при монтировании, отписывается при размонтировании, ставит в очередь до пяти баннеров и автоматически закрывается через семь секунд. Его фон — непрозрачный `backgroundElevated` темы.
+3.  Как живой `Notifications.addNotificationResponseReceivedListener`, так и `Notifications.getLastNotificationResponseAsync()` при холодном запуске должны вызывать `notificationService.getNotificationRoute(response)`. Дедуплицируйте по `response.notification.request.identifier` (используйте `ref`/`Set`), чтобы повторное воспроизведение холодного/живого запуска навигировало один раз. Перехватывайте ошибки начального ответа и удаляйте подписку при размонтировании. При необходимости отложите маршрутизацию до готовности запуска/навигации приложения. `clearLastNotificationResponseAsync()` является необязательным после успешной обработки.
+4.  `getNotificationRoute` возвращает ровно:
+    *   `{ screen: 'news', newsId: string | null }` для `new_news`;
+    *   `{ screen: 'schedule', date: 'YYYY-MM-DD' | null, scheduleKey: string | null }` для типов занятий и изменений расписания;
+    *   `null` для нераспознанных уведомлений (включая уведомления о домашних заданиях/учебных событиях, которые сохраняют свою существующую маршрутизацию).
+    Он принимает ответ Expo, объект `Notification` или необработанный объект данных. `onNavigate` получает тот же маршрут, а не ответ Expo. Используйте существующую навигацию по вкладкам. Идентификатор новости/дата/контекст являются необязательными: если детальная/датовая навигация недоступна, открытие соответствующей вкладки безопасно. Не анализируйте отсутствующую дату и не выводите группу из `scheduleKey`.
+5.  Сохраните `backgroundService.registerBackgroundNewsCheck()` при запуске. При активном состоянии приложения повторно считайте разрешения ОС (`initialize()` является идемпотентным), синхронизируйте фоновую регистрацию и при необходимости перестройте последнее расписание через существующий поток выборки расписания. Запрос разрешения при возобновлении работы не требуется.
 
-Public event APIs:
+Публичные API событий:
 
 ```js
 const unsubscribe = notificationService.subscribe(event => {
@@ -44,8 +44,22 @@ const unsubscribeForeground = notificationService.subscribeForeground(event => {
 });
 ```
 
-Only `subscribeForeground` marks a foreground delivery surface as available; background/settings subscribers do not suppress OS presentation. The built-in banner is sufficient; App should not create a second banner subscription. Owned scheduled lesson notifications received while active are bridged to this event API; direct news/change events avoid a second native notification while active. Unowned notifications retain system presentation.
+Только `subscribeForeground` помечает поверхность доставки переднего плана как доступную; подписчики фона/настроек не подавляют представление ОС. Встроенн��го баннера достаточно; `App` не должен создавать вторую подписку на баннер. Собственные запланированные уведомления о занятиях, полученные в активном состоянии, передаются этому API событий; прямые события новостей/изменений избегают второго нативного уведомления в активном состоянии. Несобственные уведомления сохраняют системное представление.
 
-## Validation
+## Проверка
 
-Run `node --test tests/notificationHelpers.test.cjs` (pure helpers, no native mocks). Parse changed JS/JSX with installed Babel parser. Device smoke checks: fresh-install startup never prompts; enabling prompts only from settings; denial leaves a clear status; switch off/on preserves categories; toggling a lesson kind cancels/reschedules correctly; schedule refresh has no duplicates; homework/event requests remain; news refresh establishes a silent baseline and delivers each subsequent story once; light/dark/special-theme banners are readable/dismissible; banner taps, external taps and cold-launch taps route once; restricted fetch fails gracefully. Test permission revocation/resume and offline/cache schedule refresh. Native delivery/timing still requires Android/iOS device testing.
+Запустите `node --test tests/notificationHelpers.test.cjs` (чистые вспомогательные функции, без нативных моков). Разберите изменённые JS/JSX с помощью установленного парсера Babel. Проверки на устройстве:
+
+*   Запуск после чистой установки никогда не запрашивает разрешения.
+*   Включение запрашивает разрешения только из настроек.
+*   Отказ оставляет чёткий статус.
+*   Включение/выключение сохраняет категории.
+*   Переключение типа занятия отменяет/перепланирует корректно.
+*   Обновление расписания не имеет дубликатов.
+*   Запросы домашних заданий/событий остаются.
+*   Обновление новостей устанавливает бесшумную базовую линию и доставляет каждую последующую историю один раз.
+*   Баннеры светлой/тёмной/специальной темы читаемы/закрываемы.
+*   Нажатия на баннер, внешние нажатия и нажатия при холодном запуске маршрутизируются один раз.
+*   Ограниченная выборка завершается корректно.
+
+Проверьте отмену/возобновление разрешений и обновление расписания в автономном режиме/кэше. Нативная доставка/тайминг по-прежнему требует тестирования на устройстве Android/iOS.

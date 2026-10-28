@@ -1,3 +1,3 @@
-# Native modal UI
+# Нативный UI модальных окон
 
-The attendance, academic event, and lesson note editors use React Native `Modal` with iOS `presentationStyle="pageSheet"`. This keeps sheets inside the native presentation context instead of drawing an overlay over the tab bar. Each modal handles iOS/Android keyboard resizing with `KeyboardAvoidingView` and routes native back requests through its close handler; unsaved editor changes prompt before dismissal. Lesson notes retain homework deadline reminders and achievement updates.
+Редакторы посещаемости, учебных событий и заметок к занятиям используют `React Native Modal` с iOS `presentationStyle="pageSheet"`. Это позволяет отображать листы в нативном контексте презентации, а не рисовать оверлей поверх таббара. Каждое модальное окно обрабатывает изменение размера клавиатуры на iOS/Android с помощью `KeyboardAvoidingView` и маршрутизирует нативные запросы «назад» через свой обработчик закрытия; несохранённые изменения в редакторе запрашивают подтверждение перед закрытием. Заметки к занятиям сохраняют напоминания о дедлайнах домашних заданий и обновления достижений.

@@ -1,23 +1,23 @@
-# Map native UI
+# Нативный UI карты
 
-## Filters
+## Фильтры
 
-The map header continues to obtain its action with `mapScreenRef.current?.renderFilterButton()`. The rendered `MapFilterButton` is an accessible trigger; both the header action and legacy imperative `openFilters()` open the same filter sheet in `MapScreen`.
+Заголовок карты продолжает получать своё действие с помощью `mapScreenRef.current?.renderFilterButton()`. Рендерится `MapFilterButton` — доступный триггер; как действие заголовка, так и устаревший императивный `openFilters()` открывают один и тот же лист фильтров в `MapScreen`.
 
-Filters and route selection use the shared bounded `NativeSheet` with `minHeight={0.5}`, `maxHeight={0.8}`, and `expandable`. They open at half the current window height, can be dragged upward to 80% of the window, and can be dragged downward from the collapsed position to dismiss. Tapping outside the surface also dismisses either sheet. `NativeSheet` measures the current window with `useWindowDimensions`, so its bounds adapt to rotation and window-size changes.
+Фильтры и выбор маршрута используют общий ограниченный `NativeSheet` с `minHeight={0.5}`, `maxHeight={0.8}` и `expandable`. Они открываются на половине текущей высоты окна, могут быть перетащены вверх до 80% окна и могут быть перетащены вниз из свёрнутого положения для закрытия. Нажатие за пределами поверхности также закрывает любой из листов. `NativeSheet` измеряет текущее окно с помощью `useWindowDimensions`, поэтому его границы адаптируются к повороту и изменениям размера окна.
 
-The dimmer is an independent animated backdrop beneath the panel. Its opacity fades on open and close without being translated along with the draggable panel, preventing moving-backdrop artifacts.
+Диммер является независимым анимированным фоном под панелью. Его непрозрачность плавно изменяется при открытии и закрытии, при этом он не перемещается вместе с перетаскиваемой панелью, предотвращая артефакты движущегося фона.
 
-The category list scrolls within the sheet while Reset and Apply remain available. Category rows are independently toggleable checkboxes, so multiple selections can be made before applying. Apply closes the sheet; Reset clears all categories and closes it.
+Список категорий прокручивается внутри листа, в то время как кнопки «Сброс» и «Применить» остаются доступными. Строки категорий представляют собой независимо переключаемые флажки, поэтому можно сделать несколько выборов перед применением. «Применить» закрывает лист; «Сброс» очищает все категории и закрывает его.
 
-An empty selection still means all map objects are visible. Otherwise markers are filtered by the union of selected categories. `5ka`, `sausage`, `shop`, `cafe`, `coffee`, and `garden` remain part of “Прочее”. The header badge counts selected categories, not markers. There is no ActionSheet, Alert, native menu, or filter fallback.
+Пустой выбор по-прежнему означает, что все объекты карты видны. В противном случае маркеры фильтруются по объединению выбранных категорий. `5ka`, `sausage`, `shop`, `cafe`, `coffee` и `garden` остаются частью «Прочее». Значок в заголовке подсчитывает выбранные категории, а не маркеры. Отсутствуют `ActionSheet`, `Alert`, нативное меню или запасной вариант фильтра.
 
-## Route sheets and map behavior
+## Листы маршрутов и поведение карты
 
-Selecting a building opens the route chooser in the same bounded sheet. The panel owns all show/hide and drag animation; the route content has no additional opacity or translate animation. The options continue to open Yandex Maps or 2GIS externally.
+Выбор здания открывает выбор маршрута в том же ограниченном листе. Панель управляет всеми анимациями показа/скрытия и перетаскивания; содержимое маршрута не имеет дополнительных анимаций непрозрачности или перемещения. Опции по-прежнему открывают Яндекс Карты или 2ГИС внешне.
 
-Android map availability is unchanged: Android continues to display the intentionally unavailable-map state. On iOS, location permission is optional; denied or unavailable permission leaves the map and building markers usable without the user-location indicator.
+Доступность карты на Android не изменилась: Android продолжает отображать состояние намеренно недоступной карты. На iOS разрешение на определение местоположения является необязательным; отклонённое или недоступное разрешение оставляет карту и маркеры зданий пригодными для использования без индикатора местоположения пользователя.
 
-## Device verification
+## Проверка на устройстве
 
-Verify on iOS and Android that the filter trigger and building selection open a dimmed half-height sheet. Drag the handle upward to expand it, drag it down from the half-height position to close it, and tap outside to close it. During each gesture, ensure the backdrop remains stationary and only the panel moves. Verify checkbox selection, Apply, Reset, route links, and TalkBack/VoiceOver labels.
+Проверьте на iOS и Android, что триггер фильтра и выбор здания открывают затемнённый лист половинной высоты. Перетащите ручку вверх, чтобы развернуть его, перетащите его вниз из положения половинной высоты, чтобы закрыть его, и нажмите за пределами, чтобы закрыть его. Во время каждого жеста убедитесь, что фон остаётся неподвижным, и перемещается только панель. Проверьте выбор флажков, «Применить», «Сброс», ссылки маршрутов и метки TalkBack/VoiceOver.

@@ -1,21 +1,21 @@
 # Совместимость календаря и фоновых проверок
 
-## Календарь SDK 58
+## Календарь (Expo Calendar SDK 57)
 
-SDK 58 exposes the new object API from the root `expo-calendar` entry point. Calendar access uses `requestCalendarPermissions`, calendars use `getCalendars` and `createCalendar`, and events are created through an `ExpoCalendar` instance returned by `ExpoCalendar.get` or `getDefaultCalendarSync().createEvent`. Deprecated `*Async` calendar methods and the `expo-calendar/legacy` entry point are not used.
+Приложение использует объектный API из корневой точки входа `expo-calendar` (SDK 57). Доступ к календарю осуществляется через `requestCalendarPermissions`, календари получаются с помощью `getCalendars`, а события создаются через экземпляр `ExpoCalendar`, возвращаемый `ExpoCalendar.get` или `getDefaultCalendarSync().createEvent`. Устаревшие `*Async` методы календаря и точка входа `expo-calendar/legacy` не используются.
 
-Calendar config plugin remains `expo-calendar`, as does the native module. Because the object API is backed by the `CalendarNext` native module, install a freshly prebuilt/rebuilt development or release app after this migration; Metro reload and OTA updates cannot add that native module to an existing binary. Expo Go is not a substitute for testing the rebuilt native configuration.
+Плагин конфигурации календаря остаётся `expo-calendar`, как и нативный модуль. Поскольку объектный API поддерживается нативным модулем `CalendarNext`, после этой миграции не��бходимо установить свежесобранное/пересобранное приложение для разработки или релиза; перезагрузка Metro и OTA-обновления не могут добавить этот нативный модуль в существующий бинарник. Expo Go не является заменой для тестирования пересобранной нативной конфигурации.
 
-`utils/calendarAccess.js` проверяет наличие новых методов перед вызовом и явно передаёт `writeOnly: false` как позиционный аргумент SDK 58. Экспорт выбирает/читает существующие календари, поэтому ему нужен полный доступ, а не write-only доступ, разрешающий только создание событий. В старом бинарнике алиас `getCalendarPermissions` может оказаться `undefined`, а Expo Go сообщает, что `Calendar@next` недоступен: в обоих случаях возвращается статус «недоступно в сборке», а не TypeError или отказ пользователя в разрешении. Неожиданные ошибки не маскируются под отказ. Проверки разрешений знакомства независимы: сбой одного сервиса не отменяет статусы остальных. Экспорт использует тот же защитный слой.
+`utils/calendarAccess.js` проверяет наличие новых методов перед вызовом и явно передаёт `writeOnly: false` как позиционный аргумент SDK 57. Экспорт выбирает/читает существующие календари, поэтому ему нужен полный доступ, а не только доступ для записи, разрешающий только создание событий. В старом бинарнике алиас `getCalendarPermissions` может оказаться `undefined`, а Expo Go сообщает, что `Calendar@next` недоступен: в обоих случаях возвращается статус «недоступно в сборке», а не `TypeError` или отказ пользователя в разрешении. Н��ожиданные ошибки не маскируются под отказ. Проверки разрешений онбординга независимы: сбой одного сервиса не отменяет статусы остальных. Экспорт использует тот же защитный слой.
 
-## Background Fetch
+## Фоновая выборка (Background Fetch)
 
-`app.json` уже содержит `ios.infoPlist.UIBackgroundModes: ['remote-notification', 'fetch']`; добавлен также явный plugin `expo-background-fetch`, который применяет нужные настройки при prebuild.
+Файл `app.json` уже содержит `ios.infoPlist.UIBackgroundModes: ['remote-notification', 'fetch']`; добавлен также явный плагин `expo-background-fetch`, который применяет нужные настройки при `prebuild`.
 
-Ошибка `BackgroundFetchDisabled ... add fetch to UIBackgroundModes` относится к **установленному нативному бинарнику**, не к JS-настройкам. Ни Metro reload, ни OTA не изменят Info.plist. Необходимо пересобрать и установить development/release приложение; Expo Go не является проверкой пользовательской конфигурации Info.plist.
+Ошибка `BackgroundFetchDisabled ... add fetch to UIBackgroundModes` относится к **установленному нативному бинарнику**, а не к JS-настройкам. Ни перезагрузка Metro, ни OTA-обновления не изменят `Info.plist`. Необходимо пересобрать и установить приложение для разработки/релиза; Expo Go не является проверкой пользовательской конфигурации `Info.plist`.
 
-Сервис распознаёт именно отсутствие native-конфигурации, сообщает о необходимости пересборки один раз за запуск и не повторяет заведомо неуспешную регистрацию при каждом AppState/settings событии. Выключение уведомлений по-прежнему снимает существующую задачу, другие временные ошибки допускают повторную попытку. Проверки новостей в открытом приложении работают отдельно.
+Сервис распознаёт именно отсутствие нативной конфигурации, сообщает о необходимости пересборки один раз за запуск и не повторяет заведомо неуспешную регистрацию при каждом событии `AppState`/`settings`. Выключение уведомлений по-прежнему снимает существующую задачу, другие временные ошибки допускают повторную попытку. Проверки новостей в открытом приложении работают отдельно.
 
-Это не гарантирует частоту фоновых запусков: время определяет ОС. Для надёжной доставки новых событий при закрытом приложении нужен серверный push.
+Это не гарантирует частоту фоновых запусков: время определяет операционная система. Для надёжной доставки новых событий при закрытом приложении нужен серверный push.
 
-Проверка: `npx expo config --type introspect` — у итогового Info.plist присутствует fetch; после нативной пересборки регистрация не выдаёт BackgroundFetchDisabled. Доступ календаря проверить из onboarding и при реальном экспорте расписания.
+**Проверка:** `npx expo config --type introspect` — у итогового `Info.plist` присутствует `fetch`; после нативной пересборки регистрация не выдаёт `BackgroundFetchDisabled`. Доступ к календарю следует проверить из онбординга и при реальном экспорте расписания.
